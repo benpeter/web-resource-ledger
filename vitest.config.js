@@ -9,6 +9,9 @@ export default defineWorkersConfig({
         },
         miniflare: {
           browserRendering: { binding: 'BROWSER' },
+          bindings: {
+            CAPTURE_API_KEY: 'test-api-key-for-vitest',
+          },
         },
       },
     },
