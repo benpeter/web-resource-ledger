@@ -15,13 +15,11 @@ binding = "KV"
 id = "placeholder-create-before-deploy"
 preview_id = "placeholder-create-before-deploy"
 
-[[ratelimits]]
-binding = "CAPTURE_RATE_LIMITER"
+[[unsafe.bindings]]
+name = "CAPTURE_RATE_LIMITER"
+type = "ratelimit"
 namespace_id = "1001"
-
-  [ratelimits.simple]
-  limit = 10
-  period = 60
+simple = { limit = 10, period = 60 }
 
 [browser]
 binding = "BROWSER"
