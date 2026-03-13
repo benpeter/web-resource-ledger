@@ -5,6 +5,40 @@ a multi-agent orchestration framework with specialist agents (gru, lucy,
 margo, nefario, and domain-specific minions). Use despicable-agents for
 planning, scoping, code review, and implementation tasks.
 
+This project serves a dual purpose: it is a real product **and** a showcase
+of how despicable-agents can build software from scratch. Every decision,
+prompt, and outcome is documented transparently so others can follow along.
+
+## Evolution Log
+
+Every significant development phase must be documented in `docs/evolution/`.
+This is non-negotiable -- the build process is as much a deliverable as the
+product itself.
+
+### Structure
+
+```
+docs/evolution/
+  README.md                          # index of all phases
+  NNNN-short-name/
+    prompt.md                        # the prompt or task briefing that initiated this phase
+    decisions.md                     # key decisions made, alternatives considered, rationale
+    outcome.md                       # what was produced, what changed, any surprises
+```
+
+### Rules
+
+1. **Before starting a phase**: create the directory and write `prompt.md`
+   with the exact prompt or task description.
+2. **During a phase**: capture decisions in `decisions.md` as they happen --
+   don't backfill from memory.
+3. **After a phase**: write `outcome.md` summarizing what was built, what
+   issues were created, and anything that deviated from the plan.
+4. **Update the index**: add every new phase to `docs/evolution/README.md`.
+5. **Number sequentially**: use zero-padded four-digit prefixes (0001, 0002, ...).
+6. **Keep it honest**: include failed approaches and course corrections,
+   not just the happy path.
+
 ## Engineering Philosophy
 
 This project follows the [Helix Manifesto](https://github.com/adobe/helix-home/blob/main/manifesto.md).
