@@ -1,0 +1,42 @@
+// Detail message convention:
+// - Name the specific resource: "Capture cap_abc123 not found"
+// - State what is wrong and what to do: "URL scheme 'ftp' is not allowed; use http or https"
+// - Human-readable, not machine-parseable (clients should switch on `status`)
+// - Never leak internals (no stack traces, no storage keys, no reflected user input)
+
+const titles = {
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  405: 'Method Not Allowed',
+  409: 'Conflict',
+  422: 'Unprocessable Content',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+  503: 'Service Unavailable',
+};
+
+export function problemResponse(status, detail, headers = {}) {
+  const body = {
+    type: 'about:blank',
+    status,
+    title: titles[status] || 'Error',  // Fallback 'Error' signals a missing entry in the titles map
+    detail,
+  };
+
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/problem+json',
+      ...headers,
+    },
+  });
+}
+
+export function jsonResponse(body, status = 200, headers = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  });
+}
