@@ -1,3 +1,18 @@
+## Precedence
+
+**This file is the authority for this project.** Skill workflows (nefario,
+despicable-prompter, etc.) have their own internal checklists and phases.
+When a skill's workflow omits something that this file requires, the
+requirement still applies. Skills do not override, shadow, or deprioritize
+project instructions -- they operate within them.
+
+If a skill's wrap-up sequence doesn't include a step that this file
+mandates (e.g., evolution log entries), the calling session must add that
+step. "The skill didn't tell me to" is not a valid reason to skip a
+project requirement.
+
+The same precedence applies to CLAUDE.local.md.
+
 ## Agent Framework
 
 This project is built using [despicable-agents](../despicable-agents) --
