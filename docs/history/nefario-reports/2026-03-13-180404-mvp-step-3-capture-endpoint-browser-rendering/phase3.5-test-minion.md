@@ -1,0 +1,31 @@
+ADVISE
+
+- [test-minion]: The `setRenderer`/`getRenderer` module-scoped variable pattern creates shared state between test files that cannot be safely parallelized.
+  SCOPE: src/capture.js -- `setRenderer` / `getRenderer` exported functions and module-level `_renderer` variable
+  CHANGE: Remove `setRenderer`/`getRenderer`. Keep the `renderer` parameter on `performCapture` and default it to `defaultRenderer` inline (`renderer = defaultRenderer`). Tests pass a stub renderer as an argument; no module state is mutated.
+  WHY: Vitest workers share module state within a worker pool. A `setRenderer` call in one test file can bleed into another test file running in the same worker. The `renderer` parameter is already specified in `performCapture`'s signature -- it is the correct injection point. The `setRenderer`/`getRenderer` exports add a second, stateful injection path that is strictly worse.
+  TASK: Task 4 (src/capture.js implementation) and Task 5 (capture-integration.test.js, which calls `setRenderer` in `beforeEach`)
+
+- [test-minion]: The integration test instruction for URL validation failure uses a comment that acknowledges the resolver injection cannot be used from integration tests ("No -- for integration tests, use a URL that will fail structurally like 'ftp://bad'"), but `ftp://bad` is rejected at the scheme check (400), not the DNS/SSRF check (422). The test comment conflates two distinct validation failure modes.
+  SCOPE: test/capture-integration.test.js -- URL validation failure test case
+  CHANGE: Document two separate test cases: (1) structural validation failure (scheme rejected, expect 400) using `ftp://example.com` or similar; (2) acknowledge that SSRF/DNS-rejection (422) cannot be triggered from SELF.fetch integration tests without DNS resolver injection at the handler level. Add a comment in the test file noting that 422 coverage lives in test/url-validation.test.js (unit) rather than duplicating it here.
+  WHY: A test named "URL validation failure" that only exercises the scheme check gives false confidence about SSRF coverage. The distinction between 400 (bad input) and 422 (security rejection) is load-bearing for API consumers. Integration test coverage gaps should be explicitly documented rather than silently absent.
+  TASK: Task 5 (test/capture-integration.test.js)
+
+- [test-minion]: The `completeCapture` and `failCapture` functions perform a read-modify-write (KV get then put). The unit tests for these in test/kv.test.js test the round-trip but do not test the case where the KV record has already been updated to `complete` before `completeCapture` is called again (idempotency), nor where `failCapture` is called on a record already in `failed` state.
+  SCOPE: test/kv.test.js -- completeCapture and failCapture test cases
+  CHANGE: Add two test cases: (1) calling `completeCapture` on a capture already in `complete` state does not corrupt the record; (2) calling `failCapture` on a capture already in `failed` state does not corrupt the record. These cover the retry/race paths where `ctx.waitUntil` might be called twice or the outer catch calls `failCapture` after the inner path already did.
+  WHY: The capture pipeline uses a top-level try/catch that calls `failCapture` on any error, including errors thrown by `completeCapture` itself. If `completeCapture` throws and the outer catch calls `failCapture` on an already-complete record, the outcome depends on undefined behavior in the current spec. Without idempotency tests, this edge case is invisible until a real double-update occurs in production.
+  TASK: Task 3 (test/kv.test.js)
+
+- [test-minion]: The `captureHeaders` function is exported for testing but no test cases for it appear in the Task 4 prompt (test/capture.test.js only tests `performCapture`). The header-fetch-fails-but-render-succeeds case exercises the partial path, but `captureHeaders` itself -- Set-Cookie redaction, status/statusText extraction, `redirect: 'manual'` behavior, AbortSignal timeout -- has no direct unit coverage.
+  SCOPE: test/capture.test.js -- captureHeaders unit tests
+  CHANGE: Add a dedicated `describe('captureHeaders')` block with fetchMock. Test cases: (1) Set-Cookie header is replaced with `[redacted]`; (2) non-sensitive headers are preserved verbatim; (3) response status and statusText are captured; (4) a redirect response (3xx) is captured as-is (not followed) because `redirect: 'manual'` is in effect. These are unit tests of exported behavior, not integration concerns.
+  WHY: `captureHeaders` contains the security-sensitive Set-Cookie redaction logic. If the key comparison (`key.toLowerCase() === 'set-cookie'`) is wrong (e.g., a header named `Set-Cookie2` or a multi-value header), no test catches it. The `redirect: 'manual'` behavior is a security constraint -- it should be verified, not assumed.
+  TASK: Task 4 (test/capture.test.js)
+
+- [test-minion]: The status transition test (POST capture, `waitOnExecutionContext`, verify KV) uses a stub renderer but the `fetchMock` for the outbound header fetch must be activated for `performCapture` to complete without error. The Task 5 prompt includes fetchMock setup in the capture unit tests (Task 4) but does not explicitly instruct Task 5's integration test to replicate the `fetchMock.activate()` / `fetchMock.disableNetConnect()` pattern for the status transition tests.
+  SCOPE: test/capture-integration.test.js -- status transition tests using `waitOnExecutionContext`
+  CHANGE: The Task 5 prompt should explicitly state that fetchMock must be activated in the `beforeEach` for all tests that call `waitOnExecutionContext`. Without it, the outbound header fetch in `captureHeaders` will either hit the real network (flaky, slow, environment-dependent) or throw an unhandled error that silently transitions the capture to `failed` rather than `complete`, making the "verify complete status" assertion wrong for the wrong reason.
+  WHY: Silent test failures where a capture ends up `failed` instead of `complete` because the fetchMock was not active are extremely hard to diagnose. The test appears to pass assertions about status (the GET endpoint returns a status) but asserts the wrong terminal state.
+  TASK: Task 5 (test/capture-integration.test.js)
