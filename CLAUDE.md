@@ -49,9 +49,15 @@ docs/evolution/
    don't backfill from memory.
 3. **After a phase**: write `outcome.md` summarizing what was built, what
    issues were created, and anything that deviated from the plan.
-4. **Update the index**: add every new phase to `docs/evolution/README.md`.
-5. **Number sequentially**: use zero-padded four-digit prefixes (0001, 0002, ...).
-6. **Keep it honest**: include failed approaches and course corrections,
+4. **Update the backlog**: review `docs/backlog.md` after every phase.
+   Add items that were explicitly deferred or flagged as post-MVP. Remove
+   or mark done items that were resolved. Adjust tiers if evidence warrants.
+   Record what changed in a "Backlog changes" section of `outcome.md`.
+   If a phase produces no backlog changes, say so explicitly -- the absence
+   is the record.
+5. **Update the index**: add every new phase to `docs/evolution/README.md`.
+6. **Number sequentially**: use zero-padded four-digit prefixes (0001, 0002, ...).
+7. **Keep it honest**: include failed approaches and course corrections,
    not just the happy path.
 
 ### Process Documentation
