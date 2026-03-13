@@ -1,1 +1,10 @@
 CLAUDE.local.md
+
+# Dependencies
+node_modules/
+
+# Wrangler local state
+.wrangler/
+
+# Local secrets
+.dev.vars
