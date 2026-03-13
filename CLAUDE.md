@@ -1,3 +1,10 @@
+## Agent Framework
+
+This project is built using [despicable-agents](../despicable-agents) --
+a multi-agent orchestration framework with specialist agents (gru, lucy,
+margo, nefario, and domain-specific minions). Use despicable-agents for
+planning, scoping, code review, and implementation tasks.
+
 ## Engineering Philosophy
 
 This project follows the [Helix Manifesto](https://github.com/adobe/helix-home/blob/main/manifesto.md).
