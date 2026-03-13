@@ -1,0 +1,90 @@
+# Backlog
+
+Items deferred from MVP scope. Extracted from `docs/evolution/` and
+`docs/history/` after phases 0001-0003.
+
+Tier definitions:
+- **[must]** -- explicitly committed to or "must add before production"
+- **[should]** -- strong specialist consensus it's needed, no hard commitment
+- **[consider]** -- mentioned as a possibility, may or may not be needed
+
+Sources are abbreviated: `kickoff` = 0001, `scaffold` = 0002, `urlval` = 0003.
+Agent names reference the specialist who raised the item.
+
+---
+
+## Auth and Access Control
+
+- [must] Per-tenant API keys -- single static key is MVP only; need per-tenant keys before second user (security-minion, kickoff)
+- [must] API key rotation without downtime -- support multiple active keys (security-minion, kickoff)
+- [must] Key scoping -- read vs write permissions per key (security-minion, kickoff)
+- [must] Audit logging of key usage (security-minion, kickoff)
+- [must] Tenant isolation / RBAC -- required before multi-user (security-minion, kickoff)
+- [consider] OAuth for web UI -- only if a web capture UI is built (security-minion, kickoff)
+- [consider] Social signup (GitHub first) -- YAGNI until multi-user (margo, kickoff)
+
+## API
+
+- [must] List/search captures (`GET /v1/captures`) -- "first addition post-MVP" (MVP.md, api-design-minion, kickoff)
+- [should] Rate limit headers in responses -- deferred from MVP API surface (api-design-minion, kickoff)
+- [should] CORS configuration -- verification endpoint should allow `*`, capture endpoint restrict origins (security-minion, kickoff)
+- [consider] Webhooks / outbound callbacks -- additional notification channel alongside polling (api-design-minion, kickoff)
+- [consider] Batch capture -- multiple URLs in one request (api-design-minion, kickoff)
+- [consider] SSE / WebSocket -- alternative async notification for capture completion (api-design-minion, kickoff)
+- [consider] Pagination, filtering, sorting -- depends on list endpoint (api-design-minion, kickoff)
+
+## Signing and Legal Admissibility
+
+- [should] RFC 3161 timestamps via TSA -- upgrade path designed (add entry to signatures array), requires ASN.1 parsing (gru vs security-minion conflict, resolved: deferred; kickoff)
+- [should] Key versioning / key ID in signature entries -- needed for key rotation (security-minion, kickoff)
+- [should] Old public key archive endpoint -- needed for verifying captures signed with rotated keys (security-minion, kickoff)
+- [consider] eIDAS Qualified TSA -- strategic for European customers, eIDAS 2.0 rollout by end 2026 (gru, kickoff)
+- [consider] WACZ-Auth signing spec -- full implementation, MVP uses simplified version (gru, kickoff)
+- [consider] Domain-ownership certificate -- identity proof component of WACZ-Auth (gru, kickoff)
+- [consider] Multiple TSAs for redundancy -- FreeTSA has no SLA (gru, kickoff)
+- [consider] HSM-backed key storage -- mentioned for production key management (security-minion, kickoff)
+
+## Capture Fidelity
+
+- [should] Screenshot timing / wait-for-load -- pages with dynamic content, lazy loading, or CSR may not be fully rendered (process.md, kickoff; deliberately untested)
+- [consider] Resource manifest (CSS/JS/images) -- captured individually; significant complexity escalation (MVP.md)
+- [consider] Full HTTP exchange capture -- Scoop-style proxy-based; forensic-grade (MVP.md, gru, kickoff)
+- [consider] Sub-resource archiving -- offline replay fidelity (gru, kickoff)
+- [consider] Certificate info capture -- not available via Browser Rendering REST API (gru, kickoff)
+- [consider] Network timing capture -- not available via Browser Rendering REST API (gru, kickoff)
+
+## Security
+
+- [should] TOCTOU gap mitigation -- Browser Rendering re-resolves DNS independently; Puppeteer request interception available (urlval decisions #3, security-minion)
+- [should] Content security scanning -- prevent WRL from being used as malware mirror; check against Safe Browsing (security-minion, kickoff)
+- [should] Security monitoring and alerting -- log SSRF blocks, auth failures, rate limit hits; alert on anomalous patterns (security-minion, kickoff)
+- [should] Content moderation policy and abuse reporting mechanism (security-minion, kickoff)
+- [should] Terms of service prohibiting illegal use (security-minion, kickoff)
+- [consider] Network namespace isolation for browser -- defense-in-depth; browser can only reach public internet (security-minion, kickoff)
+- [consider] DNS rebinding integration tests -- requires controlled DNS with TTL manipulation (urlval outcome)
+- [consider] Cloud metadata DNS alias tests -- only resolvable inside cloud VPCs (urlval outcome)
+
+## Storage and Immutability
+
+- [consider] S3 Object Lock (WORM-certified) -- for regulated customers (SEC 17a-4, FINRA) (gru, iac-minion, kickoff)
+- [consider] Database for metadata -- add when query-by-attribute needed (margo, iac-minion, kickoff)
+- [consider] D1 (edge SQLite) -- if KV becomes limiting for metadata queries (iac-minion, kickoff)
+
+## Operations
+
+- [must] CI/CD pipeline -- "add GitHub Actions when it hurts" or >1 developer (MVP.md, iac-minion, kickoff)
+- [should] Structured logging -- "add when debugging becomes painful" (iac-minion, kickoff)
+- [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
+- [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
+- [consider] Capture service container migration -- if Browser Rendering limits hit (iac-minion, kickoff)
+
+## Product Features
+
+- [consider] Scheduled captures (cron-style) -- additional trigger method (MVP.md)
+- [consider] MCP / AI-agent triggers -- layers on top of API (MVP.md)
+- [consider] Watch lists / bulk monitoring -- requires scheduling (also deferred) (MVP.md)
+- [consider] Change detection / diffing -- requires multiple captures over time (MVP.md)
+- [consider] Notifications -- event system, channel integrations (MVP.md)
+- [consider] Billing and quotas -- no monetization for MVP (MVP.md)
+- [consider] Web UI for capture submission -- curl/API sufficient for MVP (margo, kickoff)
+- [consider] Capture ID recovery -- no list endpoint means lost ID = lost capture (ux-strategy-minion, kickoff)
