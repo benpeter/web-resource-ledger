@@ -6,9 +6,22 @@ compatibility_flags = ["nodejs_compat"]
 
 [[r2_buckets]]
 binding = "BUCKET"
+bucket_name = "wrl-captures"
+preview_bucket_name = "wrl-captures-preview"
 
+# KV namespace IDs must be created via `wrangler kv namespace create` before deployment
 [[kv_namespaces]]
 binding = "KV"
+id = "placeholder-create-before-deploy"
+preview_id = "placeholder-create-before-deploy"
+
+[[ratelimits]]
+binding = "CAPTURE_RATE_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60
 
 [browser]
 binding = "BROWSER"
