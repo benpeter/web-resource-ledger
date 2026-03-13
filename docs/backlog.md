@@ -26,8 +26,10 @@ Agent names reference the specialist who raised the item.
 ## API
 
 - [must] List/search captures (`GET /v1/captures`) -- "first addition post-MVP" (MVP.md, api-design-minion, kickoff)
-- [should] Rate limit headers in responses -- deferred from MVP API surface (api-design-minion, kickoff)
+- [should] Rate limit headers in responses -- `Retry-After` implemented on 429 and 202/pending; `X-RateLimit-*` headers (limit, remaining, reset) still deferred (api-design-minion, kickoff; partial: capture-endpoint)
 - [should] CORS configuration -- verification endpoint should allow `*`, capture endpoint restrict origins (security-minion, kickoff)
+- [should] Queue migration for capture processing -- ctx.waitUntil() has 30s hard limit; Cloudflare Queue gives 15min processing budget; add when slow-page timeouts recur (edge-minion, capture-endpoint)
+- [consider] Per-tenant rate limiting -- current rate limit keys on CF-Connecting-IP; should switch to tenant ID when per-tenant keys are added (edge-minion, capture-endpoint)
 - [consider] Webhooks / outbound callbacks -- additional notification channel alongside polling (api-design-minion, kickoff)
 - [consider] Batch capture -- multiple URLs in one request (api-design-minion, kickoff)
 - [consider] SSE / WebSocket -- alternative async notification for capture completion (api-design-minion, kickoff)
@@ -47,6 +49,7 @@ Agent names reference the specialist who raised the item.
 ## Capture Fidelity
 
 - [should] Screenshot timing / wait-for-load -- pages with dynamic content, lazy loading, or CSR may not be fully rendered (process.md, kickoff; deliberately untested)
+- [consider] Screenshot height cap is 8000px -- pages taller than this produce capped screenshots; may need configurable viewport height (edge-minion, capture-endpoint)
 - [consider] Resource manifest (CSS/JS/images) -- captured individually; significant complexity escalation (MVP.md)
 - [consider] Full HTTP exchange capture -- Scoop-style proxy-based; forensic-grade (MVP.md, gru, kickoff)
 - [consider] Sub-resource archiving -- offline replay fidelity (gru, kickoff)
@@ -55,7 +58,9 @@ Agent names reference the specialist who raised the item.
 
 ## Security
 
-- [should] TOCTOU gap mitigation -- Browser Rendering re-resolves DNS independently; Puppeteer request interception available (urlval decisions #3, security-minion)
+- [should] TOCTOU gap mitigation -- Browser Rendering re-resolves DNS independently; `captureHeaders` fetch also uses original hostname; both legs share the gap and should be addressed together; Puppeteer request interception available (urlval decisions #3, security-minion; updated: capture-endpoint)
+- [should] Puppeteer request interception for cross-domain navigation blocking -- defense-in-depth against TOCTOU in browser session; currently interception is in place for subresource counting only; accepted risk for MVP (security-minion, capture-endpoint)
+- [should] Captured HTML XSS prevention -- serving captured HTML as text/html enables stored XSS; must serve as text/plain or with Content-Disposition: attachment at retrieval endpoint (security-minion, capture-endpoint)
 - [should] Content security scanning -- prevent WRL from being used as malware mirror; check against Safe Browsing (security-minion, kickoff)
 - [should] Security monitoring and alerting -- log SSRF blocks, auth failures, rate limit hits; alert on anomalous patterns (security-minion, kickoff)
 - [should] Content moderation policy and abuse reporting mechanism (security-minion, kickoff)
