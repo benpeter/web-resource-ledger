@@ -111,6 +111,9 @@ const IPV6_BLOCKED_RANGES = [
  * @returns {string|null} Dotted-decimal IPv4 string, or null if not an IPv4 address
  */
 export function parseIPv4(hostname) {
+  // SECURITY: Reject credential-bearing hostnames (user@127.0.0.1) -- the URL
+  // constructor would strip the userinfo and return the IP, breaking the contract.
+  if (hostname.includes('@')) return null;
   // SECURITY: Use the WHATWG URL constructor to normalize all IPv4 encoding
   // variants (hex 0x7f000001, octal 0177.0.0.1, decimal integer 2130706433,
   // shorthand 127.1). The spec mandates normalization to dotted-decimal.
@@ -385,9 +388,6 @@ export async function validateUrl(rawUrl, { resolve4, resolve6 } = defaultResolv
   }
 
   const allIPs = [...v4results, ...v6results];
-  if (allIPs.length === 0) {
-    return { ok: false, status: 422, detail: 'Could not resolve hostname' };
-  }
 
   // Step 7: IP classification -- check EVERY resolved address
   for (const ip of allIPs) {
