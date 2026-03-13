@@ -39,6 +39,26 @@ docs/evolution/
 6. **Keep it honest**: include failed approaches and course corrections,
    not just the happy path.
 
+### Process Documentation
+
+After every nefario orchestration that produces a PR, write a `process.md`
+in the phase's evolution log directory. This document narrates how the agent
+team worked through the phase:
+
+- Which specialists were consulted and why
+- What each specialist argued and where they disagreed
+- How conflicts were resolved in synthesis
+- What the human changed at approval gates and why
+- What the human chose NOT to intervene on and why
+- Where to find the full specialist discussions (links to `docs/history/`)
+
+The document should be specific enough to reconstruct the decision-making
+process -- not a summary of outcomes (that's `outcome.md`) but a record of
+how conclusions were reached. Include rejected alternatives, the arguments
+for and against, and what tipped the decision.
+
+Write it after PR creation, before the orchestration session ends.
+
 ## Engineering Philosophy
 
 This project follows the [Helix Manifesto](https://github.com/adobe/helix-home/blob/main/manifesto.md).
