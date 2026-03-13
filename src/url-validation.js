@@ -144,8 +144,31 @@ function ipv4ToInt(ip) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Converts a dotted-decimal IPv4 string into two 16-bit hex group strings
+ * for use when building a full IPv6 group array.
+ * Returns null if the input is not dotted-decimal.
+ *
+ * @param {string} dotted e.g. "127.0.0.1"
+ * @returns {[string, string]|null}
+ */
+function ipv4DottedToTwoGroups(dotted) {
+  const parts = dotted.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) return null;
+  return [
+    ((parts[0] << 8) | parts[1]).toString(16),
+    ((parts[2] << 8) | parts[3]).toString(16),
+  ];
+}
+
+/**
  * Parses an IPv6 address string (without brackets) into a 128-bit BigInt.
  * Returns null if parsing fails.
+ *
+ * Handles IPv4-mapped dotted-decimal form (e.g. ::ffff:127.0.0.1) by
+ * converting the trailing IPv4 portion to two 16-bit hex groups before
+ * numeric conversion. Without this, parseInt() truncates at the '.' and
+ * produces a silently wrong bigint, allowing ::ffff:127.0.0.1 to bypass
+ * the IPv4-mapped check.
  *
  * @param {string} addr IPv6 address string
  * @returns {bigint|null}
@@ -157,7 +180,19 @@ function parseIPv6ToBigInt(addr) {
     if (full.includes('::')) {
       const [left, right] = full.split('::');
       const leftGroups = left ? left.split(':') : [];
-      const rightGroups = right ? right.split(':') : [];
+      let rightGroups = right ? right.split(':') : [];
+      // SECURITY: Handle dotted-decimal IPv4 suffix (e.g. ::ffff:127.0.0.1).
+      // parseInt() silently truncates at '.' producing wrong values; convert
+      // to two hex groups first.
+      if (rightGroups.length > 0) {
+        const last = rightGroups[rightGroups.length - 1];
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(last)) {
+          const converted = ipv4DottedToTwoGroups(last);
+          if (converted) {
+            rightGroups = [...rightGroups.slice(0, -1), ...converted];
+          }
+        }
+      }
       const missing = 8 - leftGroups.length - rightGroups.length;
       const middle = Array(missing).fill('0');
       full = [...leftGroups, ...middle, ...rightGroups].join(':');
