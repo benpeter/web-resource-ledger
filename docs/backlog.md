@@ -1,7 +1,7 @@
 # Backlog
 
 Items deferred from MVP scope. Extracted from `docs/evolution/` and
-`docs/history/` after phases 0001-0003. Updated through 0009-verification-endpoint.
+`docs/history/` after phases 0001-0003. Updated through 0010-static-verification-page.
 
 Tier definitions:
 - **[must]** -- explicitly committed to or "must add before production"
@@ -83,6 +83,12 @@ Agent names reference the specialist who raised the item.
 - [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
 - [consider] Capture service container migration -- if Browser Rendering limits hit (iac-minion, kickoff)
 - [consider] R2 artifact streaming -- switch `arrayBuffer()` to `obj.body` ReadableStream in artifact handler and verification endpoint when workerd test runner supports it or when large WACZ bundles (>10MB) become common; verification endpoint has 100MB hard limit (margo, retrieval-endpoint; updated: verification-endpoint)
+
+## Verification Page
+
+- [should] HSTS header -- global decision deferred from Step 7 to Step 8; affects all responses not just verification (security-minion, static-verification-page)
+- [consider] HTML error pages for 404/429/503 -- browsers currently display JSON problem responses; acceptable for MVP (margo, static-verification-page)
+- [consider] Nonce-based CSP -- upgrade from unsafe-inline if template ever needs server-side dynamic data in script blocks (security-minion, static-verification-page)
 
 ## Product Features
 
