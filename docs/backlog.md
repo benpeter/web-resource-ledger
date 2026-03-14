@@ -77,7 +77,7 @@ Agent names reference the specialist who raised the item.
 
 ## Operations
 
-- [must] CI/CD pipeline -- "add GitHub Actions when it hurts" or >1 developer (MVP.md, iac-minion, kickoff)
+- ~~[must] CI/CD pipeline~~ -- CI added in 0012-open-source-readiness; CD (deployment automation) still deferred (MVP.md, iac-minion, kickoff)
 - [should] Structured logging -- "add when debugging becomes painful" (iac-minion, kickoff)
 - [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
 - [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)

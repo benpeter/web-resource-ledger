@@ -20,3 +20,4 @@ software development.
 | [0009-verification-endpoint](0009-verification-endpoint/) | Public verification endpoint with three-check pipeline (Issue #6) |
 | [0010-static-verification-page](0010-static-verification-page/) | Static verification page with content negotiation (Issue #7) |
 | [0011-openapi-security-hardening](0011-openapi-security-hardening/) | OpenAPI spec completion and security hardening (Issue #8) |
+| [0012-open-source-readiness](0012-open-source-readiness/) | Open-source readiness: .gitignore, LICENSE, CI, contributor docs |
