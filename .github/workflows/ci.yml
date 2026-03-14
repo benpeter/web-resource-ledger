@@ -15,10 +15,27 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Check for code changes
+        id: changes
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if git diff --name-only "$BASE_REF"...HEAD | grep -qvE '\.md$|^docs/'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changes.outputs.code == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
-      - run: npm ci
-      - run: npm test
-      - run: npm run lint:api
+      - if: steps.changes.outputs.code == 'true'
+        run: npm ci
+      - if: steps.changes.outputs.code == 'true'
+        run: npm test
+      - if: steps.changes.outputs.code == 'true'
+        run: npm run lint:api
+      - if: steps.changes.outputs.code == 'false'
+        run: echo "Docs-only change -- skipping tests and lint."

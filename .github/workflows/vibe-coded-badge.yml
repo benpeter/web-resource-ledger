@@ -11,7 +11,7 @@ jobs:
   update-badge:
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip vibe-badge]')"
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
