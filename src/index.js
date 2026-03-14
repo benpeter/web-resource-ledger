@@ -19,6 +19,7 @@ const routes = [
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
   ['GET',  /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
+  ['GET',  /^\/\.well-known\/signing-key$/, handleGetSigningKey],
 ];
 
 export default {
@@ -306,6 +307,26 @@ async function handleVerifyCapture(request, env, ctx, match) {
     'Cache-Control': cacheControl,
     'Access-Control-Allow-Origin': '*',
     'Vary': 'Accept',
+  });
+}
+
+async function handleGetSigningKey(request, env) {
+  if (env.VERIFY_RATE_LIMITER) {
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({
+      key: request.headers.get('CF-Connecting-IP') || 'unknown',
+    });
+    if (!success) return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+  }
+
+  const keys = await getSigningKeys(env);
+  if (!keys) return problemResponse(503, 'Signing is not configured');
+
+  // Use Array.from to avoid spread operator RangeError on large arrays
+  const publicKeyBase64 = btoa(Array.from(keys.publicKeyBytes.slice()).map(b => String.fromCharCode(b)).join(''));
+
+  return jsonResponse({ algorithm: 'Ed25519', publicKey: publicKeyBase64 }, 200, {
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+    'Access-Control-Allow-Origin': '*',
   });
 }
 
