@@ -5,6 +5,7 @@ import { createCapture, getCapture } from './kv.js';
 import { performCapture } from './capture.js';
 import { verifyWacz } from './verify.js';
 import { getSigningKeys } from './signing.js';
+import { htmlVerifyResponse } from './verify-page.js';
 
 // tva
 
@@ -287,9 +288,16 @@ async function handleVerifyCapture(request, env, ctx, match) {
     ? 'public, max-age=86400, stale-while-revalidate=604800'
     : 'no-store';
 
+  // Step 9: Content negotiation -- serve HTML to browsers
+  const accept = request.headers.get('Accept') || '';
+  if (accept.includes('text/html')) {
+    return htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl);
+  }
+
   return jsonResponse(body, 200, {
     'Cache-Control': cacheControl,
     'Access-Control-Allow-Origin': '*',
+    'Vary': 'Accept',
   });
 }
 
