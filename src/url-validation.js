@@ -387,7 +387,15 @@ export async function validateUrl(rawUrl, { resolve4, resolve6 } = defaultResolv
     return { ok: false, status: 422, detail: 'Could not resolve hostname' };
   }
 
-  const allIPs = [...v4results, ...v6results];
+  // Cloudflare's node:dns resolver can return CNAMEs alongside IPs.
+  // Filter to actual IP addresses before classification.
+  const isIPv4 = (s) => /^\d+\.\d+\.\d+\.\d+$/.test(s);
+  const isIPv6 = (s) => s.includes(':');
+  const allIPs = [...v4results, ...v6results].filter((s) => isIPv4(s) || isIPv6(s));
+
+  if (allIPs.length === 0) {
+    return { ok: false, status: 422, detail: 'Could not resolve hostname' };
+  }
 
   // Step 7: IP classification -- check EVERY resolved address
   for (const ip of allIPs) {
