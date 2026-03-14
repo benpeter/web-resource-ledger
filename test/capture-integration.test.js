@@ -1,5 +1,6 @@
 import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { completeCapture } from '../src/kv.js';
 
 const AUTH = 'Bearer test-api-key-for-vitest';
 // Use a direct public IP to avoid DNS resolution in the test environment.
@@ -282,5 +283,53 @@ describe('GET /v1/captures/{id}/status -- not found / malformed', () => {
   it('returns 404 for malformed ID (route does not match)', async () => {
     const res = await SELF.fetch('https://worker.test/v1/captures/badid/status');
     expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lifecycle smoke test
+// ---------------------------------------------------------------------------
+
+describe('lifecycle smoke test', () => {
+  beforeEach(activateFetchMock);
+  afterEach(() => fetchMock.deactivate());
+
+  it('POST -> KV advance -> GET returns complete metadata', async () => {
+    // Use a distinct IP to avoid sharing the rate limiter bucket with earlier tests
+    const createRes = await postCapture({ url: VALID_URL }, { 'CF-Connecting-IP': '10.0.0.1' });
+    expect(createRes.status).toBe(202);
+    const { id, statusUrl } = await createRes.json();
+
+    const statusRes = await SELF.fetch(statusUrl);
+    expect(statusRes.status).toBe(200);
+    const statusBody = await statusRes.json();
+    expect(statusBody.id).toBe(id);
+    expect(['pending', 'complete']).toContain(statusBody.status);
+
+    await completeCapture(env.KV, id, {
+      screenshot: `captures/${id}/screenshot.png`,
+      html:       `captures/${id}/rendered.html`,
+      headers:    `captures/${id}/headers.json`,
+    }, {
+      key:        `captures/${id}/bundle.wacz`,
+      bundleHash: 'sha256:' + 'b'.repeat(64),
+      size:       1024,
+    });
+
+    const completedStatusRes = await SELF.fetch(statusUrl);
+    const completedStatusBody = await completedStatusRes.json();
+    expect(completedStatusBody.status).toBe('complete');
+    expect(completedStatusBody.captureUrl).toContain(id);
+
+    const captureRes = await SELF.fetch(`https://worker.test/v1/captures/${id}`);
+    expect(captureRes.status).toBe(200);
+    const captureBody = await captureRes.json();
+    expect(captureBody.id).toBe(id);
+    expect(captureBody.status).toBe('complete');
+    expect(captureBody.artifacts).toBeDefined();
+    expect(captureBody.artifacts.screenshot).toMatch(/^https?:\/\//);
+    expect(captureBody.artifacts.html).toMatch(/^https?:\/\//);
+    expect(captureBody.wacz).toBeDefined();
+    expect(captureBody.wacz.url).toMatch(/^https?:\/\//);
   });
 });

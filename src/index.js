@@ -200,7 +200,9 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
     wacz:       'bundle.wacz',
   };
 
-  return new Response(obj.body, {
+  const buffer = await obj.arrayBuffer();
+
+  return new Response(buffer, {
     status: 200,
     headers: {
       'Content-Type': contentTypes[artifactName],
