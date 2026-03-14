@@ -53,8 +53,6 @@ Run `npm run lint:api` locally against `openapi.yaml` before pushing. CI runs th
 
 `docs/evolution/` contains the design rationale for each development phase -- including the prompts, decisions made, and outcomes. If you're wondering why something is the way it is, start there.
 
-The project uses AI agent orchestration as part of its build process. You don't need to write evolution log entries; maintainers handle that.
-
 The backlog at `docs/backlog.md` shows planned work and current priorities.
 
 ## Getting Help
