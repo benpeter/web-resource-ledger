@@ -9,7 +9,6 @@ binding = "BUCKET"
 bucket_name = "wrl-captures"
 preview_bucket_name = "wrl-captures-preview"
 
-# KV namespace IDs must be created via `wrangler kv namespace create` before deployment
 [[kv_namespaces]]
 binding = "KV"
 id = "b5cd6168cd32485dba7a90558e5fad29"

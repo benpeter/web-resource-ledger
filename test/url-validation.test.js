@@ -386,6 +386,25 @@ describe('DNS resolution', () => {
     const result = await validateUrl('https://example.com/', resolver);
     expect(result.ok).toBe(true);
   });
+
+  it('filters CNAME entries from resolver results (Cloudflare DNS quirk)', async () => {
+    const resolver = {
+      resolve4: async () => ['d37f4yd25mfj02.cloudfront.net.', '99.86.91.38', '99.86.91.17'],
+      resolve6: async () => ['d37f4yd25mfj02.cloudfront.net.', '2600:9000:2117:7e00:6:bb5d:fc80:93a1'],
+    };
+    const result = await validateUrl('https://www.sueddeutsche.de/', resolver);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects when resolver returns only CNAMEs and no IPs', async () => {
+    const resolver = {
+      resolve4: async () => ['cdn.example.net.'],
+      resolve6: async () => [],
+    };
+    const result = await validateUrl('https://example.com/', resolver);
+    expect(result.ok).toBe(false);
+    expect(result.detail).toBe('Could not resolve hostname');
+  });
 });
 
 // ---------------------------------------------------------------------------
