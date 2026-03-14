@@ -1,7 +1,7 @@
 # Backlog
 
 Items deferred from MVP scope. Extracted from `docs/evolution/` and
-`docs/history/` after phases 0001-0003. Updated through 0010-static-verification-page.
+`docs/history/` after phases 0001-0003. Updated through 0012-open-source-readiness.
 
 Tier definitions:
 - **[must]** -- explicitly committed to or "must add before production"

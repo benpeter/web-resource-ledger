@@ -5,16 +5,16 @@
 ### Files created
 
 - `.nvmrc` -- pins Node 22 (current LTS through October 2027)
-- `.github/workflows/ci.yml` -- runs `npm test` and `npm run lint:openapi` on push to main and on all PRs; uses SHA-pinned actions
+- `.github/workflows/ci.yml` -- runs `npm test` and `npm run lint:api` on push to main and on all PRs; uses SHA-pinned actions
 - `CONTRIBUTING.md` -- contributor guide with two-tier setup (Quick Start requires no Cloudflare account; full local dev documented as optional)
 - `SECURITY.md` -- vulnerability disclosure policy with 72h acknowledgment / 7-day assessment targets framed as goals
 - `CODE_OF_CONDUCT.md` -- Contributor Covenant v2.1 with maintainer email as enforcement contact
 
 ### Files modified
 
-- `.gitignore` -- added OS artifacts (.DS_Store, Thumbs.db), editor directories (.idea/, .vscode/), log files, and env files (.env, .env.*)
+- `.gitignore` -- added OS artifacts (.DS_Store), editor directories (.idea/, .vscode/), log files, and env files (.env, .env.*)
 - `LICENSE` -- filled in copyright holder and year (was placeholder text)
-- `package.json` -- added `description`, `author`, `repository`, `bugs`, `homepage` fields; added `engines: {"node": ">=20.0.0"}`
+- `package.json` -- added `description`, `license`, `author`, `repository` fields; added `engines: {"node": ">=20.0.0"}`
 
 ## Key Outcomes
 
