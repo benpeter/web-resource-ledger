@@ -70,7 +70,12 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     const prefix = `captures/${captureId}`;
     await Promise.all([
       env.BUCKET.put(`${prefix}/screenshot.png`, screenshot),
-      env.BUCKET.put(`${prefix}/rendered.html`, html),
+      env.BUCKET.put(`${prefix}/rendered.html`, html, {
+        httpMetadata: {
+          contentType: 'text/plain',
+          contentDisposition: 'attachment; filename="rendered.html"',
+        },
+      }),
       headers ? env.BUCKET.put(`${prefix}/headers.json`, JSON.stringify(headers)) : Promise.resolve(),
     ]);
 
