@@ -212,6 +212,7 @@ summary:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border-
 .error-link { font-size: 0.875rem; }
 .error-link a { color: #1a1a1a; }
 .error-link a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border-radius: 2px; }
+.crypto-value a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border-radius: 2px; }
 
 /* Footer */
 footer {
@@ -381,6 +382,10 @@ footer {
             '<div class="crypto-label">Signed at</div>' +
             '<div class="crypto-value" id="signed-at-value"></div>' +
           '</div>' +
+          '<div class="crypto-row">' +
+            '<div class="crypto-label">Public key</div>' +
+            '<div class="crypto-value" id="public-key-url"></div>' +
+          '</div>' +
         '</div>' +
         '</details>';
     }
@@ -474,6 +479,14 @@ footer {
     var signedAtEl = document.getElementById('signed-at-value');
     if (signedAtEl && signing.signedAt) {
       signedAtEl.textContent = fmtDate(signing.signedAt);
+    }
+
+    var keyUrlEl = document.getElementById('public-key-url');
+    if (keyUrlEl) {
+      var keyLink = document.createElement('a');
+      keyLink.href = origin + '/.well-known/signing-key';
+      keyLink.textContent = origin + '/.well-known/signing-key';
+      keyUrlEl.appendChild(keyLink);
     }
   }
 
