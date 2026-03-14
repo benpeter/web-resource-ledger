@@ -64,6 +64,22 @@ SIGNING_KEY=<base64 string from the script>
 
 **Security:** Never commit the private key to version control. `.dev.vars` is already in `.gitignore`.
 
+## Key Rotation
+
+> **Warning:** Rotating the signing key invalidates signature verification for all captures signed with the previous key. There is no key history endpoint yet -- old captures will show "Verification Failed" until key versioning is implemented.
+
+1. Generate a new key pair: `node scripts/generate-signing-key.js`
+2. Update the production secret: `wrangler secret put SIGNING_KEY`
+3. Update local dev secret in `.dev.vars` (if applicable)
+
+New captures are signed with the new key. Existing captures signed with the old key will fail signature verification. The `/.well-known/signing-key` endpoint serves the current key -- third-party verifiers should re-fetch after rotation. Caches converge within 1 hour.
+
+Key versioning and old-key verification are not yet implemented. See `docs/backlog.md` under "Signing and Legal Admissibility."
+
+### Public Key Endpoint
+
+`GET /.well-known/signing-key` returns the current Ed25519 public key for independent verification. Third-party verifiers can fetch the key without trusting the `publicKey` embedded in individual WACZ bundles. The response is JSON with shape `{ algorithm, publicKey }`, where `publicKey` is the base64-encoded raw 32-byte Ed25519 key. Responses are cached for 1 hour at the edge.
+
 ## Development
 
 ```bash

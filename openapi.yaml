@@ -3,6 +3,9 @@ info:
   title: Web Resource Ledger API
   version: 0.1.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
 
 servers:
   - url: https://wrl.example.com
@@ -13,6 +16,10 @@ tags:
     description: Service health
   - name: captures
     description: Web page capture lifecycle
+  - name: verification
+    description: WACZ bundle cryptographic verification
+  - name: signing
+    description: Signing key management
 
 components:
   securitySchemes:
@@ -31,6 +38,16 @@ components:
       schema:
         type: string
         enum: [nosniff]
+    XFrameOptions:
+      description: Prevents clickjacking by disabling framing.
+      schema:
+        type: string
+        enum: [DENY]
+    StrictTransportSecurity:
+      description: Enforces HTTPS connections.
+      schema:
+        type: string
+        pattern: '^max-age=\d+'
     RetryAfter:
       description: Seconds to wait before retrying.
       schema:
@@ -213,6 +230,105 @@ components:
           description: >
             WACZ bundle metadata. Present when status is "complete" AND a signing
             key was configured. Absent otherwise -- not an error condition.
+        verifyUrl:
+          type: string
+          format: uri
+          description: >
+            URL to the human-readable verification page for this capture's WACZ bundle.
+            Present only when `wacz` is present.
+          examples:
+            - https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+
+    VerificationCheck:
+      type: object
+      description: Result of a single cryptographic check within a WACZ verification.
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          enum: [artifactHashes, bundleHash, signature]
+          description: >
+            Which check this result represents. artifactHashes verifies individual
+            file integrity; bundleHash verifies the overall archive; signature
+            verifies the Ed25519 signature over the bundle hash.
+        status:
+          type: string
+          enum: [pass, fail, skip]
+          description: >
+            Outcome of the check. "skip" means the check was not performed because
+            a prerequisite check failed.
+        detail:
+          type: string
+          description: Human-readable failure reason. Present only when status is "fail" or "skip" with context.
+
+    VerificationSigning:
+      type: object
+      description: >
+        Cryptographic metadata extracted from the WACZ datapackage-digest.json.
+        All fields are nullable -- they are absent when the digest document is
+        missing or malformed. This object is informational only; the server's
+        own public key is used for the verification decision, not the embedded publicKey.
+      required: [bundleHash, signature, publicKey, signedAt]
+      properties:
+        bundleHash:
+          type: ["string", "null"]
+          description: SHA-256 hash of the canonical bundle, as recorded in signedData.hash.
+        signature:
+          type: ["string", "null"]
+          description: Base64-encoded Ed25519 signature over the bundleHash bytes.
+        publicKey:
+          type: ["string", "null"]
+          description: >
+            Base64-encoded Ed25519 public key embedded in the WACZ. Informational
+            only -- the server's key is used for actual verification.
+        signedAt:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp when the bundle was signed, from signedData.created.
+
+    VerificationCapture:
+      type: object
+      description: Capture identity and timing metadata, extracted from the KV record.
+      required: [id, createdAt, completedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/CaptureId'
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the capture was submitted.
+          examples:
+            - '2024-01-15T10:30:00.000Z'
+        completedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the capture completed.
+          examples:
+            - '2024-01-15T10:30:45.123Z'
+
+    VerificationResult:
+      type: object
+      description: >
+        Full verification result for a capture's WACZ bundle. A 200 status does NOT
+        mean the capture is verified -- check the `verified` field.
+      required: [verified, capture, signing, checks]
+      properties:
+        verified:
+          type: boolean
+          description: True only when all three checks pass. False for any failure or skip.
+        capture:
+          $ref: '#/components/schemas/VerificationCapture'
+        signing:
+          description: >
+            Cryptographic metadata from the WACZ digest document. Null when the
+            WACZ bundle was not found in storage or the digest document is absent.
+          oneOf:
+            - $ref: '#/components/schemas/VerificationSigning'
+            - type: "null"
+        checks:
+          type: array
+          description: "Results of the three verification checks, always in order: artifactHashes, bundleHash, signature."
+          items:
+            $ref: '#/components/schemas/VerificationCheck'
 
   responses:
     Problem400:
@@ -222,6 +338,10 @@ components:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
       content:
         application/problem+json:
           schema:
@@ -244,6 +364,10 @@ components:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
         Cache-Control:
           description: Prevents caching of not-found responses.
           schema:
@@ -269,6 +393,10 @@ components:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
         WWW-Authenticate:
           description: Authentication challenge.
           schema:
@@ -290,6 +418,10 @@ components:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
       content:
         application/problem+json:
           schema:
@@ -306,6 +438,10 @@ components:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
       content:
         application/problem+json:
           schema:
@@ -325,6 +461,10 @@ components:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
         Retry-After:
           $ref: '#/components/headers/RetryAfter'
       content:
@@ -337,12 +477,16 @@ components:
               value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again in 60 seconds.}
 
     Problem503:
-      description: Service Unavailable — API key not configured in environment.
+      description: Service Unavailable -- required configuration is missing or service is at capacity.
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
       content:
         application/problem+json:
           schema:
@@ -358,6 +502,7 @@ paths:
       operationId: getHealth
       summary: Health check
       tags: [health]
+      security: []
       responses:
         '200':
           description: Service is running.
@@ -366,6 +511,10 @@ paths:
               $ref: '#/components/headers/ReferrerPolicy'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
           content:
             application/json:
               schema:
@@ -413,6 +562,10 @@ paths:
               $ref: '#/components/headers/ReferrerPolicy'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
             Retry-After:
               $ref: '#/components/headers/RetryAfter'
           content:
@@ -446,6 +599,7 @@ paths:
         Returns the current state of a capture. No authentication is required — the capture ID
         acts as the access secret. Poll until status is "complete" or "failed".
       tags: [captures]
+      security: []
       parameters:
         - name: captureId
           in: path
@@ -461,6 +615,10 @@ paths:
               $ref: '#/components/headers/ReferrerPolicy'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
             Cache-Control:
               description: Prevents caching of status responses.
               schema:
@@ -521,6 +679,10 @@ paths:
               $ref: '#/components/headers/ReferrerPolicy'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
             Cache-Control:
               description: Prevents caching of capture records.
               schema:
@@ -552,6 +714,7 @@ paths:
                       url: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz
                       bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                       size: 204800
+                    verifyUrl: https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                 withoutWacz:
                   summary: Completed capture without WACZ bundle
                   value:
@@ -599,6 +762,10 @@ paths:
               $ref: '#/components/headers/ReferrerPolicy'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
             Content-Disposition:
               description: Always "attachment" to prevent browser rendering.
               schema:
@@ -608,6 +775,11 @@ paths:
               schema:
                 type: string
                 enum: ['public, max-age=31536000, immutable']
+            Access-Control-Allow-Origin:
+              description: Allows cross-origin access to artifact downloads.
+              schema:
+                type: string
+                enum: ['*']
           content:
             image/png:
               schema:
@@ -631,3 +803,183 @@ paths:
                 description: Signed WACZ bundle (artifact name "wacz").
         '404':
           $ref: '#/components/responses/Problem404'
+
+  /v1/verify/{captureId}:
+    get:
+      operationId: verifyCapture
+      summary: Verify a capture's WACZ bundle
+      description: >
+        Performs cryptographic verification of the WACZ bundle for a completed capture
+        and returns the result. No authentication required.
+
+        Content negotiation: browsers (Accept: text/html) receive a self-contained
+        HTML verification page that fetches the JSON result client-side. API clients
+        receive JSON directly.
+
+        **A 200 status does NOT mean the capture is verified -- check the `verified` field.**
+        The endpoint returns 200 for all reachable captures, even when verification fails.
+      tags: [verification]
+      security: []
+      parameters:
+        - name: captureId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/CaptureId'
+          description: Capture ID to verify.
+      responses:
+        '200':
+          description: >
+            Verification result. Check the `verified` boolean field -- a 200 status
+            does not mean the capture passed verification.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Cache-Control:
+              description: >
+                "public, max-age=86400, stale-while-revalidate=604800" for verified captures;
+                "no-store" for non-verified captures.
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              description: Allows cross-origin access to verification results.
+              schema:
+                type: string
+                enum: ['*']
+            Vary:
+              description: Response varies by Accept header (JSON vs HTML).
+              schema:
+                type: string
+                enum: ['Accept']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+              examples:
+                verified:
+                  summary: All three checks passed
+                  value:
+                    verified: true
+                    capture:
+                      id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      createdAt: '2024-01-15T10:30:00.000Z'
+                      completedAt: '2024-01-15T10:30:45.123Z'
+                    signing:
+                      bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+                      signature: 'base64encodedSignatureHere=='
+                      publicKey: 'base64encodedPublicKeyHere='
+                      signedAt: '2024-01-15T10:30:44.000Z'
+                    checks:
+                      - {name: artifactHashes, status: pass}
+                      - {name: bundleHash, status: pass}
+                      - {name: signature, status: pass}
+                notVerified:
+                  summary: Signature check failed
+                  value:
+                    verified: false
+                    capture:
+                      id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      createdAt: '2024-01-15T10:30:00.000Z'
+                      completedAt: '2024-01-15T10:30:45.123Z'
+                    signing:
+                      bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+                      signature: 'base64encodedSignatureHere=='
+                      publicKey: 'base64encodedPublicKeyHere='
+                      signedAt: '2024-01-15T10:30:44.000Z'
+                    checks:
+                      - {name: artifactHashes, status: pass}
+                      - {name: bundleHash, status: pass}
+                      - {name: signature, status: fail, detail: Ed25519 signature verification failed}
+                bundleMissing:
+                  summary: WACZ bundle not found in storage
+                  value:
+                    verified: false
+                    capture:
+                      id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      createdAt: '2024-01-15T10:30:00.000Z'
+                      completedAt: '2024-01-15T10:30:45.123Z'
+                    signing: null
+                    checks:
+                      - {name: artifactHashes, status: fail, detail: WACZ bundle not found in storage}
+                      - {name: bundleHash, status: fail, detail: WACZ bundle not found in storage}
+                      - {name: signature, status: fail, detail: WACZ bundle not found in storage}
+            text/html:
+              schema:
+                type: string
+                description: >
+                  Self-contained HTML verification page. The page fetches the JSON result
+                  client-side and renders a human-readable verification report with capture
+                  metadata, check results, and a screenshot. Requires JavaScript; a
+                  no-script fallback links to the JSON endpoint.
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'
+
+  /.well-known/signing-key:
+    get:
+      operationId: getSigningKey
+      summary: Retrieve the service's Ed25519 public signing key
+      description: >
+        Returns the Ed25519 public key used to sign WACZ bundles. Clients can use
+        this to independently verify bundle signatures without trusting the
+        verification endpoint.
+      tags: [signing]
+      security: []
+      responses:
+        '200':
+          description: Signing key available.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Cache-Control:
+              description: Public key is stable; cached for one hour with a long stale window.
+              schema:
+                type: string
+                enum: ['public, max-age=3600, stale-while-revalidate=86400']
+            Access-Control-Allow-Origin:
+              description: Allows cross-origin access to the public key.
+              schema:
+                type: string
+                enum: ['*']
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The service's current Ed25519 public signing key.
+                required: [algorithm, publicKey]
+                additionalProperties: false
+                properties:
+                  algorithm:
+                    type: string
+                    const: Ed25519
+                    description: Always "Ed25519".
+                  publicKey:
+                    type: string
+                    description: Base64-encoded 32-byte Ed25519 public key.
+                    examples:
+                      - 'MCowBQYDK2VwAyEA...'
+              examples:
+                signingKey:
+                  summary: Service signing key
+                  value:
+                    algorithm: Ed25519
+                    publicKey: 'MCowBQYDK2VwAyEA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'

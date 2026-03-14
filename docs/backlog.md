@@ -86,7 +86,8 @@ Agent names reference the specialist who raised the item.
 
 ## Verification Page
 
-- [should] HSTS header -- global decision deferred from Step 7 to Step 8; affects all responses not just verification (security-minion, static-verification-page)
+- ~~[should] HSTS header~~ -- [DONE] implemented in Step 8; affects all responses not just verification (security-minion, static-verification-page)
+- [should] HSTS preload submission -- add preload directive and submit to hstspreload.org after domain is finalized
 - [consider] HTML error pages for 404/429/503 -- browsers currently display JSON problem responses; acceptable for MVP (margo, static-verification-page)
 - [consider] Nonce-based CSP -- upgrade from unsafe-inline if template ever needs server-side dynamic data in script blocks (security-minion, static-verification-page)
 
