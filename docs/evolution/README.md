@@ -19,3 +19,4 @@ software development.
 | [0008-first-handish-tests](0008-first-handish-tests/) | First production deployment and live end-to-end testing |
 | [0009-verification-endpoint](0009-verification-endpoint/) | Public verification endpoint with three-check pipeline (Issue #6) |
 | [0010-static-verification-page](0010-static-verification-page/) | Static verification page with content negotiation (Issue #7) |
+| [0011-openapi-security-hardening](0011-openapi-security-hardening/) | OpenAPI spec completion and security hardening (Issue #8) |
