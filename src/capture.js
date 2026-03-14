@@ -21,6 +21,7 @@
 
 import puppeteer from '@cloudflare/puppeteer';
 import { completeCapture, failCapture } from './kv.js';
+import { buildWacz } from './wacz.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -79,7 +80,36 @@ export async function performCapture(env, url, ip, captureId, renderer = default
       ...(headers ? { headers: `${prefix}/headers.json` } : {}),
     };
 
-    await completeCapture(env.KV, captureId, artifacts);
+    // WACZ bundling (optional -- degrades gracefully if signing key is absent)
+    let waczInfo = null;
+    try {
+      const waczArtifacts = {
+        screenshot,
+        html,
+        headers, // may be null if header fetch failed
+      };
+      const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
+      if (result) {
+        const { waczBytes, waczHash, bundleHash } = result;
+        await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
+          httpMetadata: {
+            contentType: 'application/wacz+zip',
+            contentDisposition: `attachment; filename="${waczHash}.wacz"`,
+          },
+        });
+        waczInfo = {
+          key: `captures/${waczHash}.wacz`,
+          bundleHash,
+          size: waczBytes.byteLength,
+        };
+      }
+    } catch (err) {
+      // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
+      // Distinguish from "no signing key" path (which returns null, no error)
+      console.warn('WACZ bundling failed unexpectedly; capture completed without bundle');
+    }
+
+    await completeCapture(env.KV, captureId, artifacts, waczInfo);
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
     try {
