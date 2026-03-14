@@ -18,3 +18,4 @@ software development.
 | [0007-retrieval-endpoint](0007-retrieval-endpoint/) | Retrieval endpoint for metadata and artifacts (Issue #5) |
 | [0008-first-handish-tests](0008-first-handish-tests/) | First production deployment and live end-to-end testing |
 | [0009-verification-endpoint](0009-verification-endpoint/) | Public verification endpoint with three-check pipeline (Issue #6) |
+| [0010-static-verification-page](0010-static-verification-page/) | Static verification page with content negotiation (Issue #7) |
