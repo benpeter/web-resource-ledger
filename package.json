@@ -2,6 +2,16 @@
   "name": "wrl",
   "version": "0.1.0",
   "private": true,
+  "description": "Tamper-evident archival of web resources with cryptographic signing",
+  "license": "Apache-2.0",
+  "author": "Ben Peter <bp@ben-peter.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benpeter/web-resource-ledger.git"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
