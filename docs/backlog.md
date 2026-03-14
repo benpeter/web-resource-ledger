@@ -1,7 +1,7 @@
 # Backlog
 
 Items deferred from MVP scope. Extracted from `docs/evolution/` and
-`docs/history/` after phases 0001-0003.
+`docs/history/` after phases 0001-0003. Updated through 0007-retrieval-endpoint.
 
 Tier definitions:
 - **[must]** -- explicitly committed to or "must add before production"
@@ -27,7 +27,7 @@ Agent names reference the specialist who raised the item.
 
 - [must] List/search captures (`GET /v1/captures`) -- "first addition post-MVP" (MVP.md, api-design-minion, kickoff)
 - [should] Rate limit headers in responses -- `Retry-After` implemented on 429 and 202/pending; `X-RateLimit-*` headers (limit, remaining, reset) still deferred (api-design-minion, kickoff; partial: capture-endpoint)
-- [should] CORS configuration -- verification endpoint should allow `*`, capture endpoint restrict origins (security-minion, kickoff)
+- [should] CORS configuration -- retrieval GET endpoints use `*` (retrieval-endpoint); capture POST endpoint should restrict origins (security-minion, kickoff; partial: retrieval-endpoint)
 - [should] Queue migration for capture processing -- ctx.waitUntil() has 30s hard limit; Cloudflare Queue gives 15min processing budget; add when slow-page timeouts recur (edge-minion, capture-endpoint)
 - [consider] Per-tenant rate limiting -- current rate limit keys on CF-Connecting-IP; should switch to tenant ID when per-tenant keys are added (edge-minion, capture-endpoint)
 - [consider] Webhooks / outbound callbacks -- additional notification channel alongside polling (api-design-minion, kickoff)
@@ -60,7 +60,7 @@ Agent names reference the specialist who raised the item.
 
 - [should] TOCTOU gap mitigation -- Browser Rendering re-resolves DNS independently; `captureHeaders` fetch also uses original hostname; both legs share the gap and should be addressed together; Puppeteer request interception available (urlval decisions #3, security-minion; updated: capture-endpoint)
 - [should] Puppeteer request interception for cross-domain navigation blocking -- defense-in-depth against TOCTOU in browser session; currently interception is in place for subresource counting only; accepted risk for MVP (security-minion, capture-endpoint)
-- [should] Captured HTML XSS prevention -- serving captured HTML as text/html enables stored XSS; must serve as text/plain or with Content-Disposition: attachment at retrieval endpoint (security-minion, capture-endpoint)
+- [should] ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint): HTML artifacts served as text/plain with Content-Disposition: attachment at both R2 write time and Worker serve time
 - [should] Content security scanning -- prevent WRL from being used as malware mirror; check against Safe Browsing (security-minion, kickoff)
 - [should] Security monitoring and alerting -- log SSRF blocks, auth failures, rate limit hits; alert on anomalous patterns (security-minion, kickoff)
 - [should] Content moderation policy and abuse reporting mechanism (security-minion, kickoff)
@@ -82,6 +82,7 @@ Agent names reference the specialist who raised the item.
 - [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
 - [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
 - [consider] Capture service container migration -- if Browser Rendering limits hit (iac-minion, kickoff)
+- [consider] R2 artifact streaming -- switch `arrayBuffer()` to `obj.body` ReadableStream in artifact handler when workerd test runner supports it or when large WACZ bundles (>10MB) become common (margo, retrieval-endpoint)
 
 ## Product Features
 
