@@ -13,6 +13,8 @@
  * Tests: test/warc.test.js
  */ // tva
 
+import { toTimestamp14 } from './cdxj.js';
+
 const enc = new TextEncoder();
 
 // ---------------------------------------------------------------------------
@@ -58,7 +60,7 @@ export async function buildWarc(url, captureDate, artifacts) {
   offset += warcinfoChunk.length;
 
   // 2. resource record: rendered HTML
-  const htmlDigest = await sha256Warc(htmlBytes);
+  const htmlDigest = await sha256(htmlBytes);
   const htmlChunk = buildRecord({
     type: 'resource',
     recordId: htmlRecordId,
@@ -83,7 +85,7 @@ export async function buildWarc(url, captureDate, artifacts) {
 
   // 3. metadata record: HTTP headers (optional)
   if (headersBytes && headersRecordId) {
-    const headersDigest = await sha256Warc(headersBytes);
+    const headersDigest = await sha256(headersBytes);
     const headersChunk = buildRecord({
       type: 'metadata',
       recordId: headersRecordId,
@@ -109,7 +111,7 @@ export async function buildWarc(url, captureDate, artifacts) {
   }
 
   // 4. resource record: screenshot PNG
-  const screenshotDigest = await sha256Warc(screenshot);
+  const screenshotDigest = await sha256(screenshot);
   const screenshotUri = `urn:wrl:screenshot:${url}`;
   const screenshotChunk = buildRecord({
     type: 'resource',
@@ -184,26 +186,8 @@ function buildRecord({ type, recordId, targetUri, date, contentType, body, refer
  * @param {Uint8Array} data
  * @returns {Promise<string>}
  */
-async function sha256Warc(data) {
+export async function sha256(data) {
   const hash = await crypto.subtle.digest('SHA-256', data);
   return 'sha256:' + [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Converts an ISO 8601 date string to 14-digit compact timestamp (YYYYMMDDHHmmss).
- *
- * @param {string} isoDate
- * @returns {string}
- */
-function toTimestamp14(isoDate) {
-  const d = new Date(isoDate);
-  const pad = n => String(n).padStart(2, '0');
-  return (
-    d.getUTCFullYear() +
-    pad(d.getUTCMonth() + 1) +
-    pad(d.getUTCDate()) +
-    pad(d.getUTCHours()) +
-    pad(d.getUTCMinutes()) +
-    pad(d.getUTCSeconds())
-  );
-}

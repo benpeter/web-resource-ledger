@@ -16,21 +16,11 @@
 
 import { zipSync } from 'fflate';
 import { getSigningKeys, signBytes } from './signing.js';
-import { buildWarc } from './warc.js';
+import { buildWarc, sha256 } from './warc.js';
 import { buildCdxj } from './cdxj.js';
 import { canonicalize } from './canonical-json.js';
 
 const enc = new TextEncoder();
-
-// ---------------------------------------------------------------------------
-// Inline SHA-256 helper (advisory from margo: do NOT create a separate module
-// for a 3-line function)
-// ---------------------------------------------------------------------------
-
-async function sha256(data) {
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return 'sha256:' + [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -93,6 +83,9 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   const dpBytes = enc.encode(JSON.stringify(datapackage, null, 2));
 
   // Step 7: Compute bundleHash = sha256 of canonical JSON of datapackage
+  // NOTE: datapackage.json in the ZIP is pretty-printed (for readability), but
+  // bundleHash is computed over the canonical (sorted, no-whitespace) form.
+  // Verifiers must re-canonicalize to validate the signature.
   const bundleHash = await sha256(enc.encode(canonicalize(datapackage)));
 
   // Step 8: Sign the UTF-8 bytes of the bundleHash string "sha256:{hex}"
