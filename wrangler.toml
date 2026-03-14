@@ -26,5 +26,11 @@ type = "ratelimit"
 namespace_id = "1002"
 simple = { limit = 60, period = 60 }
 
+[[unsafe.bindings]]
+name = "GLOBAL_CAPTURE_LIMITER"
+type = "ratelimit"
+namespace_id = "1003"
+simple = { limit = 20, period = 60 }
+
 [browser]
 binding = "BROWSER"

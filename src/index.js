@@ -47,6 +47,8 @@ export default {
 
     response.headers.set('Referrer-Policy', 'no-referrer');
     response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     return response;
   },
 };
@@ -72,6 +74,12 @@ async function handleCreateCapture(request, env, ctx) {
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
     if (!success) return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+  }
+
+  // Global rate limit check (service capacity protection)
+  if (env.GLOBAL_CAPTURE_LIMITER) {
+    const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
+    if (!success) return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
   }
 
   // Step 4: Parse JSON body

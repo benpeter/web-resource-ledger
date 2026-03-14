@@ -18,6 +18,16 @@
  * Known limitation (TOCTOU): Browser Rendering independently re-resolves DNS
  * at render time. The IP returned on success is informational only -- it does
  * not guarantee which address Chromium will actually connect to.
+ *
+ * Risk quantification:
+ *   - Attacker must control DNS for the target domain (significant prerequisite)
+ *   - DNS TTL must expire between validation and rendering (< 1s typical)
+ *   - Cloudflare DNS resolver enforces minimum TTL floors (reduces rebinding window)
+ *   - Blast radius: attacker gets Chromium to render an internal page, but result
+ *     goes to R2 storage -- attacker needs the capture ID to retrieve it
+ *   - IP pinning (--host-resolver-rules) is not available in CF Browser Rendering
+ *   - Workers fetch() does not support IP override either
+ *   - Accepted risk: pre-resolution check is the primary defense; TOCTOU is residual
  */ // tva
 
 import dns from 'node:dns';
