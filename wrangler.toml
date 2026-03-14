@@ -12,8 +12,8 @@ preview_bucket_name = "wrl-captures-preview"
 # KV namespace IDs must be created via `wrangler kv namespace create` before deployment
 [[kv_namespaces]]
 binding = "KV"
-id = "placeholder-create-before-deploy"
-preview_id = "placeholder-create-before-deploy"
+id = "b5cd6168cd32485dba7a90558e5fad29"
+preview_id = "d7d4739a73074b9793889046e59c9323"
 
 [[unsafe.bindings]]
 name = "CAPTURE_RATE_LIMITER"
