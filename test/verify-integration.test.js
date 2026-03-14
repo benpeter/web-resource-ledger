@@ -110,6 +110,15 @@ describe('GET /v1/verify/{id} -- happy path', () => {
     const body = await res.json();
     expect(body.capture.id).toBe(TEST_ID);
   });
+
+  it('returns HTML when Accept: text/html is sent', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`, {
+      headers: { Accept: 'text/html' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/html');
+    expect(res.headers.get('Vary')).toBe('Accept');
+  });
 });
 
 // ---------------------------------------------------------------------------
