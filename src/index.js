@@ -3,6 +3,8 @@ import { verifyApiKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
 import { createCapture, getCapture } from './kv.js';
 import { performCapture } from './capture.js';
+import { verifyWacz } from './verify.js';
+import { getSigningKeys } from './signing.js';
 
 // tva
 
@@ -15,6 +17,7 @@ const routes = [
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
+  ['GET',  /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
 ];
 
 export default {
@@ -153,6 +156,7 @@ async function handleGetCapture(request, env, ctx, match) {
       size: record.wacz.size,
       bundleHash: record.wacz.bundleHash,
     };
+    body.verifyUrl = `${base}/v1/verify/${captureId}`;
   }
 
   return jsonResponse(body, 200, {
@@ -211,6 +215,81 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Access-Control-Allow-Origin': '*',
     },
+  });
+}
+
+// Public endpoint -- no authentication. Rate-limited per IP.
+// Caches verified results publicly; non-verified results are not cached.
+async function handleVerifyCapture(request, env, ctx, match) {
+  const captureId = match[1];
+
+  // Step 1: Rate limit check
+  // CF-Connecting-IP is always present in production Workers; 'unknown' fallback
+  // applies only in local dev, where all requests share one bucket.
+  if (env.VERIFY_RATE_LIMITER) {
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({
+      key: request.headers.get('CF-Connecting-IP') || 'unknown',
+    });
+    if (!success) return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+  }
+
+  // Step 2: Signing key availability check
+  const keys = await getSigningKeys(env);
+  if (!keys) return problemResponse(503, 'Verification service is not configured');
+
+  // Step 3: KV lookup (fast-fail before expensive R2 fetch)
+  const record = await getCapture(env.KV, captureId);
+  if (!record || record.status !== 'complete' || !record.wacz) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  // Step 4: R2 fetch
+  const obj = await env.BUCKET.get(record.wacz.key);
+  if (obj === null) {
+    // Data loss: WACZ key recorded in KV but object missing from R2.
+    // Return a verification result (not 500) -- this is an observable fact.
+    return jsonResponse({
+      verified: false,
+      capture: { id: record.captureId, createdAt: record.createdAt, completedAt: record.completedAt },
+      signing: null,
+      checks: [
+        { name: 'artifactHashes', status: 'fail', detail: 'WACZ bundle not found in storage' },
+        { name: 'bundleHash',     status: 'fail', detail: 'WACZ bundle not found in storage' },
+        { name: 'signature',      status: 'fail', detail: 'WACZ bundle not found in storage' },
+      ],
+    }, 200, { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+  }
+
+  // Step 5: Size guard -- MUST happen before arrayBuffer() to gate memory allocation
+  const MAX_WACZ_BYTES = 104857600; // 100 MB
+  if (obj.size > MAX_WACZ_BYTES) {
+    return problemResponse(422, 'WACZ bundle exceeds maximum verifiable size');
+  }
+
+  // Step 6: Verify
+  const waczBytes = new Uint8Array(await obj.arrayBuffer());
+  const result = await verifyWacz(waczBytes, keys.publicKeyBytes);
+
+  // Step 7: Build response body
+  const body = {
+    verified: result.verified,
+    capture: {
+      id: record.captureId,
+      createdAt: record.createdAt,
+      completedAt: record.completedAt,
+    },
+    signing: result.capture || null,
+    checks: result.checks,
+  };
+
+  // Step 8: Cache-Control -- only cache verified results
+  const cacheControl = result.verified
+    ? 'public, max-age=86400, stale-while-revalidate=604800'
+    : 'no-store';
+
+  return jsonResponse(body, 200, {
+    'Cache-Control': cacheControl,
+    'Access-Control-Allow-Origin': '*',
   });
 }
 
