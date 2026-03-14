@@ -101,7 +101,6 @@ main { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; overflow
 .status-icon.verified { color: #2e7d32; }
 .status-icon.unverified { color: #c62828; }
 
-.status-text-wrap {}
 .status-heading {
   font-size: 1.25rem;
   font-weight: 700;
@@ -265,8 +264,8 @@ footer {
 (function () {
   'use strict';
 
-  var captureId = '${captureId}';
-  var origin    = '${origin}';
+  var captureId = ${JSON.stringify(captureId)};
+  var origin    = ${JSON.stringify(origin)};
 
   // SVG icons (inline, aria-hidden)
   var SVG_CHECK = '<svg class="check-icon pass" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
@@ -312,9 +311,6 @@ footer {
       var label = CHECK_LABELS[c.name] || c.name;
       var desc  = CHECK_DESCS[c.name] || '';
       var srText = '<span class="sr-only">' + c.status + ':</span>';
-      var detailHtml = c.detail
-        ? '<p class="check-detail"></p>'
-        : '';
       return '<li class="check-row">' + icon + srText +
         '<div class="check-body">' +
           '<div class="check-label" data-check-label="' + c.name + '">' + label + '</div>' +
@@ -507,7 +503,7 @@ footer {
 
   Promise.all([
     fetch(verifyUrl,   { headers: { 'Accept': 'application/json' } }).then(function (r) { return r.json(); }),
-    fetch(retrievalUrl).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+    fetch(retrievalUrl, { headers: { 'Accept': 'application/json' } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
   ]).then(function (results) {
     var verifyData   = results[0];
     var retrievalData = results[1];
