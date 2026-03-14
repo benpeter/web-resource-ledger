@@ -14,3 +14,4 @@ software development.
 | [0003-url-validation](0003-url-validation/) | URL validation and SSRF prevention (Issue #2) |
 | [0004-backlog-extraction](0004-backlog-extraction/) | Backlog extraction from phases 0001-0003 |
 | [0005-capture-endpoint](0005-capture-endpoint/) | Capture endpoint with browser rendering (Issue #3) |
+| [0006-wacz-bundling-signing](0006-wacz-bundling-signing/) | WACZ bundling and Ed25519 signing (Issue #4) |
