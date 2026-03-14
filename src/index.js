@@ -13,6 +13,8 @@ const routes = [
   ['GET',  /^\/health$/, handleHealth],
   ['POST', /^\/v1\/captures$/, handleCreateCapture],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
+  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
+  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
 ];
 
 export default {
@@ -110,6 +112,106 @@ async function handleCreateCapture(request, env, ctx) {
     statusUrl,
     note: 'No list endpoint is available. Store the capture ID -- it is the only way to access this capture.',
   }, 202, { 'Retry-After': '5' });
+}
+
+// SECURITY: No authentication required -- capture ID acts as the access secret.
+// Response MUST NOT include: ip, raw R2 keys (artifacts.* values, wacz.key).
+// Static 404 message for all non-200 cases -- no enumeration of ID existence.
+// Cache-Control: private, no-store prevents caching of access-secret responses.
+async function handleGetCapture(request, env, ctx, match) {
+  const captureId = match[1];
+
+  const record = await getCapture(env.KV, captureId);
+
+  if (!record || record.status !== 'complete') {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  const base = new URL(request.url).origin;
+  const artifactBase = `${base}/v1/captures/${captureId}/artifacts`;
+
+  const artifacts = {
+    screenshot: `${artifactBase}/screenshot`,
+    html: `${artifactBase}/html`,
+  };
+  if (record.artifacts?.headers) {
+    artifacts.headers = `${artifactBase}/headers`;
+  }
+
+  const body = {
+    id: record.captureId,
+    status: 'complete',
+    url: record.url,
+    createdAt: record.createdAt,
+    completedAt: record.completedAt,
+    artifacts,
+  };
+
+  if (record.wacz) {
+    body.wacz = {
+      url: `${artifactBase}/wacz`,
+      size: record.wacz.size,
+      bundleHash: record.wacz.bundleHash,
+    };
+  }
+
+  return jsonResponse(body, 200, {
+    'Cache-Control': 'private, no-store',
+    'Access-Control-Allow-Origin': '*',
+  });
+}
+
+async function handleGetCaptureArtifact(request, env, ctx, match) {
+  const captureId = match[1];
+  const artifactName = match[2];
+
+  const record = await getCapture(env.KV, captureId);
+
+  // SECURITY ADVISORY: check status === 'complete' same as metadata endpoint
+  if (!record || record.status !== 'complete') {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  const r2Key = artifactName === 'wacz'
+    ? record.wacz?.key
+    : record.artifacts?.[artifactName];
+
+  if (!r2Key) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  const obj = await env.BUCKET.get(r2Key);
+
+  if (obj === null) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  const contentTypes = {
+    screenshot: 'image/png',
+    html:       'text/plain',       // CRITICAL: never text/html (XSS)
+    headers:    'application/json',
+    wacz:       'application/wacz+zip',
+  };
+
+  const filenames = {
+    screenshot: 'screenshot.png',
+    html:       'rendered.html',
+    headers:    'headers.json',
+    wacz:       'bundle.wacz',
+  };
+
+  const buffer = await obj.arrayBuffer();
+
+  return new Response(buffer, {
+    status: 200,
+    headers: {
+      'Content-Type': contentTypes[artifactName],
+      'Content-Disposition': `attachment; filename="${filenames[artifactName]}"`,
+      'Content-Length': String(obj.size),
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 async function handleCaptureStatus(request, env, ctx, match) {
