@@ -8,3 +8,17 @@ node_modules/
 
 # Local secrets
 .dev.vars
+
+# OS files
+.DS_Store
+
+# Editor config
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
