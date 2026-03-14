@@ -1,7 +1,7 @@
 # Backlog
 
 Items deferred from MVP scope. Extracted from `docs/evolution/` and
-`docs/history/` after phases 0001-0003. Updated through 0007-retrieval-endpoint.
+`docs/history/` after phases 0001-0003. Updated through 0009-verification-endpoint.
 
 Tier definitions:
 - **[must]** -- explicitly committed to or "must add before production"
@@ -38,8 +38,8 @@ Agent names reference the specialist who raised the item.
 ## Signing and Legal Admissibility
 
 - [should] RFC 3161 timestamps via TSA -- upgrade path designed (add entry to signatures array), requires ASN.1 parsing (gru vs security-minion conflict, resolved: deferred; kickoff)
-- [should] Key versioning / key ID in signature entries -- needed for key rotation (security-minion, kickoff)
-- [should] Old public key archive endpoint -- needed for verifying captures signed with rotated keys (security-minion, kickoff)
+- [should] Key versioning / key ID in signature entries -- needed for key rotation; without it, verification returns false for captures signed with rotated keys (security-minion, kickoff; confirmed: verification-endpoint)
+- [should] Old public key archive endpoint -- needed for verifying captures signed with rotated keys (security-minion, kickoff; confirmed: verification-endpoint)
 - [consider] eIDAS Qualified TSA -- strategic for European customers, eIDAS 2.0 rollout by end 2026 (gru, kickoff)
 - [consider] WACZ-Auth signing spec -- full implementation, MVP uses simplified version (gru, kickoff)
 - [consider] Domain-ownership certificate -- identity proof component of WACZ-Auth (gru, kickoff)
@@ -82,7 +82,7 @@ Agent names reference the specialist who raised the item.
 - [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
 - [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
 - [consider] Capture service container migration -- if Browser Rendering limits hit (iac-minion, kickoff)
-- [consider] R2 artifact streaming -- switch `arrayBuffer()` to `obj.body` ReadableStream in artifact handler when workerd test runner supports it or when large WACZ bundles (>10MB) become common (margo, retrieval-endpoint)
+- [consider] R2 artifact streaming -- switch `arrayBuffer()` to `obj.body` ReadableStream in artifact handler and verification endpoint when workerd test runner supports it or when large WACZ bundles (>10MB) become common; verification endpoint has 100MB hard limit (margo, retrieval-endpoint; updated: verification-endpoint)
 
 ## Product Features
 
