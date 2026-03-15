@@ -28,7 +28,7 @@
     "yaml": "^2.8.2"
   },
   "dependencies": {
-    "@cloudflare/playwright": "^1.1.0",
+    "@cloudflare/playwright": "^1.1.2",
     "fflate": "^0.8.2"
   }
 }
