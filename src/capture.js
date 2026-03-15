@@ -356,10 +356,8 @@ function categorizeError(error) {
   if (msg.includes('50MB size limit')) {
     return { message: 'Page exceeded 50MB size limit', retryable: false };
   }
-  if (msg.includes('Could not navigate') || msg.includes('net::ERR') || msg.includes('Navigation')) {
-    return { message: 'Could not navigate to the target URL', retryable: true };
-  }
-  // Playwright-specific: browser or page lifecycle errors
+  // Playwright-specific: browser or page lifecycle errors (must precede generic
+  // 'Navigation' check -- Playwright crash messages include the word "Navigation")
   if (
     msg.includes('page crashed') ||
     msg.includes('page was closed') ||
@@ -367,6 +365,9 @@ function categorizeError(error) {
     msg.includes('Target closed')
   ) {
     return { message: 'Browser session was unexpectedly closed', retryable: true };
+  }
+  if (msg.includes('Could not navigate') || msg.includes('net::ERR') || msg.includes('Navigation')) {
+    return { message: 'Could not navigate to the target URL', retryable: true };
   }
   // Session pool exhaustion
   if (msg.includes('session pool')) {

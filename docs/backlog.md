@@ -28,8 +28,8 @@ Agent names reference the specialist who raised the item.
 - [must] List/search captures (`GET /v1/captures`) -- "first addition post-MVP" (MVP.md, api-design-minion, kickoff)
 - [should] Rate limit headers in responses -- `Retry-After` implemented on 429 and 202/pending; `X-RateLimit-*` headers (limit, remaining, reset) still deferred (api-design-minion, kickoff; partial: capture-endpoint)
 - [should] CORS configuration -- retrieval GET endpoints use `*` (retrieval-endpoint); capture POST endpoint should restrict origins (security-minion, kickoff; partial: retrieval-endpoint)
-- [should] Queue migration for capture processing -- ctx.waitUntil() has 30s hard limit; Cloudflare Queue gives 15min processing budget; add when slow-page timeouts recur (edge-minion, capture-endpoint)
-- [consider] Per-tenant rate limiting -- current rate limit keys on CF-Connecting-IP; should switch to tenant ID when per-tenant keys are added (edge-minion, capture-endpoint)
+- [should] Queue migration for capture processing -- ctx.waitUntil() has 30s hard limit; Cloudflare Queue gives 15min processing budget; add when slow-page timeouts recur; session reuse eliminates ~2-5s browser launch overhead, freeing more budget for rendering (edge-minion, capture-endpoint)
+- [consider] Per-tenant rate limiting -- current rate limit keys on CF-Connecting-IP; should switch to tenant ID when per-tenant keys are added; with 10x capacity (300/min) the per-IP 10/min limit feels more constraining (edge-minion, capture-endpoint)
 - [consider] Webhooks / outbound callbacks -- additional notification channel alongside polling (api-design-minion, kickoff)
 - [consider] Batch capture -- multiple URLs in one request (api-design-minion, kickoff)
 - [consider] SSE / WebSocket -- alternative async notification for capture completion (api-design-minion, kickoff)
@@ -58,8 +58,8 @@ Agent names reference the specialist who raised the item.
 
 ## Security
 
-- [should] TOCTOU gap mitigation -- Browser Rendering re-resolves DNS independently; `captureHeaders` fetch also uses original hostname; both legs share the gap and should be addressed together; Puppeteer request interception available (urlval decisions #3, security-minion; updated: capture-endpoint)
-- [should] Puppeteer request interception for cross-domain navigation blocking -- defense-in-depth against TOCTOU in browser session; currently interception is in place for subresource counting only; accepted risk for MVP (security-minion, capture-endpoint)
+- [should] ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration): cross-domain navigation blocking implemented via `browserContext.route()`; residual risk: same-domain DNS rebinding is an accepted risk (urlval decisions #3, security-minion; updated: capture-endpoint)
+- [should] ~~Puppeteer request interception for cross-domain navigation blocking~~ -- DONE (playwright-migration): `browserContext.route()` blocks navigations to origins other than the validated target URL; covers server-side redirects, client-side navigations, and popup first-requests; Service Workers blocked via context options (security-minion, capture-endpoint)
 - [should] ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint): HTML artifacts served as text/plain with Content-Disposition: attachment at both R2 write time and Worker serve time
 - [should] Content security scanning -- prevent WRL from being used as malware mirror; check against Safe Browsing (security-minion, kickoff)
 - [should] Security monitoring and alerting -- log SSRF blocks, auth failures, rate limit hits; alert on anomalous patterns (security-minion, kickoff)
@@ -81,7 +81,7 @@ Agent names reference the specialist who raised the item.
 - [should] Structured logging -- "add when debugging becomes painful" (iac-minion, kickoff)
 - [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
 - [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
-- [consider] Capture service container migration -- if Browser Rendering limits hit (iac-minion, kickoff)
+- [consider] Capture service container migration -- if Browser Rendering limits hit; session reuse pushes this further out: 30 reusable sessions at ~300 captures/min is sufficient for current scale (iac-minion, kickoff)
 - [consider] R2 artifact streaming -- switch `arrayBuffer()` to `obj.body` ReadableStream in artifact handler and verification endpoint when workerd test runner supports it or when large WACZ bundles (>10MB) become common; verification endpoint has 100MB hard limit (margo, retrieval-endpoint; updated: verification-endpoint)
 
 ## Verification Page
@@ -101,3 +101,10 @@ Agent names reference the specialist who raised the item.
 - [consider] Billing and quotas -- no monetization for MVP (MVP.md)
 - [consider] Web UI for capture submission -- curl/API sufficient for MVP (margo, kickoff)
 - [consider] Capture ID recovery -- no list endpoint means lost ID = lost capture (ux-strategy-minion, kickoff)
+
+## Scaling Beyond Session Reuse
+
+- [consider] Session pre-warming via cron trigger -- keep sessions alive between bursts to reduce cold-start latency on low-traffic deployments
+- [consider] Queue-based backpressure with Cloudflare Queues -- decouple capture requests from Worker execution; absorb traffic spikes without dropping requests
+- [consider] Durable Object session coordinator -- centralize session lifecycle management across Workers; enables finer-grained concurrency control and session affinity
+- [consider] Cloudflare Containers -- escape Browser Rendering limits entirely; full Chromium with unrestricted network and storage; evaluate when container pricing and availability stabilize
