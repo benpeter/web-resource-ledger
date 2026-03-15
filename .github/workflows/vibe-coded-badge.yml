@@ -21,3 +21,4 @@ jobs:
       - uses: ai-ecoverse/vibe-coded-badge-action@d5f3861ac5325ace00ae4ff2419d971c36b8d39c # main
         with:
           github-token: ${{ secrets.BADGE_PAT }}
+          badge-style: flat
