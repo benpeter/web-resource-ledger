@@ -1,7 +1,7 @@
 name: Vibe Coded Badge (Inline)
 description: >
-  Runs vibe-coded-badge-action for analysis, then updates the badge inline
-  in the README badge row instead of adding a standalone badge.
+  Runs vibe-coded-badge-action analysis script directly, then updates
+  the badge inline in the README badge row.
 
 inputs:
   github-token:
@@ -17,11 +17,30 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: ai-ecoverse/vibe-coded-badge-action@d5f3861ac5325ace00ae4ff2419d971c36b8d39c # main
-      id: analysis
+    - name: Restore vibe-badge cache
+      uses: actions/cache@v4
       with:
-        github-token: ${{ inputs.github-token }}
-        debug: 'true'
+        path: .vibe-cache.json
+        key: vibe-badge-${{ github.run_id }}
+        restore-keys: vibe-badge-
+
+    - name: Run vibe analysis
+      id: analysis
+      shell: bash
+      run: |
+        curl -sL https://raw.githubusercontent.com/ai-ecoverse/vibe-coded-badge-action/d5f3861ac5325ace00ae4ff2419d971c36b8d39c/update-vibe-badge.sh \
+          -o /tmp/vibe-analysis.sh
+        chmod +x /tmp/vibe-analysis.sh
+        bash /tmp/vibe-analysis.sh
+      env:
+        DEBUG: 'true'
+        README_PATH: ${{ inputs.readme-path }}
+        BADGE_STYLE: flat
+        BADGE_COLOR: ${{ inputs.badge-color }}
+        BADGE_TEXT: Vibe_Coded
+        COMMIT_MESSAGE: unused
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CACHE_FILE: .vibe-cache.json
 
     - name: Update inline badge
       shell: bash
@@ -31,6 +50,11 @@ runs:
         README_PATH: ${{ inputs.readme-path }}
         BADGE_COLOR: ${{ inputs.badge-color }}
       run: |
+        if [ -z "$PERCENT" ]; then
+          echo "::error::Analysis produced no percentage output"
+          exit 1
+        fi
+
         # Map dominant AI to logo
         case "$DOMINANT_AI" in
           Claude|Terragon|Cline) LOGO="claude" ;;
@@ -45,15 +69,12 @@ runs:
 
         # Build the new badge markdown
         NEW_BADGE="[![Vibe Coded ${PERCENT}%](https://img.shields.io/badge/Vibe_Coded_${PERCENT}%25-${BADGE_COLOR}?logo=${LOGO}&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)"
+        export NEW_BADGE
 
         # Replace any existing Vibe Coded badge (with or without percentage) inline
-        # Matches: [![Vibe Coded...](https://img.shields.io/badge/Vibe_Coded...)](...)
-        # Also matches: [![99% Vibe_Coded...](https://img.shields.io/badge/99%25-Vibe_Coded...)](...)
         perl -pi -e '
           s/\[!\[(?:\d+%[ _])?Vibe[ _]Coded[^\]]*\]\(https:\/\/img\.shields\.io\/badge\/(?:\d+%25[-_])?Vibe_Coded[^)]*\)\]\([^)]*\)/$ENV{NEW_BADGE}/g
         ' "$README_PATH"
-
-        export NEW_BADGE
 
         # Check if anything changed
         if git diff --quiet "$README_PATH"; then
