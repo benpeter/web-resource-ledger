@@ -1,0 +1,93 @@
+name: Vibe Coded Badge (Inline)
+description: >
+  Runs vibe-coded-badge-action analysis script directly, then updates
+  the badge inline in the README badge row.
+
+inputs:
+  github-token:
+    description: PAT with contents:write to push to protected branches
+    required: true
+  readme-path:
+    description: Path to the README file
+    default: README.md
+  badge-color:
+    description: Badge color hex
+    default: ff69b4
+
+runs:
+  using: composite
+  steps:
+    - name: Restore vibe-badge cache
+      uses: actions/cache@v4
+      with:
+        path: .vibe-cache.json
+        key: vibe-badge-${{ github.run_id }}
+        restore-keys: vibe-badge-
+
+    - name: Run vibe analysis
+      id: analysis
+      shell: bash
+      run: |
+        curl -sL https://raw.githubusercontent.com/ai-ecoverse/vibe-coded-badge-action/d5f3861ac5325ace00ae4ff2419d971c36b8d39c/update-vibe-badge.sh \
+          -o /tmp/vibe-analysis.sh
+        chmod +x /tmp/vibe-analysis.sh
+        bash /tmp/vibe-analysis.sh
+      env:
+        DEBUG: 'true'
+        README_PATH: ${{ inputs.readme-path }}
+        BADGE_STYLE: flat
+        BADGE_COLOR: ${{ inputs.badge-color }}
+        BADGE_TEXT: Vibe_Coded
+        COMMIT_MESSAGE: unused
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CACHE_FILE: .vibe-cache.json
+
+    - name: Update inline badge
+      shell: bash
+      env:
+        PERCENT: ${{ steps.analysis.outputs.percentage }}
+        DOMINANT_AI: ${{ steps.analysis.outputs.dominant-ai }}
+        README_PATH: ${{ inputs.readme-path }}
+        BADGE_COLOR: ${{ inputs.badge-color }}
+      run: |
+        if [ -z "$PERCENT" ]; then
+          echo "::error::Analysis produced no percentage output"
+          exit 1
+        fi
+
+        # Map dominant AI to logo
+        case "$DOMINANT_AI" in
+          Claude|Terragon|Cline) LOGO="claude" ;;
+          OpenAI|Aider|Kimi) LOGO="openai" ;;
+          Cursor|OpenCode|Copilot) LOGO="githubcopilot" ;;
+          Windsurf) LOGO="windsurf" ;;
+          Gemini|Jules) LOGO="google" ;;
+          *) LOGO="githubcopilot" ;;
+        esac
+
+        echo "Updating badge: ${PERCENT}% vibe coded (${DOMINANT_AI}, logo: ${LOGO})"
+
+        # Build the new badge markdown (two-part: grey left with logo+%, pink right with text)
+        NEW_BADGE="[![${PERCENT}% Vibe Coded](https://img.shields.io/badge/${PERCENT}%25-Vibe_Coded-${BADGE_COLOR}?style=flat&logo=${LOGO}&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)"
+        export NEW_BADGE
+
+        # Replace any existing Vibe Coded badge (with or without percentage) inline
+        # Matches both formats:
+        #   [![Vibe Coded...](https://img.shields.io/badge/Vibe_Coded...)](...)
+        #   [![99% Vibe Coded](https://img.shields.io/badge/99%25-Vibe_Coded...)](...)
+        perl -pi -e '
+          s/\[!\[(?:\d+%[ _])?Vibe[ _]Coded[^\]]*\]\(https:\/\/img\.shields\.io\/badge\/(?:\d+%25-)?Vibe_Coded[^)]*\)\]\([^)]*\)/$ENV{NEW_BADGE}/g
+        ' "$README_PATH"
+
+        # Check if anything changed
+        if git diff --quiet "$README_PATH"; then
+          echo "Badge already up to date"
+          exit 0
+        fi
+
+        echo "Badge updated in $README_PATH"
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        git add "$README_PATH"
+        git commit -m "Update vibe-coded badge to ${PERCENT}% [skip vibe-badge]"
+        git push origin HEAD

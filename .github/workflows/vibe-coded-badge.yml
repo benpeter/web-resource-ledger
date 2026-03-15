@@ -18,7 +18,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.BADGE_PAT }}
-      - uses: ai-ecoverse/vibe-coded-badge-action@d5f3861ac5325ace00ae4ff2419d971c36b8d39c # main
+      - uses: ./.github/actions/vibe-badge
         with:
           github-token: ${{ secrets.BADGE_PAT }}
-          badge-style: flat
