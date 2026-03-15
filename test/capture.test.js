@@ -279,6 +279,127 @@ describe('performCapture -- KV always updated (never stuck pending)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// performCapture -- Playwright-specific errors
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- Playwright-specific errors', () => {
+  it('handles Playwright TimeoutError (name-based detection)', async () => {
+    const playwrightTimeout = async () => {
+      const err = new Error('page.goto: Timeout 25000ms exceeded');
+      err.name = 'TimeoutError';
+      throw err;
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, playwrightTimeout);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+  });
+
+  it('handles page crash as retryable', async () => {
+    const crashRenderer = async () => {
+      throw new Error('page.goto: Navigation failed because page crashed!');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, crashRenderer);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('Browser session was unexpectedly closed');
+  });
+
+  it('handles stale session (browser has been closed) as retryable', async () => {
+    const staleRenderer = async () => {
+      throw new Error('browser has been closed');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, staleRenderer);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('Browser session was unexpectedly closed');
+  });
+
+  it('handles Target closed as retryable', async () => {
+    const targetClosed = async () => {
+      throw new Error('Target closed');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, targetClosed);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('Browser session was unexpectedly closed');
+  });
+
+  it('handles session pool exhaustion as retryable', async () => {
+    const poolExhausted = async () => {
+      throw new Error('No browser session available: session pool is at capacity');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, poolExhausted);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('No browser session available; try again shortly');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- concurrent execution
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- concurrent execution', () => {
+  const ID_A = 'cap_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const ID_B = 'cap_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+  beforeEach(async () => {
+    await env.KV.delete(`capture:${ID_A}`);
+    await env.KV.delete(`capture:${ID_B}`);
+    const prefixA = `captures/${ID_A}`;
+    const prefixB = `captures/${ID_B}`;
+    await Promise.all([
+      env.BUCKET.delete(`${prefixA}/screenshot.png`),
+      env.BUCKET.delete(`${prefixA}/rendered.html`),
+      env.BUCKET.delete(`${prefixA}/headers.json`),
+      env.BUCKET.delete(`${prefixB}/screenshot.png`),
+      env.BUCKET.delete(`${prefixB}/rendered.html`),
+      env.BUCKET.delete(`${prefixB}/headers.json`),
+    ]);
+  });
+
+  it('two captures with different IDs write separate KV records and R2 artifacts', async () => {
+    fetchMock
+      .get(TEST_ORIGIN)
+      .intercept({ path: '/', method: 'GET' })
+      .reply(200, 'ok', { headers: { 'content-type': 'text/html' } })
+      .times(2);
+
+    await createCapture(env.KV, ID_A, TEST_URL, TEST_IP);
+    await createCapture(env.KV, ID_B, TEST_URL, TEST_IP);
+
+    await Promise.all([
+      performCapture(env, TEST_URL, TEST_IP, ID_A, stubRenderer),
+      performCapture(env, TEST_URL, TEST_IP, ID_B, stubRenderer),
+    ]);
+
+    const recordA = await getCapture(env.KV, ID_A);
+    const recordB = await getCapture(env.KV, ID_B);
+    expect(recordA.status).toBe('complete');
+    expect(recordB.status).toBe('complete');
+    // Verify artifacts don't collide
+    expect(recordA.artifacts.screenshot).toContain(ID_A);
+    expect(recordB.artifacts.screenshot).toContain(ID_B);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // captureHeaders -- unit tests
 // ---------------------------------------------------------------------------
 

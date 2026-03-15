@@ -30,7 +30,7 @@ simple = { limit = 60, period = 60 }
 name = "GLOBAL_CAPTURE_LIMITER"
 type = "ratelimit"
 namespace_id = "1003"
-simple = { limit = 20, period = 60 }
+simple = { limit = 200, period = 60 }
 
 [browser]
 binding = "BROWSER"

@@ -22,3 +22,4 @@ software development.
 | [0011-openapi-security-hardening](0011-openapi-security-hardening/) | OpenAPI spec completion and security hardening (Issue #8) |
 | [0012-open-source-readiness](0012-open-source-readiness/) | Open-source readiness: .gitignore, LICENSE, CI, contributor docs |
 | [0013-readme-landing-page](0013-readme-landing-page/) | README restructure as project landing page (Issue #16) |
+| [0014-browser-session-reuse](0014-browser-session-reuse/) | Browser session reuse with Playwright migration for 10x throughput (Issue #21) |

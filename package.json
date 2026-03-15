@@ -28,7 +28,7 @@
     "yaml": "^2.8.2"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "^1.0.6",
+    "@cloudflare/playwright": "^1.1.0",
     "fflate": "^0.8.2"
   }
 }
