@@ -62,12 +62,13 @@ Agent names reference the specialist who raised the item.
 - [should] ~~Puppeteer request interception for cross-domain navigation blocking~~ -- DONE (playwright-migration): `browserContext.route()` blocks navigations to origins other than the validated target URL; covers server-side redirects, client-side navigations, and popup first-requests; Service Workers blocked via context options (security-minion, capture-endpoint)
 - [should] ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint): HTML artifacts served as text/plain with Content-Disposition: attachment at both R2 write time and Worker serve time
 - [should] Content security scanning -- prevent WRL from being used as malware mirror; check against Safe Browsing (security-minion, kickoff)
-- [should] Security monitoring and alerting -- log SSRF blocks, auth failures, rate limit hits; alert on anomalous patterns (security-minion, kickoff)
+- [should] ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, and rate limit hits logged to Coralogix; alerting rules and dashboards still needed (security-minion, kickoff)
 - [should] Content moderation policy and abuse reporting mechanism (security-minion, kickoff)
 - [should] Terms of service prohibiting illegal use (security-minion, kickoff)
 - [consider] Network namespace isolation for browser -- defense-in-depth; browser can only reach public internet (security-minion, kickoff)
 - [consider] DNS rebinding integration tests -- requires controlled DNS with TTL manipulation (urlval outcome)
 - [consider] Cloud metadata DNS alias tests -- only resolvable inside cloud VPCs (urlval outcome)
+- [consider] Coralogix Send Key IP allowlisting -- restrict to Cloudflare Worker egress IPs; reduces blast radius of key leak to log injection (security-minion, mvo-coralogix)
 
 ## Storage and Immutability
 
@@ -78,7 +79,13 @@ Agent names reference the specialist who raised the item.
 ## Operations
 
 - ~~[must] CI/CD pipeline~~ -- CI added in 0012-open-source-readiness; CD (deployment automation) still deferred (MVP.md, iac-minion, kickoff)
-- [should] Structured logging -- "add when debugging becomes painful" (iac-minion, kickoff)
+- ~~[should] Structured logging~~ -- DONE (mvo-coralogix): log() helper ships structured JSON to Coralogix at every pipeline outcome and security rejection point
+- [should] Hashed IP logging -- HMAC-SHA256 of CF-Connecting-IP with daily-rotating key for brute-force correlation; design from security-minion ready for implementation (security-minion, mvo-coralogix)
+- [consider] Additional security event types -- Content-Type 415, malformed JSON 400, missing URL 400, unmatched route 404 rejections; low signal-to-noise for MVP (security-minion, mvo-coralogix)
+- [consider] Auth reason codes -- refactor verifyApiKey() to return reason discriminant (missing_header, wrong_scheme, invalid_key, misconfigured); enables finer-grained auth failure logging (debugger-minion, mvo-coralogix)
+- [consider] R2 write try/catch granularity -- dedicated catch block around R2 Promise.all for stage-level failure logging; catch-all sufficient for MVP (observability-minion, mvo-coralogix)
+- [consider] 404 rate limiting -- unmatched routes have no rate limiter; potential log volume amplification vector under scanning attacks (security-minion, mvo-coralogix)
+- [consider] Coralogix alerting rules -- severity-based alerts, log volume anomaly detection, SSRF spike dashboards (observability-minion, mvo-coralogix)
 - [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
 - [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
 - [consider] Capture service container migration -- if Browser Rendering limits hit; session reuse pushes this further out: 30 reusable sessions at ~300 captures/min is sufficient for current scale (iac-minion, kickoff)
