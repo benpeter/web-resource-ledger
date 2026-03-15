@@ -67,13 +67,16 @@ runs:
 
         echo "Updating badge: ${PERCENT}% vibe coded (${DOMINANT_AI}, logo: ${LOGO})"
 
-        # Build the new badge markdown
-        NEW_BADGE="[![Vibe Coded ${PERCENT}%](https://img.shields.io/badge/Vibe_Coded_${PERCENT}%25-${BADGE_COLOR}?logo=${LOGO}&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)"
+        # Build the new badge markdown (two-part: grey left with logo+%, pink right with text)
+        NEW_BADGE="[![${PERCENT}% Vibe Coded](https://img.shields.io/badge/${PERCENT}%25-Vibe_Coded-${BADGE_COLOR}?style=flat&logo=${LOGO}&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)"
         export NEW_BADGE
 
         # Replace any existing Vibe Coded badge (with or without percentage) inline
+        # Matches both formats:
+        #   [![Vibe Coded...](https://img.shields.io/badge/Vibe_Coded...)](...)
+        #   [![99% Vibe Coded](https://img.shields.io/badge/99%25-Vibe_Coded...)](...)
         perl -pi -e '
-          s/\[!\[(?:\d+%[ _])?Vibe[ _]Coded[^\]]*\]\(https:\/\/img\.shields\.io\/badge\/(?:\d+%25[-_])?Vibe_Coded[^)]*\)\]\([^)]*\)/$ENV{NEW_BADGE}/g
+          s/\[!\[(?:\d+%[ _])?Vibe[ _]Coded[^\]]*\]\(https:\/\/img\.shields\.io\/badge\/(?:\d+%25-)?Vibe_Coded[^)]*\)\]\([^)]*\)/$ENV{NEW_BADGE}/g
         ' "$README_PATH"
 
         # Check if anything changed
