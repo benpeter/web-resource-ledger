@@ -100,7 +100,7 @@ export async function performCapture(env, url, ip, captureId, renderer = default
 
     if (renderResult.status === 'rejected') {
       const { message, retryable } = categorizeError(renderResult.reason);
-      log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, stage: 'browser_render', errorCategory: message, retryable });
+      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, stage: 'browser_render', errorCategory: message, retryable });
       await failCapture(env.KV, captureId, message, retryable);
       return;
     }
@@ -108,7 +108,7 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     const { screenshot, html } = renderResult.value;
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
-      log(env, 4, 'capture', { event: 'capture.header_fail', captureId });
+      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId });
     }
 
     // Store artifacts in R2
@@ -156,11 +156,11 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     } catch (err) {
       // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
       // Distinguish from "no signing key" path (which returns null, no error)
-      log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId });
+      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId });
     }
 
     await completeCapture(env.KV, captureId, artifacts, waczInfo);
-    log(env, 3, 'capture', {
+    await log(env, 3, 'capture', {
       event: 'capture.success',
       captureId,
       durationMs: Date.now() - start,
@@ -169,11 +169,11 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     });
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
-    log(env, 5, 'capture', { event: 'capture.fail', captureId, stage: 'catch_all', errorClass: err?.constructor?.name });
+    await log(env, 5, 'capture', { event: 'capture.fail', captureId, stage: 'catch_all', errorClass: err?.constructor?.name });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
     } catch {
-      log(env, 5, 'capture', { event: 'capture.kv_fail', captureId });
+      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId });
     }
   }
 }
