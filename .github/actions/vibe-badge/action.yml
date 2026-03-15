@@ -1,0 +1,69 @@
+name: Vibe Coded Badge (Inline)
+description: >
+  Runs vibe-coded-badge-action for analysis, then updates the badge inline
+  in the README badge row instead of adding a standalone badge.
+
+inputs:
+  github-token:
+    description: PAT with contents:write to push to protected branches
+    required: true
+  readme-path:
+    description: Path to the README file
+    default: README.md
+  badge-color:
+    description: Badge color hex
+    default: ff69b4
+
+runs:
+  using: composite
+  steps:
+    - uses: ai-ecoverse/vibe-coded-badge-action@d5f3861ac5325ace00ae4ff2419d971c36b8d39c # main
+      id: analysis
+      with:
+        github-token: ${{ inputs.github-token }}
+        debug: 'true'
+
+    - name: Update inline badge
+      shell: bash
+      env:
+        PERCENT: ${{ steps.analysis.outputs.percentage }}
+        DOMINANT_AI: ${{ steps.analysis.outputs.dominant-ai }}
+        README_PATH: ${{ inputs.readme-path }}
+        BADGE_COLOR: ${{ inputs.badge-color }}
+      run: |
+        # Map dominant AI to logo
+        case "$DOMINANT_AI" in
+          Claude|Terragon|Cline) LOGO="claude" ;;
+          OpenAI|Aider|Kimi) LOGO="openai" ;;
+          Cursor|OpenCode|Copilot) LOGO="githubcopilot" ;;
+          Windsurf) LOGO="windsurf" ;;
+          Gemini|Jules) LOGO="google" ;;
+          *) LOGO="githubcopilot" ;;
+        esac
+
+        echo "Updating badge: ${PERCENT}% vibe coded (${DOMINANT_AI}, logo: ${LOGO})"
+
+        # Build the new badge markdown
+        NEW_BADGE="[![Vibe Coded ${PERCENT}%](https://img.shields.io/badge/Vibe_Coded_${PERCENT}%25-${BADGE_COLOR}?logo=${LOGO}&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)"
+
+        # Replace any existing Vibe Coded badge (with or without percentage) inline
+        # Matches: [![Vibe Coded...](https://img.shields.io/badge/Vibe_Coded...)](...)
+        # Also matches: [![99% Vibe_Coded...](https://img.shields.io/badge/99%25-Vibe_Coded...)](...)
+        perl -pi -e '
+          s/\[!\[(?:\d+%[ _])?Vibe[ _]Coded[^\]]*\]\(https:\/\/img\.shields\.io\/badge\/(?:\d+%25[-_])?Vibe_Coded[^)]*\)\]\([^)]*\)/$ENV{NEW_BADGE}/g
+        ' "$README_PATH"
+
+        export NEW_BADGE
+
+        # Check if anything changed
+        if git diff --quiet "$README_PATH"; then
+          echo "Badge already up to date"
+          exit 0
+        fi
+
+        echo "Badge updated in $README_PATH"
+        git config user.name 'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        git add "$README_PATH"
+        git commit -m "Update vibe-coded badge to ${PERCENT}% [skip vibe-badge]"
+        git push origin HEAD
