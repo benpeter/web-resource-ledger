@@ -6,6 +6,7 @@ import { performCapture } from './capture.js';
 import { verifyWacz } from './verify.js';
 import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
+import { log } from './log.js';
 
 // tva
 
@@ -67,20 +68,29 @@ async function handleCreateCapture(request, env, ctx) {
 
   // Step 2: Auth check
   const auth = await verifyApiKey(request, env);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status }) ?? Promise.resolve());
+    return auth.response;
+  }
 
   // Step 3: Rate limit check
   if (env.CAPTURE_RATE_LIMITER) {
     const { success } = await env.CAPTURE_RATE_LIMITER.limit({
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
-    if (!success) return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip' }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
   }
 
   // Global rate limit check (service capacity protection)
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
-    if (!success) return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit' }) ?? Promise.resolve());
+      return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
+    }
   }
 
   // Step 4: Parse JSON body
@@ -101,7 +111,10 @@ async function handleCreateCapture(request, env, ctx) {
 
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
-  if (!result.ok) return problemResponse(result.status, result.detail);
+  if (!result.ok) {
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail }) ?? Promise.resolve());
+    return problemResponse(result.status, result.detail);
+  }
 
   // Step 7: Generate capture ID
   const captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
@@ -240,7 +253,10 @@ async function handleVerifyCapture(request, env, ctx, match) {
     const { success } = await env.VERIFY_RATE_LIMITER.limit({
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
-    if (!success) return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify' }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
   }
 
   // Step 2: Signing key availability check
@@ -310,12 +326,15 @@ async function handleVerifyCapture(request, env, ctx, match) {
   });
 }
 
-async function handleGetSigningKey(request, env) {
+async function handleGetSigningKey(request, env, ctx) {
   if (env.VERIFY_RATE_LIMITER) {
     const { success } = await env.VERIFY_RATE_LIMITER.limit({
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
-    if (!success) return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_key' }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
   }
 
   const keys = await getSigningKeys(env);

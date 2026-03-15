@@ -60,6 +60,7 @@
 import { connect, acquire, sessions, limits } from '@cloudflare/playwright';
 import { completeCapture, failCapture } from './kv.js';
 import { buildWacz } from './wacz.js';
+import { log } from './log.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -90,6 +91,7 @@ const KEEP_ALIVE_MS = 120000; // 2 minutes
  * @param {Function} [renderer] Injectable rendering function (defaults to defaultRenderer)
  */
 export async function performCapture(env, url, ip, captureId, renderer = defaultRenderer) {
+  const start = Date.now();
   try {
     const [renderResult, headerResult] = await Promise.allSettled([
       renderer(env.BROWSER, url),
@@ -98,12 +100,16 @@ export async function performCapture(env, url, ip, captureId, renderer = default
 
     if (renderResult.status === 'rejected') {
       const { message, retryable } = categorizeError(renderResult.reason);
+      log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, stage: 'browser_render', errorCategory: message, retryable });
       await failCapture(env.KV, captureId, message, retryable);
       return;
     }
 
     const { screenshot, html } = renderResult.value;
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
+    if (!headers) {
+      log(env, 4, 'capture', { event: 'capture.header_fail', captureId });
+    }
 
     // Store artifacts in R2
     const prefix = `captures/${captureId}`;
@@ -150,15 +156,25 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     } catch (err) {
       // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
       // Distinguish from "no signing key" path (which returns null, no error)
-      console.warn('WACZ bundling failed unexpectedly; capture completed without bundle');
+      log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId });
     }
 
     await completeCapture(env.KV, captureId, artifacts, waczInfo);
+    log(env, 3, 'capture', {
+      event: 'capture.success',
+      captureId,
+      durationMs: Date.now() - start,
+      waczStatus: waczInfo ? 'ok' : 'skipped',
+      bundleSize: waczInfo?.size ?? 0,
+    });
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
+    log(env, 5, 'capture', { event: 'capture.fail', captureId, stage: 'catch_all', errorClass: err?.constructor?.name });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
-    } catch { /* KV write failed -- nothing more we can do */ }
+    } catch {
+      log(env, 5, 'capture', { event: 'capture.kv_fail', captureId });
+    }
   }
 }
 

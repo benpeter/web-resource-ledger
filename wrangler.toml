@@ -34,3 +34,8 @@ simple = { limit = 200, period = 60 }
 
 [browser]
 binding = "BROWSER"
+
+# Observability: Coralogix log ingestion
+# CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
+[vars]
+CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
