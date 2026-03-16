@@ -60,9 +60,9 @@
  *     mid-session could redirect to an internal IP via same-origin navigation.
  *     Mitigated by NAV_TIMEOUT_MS and the fact that WRL only captures
  *     user-submitted public URLs.
- *   - Cross-origin iframe sub-navigation: iframes can navigate internally
- *     within their own origin; only top-level cross-origin navigations are
- *     blocked. Acceptable for the current single-tenant use case.
+ *   - Cross-origin iframe sub-navigation: iframes can navigate to cross-origin
+ *     destinations (e.g. CMP consent frames); only main-frame cross-origin
+ *     navigations are blocked. Bounded by same-origin policy and MAX_SUBRESOURCES.
  *   Revisit both if multi-tenant deployment is implemented.
  *
  * Tests: test/capture.test.js
@@ -444,15 +444,28 @@ async function defaultRenderer(browserBinding, url) {
     let subresourceCount = 0;
     let totalBytes = 0;
     let limitExceeded = null;
+    let page = null;
 
     await context.route('**/*', async (route) => {
-      // SECURITY: Block cross-domain top-level navigation (closes TOCTOU gap)
+      // SECURITY: Block cross-domain main-frame navigation (closes TOCTOU gap).
+      // Iframe navigations allowed -- needed for CMP consent iframes and bounded
+      // by same-origin policy + subresource limits (MAX_SUBRESOURCES).
       if (
         route.request().isNavigationRequest() &&
         new URL(route.request().url()).origin !== targetOrigin
       ) {
-        await route.abort('blockedbyclient');
-        return;
+        let isMainFrame = false;
+        if (page) {
+          try {
+            isMainFrame = route.request().frame() === page.mainFrame();
+          } catch (err) {
+            // frame() throws for pre-creation requests -- treat as non-main-frame
+          }
+        }
+        if (isMainFrame) {
+          await route.abort('blockedbyclient');
+          return;
+        }
       }
 
       if (limitExceeded) {
@@ -470,7 +483,7 @@ async function defaultRenderer(browserBinding, url) {
       await route.continue();
     });
 
-    const page = await context.newPage();
+    page = await context.newPage();
     const tContext = Date.now();
 
     // Response monitoring for total page size
