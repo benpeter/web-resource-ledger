@@ -7,6 +7,7 @@ import { verifyWacz } from './verify.js';
 import { getSigningKeys, verifySignature } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { log } from './log.js';
+import { RATE_LIMITS } from './rate-limits.js';
 
 // tva
 
@@ -25,6 +26,22 @@ const routes = [
   ['GET',  /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
 ];
 
+function getAllowedOrigin(request, env) {
+  const origin = request.headers.get('Origin');
+  if (!origin) return null;
+  const allowed = env.CORS_ORIGINS
+    ? env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  if (allowed.includes(origin)) return origin;
+  return null;
+}
+
+function getRateLimitGroup(method, pathname) {
+  if (pathname === '/v1/captures') return 'capture';
+  if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
+  return null;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -32,27 +49,59 @@ export default {
     const pathname = url.pathname.replace(/\/$/, '') || '/';
 
     let response;
-    let matched = false;
-    for (const [method, pattern, handler] of routes) {
-      if (request.method !== method) continue;
-      const match = pathname.match(pattern);
-      if (match) {
-        response = await handler(request, env, ctx, match);
-        matched = true;
-        break;
+
+    // CORS preflight for POST /v1/captures
+    if (request.method === 'OPTIONS' && pathname === '/v1/captures') {
+      const allowedOrigin = getAllowedOrigin(request, env);
+      const headers = {
+        'Access-Control-Max-Age': '7200',
+        'Cache-Control': 'no-store',
+      };
+      if (allowedOrigin) {
+        headers['Access-Control-Allow-Origin'] = allowedOrigin;
+        headers['Access-Control-Allow-Methods'] = 'POST';
+        headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+        headers['Vary'] = 'Origin';
+      }
+      response = new Response(null, { status: 204, headers });
+    } else {
+      let matched = false;
+      for (const [method, pattern, handler] of routes) {
+        if (request.method !== method) continue;
+        const match = pathname.match(pattern);
+        if (match) {
+          response = await handler(request, env, ctx, match);
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        // SECURITY: Use static message -- never reflect request.method or url.pathname
+        // into error responses (CWE-209 information disclosure)
+        response = problemResponse(404, 'The requested resource does not exist.');
       }
     }
 
-    if (!matched) {
-      // SECURITY: Use static message -- never reflect request.method or url.pathname
-      // into error responses (CWE-209 information disclosure)
-      response = problemResponse(404, 'The requested resource does not exist.');
+    // CORS response headers for POST /v1/captures
+    if (request.method === 'POST' && pathname === '/v1/captures') {
+      const allowedOrigin = getAllowedOrigin(request, env);
+      if (allowedOrigin) {
+        response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+        response.headers.set('Vary', 'Origin');
+      }
+    }
+
+    // X-RateLimit-Limit: report per-IP ceiling on rate-limited endpoints
+    const rateLimitGroup = getRateLimitGroup(request.method, pathname);
+    if (rateLimitGroup && response.status !== 503) {
+      response.headers.set('X-RateLimit-Limit', String(RATE_LIMITS[rateLimitGroup].limit));
     }
 
     response.headers.set('Referrer-Policy', 'no-referrer');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     // URL is coupled to the GitHub repository path -- update if the repo is renamed.
     response.headers.set('Link', '<https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md>; rel="terms-of-service"');
     return response;

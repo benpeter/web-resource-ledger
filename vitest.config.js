@@ -23,6 +23,7 @@ export default defineWorkersConfig({
             CAPTURE_API_KEY: 'test-api-key-for-vitest',
             SIGNING_KEY: testSigningKey,
             TEST_ARCHIVED_KEY: testArchivedKey,
+            CORS_ORIGINS: 'https://allowed.example.com,https://other-allowed.example.com',
           },
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"
