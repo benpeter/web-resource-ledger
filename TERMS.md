@@ -45,7 +45,7 @@ To the maximum extent permitted by applicable law, the operator's total liabilit
 
 **What WRL stores for each capture:**
 - The submitted URL
-- A full-page screenshot (PNG)
+- Full-page screenshots (PNG) -- up to two per capture (before and after cookie consent dismissal)
 - Rendered HTML (the DOM after JavaScript execution)
 - HTTP response headers from the target server
 - Timestamps (creation and completion)

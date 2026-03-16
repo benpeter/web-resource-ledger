@@ -1,8 +1,19 @@
 /*
  * capture.js -- Browser rendering capture pipeline
  *
- * Orchestrates headless Chromium capture of a URL: screenshot, rendered HTML,
- * and HTTP headers. Stores artifacts in R2 and updates KV status.
+ * Orchestrates headless Chromium capture of a URL: dual screenshots (before
+ * and after cookie consent dismissal), rendered HTML, and HTTP headers.
+ * Stores artifacts in R2 and updates KV status.
+ *
+ * Cookie consent handling:
+ *   After navigation and the before-screenshot, the renderer injects
+ *   @duckduckgo/autoconsent (server-controlled, not caller-supplied) to
+ *   detect and dismiss cookie consent banners. If a CMP is found and
+ *   dismissed, a second screenshot is taken. Both screenshots and consent
+ *   metadata (captureSettings) are included in the WACZ bundle and covered
+ *   by the Ed25519 signature. Consent has an 8s hard timeout within the
+ *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s + 8s consent + 2s post).
+ *   Partial captures skip consent entirely.
  *
  * Called from ctx.waitUntil() -- must always update KV (never leave pending).
  *
@@ -317,15 +328,17 @@ async function getOrCreateSession(browserBinding) {
 }
 
 /**
- * Connects to a browser session, navigates to url, takes a screenshot and
- * captures rendered HTML. Enforces subresource count and page size limits.
- * Uses BrowserContext for per-capture isolation.
+ * Connects to a browser session, navigates to url, takes before-screenshot,
+ * attempts cookie consent dismissal via autoconsent, takes after-screenshot
+ * if a CMP was dismissed, and captures rendered HTML. Enforces subresource
+ * count and page size limits. Uses BrowserContext for per-capture isolation.
  *
  * NOT exported -- injected as default renderer via performCapture() parameter.
  *
  * @param {unknown} browserBinding Cloudflare BROWSER binding
  * @param {string} url
- * @returns {Promise<{ screenshot: Uint8Array, html: string }>}
+ * @returns {Promise<{ screenshot: Uint8Array, screenshotBefore: Uint8Array|null,
+ *   html: string, partial: boolean, render: object, consent: object|null }>}
  */
 async function defaultRenderer(browserBinding, url) {
   const renderStart = Date.now();

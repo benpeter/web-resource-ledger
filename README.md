@@ -12,7 +12,8 @@ Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519
 
 A single API call produces:
 
-- **Full-page screenshot** (PNG)
+- **Dual screenshots** (PNG) -- before and after cookie consent dismissal, so both
+  the banner presence and the underlying page content are preserved
 - **Rendered HTML** -- the DOM after JavaScript execution
 - **HTTP response headers** -- the server's response at capture time
 - **Signed WACZ bundle** -- all artifacts packaged, hashed, and signed with Ed25519
