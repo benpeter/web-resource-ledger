@@ -47,3 +47,11 @@ describe('GET /nonexistent', () => {
     expect(body).toHaveProperty('detail');
   });
 });
+
+describe('GET /health -- X-RateLimit headers', () => {
+  it('does NOT return X-RateLimit-Limit (health endpoint is not rate-limited)', async () => {
+    const response = await SELF.fetch('https://example.com/health');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('X-RateLimit-Limit')).toBeNull();
+  });
+});

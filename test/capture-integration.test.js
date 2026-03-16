@@ -74,6 +74,31 @@ describe('POST /v1/captures -- happy path', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// POST /v1/captures -- X-RateLimit headers
+// ---------------------------------------------------------------------------
+
+describe('POST /v1/captures -- X-RateLimit headers', () => {
+  beforeEach(activateFetchMock);
+  afterEach(() => fetchMock.deactivate());
+
+  it('successful POST returns X-RateLimit-Limit: 10', async () => {
+    const res = await postCapture({ url: VALID_URL }, { 'CF-Connecting-IP': '10.1.0.1' });
+    expect(res.status).toBe(202);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('10');
+  });
+
+  it('X-RateLimit-Remaining is NOT present on POST response', async () => {
+    const res = await postCapture({ url: VALID_URL }, { 'CF-Connecting-IP': '10.1.0.2' });
+    expect(res.headers.get('X-RateLimit-Remaining')).toBeNull();
+  });
+
+  it('X-RateLimit-Reset is NOT present on POST response', async () => {
+    const res = await postCapture({ url: VALID_URL }, { 'CF-Connecting-IP': '10.1.0.3' });
+    expect(res.headers.get('X-RateLimit-Reset')).toBeNull();
+  });
+});
+
 describe('POST /v1/captures -- auth failures', () => {
   it('returns 401 with WWW-Authenticate when Authorization header is missing', async () => {
     const res = await SELF.fetch('https://worker.test/v1/captures', {

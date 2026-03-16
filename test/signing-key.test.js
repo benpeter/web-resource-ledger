@@ -63,6 +63,11 @@ describe('GET /.well-known/signing-key -- headers', () => {
     expect(hsts).toContain('max-age=');
     expect(hsts).toContain('includeSubDomains');
   });
+
+  it('returns X-RateLimit-Limit: 60', async () => {
+    const res = await SELF.fetch(ENDPOINT);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('60');
+  });
 });
 
 describe('GET /.well-known/signing-key -- method routing', () => {
@@ -189,6 +194,11 @@ describe('GET /.well-known/signing-keys -- headers', () => {
     const res = await SELF.fetch(KEYS_ENDPOINT);
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  });
+
+  it('returns X-RateLimit-Limit: 60', async () => {
+    const res = await SELF.fetch(KEYS_ENDPOINT);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('60');
   });
 });
 

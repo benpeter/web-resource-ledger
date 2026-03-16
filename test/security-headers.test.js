@@ -10,6 +10,7 @@ function expectSecurityHeaders(response) {
   expect(hsts).toBeTruthy();
   expect(hsts).toContain('max-age=');
   expect(hsts).toContain('includeSubDomains');
+  expect(hsts).toContain('preload');
   const link = response.headers.get('Link');
   expect(link).toBeTruthy();
   expect(link).toContain('rel="terms-of-service"');
@@ -52,12 +53,13 @@ describe('Security headers -- present on all routes', () => {
 });
 
 describe('Security headers -- specific value checks', () => {
-  it('HSTS max-age is at least 31536000 (one year)', async () => {
+  it('HSTS meets preload requirements (max-age >= 63072000, preload directive present)', async () => {
     const res = await SELF.fetch('https://worker.test/health');
     const hsts = res.headers.get('Strict-Transport-Security');
     const match = hsts.match(/max-age=(\d+)/);
     expect(match).not.toBeNull();
-    expect(Number(match[1])).toBeGreaterThanOrEqual(31536000);
+    expect(Number(match[1])).toBeGreaterThanOrEqual(63072000);
+    expect(hsts).toContain('preload');
   });
 
   it('X-Frame-Options is exactly DENY', async () => {

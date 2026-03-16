@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.2.0
+  version: 0.3.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
@@ -47,14 +47,22 @@ components:
         type: string
         enum: [DENY]
     StrictTransportSecurity:
-      description: Enforces HTTPS connections.
+      description: Enforces HTTPS connections and signals HSTS preload eligibility.
       schema:
         type: string
         pattern: '^max-age=\d+'
+        example: 'max-age=63072000; includeSubDomains; preload'
     RetryAfter:
       description: Seconds to wait before retrying.
       schema:
         type: integer
+    XRateLimitLimit:
+      description: Maximum number of requests allowed per IP in the current rate-limit window.
+      schema:
+        type: integer
+        minimum: 1
+        examples:
+          - 10
     TermsLink:
       description: Link to Terms of Service per RFC 8288.
       schema:
@@ -552,6 +560,8 @@ components:
           $ref: '#/components/headers/StrictTransportSecurity'
         Retry-After:
           $ref: '#/components/headers/RetryAfter'
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
       content:
         application/problem+json:
           schema:
@@ -689,6 +699,8 @@ paths:
               schema:
                 type: string
                 enum: ['private, no-store']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
           content:
             application/json:
               schema:
@@ -727,6 +739,10 @@ paths:
       description: >
         Enqueues a headless-browser capture of the given URL. Returns immediately with a capture
         ID; poll the status URL to determine when the capture is complete.
+
+        CORS: This endpoint supports cross-origin requests from allowed origins. Preflight
+        (OPTIONS) is handled automatically. Configure allowed origins via the CORS_ORIGINS
+        environment variable.
       tags: [captures]
       security:
         - bearerAuth: []
@@ -760,6 +776,17 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Retry-After:
               $ref: '#/components/headers/RetryAfter'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
           content:
             application/json:
               schema:
@@ -1049,6 +1076,8 @@ paths:
               schema:
                 type: string
                 enum: ['Accept']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
           content:
             application/json:
               schema:
@@ -1148,6 +1177,8 @@ paths:
               schema:
                 type: string
                 enum: ['*']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
           content:
             application/json:
               schema:
@@ -1218,6 +1249,8 @@ paths:
               schema:
                 type: string
                 enum: ['*']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
           content:
             application/json:
               schema:

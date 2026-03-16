@@ -278,6 +278,11 @@ describe('GET /v1/verify/{id} -- headers', () => {
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
+
+  it('returns X-RateLimit-Limit: 60', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('60');
+  });
 });
 
 // ---------------------------------------------------------------------------
