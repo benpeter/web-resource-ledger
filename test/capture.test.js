@@ -755,6 +755,20 @@ describe('performCapture -- partial capture failure paths', () => {
     expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 
+  it('zero-byte timeout (bot protection) -> specific error, not retryable', async () => {
+    const botBlockRenderer = async () => {
+      throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, botBlockRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(false);
+    expect(record.error).toBe('Target site did not respond (possible bot protection or geo-restriction)');
+  });
+
   it('existing timeout (no DOMContentLoaded) still fails', async () => {
     const timeoutRenderer = async () => {
       throw new Error('Navigation timeout of 25000 ms exceeded');

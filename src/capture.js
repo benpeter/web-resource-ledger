@@ -486,6 +486,10 @@ async function defaultRenderer(browserBinding, url) {
         // Check if DOM has at least loaded before attempting partial capture
         const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
         if (readyState !== 'interactive' && readyState !== 'complete') {
+          // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
+          if (totalBytes === 0) {
+            throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
+          }
           throw navError;
         }
 
@@ -642,6 +646,9 @@ async function defaultRenderer(browserBinding, url) {
 function categorizeError(error) {
   const msg = error?.message ?? '';
 
+  if (msg.includes('did not respond')) {
+    return { message: 'Target site did not respond (possible bot protection or geo-restriction)', retryable: false };
+  }
   if (msg.includes('Deadline exceeded')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
   }
