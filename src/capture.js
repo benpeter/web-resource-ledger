@@ -112,8 +112,13 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
   const start = Date.now();
   await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip });
   try {
-    const [renderResult, headerResult] = await Promise.allSettled([
+    const RENDER_DEADLINE_MS = 27000; // Hard cap: leaves ~3s for KV/log in catch-all
+    const renderWithDeadline = Promise.race([
       renderer(env.BROWSER, url),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Render deadline exceeded')), RENDER_DEADLINE_MS)),
+    ]);
+    const [renderResult, headerResult] = await Promise.allSettled([
+      renderWithDeadline,
       captureHeaders(url),
     ]);
 
@@ -652,6 +657,9 @@ function categorizeError(error) {
 
   if (msg.includes('did not respond')) {
     return { message: 'Target site did not respond (possible bot protection or geo-restriction)', retryable: false };
+  }
+  if (msg.includes('Render deadline exceeded')) {
+    return { message: 'Capture timed out', retryable: true };
   }
   if (msg.includes('Deadline exceeded')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
