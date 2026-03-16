@@ -266,6 +266,44 @@ describe('WACZ -- graceful degradation', () => {
     );
     expect(result).toBeNull();
   });
+
+  it('timestampStatus is absent when env has no TSA_URL', async () => {
+    const result = await buildWacz(
+      TEST_URL,
+      new Date().toISOString(),
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
+      { SIGNING_KEY: env.SIGNING_KEY },
+    );
+    expect(result).not.toBeNull();
+    expect(result.timestampStatus).toBe('absent');
+  });
+
+  it('timestampStatus is error when TSA returns HTTP 500', async () => {
+    fetchMock
+      .get('https://tsa-fail.test')
+      .intercept({ method: 'POST', path: '/' })
+      .reply(500);
+
+    const result = await buildWacz(
+      TEST_URL,
+      new Date().toISOString(),
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
+      { SIGNING_KEY: env.SIGNING_KEY, TSA_URL: 'https://tsa-fail.test/' },
+    );
+    expect(result).not.toBeNull();
+    expect(result.timestampStatus).toBe('error');
+  });
+
+  it('timestampStatus is error when TSA is unreachable', async () => {
+    const result = await buildWacz(
+      TEST_URL,
+      new Date().toISOString(),
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
+      { SIGNING_KEY: env.SIGNING_KEY, TSA_URL: 'https://tsa-unreachable.test/' },
+    );
+    expect(result).not.toBeNull();
+    expect(result.timestampStatus).toBe('error');
+  });
 });
 
 // ---------------------------------------------------------------------------
