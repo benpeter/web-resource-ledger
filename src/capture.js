@@ -110,6 +110,7 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
  */
 export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer) {
   const start = Date.now();
+  await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip });
   try {
     const [renderResult, headerResult] = await Promise.allSettled([
       renderer(env.BROWSER, url),
