@@ -604,6 +604,46 @@ const enrichedStubRenderer = async () => ({
   },
 });
 
+const stagesFullRenderer = async () => ({
+  screenshot: PNG_BYTES,
+  html: TEST_HTML,
+  partial: false,
+  render: {
+    waitUntilReached: 'load',
+    timedOut: false,
+    durationMs: 8200,
+    stages: {
+      sessionAcquireMs: 120,
+      contextSetupMs: 80,
+      navigationMs: 3500,
+      settleMs: 3010,
+      consentMs: 800,
+      screenshotMs: 450,
+      contentMs: 40,
+    },
+  },
+});
+
+const stagesPartialRenderer = async () => ({
+  screenshot: PNG_BYTES,
+  html: TEST_HTML,
+  partial: true,
+  render: {
+    waitUntilReached: 'domcontentloaded',
+    timedOut: true,
+    durationMs: 20500,
+    stages: {
+      sessionAcquireMs: 150,
+      contextSetupMs: 90,
+      navigationMs: 20000,
+      settleMs: null,
+      consentMs: null,
+      screenshotMs: 200,
+      contentMs: 60,
+    },
+  },
+});
+
 // ---------------------------------------------------------------------------
 // performCapture -- partial capture (timeout with DOMContentLoaded)
 // ---------------------------------------------------------------------------
@@ -774,5 +814,50 @@ describe('performCapture -- legacy renderer (backward compat)', () => {
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.render).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- stage-level timings
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- stage-level timings', () => {
+  const STAGE_KEYS = ['sessionAcquireMs', 'contextSetupMs', 'navigationMs', 'settleMs', 'consentMs', 'screenshotMs', 'contentMs'];
+
+  it('stores full-capture stages in KV record', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stagesFullRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render.stages).toBeDefined();
+    for (const key of STAGE_KEYS) {
+      expect(typeof record.render.stages[key]).toBe('number');
+    }
+  });
+
+  it('stores partial-capture stages with null for skipped stages', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stagesPartialRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render.stages).toBeDefined();
+    expect(record.render.stages.settleMs).toBeNull();
+    expect(record.render.stages.consentMs).toBeNull();
+    expect(typeof record.render.stages.sessionAcquireMs).toBe('number');
+    expect(typeof record.render.stages.navigationMs).toBe('number');
+    expect(typeof record.render.stages.screenshotMs).toBe('number');
+    expect(typeof record.render.stages.contentMs).toBe('number');
+  });
+
+  it('omits stages for legacy renderers without stage data', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, enrichedStubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render).toBeDefined();
+    expect(record.render.stages).toBeUndefined();
   });
 });

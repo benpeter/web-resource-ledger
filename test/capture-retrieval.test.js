@@ -134,7 +134,7 @@ describe('GET /v1/captures/{id} -- partial capture', () => {
   it('returns render metadata', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
     const body = await res.json();
-    expect(body.render).toEqual({
+    expect(body.render).toMatchObject({
       waitUntilReached: 'domcontentloaded',
       timedOut: true,
       durationMs: 25000,
