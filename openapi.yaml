@@ -285,9 +285,27 @@ components:
           minimum: 0
           description: >
             Wall-clock milliseconds from navigation start to the point the page
-            was captured (either at load + settle delay, or at timeout).
+            was captured (either at load + adaptive settle, or at timeout).
           examples:
             - 25012
+        settleMs:
+          type: integer
+          minimum: 0
+          description: >
+            Wall-clock milliseconds spent in the post-load adaptive settle phase.
+            Settle ends when in-flight requests drain (settleReason: idle) or the
+            3s hard cap is reached (settleReason: cap). Absent on partial captures
+            and captures created before this feature.
+          examples:
+            - 320
+        settleReason:
+          type: string
+          enum: [idle, cap]
+          description: >
+            Why the settle phase ended. "idle" means all non-persistent in-flight
+            requests completed within the quiescence window. "cap" means the 3s
+            hard cap was reached before quiescence. Absent on partial captures
+            and captures created before this feature.
         stages:
           $ref: '#/components/schemas/RenderStages'
           description: >
@@ -399,10 +417,10 @@ components:
           enum: [full, partial]
           description: >
             Render quality of the capture. 'full' when the page reached the load
-            milestone before capture (followed by a 3s settle delay). 'partial'
-            when the capture was taken after a navigation timeout but
-            DOMContentLoaded had fired. Defaults to 'full' for captures created
-            before this feature.
+            milestone before capture (followed by an adaptive settle phase, up to
+            3s). 'partial' when the capture was taken after a navigation timeout
+            but DOMContentLoaded had fired. Defaults to 'full' for captures
+            created before this feature.
         render:
           $ref: '#/components/schemas/RenderInfo'
           description: >

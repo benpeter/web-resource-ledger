@@ -40,3 +40,4 @@ software development.
 | [0029-load-settle-strategy](0029-load-settle-strategy/) | Switch navigation from networkidle to load + settle delay (Issue #67) |
 | [0030-tsa-error-logging](0030-tsa-error-logging/) | Log TSA errors instead of silently swallowing (Issue #72) |
 | [0031-stage-level-timings](0031-stage-level-timings/) | Stage-level timing instrumentation for capture renderer (Issue #75) |
+| [0032-optimize-capture-timeline](0032-optimize-capture-timeline/) | Adaptive settle, consent timeout 2s, graceful consent failure (Issue #79) |

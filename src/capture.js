@@ -11,8 +11,8 @@
  *   detect and dismiss cookie consent banners. If a CMP is found and
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
- *   by the Ed25519 signature. Consent has an 8s hard timeout within the
- *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s load + 3s settle + 8s consent + 2s post ≈ 33s worst-case; in practice load fires in 2-5s).
+ *   by the Ed25519 signature. Consent has a 2s hard timeout within the
+ *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s load + 3s settle(max) + 2s consent + 2s post ≈ 27s worst-case; in practice load fires in 2-5s).
  *   Partial captures skip consent entirely.
  *
  * Called from ctx.waitUntil() -- must always update KV (never leave pending).
@@ -82,7 +82,8 @@ const MAX_SUBRESOURCES = 200;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_PAGE_HEIGHT = 8000;
 const NAV_TIMEOUT_MS = 20000;
-const SETTLE_DELAY_MS = 3000;
+const SETTLE_MAX_MS = 3000;
+const SETTLE_QUIESCENCE_MS = 500;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
 const PARTIAL_SCREENSHOT_TIMEOUT_MS = 3000;
@@ -109,9 +110,15 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
  */
 export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer) {
   const start = Date.now();
+  await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip });
   try {
-    const [renderResult, headerResult] = await Promise.allSettled([
+    const RENDER_DEADLINE_MS = 27000; // Hard cap: leaves ~3s for KV/log in catch-all
+    const renderWithDeadline = Promise.race([
       renderer(env.BROWSER, url),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Render deadline exceeded')), RENDER_DEADLINE_MS)),
+    ]);
+    const [renderResult, headerResult] = await Promise.allSettled([
+      renderWithDeadline,
       captureHeaders(url),
     ]);
 
@@ -232,8 +239,19 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
         consentStatus: consent?.status ?? null,
         consentCmp: consent?.cmp ?? null,
+        consentDurationMs: consent?.durationMs ?? null,
+        settleMs: render?.settleMs ?? null,
+        settleReason: render?.settleReason ?? null,
         ...(render?.stages ?? {}),
       });
+      if (consent?._error) {
+        await log(env, 4, 'capture', {
+          event: 'capture.consent_error',
+          captureId, tenantId, cip,
+          errorClass: consent._error.name,
+          errorMessage: consent._error.message,
+        });
+      }
     }
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
@@ -330,6 +348,69 @@ async function getOrCreateSession(browserBinding) {
 }
 
 /**
+ * Waits for in-flight network requests to drain, up to SETTLE_MAX_MS.
+ * Ignores websocket and eventsource resource types (they stay open indefinitely).
+ * Resolves when 0 non-ignored requests are in-flight for SETTLE_QUIESCENCE_MS,
+ * or at SETTLE_MAX_MS regardless of activity.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<{ settleMs: number, settleReason: 'idle'|'cap', pendingAtCap: number }>}
+ */
+function waitForSettle(page) {
+  const IGNORED_TYPES = new Set(['websocket', 'eventsource']);
+  let inFlight = 0;
+  let quiescenceTimer = null;
+  let resolved = false;
+
+  return new Promise((resolve) => {
+    const startMs = Date.now();
+
+    const finish = (reason) => {
+      if (resolved) return;
+      resolved = true;
+      if (quiescenceTimer !== null) {
+        clearTimeout(quiescenceTimer);
+        quiescenceTimer = null;
+      }
+      resolve({ settleMs: Date.now() - startMs, settleReason: reason, pendingAtCap: inFlight });
+    };
+
+    const capTimer = setTimeout(() => finish('cap'), SETTLE_MAX_MS);
+
+    const checkQuiescence = () => {
+      if (inFlight === 0 && quiescenceTimer === null) {
+        quiescenceTimer = setTimeout(() => {
+          clearTimeout(capTimer);
+          finish('idle');
+        }, SETTLE_QUIESCENCE_MS);
+      }
+    };
+
+    const onRequest = (req) => {
+      if (IGNORED_TYPES.has(req.resourceType())) return;
+      inFlight++;
+      if (quiescenceTimer !== null) {
+        clearTimeout(quiescenceTimer);
+        quiescenceTimer = null;
+      }
+    };
+
+    const onDone = (req) => {
+      if (IGNORED_TYPES.has(req.resourceType())) return;
+      inFlight = Math.max(0, inFlight - 1);
+      checkQuiescence();
+    };
+
+    page.on('request', onRequest);
+    page.on('requestfinished', onDone);
+    page.on('requestfailed', onDone);
+
+    // Check immediately in case there are already 0 in-flight requests
+    checkQuiescence();
+  });
+}
+
+/**
  * Connects to a browser session, navigates to url, takes before-screenshot,
  * attempts cookie consent dismissal via autoconsent, takes after-screenshot
  * if a CMP was dismissed, and captures rendered HTML. Enforces subresource
@@ -402,7 +483,7 @@ async function defaultRenderer(browserBinding, url) {
     });
 
     // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
-    // Post-load: 3s settle + 8s consent + 2s post-processing fits the 30s ctx.waitUntil budget
+    // Post-load: 3s settle(max) + 2s consent + 2s post-processing fits the 30s ctx.waitUntil budget
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
     } catch (navError) {
@@ -411,6 +492,10 @@ async function defaultRenderer(browserBinding, url) {
         // Check if DOM has at least loaded before attempting partial capture
         const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
         if (readyState !== 'interactive' && readyState !== 'complete') {
+          // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
+          if (totalBytes === 0) {
+            throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
+          }
           throw navError;
         }
 
@@ -469,9 +554,9 @@ async function defaultRenderer(browserBinding, url) {
     if (limitExceeded) throw new Error(limitExceeded);
     const tNav = Date.now();
 
-    // Settle delay: allow async resources (analytics, ads) to finish loading
-    // before taking screenshots. 'load' fires before tracking scripts settle.
-    await new Promise(r => setTimeout(r, SETTLE_DELAY_MS));
+    // Adaptive settle: wait for in-flight requests to drain (or hard cap).
+    // Ignores websocket/eventsource (they stay open indefinitely).
+    const settle = await waitForSettle(page);
 
     // SECURITY: async response events can push totalBytes past MAX_PAGE_BYTES
     // during the settle delay. Re-check after settling.
@@ -488,7 +573,30 @@ async function defaultRenderer(browserBinding, url) {
     const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
     const tPreConsent = Date.now();
 
-    const consent = await dismissCookieConsent(page);
+    let consent;
+    try {
+      consent = await dismissCookieConsent(page);
+    } catch (err) {
+      // Re-throw browser death errors -- subsequent page calls will also fail
+      const msg = String(err?.message ?? err ?? '');
+      if (
+        msg.includes('Target closed') ||
+        msg.includes('page was closed') ||
+        msg.includes('browser has been closed') ||
+        msg.includes('Session expired') ||
+        msg.includes('session has been closed') ||
+        msg.includes('Protocol error')
+      ) {
+        throw err;
+      }
+      // Consent-specific errors degrade gracefully
+      consent = {
+        status: 'failed',
+        cmp: null,
+        durationMs: 0,
+        _error: { name: err?.constructor?.name ?? 'Unknown', message: String(err?.message ?? '').slice(0, 256) },
+      };
+    }
     const tConsent = Date.now();
 
     // After-screenshot only when consent was successfully dismissed
@@ -511,6 +619,8 @@ async function defaultRenderer(browserBinding, url) {
         waitUntilReached: 'load',
         timedOut: false,
         durationMs: tContent - renderStart,
+        settleMs: settle.settleMs,
+        settleReason: settle.settleReason,
         stages: {
           sessionAcquireMs: tSession - renderStart,
           contextSetupMs: tContext - tSession,
@@ -525,10 +635,13 @@ async function defaultRenderer(browserBinding, url) {
       screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,
     };
   } finally {
-    // MANDATORY: close context before disconnecting to clear all isolation state
-    await context.close();
-    // Disconnects from the browser process; does NOT kill it (keep_alive keeps it hot)
-    await browser.close();
+    // MANDATORY: close context before disconnecting to clear all isolation state.
+    // Timeout cleanup to prevent hanging on unresponsive browser sessions
+    // (e.g., Akamai stalling with 0 bytes) from eating the ctx.waitUntil budget.
+    await Promise.race([
+      context.close().then(() => browser.close()),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]).catch(() => {});
   }
 }
 
@@ -542,6 +655,12 @@ async function defaultRenderer(browserBinding, url) {
 function categorizeError(error) {
   const msg = error?.message ?? '';
 
+  if (msg.includes('did not respond')) {
+    return { message: 'Target site did not respond (possible bot protection or geo-restriction)', retryable: false };
+  }
+  if (msg.includes('Render deadline exceeded')) {
+    return { message: 'Capture timed out', retryable: true };
+  }
   if (msg.includes('Deadline exceeded')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
   }

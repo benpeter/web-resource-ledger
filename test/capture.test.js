@@ -601,6 +601,8 @@ const enrichedStubRenderer = async () => ({
     waitUntilReached: 'load',
     timedOut: false,
     durationMs: 3500,
+    settleMs: 500,
+    settleReason: 'idle',
   },
 });
 
@@ -753,6 +755,20 @@ describe('performCapture -- partial capture failure paths', () => {
     expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 
+  it('zero-byte timeout (bot protection) -> specific error, not retryable', async () => {
+    const botBlockRenderer = async () => {
+      throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, botBlockRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(false);
+    expect(record.error).toBe('Target site did not respond (possible bot protection or geo-restriction)');
+  });
+
   it('existing timeout (no DOMContentLoaded) still fails', async () => {
     const timeoutRenderer = async () => {
       throw new Error('Navigation timeout of 25000 ms exceeded');
@@ -790,6 +806,15 @@ describe('performCapture -- full capture with render metadata', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.render.waitUntilReached).toBe('load');
     expect(record.render.timedOut).toBe(false);
+  });
+
+  it('stores settle telemetry in render metadata', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, enrichedStubRenderer);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render.settleMs).toBe(500);
+    expect(record.render.settleReason).toBe('idle');
   });
 });
 
@@ -859,5 +884,50 @@ describe('performCapture -- stage-level timings', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.render).toBeDefined();
     expect(record.render.stages).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- consent error in renderer
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- consent error in renderer', () => {
+  const consentErrorRenderer = async () => ({
+    screenshot: PNG_BYTES,
+    html: TEST_HTML,
+    partial: false,
+    render: {
+      waitUntilReached: 'load',
+      timedOut: false,
+      durationMs: 4000,
+      settleMs: 500,
+      settleReason: 'idle',
+    },
+    consent: { status: 'failed', cmp: null, durationMs: 0, _error: { name: 'TypeError', message: 'Cannot read properties of null' } },
+    screenshotBefore: PNG_BYTES,
+  });
+
+  it('capture completes when consent throws', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, consentErrorRenderer);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('complete');
+  });
+
+  it('sets renderQuality to full despite consent error', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, consentErrorRenderer);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBe('full');
+  });
+
+  it('captureSettings shows consent result as failed', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, consentErrorRenderer);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.captureSettings.consent.result).toBe('failed');
   });
 });
