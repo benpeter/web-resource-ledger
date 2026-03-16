@@ -165,7 +165,7 @@ describe('WACZ integration -- R2 storage', () => {
     }
   });
 
-  it('datapackage-digest.json includes keyId in signedData', async () => {
+  it('datapackage-digest.json includes keyId in self-signature (v0.2.0)', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
@@ -177,9 +177,13 @@ describe('WACZ integration -- R2 storage', () => {
     const files = unzipSync(waczBytes);
 
     const digest = JSON.parse(new TextDecoder().decode(files['datapackage-digest.json']));
-    expect(digest.signedData.keyId).toBeDefined();
-    expect(typeof digest.signedData.keyId).toBe('string');
-    expect(digest.signedData.keyId).toMatch(/^[0-9a-f]{8}$/);
+    // v0.2.0: keyId lives in the self-signature entry
+    expect(digest.signedData.version).toBe('0.2.0');
+    const selfSig = digest.signedData.signatures.find(s => s.type === 'self');
+    expect(selfSig).toBeDefined();
+    expect(selfSig.keyId).toBeDefined();
+    expect(typeof selfSig.keyId).toBe('string');
+    expect(selfSig.keyId).toMatch(/^[0-9a-f]{8}$/);
   });
 
   it('KV record includes wacz.keyId after capture', async () => {
@@ -193,7 +197,7 @@ describe('WACZ integration -- R2 storage', () => {
     expect(record.wacz.keyId).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it('datapackage-digest.json has a valid Ed25519 signature', async () => {
+  it('datapackage-digest.json has a valid Ed25519 signature (v0.2.0)', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
@@ -205,7 +209,11 @@ describe('WACZ integration -- R2 storage', () => {
     const files = unzipSync(waczBytes);
 
     const digest = JSON.parse(new TextDecoder().decode(files['datapackage-digest.json']));
-    const { hash, signature, publicKey } = digest.signedData;
+    // v0.2.0: hash is at signedData.hash; signature and publicKey are in the self entry
+    const { hash } = digest.signedData;
+    const selfSig = digest.signedData.signatures.find(s => s.type === 'self');
+    expect(selfSig).toBeDefined();
+    const { signature, publicKey } = selfSig;
 
     // Import the embedded public key (raw 32-byte Ed25519 key)
     const publicKeyBytes = Uint8Array.from(atob(publicKey), c => c.charCodeAt(0));

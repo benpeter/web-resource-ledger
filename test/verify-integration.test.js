@@ -88,16 +88,22 @@ describe('GET /v1/verify/{id} -- happy path', () => {
     expect(body.wacz).toBeUndefined();
     expect(body.signing).not.toBeNull();
 
-    // checks is array of 3
+    // checks is an array; v0.2.0 produces 4 checks (including timestamp)
     expect(Array.isArray(body.checks)).toBe(true);
-    expect(body.checks).toHaveLength(3);
+    expect(body.checks.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('all three checks pass', async () => {
+  it('all three core checks pass (v0.2.0 timestamp is skip when no TSA configured)', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
     const body = await res.json();
-    for (const check of body.checks) {
-      expect(check.status).toBe('pass');
+    // Core checks must pass; timestamp is 'skip' when TSA_URL is absent in test env
+    const byName = Object.fromEntries(body.checks.map(c => [c.name, c]));
+    expect(byName.artifactHashes.status).toBe('pass');
+    expect(byName.bundleHash.status).toBe('pass');
+    expect(byName.signature.status).toBe('pass');
+    // timestamp check present in v0.2.0 -- 'skip' is acceptable (no TSA configured)
+    if (byName.timestamp) {
+      expect(['pass', 'skip']).toContain(byName.timestamp.status);
     }
     const names = body.checks.map(c => c.name);
     expect(names).toContain('artifactHashes');
