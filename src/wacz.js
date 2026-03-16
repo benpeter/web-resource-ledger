@@ -25,6 +25,7 @@ import { buildWarc, sha256 } from './warc.js';
 import { buildCdxj } from './cdxj.js';
 import { canonicalize } from './canonical-json.js';
 import { requestTimestamp } from './rfc3161.js';
+import { log } from './log.js';
 
 const enc = new TextEncoder();
 
@@ -108,8 +109,9 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   if (env.TSA_URL) {
     try {
       tsaResult = await requestTimestamp(env.TSA_URL, bundleHash);
-    } catch {
+    } catch (err) {
       // TSA unreachable -- capture continues without timestamp
+      log(env, 4, 'capture', { event: 'capture.tsa_fail', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256) });
     }
   }
 
