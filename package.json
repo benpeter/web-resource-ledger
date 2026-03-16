@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@cloudflare/playwright": "^1.1.2",
+    "@duckduckgo/autoconsent": "^14.59.0",
     "fflate": "^0.8.2"
   }
 }
