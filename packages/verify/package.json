@@ -22,6 +22,9 @@
     "integrity"
   ],
   "type": "module",
+  "scripts": {
+    "test": "node --test 'test/**/*.test.js'"
+  },
   "bin": {
     "wrl-verify": "./bin/wrl-verify.js"
   },
