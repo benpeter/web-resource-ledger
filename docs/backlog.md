@@ -78,10 +78,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | Item | Condition | Source |
 |------|-----------|--------|
 | [should] Screenshot timing / wait-for-load | When a user reports incomplete renders | kickoff |
-| [should] Dual-screenshot cookie consent dismissal (#58) | After Act 1 and Wave 2 merge (depends on #53 and #41) | 0017-advisory: ux-strategy, gru, frontend, security |
+| ~~[should] Dual-screenshot cookie consent dismissal (#58)~~ | ~~After Act 1 and Wave 2 merge~~ | DONE (0025-dual-screenshot-consent) |
 | [consider] Screenshot height cap configurability | When a user reports capped screenshots as a problem | edge-minion, capture-endpoint |
 | [consider] Viewport parameterization | When a user reports viewport size as a problem | 0017-advisory: api-design, security |
-| [consider] Capture options metadata schema (`captureSettings`) | When any capture parameterization feature ships | 0017-advisory: data-minion |
+| ~~[consider] Capture options metadata schema (`captureSettings`)~~ | ~~When any capture parameterization feature ships~~ | DONE (shipped with #58 in 0025) |
 | [consider] WACZ captureQuality in datapackage.json | When partial captures are common enough to warrant evidence chain enrichment | security-minion, staged-fallback-timeout advisory |
 
 ### API Enhancements
