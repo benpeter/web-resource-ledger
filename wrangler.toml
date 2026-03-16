@@ -1,6 +1,5 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "wrl"
-account_id = "fdff9098bf43cc29335eee17a740677c"
 main = "src/index.js"
 compatibility_date = "2026-03-13"
 compatibility_flags = ["nodejs_compat"]
