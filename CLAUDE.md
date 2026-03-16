@@ -96,4 +96,17 @@ Key principles that apply to all work here:
   unless a framework adds specific, demonstrable value.
   Don't default to React, Vue, Tailwind CSS, jQuery, etc. just because they're popular.
   Always ask: "What does this dependency give me that I can't do simply without it?"
+- **Fail loudly, degrade intentionally** -- silent `catch {}` blocks are forbidden.
+  Every catch must either log the error or handle a specific, named error type.
+  When a feature degrades (e.g., timestamp unavailable), the system must distinguish
+  "service unavailable" from "misconfigured" in both logs and API responses. Use
+  distinct status values (e.g., `'error'` vs `'skipped'`) so operators can tell
+  the difference. If you swallow an error, you own the next incident it hides.
+- **Test the real boundaries** -- this product captures web pages with headless
+  browsers. Mocking out the browser is like testing an HTTP server without sending
+  requests. Unit tests with mocked renderers are fine for orchestration logic, but
+  integration tests must exercise the real external boundaries (browser, network,
+  third-party services). When adding a feature that depends on an external service,
+  the test suite must include at least one assertion that the integration actually
+  works end-to-end.
 
