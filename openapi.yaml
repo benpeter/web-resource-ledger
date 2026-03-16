@@ -66,6 +66,7 @@ components:
         minimum: 1
         examples:
           - 10
+          - 60
     TermsLink:
       description: Link to Terms of Service per RFC 8288.
       schema:
@@ -450,7 +451,7 @@ components:
               value: {type: about:blank, status: 400, title: Bad Request, detail: Request body is missing or not valid JSON.}
             missingUrl:
               summary: url field absent
-              value: {type: about:blank, status: 400, title: Bad Request, detail: Request body must include a "url" field.}
+              value: {type: about:blank, status: 400, title: Bad Request, detail: Field 'url' is required}
             badScheme:
               summary: Non-http/https scheme
               value: {type: about:blank, status: 400, title: Bad Request, detail: "URL scheme 'ftp' is not allowed; use http or https"}
@@ -900,7 +901,7 @@ paths:
                   value: {type: about:blank, status: 400, title: Bad Request, detail: Request body is missing or not valid JSON.}
                 missingUrl:
                   summary: url field absent
-                  value: {type: about:blank, status: 400, title: Bad Request, detail: Request body must include a "url" field.}
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: Field 'url' is required}
                 badScheme:
                   summary: Non-http/https scheme
                   value: {type: about:blank, status: 400, title: Bad Request, detail: "URL scheme 'ftp' is not allowed; use http or https"}
@@ -1580,3 +1581,5 @@ paths:
                           description: ISO 8601 timestamp when the key was first archived.
         '429':
           $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'

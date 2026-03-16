@@ -343,7 +343,7 @@ All responses include:
 
 - `Link` -- points to the terms-of-service URL with `rel="terms-of-service"`. Present on every response.
 - `Strict-Transport-Security` -- includes `preload` and `includeSubDomains`. Present on every response.
-- `X-RateLimit-Limit` -- the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints (captures, verification, key archive).
+- `X-RateLimit-Limit` -- the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints (captures, verification, signing key endpoints).
 
 ## Legal
 
