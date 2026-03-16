@@ -42,7 +42,7 @@ const enc = new TextEncoder();
  * @param {{ SIGNING_KEY?: string }} env
  * @returns {Promise<{ waczBytes: Uint8Array, waczHash: string, bundleHash: string,
  *                     publicKeyBase64: string, keyId: string,
- *                     timestampStatus: 'present'|'absent' } | null>}
+ *                     timestampStatus: 'present'|'absent'|'error' } | null>}
  */
 export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 1: Get signing keys -- graceful degradation if not configured
@@ -106,11 +106,18 @@ export async function buildWacz(url, captureDate, artifacts, env) {
 
   // Step 8.5: Request RFC 3161 timestamp (optional, graceful degradation)
   let tsaResult = null;
+  let tsaError = false;
   if (env.TSA_URL) {
     try {
       tsaResult = await requestTimestamp(env.TSA_URL, bundleHash);
     } catch (err) {
-      log(env, 4, 'capture', { event: 'capture.tsa_fail', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      tsaError = true;
+      await log(env, 4, 'capture', {
+        event: 'capture.tsa_fail',
+        tsaUrl: env.TSA_URL,
+        errorName: err?.name,
+        errorMessage: String(err?.message ?? '').slice(0, 256),
+      });
     }
   }
 
@@ -152,5 +159,5 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 11: Compute SHA-256 of the final WACZ bytes for content-addressed R2 key
   const waczHash = await sha256(waczBytes);
 
-  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : 'absent' };
+  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'absent') };
 }
