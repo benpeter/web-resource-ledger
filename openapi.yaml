@@ -205,6 +205,39 @@ components:
           examples:
             - 204800
 
+    RenderInfo:
+      type: object
+      description: >
+        Rendering process metadata. Reports which browser readiness milestone was
+        reached and whether the navigation timed out before reaching the target
+        (networkidle). Present on completed captures created after this feature;
+        absent on earlier captures. When absent, the page reached networkidle
+        (consistent with renderQuality: full).
+      required: [waitUntilReached, timedOut, durationMs]
+      properties:
+        waitUntilReached:
+          type: string
+          enum: [domcontentloaded, load, networkidle]
+          description: >
+            Highest browser readiness milestone confirmed before the page was
+            captured. "networkidle" means fewer than two open network connections
+            for 500ms. "load" means the load event fired. "domcontentloaded"
+            means the DOM was parsed but some resources may still be loading.
+        timedOut:
+          type: boolean
+          description: >
+            True when the navigation did not reach the target milestone
+            (networkidle) within the timeout window. When true, renderQuality
+            is "partial".
+        durationMs:
+          type: integer
+          minimum: 0
+          description: >
+            Wall-clock milliseconds from navigation start to the point the page
+            was captured (either at networkidle or at timeout).
+          examples:
+            - 25012
+
     CaptureRecord:
       type: object
       description: >
@@ -217,7 +250,7 @@ components:
 
         To submit a new capture, see POST /v1/captures. For lifecycle tracking
         before completion, use GET /v1/captures/{captureId}/status.
-      required: [id, status, url, createdAt, completedAt, artifacts]
+      required: [id, status, url, createdAt, completedAt, renderQuality, artifacts]
       properties:
         id:
           $ref: '#/components/schemas/CaptureId'
@@ -243,6 +276,19 @@ components:
           description: ISO 8601 timestamp when the capture completed.
           examples:
             - '2024-01-15T10:30:45.123Z'
+        renderQuality:
+          type: string
+          enum: [full, partial]
+          description: >
+            Render quality of the capture. 'full' when the page reached networkidle
+            before capture. 'partial' when the capture was taken after a navigation
+            timeout but DOMContentLoaded had fired. Defaults to 'full' for captures
+            created before this feature.
+        render:
+          $ref: '#/components/schemas/RenderInfo'
+          description: >
+            Rendering process metadata. Present on captures created after this feature.
+            When absent, the page reached networkidle (consistent with renderQuality: full).
         artifacts:
           $ref: '#/components/schemas/CaptureArtifacts'
         wacz:
@@ -255,7 +301,8 @@ components:
           format: uri
           description: >
             URL to the human-readable verification page for this capture's WACZ bundle.
-            Present only when `wacz` is present.
+            Present only when `wacz` is present. Omitted when the capture has no WACZ
+            bundle (e.g., partial captures from navigation timeouts).
           examples:
             - https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
@@ -293,6 +340,12 @@ components:
           type: string
           format: date-time
           description: Present when status is "complete". ISO 8601 timestamp when capture completed.
+        renderQuality:
+          type: string
+          enum: [full, partial]
+          description: >
+            Present when status is "complete". Indicates whether the page fully rendered
+            or was captured after a navigation timeout.
         failedAt:
           type: string
           format: date-time
@@ -401,6 +454,10 @@ components:
           description: ISO 8601 timestamp when the capture completed.
           examples:
             - '2024-01-15T10:30:45.123Z'
+        renderQuality:
+          type: string
+          enum: [full, partial]
+          description: Render quality of the verified capture.
 
     VerificationResult:
       type: object
@@ -741,6 +798,7 @@ paths:
                         url: https://example.com
                         createdAt: '2024-01-15T10:30:00.000Z'
                         completedAt: '2024-01-15T10:30:45.123Z'
+                        renderQuality: full
                     pagination:
                       cursor: eyJrdiI6Im9wYXF1ZS1rdC1jdXJzb3IifQ
                       hasMore: true
@@ -1195,6 +1253,7 @@ paths:
                     url: https://example.com
                     createdAt: '2024-01-15T10:30:00.000Z'
                     completedAt: '2024-01-15T10:30:45.123Z'
+                    renderQuality: full
                     artifacts:
                       screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
                       html: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
@@ -1212,6 +1271,24 @@ paths:
                     url: https://example.com
                     createdAt: '2024-01-15T10:30:00.000Z'
                     completedAt: '2024-01-15T10:30:45.123Z'
+                    renderQuality: full
+                    artifacts:
+                      screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+                      html: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+                      headers: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+                partialCapture:
+                  summary: Partial capture after navigation timeout
+                  value:
+                    id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    status: complete
+                    url: https://example.com
+                    createdAt: '2024-01-15T10:30:00.000Z'
+                    completedAt: '2024-01-15T10:30:45.123Z'
+                    renderQuality: partial
+                    render:
+                      waitUntilReached: load
+                      timedOut: true
+                      durationMs: 25012
                     artifacts:
                       screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
                       html: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
@@ -1309,6 +1386,9 @@ paths:
 
         **A 200 status does NOT mean the capture is verified -- check the `verified` field.**
         The endpoint returns 200 for all reachable captures, even when verification fails.
+
+        Captures without a WACZ bundle (including partial captures from navigation
+        timeouts) return 404 from this endpoint.
       tags: [verification]
       security: []
       parameters:
@@ -1365,6 +1445,7 @@ paths:
                       id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                       createdAt: '2024-01-15T10:30:00.000Z'
                       completedAt: '2024-01-15T10:30:45.123Z'
+                      renderQuality: full
                     signing:
                       bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                       signature: 'base64encodedSignatureHere=='
@@ -1382,6 +1463,7 @@ paths:
                       id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                       createdAt: '2024-01-15T10:30:00.000Z'
                       completedAt: '2024-01-15T10:30:45.123Z'
+                      renderQuality: full
                     signing:
                       bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                       signature: 'base64encodedSignatureHere=='

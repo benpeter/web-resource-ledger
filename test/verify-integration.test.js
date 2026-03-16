@@ -179,6 +179,28 @@ describe('GET /v1/verify/{id} -- tamper detection', () => {
 // Error cases
 // ---------------------------------------------------------------------------
 
+describe('GET /v1/verify/{id} -- partial capture (no WACZ)', () => {
+  it('verify endpoint returns 404 for captures without WACZ', async () => {
+    const partialId = 'cap_' + 'a'.repeat(32);
+    await env.KV.delete(`capture:${partialId}`);
+    await createCapture(env.KV, partialId, TEST_URL, TEST_IP, 'default');
+    await completeCapture(
+      env.KV,
+      partialId,
+      {
+        screenshot: `captures/${partialId}/screenshot.png`,
+        html:       `captures/${partialId}/rendered.html`,
+      },
+      null, // no wacz -- partial capture
+      'partial',
+      { waitUntilReached: 'domcontentloaded', timedOut: true, durationMs: 25000 },
+    );
+
+    const res = await SELF.fetch(`https://worker.test/v1/verify/${partialId}`);
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('GET /v1/verify/{id} -- error cases', () => {
   it('404 for unknown capture ID', async () => {
     const unknownId = 'cap_' + '0'.repeat(32);

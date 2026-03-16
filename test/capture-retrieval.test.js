@@ -2,6 +2,20 @@ import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCapture, completeCapture } from '../src/kv.js';
 
+// ---------------------------------------------------------------------------
+// Partial capture seed IDs (outside main beforeEach to avoid conflicts)
+// ---------------------------------------------------------------------------
+const PARTIAL_ID = 'cap_' + 'f'.repeat(32);  // must be [a-f0-9]{32} to match route
+const PARTIAL_RENDER = {
+  waitUntilReached: 'domcontentloaded',
+  timedOut: true,
+  durationMs: 25000,
+};
+const PARTIAL_ARTIFACTS = {
+  screenshot: `captures/${PARTIAL_ID}/screenshot.png`,
+  html:       `captures/${PARTIAL_ID}/rendered.html`,
+};
+
 const SEED_ID = 'cap_' + 'a'.repeat(32);
 const SEED_URL = 'https://example.com';
 const SEED_ARTIFACTS = {
@@ -94,6 +108,78 @@ describe('GET /v1/captures/{id}', () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
     const body = await res.json();
     expect(body.ip).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures/{id} -- partial capture response shape
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures/{id} -- partial capture', () => {
+  beforeEach(async () => {
+    await env.KV.delete(`capture:${PARTIAL_ID}`);
+    await createCapture(env.KV, PARTIAL_ID, 'https://example.com', '93.184.216.34', 'default');
+    await completeCapture(env.KV, PARTIAL_ID, PARTIAL_ARTIFACTS, null, 'partial', PARTIAL_RENDER);
+    await env.BUCKET.put(PARTIAL_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71]));
+    await env.BUCKET.put(PARTIAL_ARTIFACTS.html, '<html>partial test</html>');
+  });
+
+  it('returns renderQuality: partial', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.renderQuality).toBe('partial');
+  });
+
+  it('returns render metadata', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
+    const body = await res.json();
+    expect(body.render).toEqual({
+      waitUntilReached: 'domcontentloaded',
+      timedOut: true,
+      durationMs: 25000,
+    });
+  });
+
+  it('omits wacz and verifyUrl for partial captures', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
+    const body = await res.json();
+    expect(body.wacz).toBeUndefined();
+    expect(body.verifyUrl).toBeUndefined();
+  });
+
+  it('defaults renderQuality to full for old records without renderQuality field', async () => {
+    const legacyId = 'cap_' + '0'.repeat(32);
+    await env.KV.delete(`capture:${legacyId}`);
+    await createCapture(env.KV, legacyId, 'https://example.com', '93.184.216.34', 'default');
+    // Write record without renderQuality (legacy shape)
+    await completeCapture(env.KV, legacyId, {
+      screenshot: `captures/${legacyId}/screenshot.png`,
+      html:       `captures/${legacyId}/rendered.html`,
+    });
+    await env.BUCKET.put(`captures/${legacyId}/screenshot.png`, new Uint8Array([137, 80, 78, 71]));
+    await env.BUCKET.put(`captures/${legacyId}/rendered.html`, '<html>legacy</html>');
+
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${legacyId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.renderQuality).toBe('full');
+  });
+
+  it('omits render for old records without render field', async () => {
+    const legacyId = 'cap_' + '1'.repeat(32);
+    await env.KV.delete(`capture:${legacyId}`);
+    await createCapture(env.KV, legacyId, 'https://example.com', '93.184.216.34', 'default');
+    await completeCapture(env.KV, legacyId, {
+      screenshot: `captures/${legacyId}/screenshot.png`,
+      html:       `captures/${legacyId}/rendered.html`,
+    });
+    await env.BUCKET.put(`captures/${legacyId}/screenshot.png`, new Uint8Array([137, 80, 78, 71]));
+    await env.BUCKET.put(`captures/${legacyId}/rendered.html`, '<html>legacy</html>');
+
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${legacyId}`);
+    const body = await res.json();
+    expect(body.render).toBeUndefined();
   });
 });
 

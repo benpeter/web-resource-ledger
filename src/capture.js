@@ -72,6 +72,8 @@ const MAX_PAGE_HEIGHT = 8000;
 const NAV_TIMEOUT_MS = 25000;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
+const PARTIAL_SCREENSHOT_TIMEOUT_MS = 3000;
+const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -107,7 +109,8 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       return;
     }
 
-    const { screenshot, html } = renderResult.value;
+    const { screenshot, html, partial, render } = renderResult.value;
+    const renderQuality = partial ? 'partial' : 'full';
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
       await log(env, 4, 'capture', { event: 'capture.header_fail', captureId, tenantId, cip });
@@ -133,52 +136,70 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     };
 
     // WACZ bundling (optional -- degrades gracefully if signing key is absent)
+    // Skipped for partial captures: WACZ requires a complete page load
     let waczInfo = null;
-    try {
-      const waczArtifacts = {
-        screenshot,
-        html,
-        headers, // may be null if header fetch failed
-      };
-      const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
-      if (result) {
-        const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId } = result;
-        await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
-          httpMetadata: {
-            contentType: 'application/wacz+zip',
-            contentDisposition: `attachment; filename="${waczHash}.wacz"`,
-          },
-        });
-        // Archive signing key BEFORE completeCapture() -- no race window
-        try {
-          await archiveSigningKey(env.KV, keyId, publicKeyBase64);
-        } catch (err) {
-          // Non-fatal: key may already be archived from a prior capture
-          await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip });
-        }
-        waczInfo = {
-          key: `captures/${waczHash}.wacz`,
-          bundleHash,
-          size: waczBytes.byteLength,
-          keyId,
+    if (!partial) {
+      try {
+        const waczArtifacts = {
+          screenshot,
+          html,
+          headers, // may be null if header fetch failed
         };
+        const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
+        if (result) {
+          const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId } = result;
+          await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
+            httpMetadata: {
+              contentType: 'application/wacz+zip',
+              contentDisposition: `attachment; filename="${waczHash}.wacz"`,
+            },
+          });
+          // Archive signing key BEFORE completeCapture() -- no race window
+          try {
+            await archiveSigningKey(env.KV, keyId, publicKeyBase64);
+          } catch (err) {
+            // Non-fatal: key may already be archived from a prior capture
+            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip });
+          }
+          waczInfo = {
+            key: `captures/${waczHash}.wacz`,
+            bundleHash,
+            size: waczBytes.byteLength,
+            keyId,
+          };
+        }
+      } catch (err) {
+        // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
+        // Distinguish from "no signing key" path (which returns null, no error)
+        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip });
       }
-    } catch (err) {
-      // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
-      // Distinguish from "no signing key" path (which returns null, no error)
-      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip });
     }
 
-    await completeCapture(env.KV, captureId, artifacts, waczInfo);
-    await log(env, 3, 'capture', {
-      event: 'capture.success',
-      captureId,
-      tenantId,
-      durationMs: Date.now() - start,
-      waczStatus: waczInfo ? 'ok' : 'skipped',
-      bundleSize: waczInfo?.size ?? 0,
-      cip,
-    });
+    await completeCapture(env.KV, captureId, artifacts, waczInfo, renderQuality, render || null);
+
+    if (partial) {
+      await log(env, 3, 'capture', {
+        event: 'capture.partial',
+        captureId,
+        tenantId,
+        cip,
+        renderQuality,
+        durationMs: Date.now() - start,
+        waczStatus: 'skipped',
+        render,
+      });
+    } else {
+      await log(env, 3, 'capture', {
+        event: 'capture.success',
+        captureId,
+        tenantId,
+        durationMs: Date.now() - start,
+        waczStatus: waczInfo ? 'ok' : 'skipped',
+        bundleSize: waczInfo?.size ?? 0,
+        renderQuality: 'full',
+        cip,
+      });
+    }
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
     await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
@@ -285,6 +306,7 @@ async function getOrCreateSession(browserBinding) {
  * @returns {Promise<{ screenshot: Uint8Array, html: string }>}
  */
 async function defaultRenderer(browserBinding, url) {
+  const renderStart = Date.now();
   const browser = await getOrCreateSession(browserBinding);
 
   // Defensive orphan cleanup: close any contexts left by a prior session user
@@ -342,7 +364,55 @@ async function defaultRenderer(browserBinding, url) {
 
     // Navigate with 25s timeout (leaves 5s headroom in ctx.waitUntil 30s budget)
     // Playwright uses 'networkidle' (not 'networkidle2')
-    await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'networkidle' });
+    try {
+      await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'networkidle' });
+    } catch (navError) {
+      if (navError.name === 'TimeoutError') {
+        // Check if DOM has at least loaded before attempting partial capture
+        const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
+        if (readyState !== 'interactive' && readyState !== 'complete') {
+          throw navError;
+        }
+
+        // 2000ms budget: renderer has been running ~25.5s; leaves margin for KV/R2 post-work
+        const deadline = Date.now() + 2000;
+        const remainingMs = () => Math.max(0, deadline - Date.now());
+
+        if (remainingMs() < 500) throw new Error('Deadline exceeded before partial capture could complete');
+
+        try {
+          // Cap viewport for tall pages
+          const pageHeight = await page.evaluate(() => document.body.scrollHeight);
+          if (pageHeight > MAX_PAGE_HEIGHT) {
+            await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
+          }
+
+          const screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: Math.min(PARTIAL_SCREENSHOT_TIMEOUT_MS, remainingMs()) });
+
+          if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
+
+          const html = await Promise.race([
+            page.content(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Content extraction timeout')), Math.min(PARTIAL_CONTENT_TIMEOUT_MS, remainingMs()))),
+          ]);
+
+          const navDurationMs = Date.now() - renderStart;
+          return {
+            screenshot,
+            html,
+            partial: true,
+            render: {
+              waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
+              timedOut: true,
+              durationMs: navDurationMs,
+            },
+          };
+        } catch {
+          throw new Error('Deadline exceeded before partial capture could complete');
+        }
+      }
+      throw navError;
+    }
 
     if (limitExceeded) throw new Error(limitExceeded);
 
@@ -355,7 +425,16 @@ async function defaultRenderer(browserBinding, url) {
     const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
     const html = await page.content();
 
-    return { screenshot, html };
+    return {
+      screenshot,
+      html,
+      partial: false,
+      render: {
+        waitUntilReached: 'networkidle',
+        timedOut: false,
+        durationMs: Date.now() - renderStart,
+      },
+    };
   } finally {
     // MANDATORY: close context before disconnecting to clear all isolation state
     await context.close();
@@ -374,6 +453,9 @@ async function defaultRenderer(browserBinding, url) {
 function categorizeError(error) {
   const msg = error?.message ?? '';
 
+  if (msg.includes('Deadline exceeded')) {
+    return { message: 'Page did not finish loading within 25 seconds', retryable: true };
+  }
   // Playwright throws TimeoutError (by name) for navigation and wait timeouts
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
     return { message: 'Page did not finish loading within 25 seconds', retryable: true };
