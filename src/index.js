@@ -72,6 +72,7 @@ async function handleCreateCapture(request, env, ctx) {
     ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status }) ?? Promise.resolve());
     return auth.response;
   }
+  const { tenantId } = auth;
 
   // Step 3: Rate limit check
   if (env.CAPTURE_RATE_LIMITER) {
@@ -112,7 +113,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
   if (!result.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail }) ?? Promise.resolve());
     return problemResponse(result.status, result.detail);
   }
 
@@ -121,13 +122,13 @@ async function handleCreateCapture(request, env, ctx) {
 
   // Step 8: Write pending record to KV (synchronously before returning 202)
   try {
-    await createCapture(env.KV, captureId, result.url, result.ip);
+    await createCapture(env.KV, captureId, result.url, result.ip, tenantId);
   } catch {
     return problemResponse(500, 'Could not create capture record');
   }
 
   // Step 9: Trigger background capture
-  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId));
+  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId));
 
   // Step 10: Build absolute status URL
   const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;

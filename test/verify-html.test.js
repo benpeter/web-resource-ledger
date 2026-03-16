@@ -46,8 +46,8 @@ beforeEach(async () => {
     .reply(200, 'ok', { headers: { 'content-type': 'text/html' } });
 
   // Create a real capture with a signed WACZ
-  await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-  await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+  await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+  await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 });
 
 afterEach(() => {

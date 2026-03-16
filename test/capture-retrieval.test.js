@@ -17,7 +17,7 @@ const SEED_WACZ = {
 
 beforeEach(async () => {
   await env.KV.delete(`capture:${SEED_ID}`);
-  await createCapture(env.KV, SEED_ID, SEED_URL, '93.184.216.34');
+  await createCapture(env.KV, SEED_ID, SEED_URL, '93.184.216.34', 'default');
   await completeCapture(env.KV, SEED_ID, SEED_ARTIFACTS, SEED_WACZ);
 
   // Seed R2 with test artifact data
@@ -122,7 +122,7 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
   it('wacz-absent returns 404', async () => {
     const noWaczId = 'cap_' + 'c'.repeat(32);
     await env.KV.delete(`capture:${noWaczId}`);
-    await createCapture(env.KV, noWaczId, SEED_URL, '93.184.216.34');
+    await createCapture(env.KV, noWaczId, SEED_URL, '93.184.216.34', 'default');
     await completeCapture(env.KV, noWaczId, {
       screenshot: `captures/${noWaczId}/screenshot.png`,
       html:       `captures/${noWaczId}/rendered.html`,
@@ -136,7 +136,7 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
   it('pending capture returns 404 on artifact route', async () => {
     const pendingId = 'cap_' + 'd'.repeat(32);
     await env.KV.delete(`capture:${pendingId}`);
-    await createCapture(env.KV, pendingId, SEED_URL, '93.184.216.34');
+    await createCapture(env.KV, pendingId, SEED_URL, '93.184.216.34', 'default');
 
     const res = await SELF.fetch(`https://worker.test/v1/captures/${pendingId}/artifacts/screenshot`);
     expect(res.status).toBe(404);
@@ -145,7 +145,7 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
   it('absent optional artifact (headers) returns 404', async () => {
     const noHeadersId = 'cap_' + 'e'.repeat(32);
     await env.KV.delete(`capture:${noHeadersId}`);
-    await createCapture(env.KV, noHeadersId, SEED_URL, '93.184.216.34');
+    await createCapture(env.KV, noHeadersId, SEED_URL, '93.184.216.34', 'default');
     await completeCapture(env.KV, noHeadersId, {
       screenshot: `captures/${noHeadersId}/screenshot.png`,
       html:       `captures/${noHeadersId}/rendered.html`,

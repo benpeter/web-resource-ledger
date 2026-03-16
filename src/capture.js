@@ -88,9 +88,10 @@ const KEEP_ALIVE_MS = 120000; // 2 minutes
  * @param {string} url Validated URL string
  * @param {string} ip Resolved IP string (informational)
  * @param {string} captureId Capture ID (e.g. cap_abc123...)
+ * @param {string} tenantId Tenant identifier
  * @param {Function} [renderer] Injectable rendering function (defaults to defaultRenderer)
  */
-export async function performCapture(env, url, ip, captureId, renderer = defaultRenderer) {
+export async function performCapture(env, url, ip, captureId, tenantId, renderer = defaultRenderer) {
   const start = Date.now();
   try {
     const [renderResult, headerResult] = await Promise.allSettled([
@@ -100,7 +101,7 @@ export async function performCapture(env, url, ip, captureId, renderer = default
 
     if (renderResult.status === 'rejected') {
       const { message, retryable } = categorizeError(renderResult.reason);
-      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, stage: 'browser_render', errorCategory: message, retryable });
+      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable });
       await failCapture(env.KV, captureId, message, retryable);
       return;
     }
@@ -108,7 +109,7 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     const { screenshot, html } = renderResult.value;
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
-      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId });
+      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId, tenantId });
     }
 
     // Store artifacts in R2
@@ -156,24 +157,25 @@ export async function performCapture(env, url, ip, captureId, renderer = default
     } catch (err) {
       // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
       // Distinguish from "no signing key" path (which returns null, no error)
-      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId });
+      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId });
     }
 
     await completeCapture(env.KV, captureId, artifacts, waczInfo);
     await log(env, 3, 'capture', {
       event: 'capture.success',
       captureId,
+      tenantId,
       durationMs: Date.now() - start,
       waczStatus: waczInfo ? 'ok' : 'skipped',
       bundleSize: waczInfo?.size ?? 0,
     });
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
-    await log(env, 5, 'capture', { event: 'capture.fail', captureId, stage: 'catch_all', errorClass: err?.constructor?.name });
+    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
     } catch {
-      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId });
+      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId });
     }
   }
 }
