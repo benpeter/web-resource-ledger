@@ -36,3 +36,4 @@ software development.
 | [0025-rfc3161-timestamps](0025-rfc3161-timestamps/) | RFC 3161 timestamp integration -- independent TSA temporal proof (Issue #41) |
 | [0026-secrets-env-docs-onboarding](0026-secrets-env-docs-onboarding/) | Secrets and environment documentation for fork-ready onboarding |
 | [0027-dual-screenshot-consent](0027-dual-screenshot-consent/) | Dual-screenshot cookie consent dismissal via autoconsent (Issue #58) |
+| [0028-tsa-sectigo](0028-tsa-sectigo/) | Switch RFC 3161 TSA from DigiCert to Sectigo (Issue #66) |
