@@ -12,7 +12,7 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. Consent has an 8s hard timeout within the
- *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s load + 3s settle + 8s consent ≈ 33s worst-case; in practice load fires in 2-5s).
+ *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s load + 3s settle + 8s consent + 2s post ≈ 33s worst-case; in practice load fires in 2-5s).
  *   Partial captures skip consent entirely.
  *
  * Called from ctx.waitUntil() -- must always update KV (never leave pending).
