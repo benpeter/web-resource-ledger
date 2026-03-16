@@ -42,7 +42,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
-      - uses: cloudflare/wrangler-action@da0e0edf58b41e3cd8317c1a9dbb2f0cd2791a54 # v3.14.0
+      - uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           secrets: |
