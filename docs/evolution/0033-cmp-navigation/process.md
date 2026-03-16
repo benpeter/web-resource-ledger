@@ -126,9 +126,72 @@ Actionable findings addressed:
   lifecycle transitions" rather than "pre-creation requests" (the `if (page)`
   guard handles pre-creation)
 
+## Refinement: Late-loading CMP iframe injection
+
+After the initial PR #82 review cycle, a second nefario orchestration ran to
+address the remaining gap: CMP iframes that load after page.frames() is called
+(e.g. OneTrust on NYT) never received autoconsent.
+
+### Specialists consulted (refinement)
+
+- **frontend-minion** (required by user): Designed the framenavigated listener
+  pattern. Key insight: use `framenavigated` not `frameattached` because the
+  execution context is only ready after navigation commit. Traced through
+  @cloudflare/playwright source to confirm.
+
+- **debugger-minion**: Diagnosed Sourcepoint opt-out failure as a selector
+  mismatch (autoconsent 14.59.0 buttons don't match current Sourcepoint SDK).
+  Not fixable without vendored script update -- backlog item.
+
+- **edge-minion** (required by user): Confirmed framenavigated support in
+  @cloudflare/playwright via type definitions and compiled implementation.
+  Validated timing budget not worsened. Noted that framenavigated may
+  inadvertently help Sourcepoint by re-injecting after about:blank navigation.
+
+- **test-minion**: Recommended consent.test.js for pure logic and scripted
+  14-site staging validation. No mock tests for frame events.
+
+### What changed (refinement)
+
+Added `page.on('framenavigated', injectIntoFrame)` listener to both
+`_dismissWithBinding` and `_dismissWithPolling` in consent.js. Dedup via
+`Set<Frame>`, capped at MAX_INJECTED_FRAMES=50 (security bound from
+security-minion). Cleanup in try/finally.
+
+### Staging validation (14 sites)
+
+| Site | Consent | CMP | Notes |
+|------|---------|-----|-------|
+| cnn.com | **success** | **Onetrust** | OneTrust dismissed in 204ms |
+| reuters.com | **success** | **Onetrust** | OneTrust dismissed in 500ms |
+| theguardian.com | failed | Sourcepoint-frame | Detected, selector mismatch |
+| spiegel.de | failed | Sourcepoint-frame | Detected, selector mismatch |
+| zeit.de | failed | Sourcepoint-frame | Detected, selector mismatch |
+| nytimes.com | notDetected | none | OneTrust variant differs from CNN/Reuters |
+| bbc.co.uk | notDetected | none | No CMP (correct) |
+| yahoo.com | notDetected | none | No CMP or geo-gated |
+| microsoft.com | notDetected | none | No CMP or geo-gated |
+| lemonde.fr | notDetected | none | CMP likely geo-gated to EU |
+| stackoverflow.com | notDetected | none | No CMP detected |
+| github.com | notDetected | none | No CMP detected |
+| sap.com | failed | n/a | Subresource limit (pre-existing) |
+| amazon.de | failed | n/a | Subresource limit (pre-existing) |
+
+The framenavigated listener delivers the key improvement: OneTrust CMPs that
+load via iframe after page load are now detected and dismissed. CNN and Reuters
+confirm the pattern works. NYT's OneTrust implementation appears to differ
+(possibly no iframe, or different loading pattern).
+
+### Review consensus (refinement)
+
+7 reviewers (5 mandatory + frontend-minion + edge-minion): 5 APPROVE, 2 ADVISE.
+Key advisories incorporated: MAX_INJECTED_FRAMES cap, catch block comments,
+backlog updates, named function reference for page.off cleanup.
+
 ## Where to read more
 
-- Specialist planning contributions: `docs/history/nefario-reports/2026-03-16-235320-cmp-navigation/`
-- Synthesis/delegation plan: `phase3-synthesis.md` in the working files
+- Initial specialist planning: `docs/history/nefario-reports/2026-03-16-235320-cmp-navigation/`
+- Refinement specialist planning: `docs/history/nefario-reports/2026-03-17-005722-late-loading-cmp-iframes/`
+- Synthesis/delegation plans: `phase3-synthesis.md` in the respective working files
 - Architecture review verdicts: `phase3.5-*.md` in the working files
 - Code review findings: `phase5-*.md` in the working files

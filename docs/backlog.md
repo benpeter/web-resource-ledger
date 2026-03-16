@@ -80,7 +80,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[should] Screenshot timing / wait-for-load~~ | ~~When a user reports incomplete renders~~ | DONE (0029-load-settle-strategy, #67) |
 | ~~[should] Dual-screenshot cookie consent dismissal (#58)~~ | ~~After Act 1 and Wave 2 merge~~ | DONE (0025-dual-screenshot-consent) |
 | [consider] E2E staging test for CMP iframe consent detection | When staging test infrastructure supports real Playwright browser | test-minion, Phase 0033 |
-| [should] Inject autoconsent into late-loading CMP iframes | When NYT-style lazy CMPs need support (framenavigated listener) | test-minion, Phase 0033 |
+| ~~[should] Inject autoconsent into late-loading CMP iframes~~ | ~~When NYT-style lazy CMPs need support~~ | DONE (Phase 0033 refinement, framenavigated listener) |
+| [should] Update vendored autoconsent to fix Sourcepoint opt-out | When Sourcepoint selector mismatch causes opt-out failure on Guardian/Spiegel/Zeit | debugger-minion, Phase 0033 |
 | [consider] Distinguish timeout vs failed in consent API result | When audit consumers need to differentiate CMP engagement outcomes | ux-strategy-minion, Phase 0033 |
 | [consider] Screenshot height cap configurability | When a user reports capped screenshots as a problem | edge-minion, capture-endpoint |
 | [consider] Viewport parameterization | When a user reports viewport size as a problem | 0017-advisory: api-design, security |
