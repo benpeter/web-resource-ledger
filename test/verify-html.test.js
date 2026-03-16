@@ -47,7 +47,7 @@ beforeEach(async () => {
 
   // Create a real capture with a signed WACZ
   await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-  await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+  await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 });
 
 afterEach(() => {
