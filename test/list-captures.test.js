@@ -393,3 +393,15 @@ describe('GET /v1/captures -- headers', () => {
     expect(res.headers.get('Content-Type')).toContain('application/json');
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures -- X-RateLimit headers
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- X-RateLimit headers', () => {
+  it('returns X-RateLimit-Limit: 10', async () => {
+    const res = await listCaptures();
+    expect(res.status).toBe(200);
+    expect(res.headers.get('X-RateLimit-Limit')).toBe('10');
+  });
+});
