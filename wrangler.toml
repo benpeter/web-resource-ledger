@@ -41,7 +41,7 @@ binding = "BROWSER"
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
-TSA_URL = "https://timestamp.digicert.com"
+TSA_URL = "https://timestamp.sectigo.com"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -86,7 +86,7 @@ binding = "BROWSER"
 [env.staging.vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
-TSA_URL = "https://timestamp.digicert.com"
+TSA_URL = "https://timestamp.sectigo.com"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
