@@ -1,0 +1,1 @@
+Should we switch the archive format to HAR? Are we already taking advantage of the Playwright capability for that?
