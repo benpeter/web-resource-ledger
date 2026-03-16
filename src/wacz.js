@@ -6,10 +6,15 @@
  *   2. Builds CDXJ index (cdxj.js)
  *   3. Assembles datapackage.json with SHA-256 hashes
  *   4. Signs bundle hash with Ed25519 (signing.js)
- *   5. Assembles datapackage-digest.json
- *   6. Zips all files with fflate (STORE mode, level 0)
+ *   5. Requests RFC 3161 timestamp from TSA (rfc3161.js, optional)
+ *   6. Assembles datapackage-digest.json with signatures array (v0.2.0)
+ *   7. Zips all files with fflate (STORE mode, level 0)
+ *
+ * datapackage-digest.json v0.2.0: signedData.signatures array with
+ * type:"self" (Ed25519) and optional type:"rfc3161" (TSA timestamp).
  *
  * Graceful degradation: returns null if signing key is unavailable.
+ * TSA timestamp is optional -- capture succeeds without it.
  *
  * Tests: test/wacz.test.js
  */ // tva

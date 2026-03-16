@@ -329,8 +329,9 @@ function parseAndValidate(der, sentNonceBytes, bundleHash, tsaUrl) {
   // child 0 of PKIStatusInfo: status INTEGER
   const statusTlv = childAt(der, pkiValueStart, pkiValueEnd, 0);
   if (statusTlv.tag !== 0x02) throw new Error('DER: PKIStatus must be INTEGER');
-  // Status value is small -- take the last byte (handles 1-byte and multi-byte encodings)
-  const status = statusTlv.value[statusTlv.value.length - 1];
+  // Read status as big-endian integer (values 0-5 per RFC 3161, always single-byte in practice)
+  let status = 0;
+  for (const b of statusTlv.value) status = (status << 8) | b;
   if (status !== 0) throw new Error(`TSA rejected request with PKIStatus ${status}`);
 
   // child 1: TimeStampToken (ContentInfo SEQUENCE)
@@ -365,8 +366,11 @@ function parseAndValidate(der, sentNonceBytes, bundleHash, tsaUrl) {
   }
 
   // Capture raw token DER bytes for storage (base64-encoded)
+  // Use a loop instead of spread to avoid RangeError on large responses
   const tokenBytes = der.subarray(tokenTagOffset, tokenTlv.end);
-  const token = btoa(String.fromCharCode(...tokenBytes));
+  let binary = '';
+  for (let i = 0; i < tokenBytes.length; i++) binary += String.fromCharCode(tokenBytes[i]);
+  const token = btoa(binary);
 
   return { token, genTime, tsa: tsaUrl };
 }
@@ -503,7 +507,7 @@ function parseTSTInfo(buf) {
         break;
       }
       default:
-        // nonce is an optional INTEGER at child 5 or later (after accuracy/ordering)
+        // nonce is an optional INTEGER field after genTime (RFC 3161 TSTInfo field 7)
         if (childIdx > 4 && child.tag === 0x02) {
           nonceHex = [...child.value].map(b => b.toString(16).padStart(2, '0')).join('');
         }
@@ -527,7 +531,8 @@ function parseTSTInfo(buf) {
  * @returns {string}
  */
 function parseGeneralizedTime(gt) {
-  const s = gt.endsWith('Z') ? gt.slice(0, -1) : gt;
+  if (!gt.endsWith('Z')) throw new Error('GeneralizedTime must be UTC (trailing Z required)');
+  const s = gt.slice(0, -1);
   const year   = s.slice(0, 4);
   const month  = s.slice(4, 6);
   const day    = s.slice(6, 8);
