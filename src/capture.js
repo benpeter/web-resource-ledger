@@ -217,6 +217,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         durationMs: Date.now() - start,
         waczStatus: 'skipped',
         render,
+        ...(render?.stages ?? {}),
       });
     } else {
       await log(env, 3, 'capture', {
@@ -231,7 +232,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
         consentStatus: consent?.status ?? null,
         consentCmp: consent?.cmp ?? null,
-        consentDurationMs: consent?.durationMs ?? null,
+        ...(render?.stages ?? {}),
       });
     }
   } catch (err) {
@@ -344,6 +345,7 @@ async function getOrCreateSession(browserBinding) {
 async function defaultRenderer(browserBinding, url) {
   const renderStart = Date.now();
   const browser = await getOrCreateSession(browserBinding);
+  const tSession = Date.now();
 
   // Defensive orphan cleanup: close any contexts left by a prior session user
   for (const ctx of browser.contexts()) {
@@ -388,6 +390,7 @@ async function defaultRenderer(browserBinding, url) {
     });
 
     const page = await context.newPage();
+    const tContext = Date.now();
 
     // Response monitoring for total page size
     page.on('response', (resp) => {
@@ -404,6 +407,7 @@ async function defaultRenderer(browserBinding, url) {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
     } catch (navError) {
       if (navError.name === 'TimeoutError') {
+        const tNav = Date.now();
         // Check if DOM has at least loaded before attempting partial capture
         const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
         if (readyState !== 'interactive' && readyState !== 'complete') {
@@ -424,6 +428,7 @@ async function defaultRenderer(browserBinding, url) {
           }
 
           const screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: Math.min(PARTIAL_SCREENSHOT_TIMEOUT_MS, remainingMs()) });
+          const tScreenshot = Date.now();
 
           if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
 
@@ -431,8 +436,8 @@ async function defaultRenderer(browserBinding, url) {
             page.content(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Content extraction timeout')), Math.min(PARTIAL_CONTENT_TIMEOUT_MS, remainingMs()))),
           ]);
+          const tContent = Date.now();
 
-          const navDurationMs = Date.now() - renderStart;
           return {
             screenshot,
             html,
@@ -440,7 +445,16 @@ async function defaultRenderer(browserBinding, url) {
             render: {
               waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
               timedOut: true,
-              durationMs: navDurationMs,
+              durationMs: tContent - renderStart,
+              stages: {
+                sessionAcquireMs: tSession - renderStart,
+                contextSetupMs: tContext - tSession,
+                navigationMs: tNav - tContext,
+                settleMs: null,
+                consentMs: null,
+                screenshotMs: tScreenshot - tNav,
+                contentMs: tContent - tScreenshot,
+              },
             },
             consent: null,
             screenshotBefore: null,
@@ -453,6 +467,7 @@ async function defaultRenderer(browserBinding, url) {
     }
 
     if (limitExceeded) throw new Error(limitExceeded);
+    const tNav = Date.now();
 
     // Settle delay: allow async resources (analytics, ads) to finish loading
     // before taking screenshots. 'load' fires before tracking scripts settle.
@@ -461,6 +476,7 @@ async function defaultRenderer(browserBinding, url) {
     // SECURITY: async response events can push totalBytes past MAX_PAGE_BYTES
     // during the settle delay. Re-check after settling.
     if (limitExceeded) throw new Error(limitExceeded);
+    const tSettle = Date.now();
 
     // Cap screenshot height to prevent memory exhaustion
     const pageHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -472,6 +488,7 @@ async function defaultRenderer(browserBinding, url) {
     const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
 
     const consent = await dismissCookieConsent(page);
+    const tConsent = Date.now();
 
     // After-screenshot only when consent was successfully dismissed
     let screenshot;
@@ -480,8 +497,10 @@ async function defaultRenderer(browserBinding, url) {
     } else {
       screenshot = screenshotBefore;
     }
+    const tScreenshot = Date.now();
 
     const html = await page.content();
+    const tContent = Date.now();
 
     return {
       screenshot,
@@ -490,7 +509,16 @@ async function defaultRenderer(browserBinding, url) {
       render: {
         waitUntilReached: 'load',
         timedOut: false,
-        durationMs: Date.now() - renderStart,
+        durationMs: tContent - renderStart,
+        stages: {
+          sessionAcquireMs: tSession - renderStart,
+          contextSetupMs: tContext - tSession,
+          navigationMs: tNav - tContext,
+          settleMs: tSettle - tNav,
+          consentMs: tConsent - tSettle,
+          screenshotMs: tScreenshot - tConsent,
+          contentMs: tContent - tScreenshot,
+        },
       },
       consent,
       screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,

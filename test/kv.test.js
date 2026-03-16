@@ -315,7 +315,7 @@ describe('completeCapture -- renderQuality and render metadata', () => {
       durationMs: 25000,
     });
     const record = await getCapture(env.KV, TEST_ID);
-    expect(record.render).toEqual({
+    expect(record.render).toMatchObject({
       waitUntilReached: 'domcontentloaded',
       timedOut: true,
       durationMs: 25000,

@@ -288,6 +288,71 @@ components:
             was captured (either at load + settle delay, or at timeout).
           examples:
             - 25012
+        stages:
+          $ref: '#/components/schemas/RenderStages'
+          description: >
+            Per-stage timing breakdown. Present on captures created after
+            stage-level instrumentation was deployed. Absent on earlier captures.
+
+    RenderStages:
+      type: object
+      description: >
+        Per-stage wall-clock durations within the rendering pipeline. All
+        properties are present on every instrumented capture. Null values
+        indicate stages that were not executed (e.g., consent on partial
+        captures). The sum of non-null stages approximates but does not
+        exactly equal render.durationMs due to inter-stage overhead.
+      required:
+        - sessionAcquireMs
+        - contextSetupMs
+        - navigationMs
+        - settleMs
+        - consentMs
+        - screenshotMs
+        - contentMs
+      properties:
+        sessionAcquireMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms to acquire a browser session from the pool.
+        contextSetupMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms to create BrowserContext, set up routes, and open a page.
+        navigationMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms from page.goto() to the target milestone or timeout.
+        settleMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms for the post-navigation settle delay. Null on partial captures.
+        consentMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms for cookie consent detection and dismissal. Null on partial captures.
+        screenshotMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms to capture screenshot(s).
+        contentMs:
+          type:
+            - integer
+            - 'null'
+          minimum: 0
+          description: Time in ms to extract rendered HTML via page.content().
 
     CaptureRecord:
       type: object
