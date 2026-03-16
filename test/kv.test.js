@@ -295,6 +295,48 @@ describe('listCaptures', () => {
   });
 });
 
+describe('completeCapture -- renderQuality and render metadata', () => {
+  it('stores renderQuality when provided', async () => {
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await completeCapture(env.KV, TEST_ID, TEST_ARTIFACTS, null, 'partial', {
+      waitUntilReached: 'domcontentloaded',
+      timedOut: true,
+      durationMs: 25000,
+    });
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBe('partial');
+  });
+
+  it('stores render metadata when provided', async () => {
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await completeCapture(env.KV, TEST_ID, TEST_ARTIFACTS, null, 'partial', {
+      waitUntilReached: 'domcontentloaded',
+      timedOut: true,
+      durationMs: 25000,
+    });
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render).toEqual({
+      waitUntilReached: 'domcontentloaded',
+      timedOut: true,
+      durationMs: 25000,
+    });
+  });
+
+  it('omits renderQuality when not provided (backward compat)', async () => {
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await completeCapture(env.KV, TEST_ID, TEST_ARTIFACTS);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBeUndefined();
+  });
+
+  it('omits render when not provided', async () => {
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await completeCapture(env.KV, TEST_ID, TEST_ARTIFACTS);
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render).toBeUndefined();
+  });
+});
+
 describe('tenantPrefix', () => {
   it('returns "tenant:default:" for "default"', () => {
     expect(tenantPrefix('default')).toBe('tenant:default:');

@@ -572,3 +572,213 @@ describe('captureHeaders -- scheme guard', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Partial capture stub renderers
+// ---------------------------------------------------------------------------
+
+const partialRenderer = async () => ({
+  screenshot: PNG_BYTES,
+  html: TEST_HTML,
+  partial: true,
+  render: {
+    waitUntilReached: 'domcontentloaded',
+    timedOut: true,
+    durationMs: 25000,
+  },
+});
+
+const partialLoadRenderer = async () => ({
+  screenshot: PNG_BYTES,
+  html: TEST_HTML,
+  partial: true,
+  render: {
+    waitUntilReached: 'load',
+    timedOut: true,
+    durationMs: 25000,
+  },
+});
+
+const enrichedStubRenderer = async () => ({
+  screenshot: PNG_BYTES,
+  html: TEST_HTML,
+  partial: false,
+  render: {
+    waitUntilReached: 'networkidle',
+    timedOut: false,
+    durationMs: 3500,
+  },
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- partial capture (timeout with DOMContentLoaded)
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- partial capture (timeout with DOMContentLoaded)', () => {
+  it('transitions KV status to complete', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('complete');
+  });
+
+  it('sets renderQuality to partial', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBe('partial');
+  });
+
+  it('stores render metadata in KV record', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render.waitUntilReached).toBe('domcontentloaded');
+    expect(record.render.timedOut).toBe(true);
+    expect(record.render.durationMs).toBe(25000);
+  });
+
+  it('writes R2 artifacts: screenshot.png and rendered.html', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const screenshot = await env.BUCKET.get(`captures/${TEST_ID}/screenshot.png`);
+    await screenshot?.arrayBuffer();
+    const html = await env.BUCKET.get(`captures/${TEST_ID}/rendered.html`);
+    await html?.text();
+    expect(screenshot).not.toBeNull();
+    expect(html).not.toBeNull();
+  });
+
+  it('KV record has no wacz field', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.wacz).toBeUndefined();
+  });
+
+  it('header fetch still runs (headers.json written when available)', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.artifacts.headers).toBe(`captures/${TEST_ID}/headers.json`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- partial capture with load event
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- partial capture with load event', () => {
+  it('stores waitUntilReached as load', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialLoadRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render.waitUntilReached).toBe('load');
+  });
+
+  it('still sets renderQuality to partial', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialLoadRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBe('partial');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- partial capture failure paths
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- partial capture failure paths', () => {
+  it('deadline exceeded in renderer -> KV failed', async () => {
+    const deadlineRenderer = async () => {
+      throw new Error('Deadline exceeded before partial capture could complete');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, deadlineRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+  });
+
+  it('existing timeout (no DOMContentLoaded) still fails', async () => {
+    const timeoutRenderer = async () => {
+      throw new Error('Navigation timeout of 25000 ms exceeded');
+    };
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, timeoutRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.retryable).toBe(true);
+    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- full capture with render metadata
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- full capture with render metadata', () => {
+  it('sets renderQuality to full', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, enrichedStubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBe('full');
+  });
+
+  it('stores render metadata for full captures', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, enrichedStubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render.waitUntilReached).toBe('networkidle');
+    expect(record.render.timedOut).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- legacy renderer (backward compat)
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- legacy renderer (backward compat)', () => {
+  it('record has renderQuality full', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.renderQuality).toBe('full');
+  });
+
+  it('record has no render metadata', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.render).toBeUndefined();
+  });
+});

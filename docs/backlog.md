@@ -45,7 +45,7 @@ word "evidence" defensible.
 Expand WRL into a platform that other tools and agents build on.
 
 - #45 **R15: MCP server for web evidence** [M] -- AI agent integration; depends on R1, R11 recommended
-- #46 **R16: Queue migration for capture processing** [M] -- data-driven: when timeouts >5%
+- #46 **R16: Queue migration for capture processing** [M] -- data-driven: when timeouts >5%; staged fallback now handles partial captures, R16 still needed for full WACZ on all captures
 - #47 **R17: Web UI for capture submission** [M] -- browser-based capture; depends on R1, R3
 - #48 **R18: Batch capture endpoint** [M] -- bulk archival workflows; depends on R1, R5
 
@@ -82,6 +82,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Screenshot height cap configurability | When a user reports capped screenshots as a problem | edge-minion, capture-endpoint |
 | [consider] Viewport parameterization | When a user reports viewport size as a problem | 0017-advisory: api-design, security |
 | [consider] Capture options metadata schema (`captureSettings`) | When any capture parameterization feature ships | 0017-advisory: data-minion |
+| [consider] WACZ captureQuality in datapackage.json | When partial captures are common enough to warrant evidence chain enrichment | security-minion, staged-fallback-timeout advisory |
 
 ### API Enhancements
 

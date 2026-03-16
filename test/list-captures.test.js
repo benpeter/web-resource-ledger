@@ -405,3 +405,28 @@ describe('GET /v1/captures -- X-RateLimit headers', () => {
     expect(res.headers.get('X-RateLimit-Limit')).toBe('10');
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures -- renderQuality in CaptureSummary
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- renderQuality in CaptureSummary', () => {
+  it('list response includes renderQuality for partial captures', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-08-01T10:00:00.000Z'));
+    const partialId = 'cap_partiallist123456789012abcdef1';
+    await createCapture(env.KV, partialId, 'https://example.com/partial', '1.2.3.4', TENANT_ID);
+    vi.setSystemTime(new Date('2024-08-01T10:00:10.000Z'));
+    await completeCapture(env.KV, partialId, {
+      screenshot: `captures/${partialId}/screenshot.png`,
+      html: `captures/${partialId}/rendered.html`,
+    }, null, 'partial', { waitUntilReached: 'domcontentloaded', timedOut: true, durationMs: 25000 });
+
+    const res = await listCaptures({ status: 'complete' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const item = body.data.find(d => d.id === partialId);
+    expect(item).toBeDefined();
+    expect(item.renderQuality).toBe('partial');
+  });
+});

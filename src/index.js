@@ -278,6 +278,7 @@ async function handleListCaptures(request, env, ctx) {
     };
     if (r.status === 'complete') {
       summary.completedAt = r.completedAt;
+      summary.renderQuality = r.renderQuality ?? 'full';
     } else if (r.status === 'failed') {
       summary.failedAt = r.failedAt;
       summary.error = r.error;
@@ -334,8 +335,13 @@ async function handleGetCapture(request, env, ctx, match) {
     url: record.url,
     createdAt: record.createdAt,
     completedAt: record.completedAt,
+    renderQuality: record.renderQuality ?? 'full',
     artifacts,
   };
+
+  if (record.render) {
+    body.render = record.render;
+  }
 
   if (record.wacz) {
     body.wacz = {
@@ -458,7 +464,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
     // Return a verification result (not 500) -- this is an observable fact.
     return jsonResponse({
       verified: false,
-      capture: { id: record.captureId, createdAt: record.createdAt, completedAt: record.completedAt },
+      capture: { id: record.captureId, createdAt: record.createdAt, completedAt: record.completedAt, renderQuality: record.renderQuality ?? 'full' },
       signing: null,
       checks: [
         { name: 'artifactHashes', status: 'fail', detail: 'WACZ bundle not found in storage' },
@@ -485,6 +491,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
       id: record.captureId,
       createdAt: record.createdAt,
       completedAt: record.completedAt,
+      renderQuality: record.renderQuality ?? 'full',
     },
     signing: result.capture || null,
     checks: result.checks,

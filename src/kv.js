@@ -92,8 +92,10 @@ export async function createCapture(kv, captureId, url, ip, tenantId) {
  * @param {string} captureId
  * @param {{ screenshot: string, html: string, headers: string }} artifacts
  * @param {{ key: string, bundleHash: string, size: number } | null} [wacz=null]
+ * @param {string | null} [renderQuality=null] 'full' or 'partial'; null for pre-feature records
+ * @param {{ waitUntilReached: string, timedOut: boolean, durationMs: number } | null} [render=null]
  */
-export async function completeCapture(kv, captureId, artifacts, wacz = null) {
+export async function completeCapture(kv, captureId, artifacts, wacz = null, renderQuality = null, render = null) {
   const existing = await kv.get(`${KEY_PREFIX}${captureId}`, 'json');
   if (!existing) return; // Expired or missing -- nothing to update
   const value = {
@@ -102,6 +104,8 @@ export async function completeCapture(kv, captureId, artifacts, wacz = null) {
     completedAt: new Date().toISOString(),
     artifacts,
     ...(wacz ? { wacz } : {}),
+    ...(renderQuality ? { renderQuality } : {}),
+    ...(render ? { render } : {}),
   };
   await kv.put(`${KEY_PREFIX}${captureId}`, JSON.stringify(value));
   // No expirationTtl -- completed records persist
