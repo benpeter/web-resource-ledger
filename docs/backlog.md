@@ -25,7 +25,7 @@ security hardening for the current single-operator use case.
 - ~~#33 **R3: CORS for capture POST** [S]~~ -- DONE: configurable origin allowlist, preflight handler, CORS headers on all POST responses including errors
 - ~~#34 **R4: HSTS preload submission** [XS]~~ -- DONE: `preload` directive added; post-merge: submit domain to hstspreload.org
 - ~~#35 **R5: X-RateLimit-Limit header** [XS]~~ -- DONE: per-IP ceiling on rate-limited endpoints; global limiter 503s omit header
-- #36 **R6: Hashed IP logging** [S] -- HMAC-SHA256 abuse correlation without PII
+- ~~#36 **R6: Hashed IP logging** [S]~~ -- DONE: HMAC-SHA256 `cip` field in all log entries
 - ~~#37 **R7: Content moderation policy and ToS** [S]~~ -- DONE: TERMS.md + CONTENT-POLICY.md at repo root, Link header on all responses
 - ~~#39 **R9: Staging environment** [S]~~ -- DONE: wrangler.toml env.staging, deploy-staging.yml, smoke-test.sh
 - ~~#40 **R10: Backlog cleanup and restructure** [S]~~ -- DONE: this document
@@ -170,6 +170,7 @@ Completed items removed from active tracking:
 - ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration)
 - ~~Cross-domain navigation blocking~~ -- DONE (playwright-migration)
 - ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint)
+- ~~R6: Hashed IP logging~~ -- DONE (hashed-ip-logging phase): HMAC-SHA256 `cip` field, daily key rotation, graceful degradation
 - ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
 - ~~HSTS header~~ -- DONE (static-verification-page)
 

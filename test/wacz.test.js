@@ -78,7 +78,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('writes at least one .wacz object to R2 after capture', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const listed = await env.BUCKET.list({ prefix: 'captures/' });
     const waczObjects = listed.objects.filter(obj => obj.key.endsWith('.wacz'));
@@ -88,7 +88,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('WACZ contains expected files', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const listed = await env.BUCKET.list({ prefix: 'captures/' });
     const waczKey = listed.objects.find(obj => obj.key.endsWith('.wacz'))?.key;
@@ -108,7 +108,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('datapackage.json has correct structure', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const listed = await env.BUCKET.list({ prefix: 'captures/' });
     const waczKey = listed.objects.find(obj => obj.key.endsWith('.wacz'))?.key;
@@ -138,7 +138,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('resource hashes in datapackage.json match actual file bytes', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const listed = await env.BUCKET.list({ prefix: 'captures/' });
     const waczKey = listed.objects.find(obj => obj.key.endsWith('.wacz'))?.key;
@@ -168,7 +168,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('datapackage-digest.json includes keyId in signedData', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const listed = await env.BUCKET.list({ prefix: 'captures/' });
     const waczKey = listed.objects.find(obj => obj.key.endsWith('.wacz'))?.key;
@@ -185,7 +185,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('KV record includes wacz.keyId after capture', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.wacz.keyId).toBeDefined();
@@ -196,7 +196,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('datapackage-digest.json has a valid Ed25519 signature', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const listed = await env.BUCKET.list({ prefix: 'captures/' });
     const waczKey = listed.objects.find(obj => obj.key.endsWith('.wacz'))?.key;
@@ -222,7 +222,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('signing key is archived in KV after capture', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     const keyId = record.wacz.keyId;
@@ -239,7 +239,7 @@ describe('WACZ integration -- R2 storage', () => {
   it('KV record includes wacz.key, wacz.bundleHash, wacz.size after capture', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.wacz).toBeDefined();

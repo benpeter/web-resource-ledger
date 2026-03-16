@@ -7,8 +7,12 @@
  * is absent (local dev, tests, preview environments).
  *
  * INVARIANT: `data` must contain only static values and predetermined
- * strings, never attacker-controlled input. Callers are responsible for
- * ensuring this contract. Violation may cause log injection.
+ * strings, never attacker-controlled input. HMAC-derived values from
+ * request data (e.g., hashed IP) are acceptable because the output is a
+ * fixed-length hex string that cannot contain injection payloads.
+ * Truncated framework error messages (e.g., Playwright) are acceptable
+ * when the framework does not echo user-supplied content into its error
+ * strings. Callers are responsible for ensuring this contract.
  *
  * @param {object} env Worker env bindings
  * @param {number} severity Coralogix severity: 3=info, 4=warn, 5=error
