@@ -1,3 +1,9 @@
+> **This is the original product vision document.** It describes the full
+> scope of what WRL could become. For what has actually been built, see the
+> [README](README.md). For current priorities, see
+> [docs/backlog.md](docs/backlog.md). For how each feature was implemented,
+> see [docs/evolution/](docs/evolution/).
+
 # Web Resource Ledger (WRL)
 
 **One-liner:** Tamper-evident archival of web resources with proof of state at a point in time.

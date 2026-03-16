@@ -215,19 +215,50 @@ WRL was built using [despicable-agents](https://github.com/benpeter/despicable-a
 
 ### Key Rotation
 
-> **Warning:** Rotating the signing key invalidates signature verification for all captures signed with the previous key. There is no key history endpoint yet -- old captures will show "Verification Failed" until key versioning is implemented.
+Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData` and in the KV capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
+
+Rotation procedure:
 
 1. Generate a new key pair: `node scripts/generate-signing-key.js`
 2. Update the production secret: `wrangler secret put SIGNING_KEY`
 3. Update local dev secret in `.dev.vars` (if applicable)
 
-New captures are signed with the new key. Existing captures signed with the old key will fail signature verification. The `/.well-known/signing-key` endpoint serves the current key -- third-party verifiers should re-fetch after rotation. Caches converge within 1 hour.
+New captures are signed with the new key. Existing captures are verified against the archived key that signed them. The `/.well-known/signing-keys` endpoint lists the full key archive for third-party verifiers.
 
-Key versioning and old-key verification are not yet implemented. See `docs/backlog.md` under "Signing and Legal Admissibility."
+> **Note:** Captures signed before key versioning was deployed (prior to PR #54) have no `keyId` in their KV record. Verification for those captures falls back to the current key. If the current key does not match the one that signed the capture, those specific captures will fail verification.
 
 ### Public Key Endpoint
 
-`GET /.well-known/signing-key` returns the current Ed25519 public key for independent verification. Third-party verifiers can fetch the key without trusting the `publicKey` embedded in individual WACZ bundles. The response is JSON with shape `{ algorithm, publicKey }`, where `publicKey` is the base64-encoded raw 32-byte Ed25519 key. Responses are cached for 1 hour at the edge.
+`GET /.well-known/signing-key` returns the current Ed25519 public key. Third-party verifiers can fetch the key without trusting the `publicKey` embedded in individual WACZ bundles. Responses are cached for 1 hour at the edge.
+
+```json
+{
+  "algorithm": "Ed25519",
+  "publicKey": "<base64-encoded raw 32-byte key>",
+  "keyId": "<8-char hex fingerprint>"
+}
+```
+
+`keyId` is the first 8 hex characters of the SHA-256 of the raw public key bytes. Use it to match against the key archive when verifying historical captures.
+
+### Key Archive Endpoint
+
+`GET /.well-known/signing-keys` lists all historical signing keys. Use this endpoint to verify captures signed with any key, not just the current one.
+
+```json
+{
+  "keys": [
+    {
+      "keyId": "<8-char hex fingerprint>",
+      "algorithm": "Ed25519",
+      "publicKey": "<base64-encoded raw 32-byte key>",
+      "archivedAt": "<ISO 8601 timestamp>"
+    }
+  ]
+}
+```
+
+Third-party verifiers: match the `keyId` from a WACZ bundle's `signedData` against this list to retrieve the correct public key for signature verification. Rate-limited at the same limit as the singular endpoint.
 
 ## Legal
 
