@@ -42,3 +42,4 @@ software development.
 | [0031-stage-level-timings](0031-stage-level-timings/) | Stage-level timing instrumentation for capture renderer (Issue #75) |
 | [0032-optimize-capture-timeline](0032-optimize-capture-timeline/) | Adaptive settle, consent timeout 2s, graceful consent failure (Issue #79) |
 | [0033-cmp-navigation](0033-cmp-navigation/) | Fix cross-domain navigation block and multi-frame consent injection (Issue #81) |
+| [0034-integration-tests](0034-integration-tests/) | Integration tests with real browser captures (Issue #69) |
