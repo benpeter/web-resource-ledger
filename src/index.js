@@ -120,8 +120,8 @@ function handleHealth() {
 }
 
 async function handleCreateCapture(request, env, ctx) {
-  // Step 0: Compute hashed client IP for log correlation
-  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
 
   // Step 1: Content-Type check
   const contentType = request.headers.get('Content-Type') || '';
@@ -139,9 +139,7 @@ async function handleCreateCapture(request, env, ctx) {
 
   // Step 3: Rate limit check
   if (env.CAPTURE_RATE_LIMITER) {
-    const { success } = await env.CAPTURE_RATE_LIMITER.limit({
-      key: request.headers.get('CF-Connecting-IP') || 'unknown',
-    });
+    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
@@ -205,8 +203,8 @@ async function handleCreateCapture(request, env, ctx) {
 }
 
 async function handleListCaptures(request, env, ctx) {
-  // Step 0: Compute hashed client IP for log correlation
-  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
 
   // Step 1: Auth check
   const auth = await verifyApiKey(request, env);
@@ -218,9 +216,7 @@ async function handleListCaptures(request, env, ctx) {
   // Step 2: Rate limit checks (reuse capture limiters -- list is read-only but
   // fans out to N+1 KV operations, so both per-IP and global limits apply)
   if (env.CAPTURE_RATE_LIMITER) {
-    const { success } = await env.CAPTURE_RATE_LIMITER.limit({
-      key: request.headers.get('CF-Connecting-IP') || 'unknown',
-    });
+    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
@@ -413,15 +409,14 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
 // Caches verified results publicly; non-verified results are not cached.
 async function handleVerifyCapture(request, env, ctx, match) {
   const captureId = match[1];
-  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
 
   // Step 1: Rate limit check
   // CF-Connecting-IP is always present in production Workers; 'unknown' fallback
   // applies only in local dev, where all requests share one bucket.
   if (env.VERIFY_RATE_LIMITER) {
-    const { success } = await env.VERIFY_RATE_LIMITER.limit({
-      key: request.headers.get('CF-Connecting-IP') || 'unknown',
-    });
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
@@ -514,11 +509,10 @@ async function handleVerifyCapture(request, env, ctx, match) {
 }
 
 async function handleGetSigningKey(request, env, ctx) {
-  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
   if (env.VERIFY_RATE_LIMITER) {
-    const { success } = await env.VERIFY_RATE_LIMITER.limit({
-      key: request.headers.get('CF-Connecting-IP') || 'unknown',
-    });
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_key', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
@@ -538,11 +532,10 @@ async function handleGetSigningKey(request, env, ctx) {
 }
 
 async function handleGetSigningKeys(request, env, ctx) {
-  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
   if (env.VERIFY_RATE_LIMITER) {
-    const { success } = await env.VERIFY_RATE_LIMITER.limit({
-      key: request.headers.get('CF-Connecting-IP') || 'unknown',
-    });
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_keys', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
