@@ -2,6 +2,8 @@
 // parseGeneralizedTime, and DER primitives only. Capture-time code excluded.
 // Origin: https://github.com/benpeter/web-resource-ledger/blob/main/src/rfc3161.js
 
+import { timingSafeEqual } from 'node:crypto';
+
 // ---------------------------------------------------------------------------
 // OID value bytes (pre-encoded, without tag/length wrapper)
 // ---------------------------------------------------------------------------
@@ -154,7 +156,9 @@ export function verifyTimestamp(tokenBase64, expectedBundleHash) {
       return { valid: false, reason: 'expectedBundleHash must start with "sha256:"' };
     }
     const expectedHex = expectedBundleHash.slice(7);
-    if (messageImprintHex !== expectedHex) {
+    const expectedBuf = Buffer.from(expectedHex, 'hex');
+    const actualBuf   = Buffer.from(messageImprintHex, 'hex');
+    if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
       return { valid: false, reason: 'messageImprint hash does not match expectedBundleHash' };
     }
     return { valid: true, genTime };

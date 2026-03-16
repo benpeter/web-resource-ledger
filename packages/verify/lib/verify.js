@@ -237,7 +237,7 @@ export async function verifyWacz(waczBytes, publicKeyBytes, options = {}) {
   // ---------------------------------------------------------------------------
   if (version === '0.2.0' && tsToken && trustedRoots && trustedRoots.length > 0 && doCmsChain) {
     try {
-      const cmsResult = await verifyCmsChain(tsToken, trustedRoots);
+      const cmsResult = await verifyCmsChain(tsToken, trustedRoots, timestampData?.genTime);
       if (cmsResult.valid) {
         checks.push({ name: 'timestampChain', status: 'pass' });
       } else {
