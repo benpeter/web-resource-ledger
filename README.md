@@ -125,7 +125,7 @@ npm install
 wrangler kv namespace create wrl-kv
 ```
 
-Update `wrangler.toml` with the returned `id` and `preview_id`.
+Update `wrangler.toml` with the returned `id` and `preview_id`. If you forked this repo, replace the existing `id` and `preview_id` values in `wrangler.toml` with the IDs returned by these commands.
 
 ### 3. Create R2 bucket
 
@@ -211,7 +211,9 @@ IP_HASH_SEED=<hex string from the command above>
 
 ### 7. Configure Coralogix log ingestion (required for production observability)
 
-`CORALOGIX_SEND_KEY` is the API key for structured log ingestion to Coralogix. Without it, the worker produces no structured logs.
+`CORALOGIX_SEND_KEY` is the API key for structured log ingestion to Coralogix. Without it, the Worker runs normally but logs go to console only -- no structured log ingestion occurs. For fork developers who do not use Coralogix, this key is effectively optional.
+
+Find your send key in the Coralogix dashboard under **Settings > Send Your Data > API Keys**.
 
 Set the production secret:
 
@@ -240,6 +242,8 @@ If omitted, cross-origin requests from browsers are blocked. Server-to-server re
 wrangler deploy
 ```
 
+Steps 1-9 are one-time setup. After initial deployment, the CD pipeline handles staging and production deploys automatically on every push to `main`. For the full deploy flow, environment configuration, rollback procedures, and how secrets map across Worker runtime, GitHub CI, and local development, see [OPERATIONS.md](OPERATIONS.md).
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, test conventions, and contribution guidelines.
@@ -248,7 +252,23 @@ See [OPERATIONS.md](OPERATIONS.md) for deployment, rollback, and environment set
 
 ### Staging
 
-`wrangler.toml` includes an `[env.staging]` configuration with its own R2 bucket and KV namespace. Deploy to staging:
+`wrangler.toml` includes an `[env.staging]` configuration with its own R2 bucket and KV namespace. Before deploying, you must create those resources in your own Cloudflare account (same as steps 2-3 above, but scoped to staging).
+
+Create the staging KV namespace:
+
+```bash
+wrangler kv namespace create KV --env staging
+```
+
+Update the `id` field under `[env.staging.kv_namespaces]` in `wrangler.toml` with the returned ID.
+
+Create the staging R2 bucket:
+
+```bash
+wrangler r2 bucket create wrl-captures-staging
+```
+
+Then deploy to staging:
 
 ```bash
 wrangler deploy --env staging
