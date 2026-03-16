@@ -41,7 +41,7 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   const keys = await getSigningKeys(env);
   if (!keys) return null;
 
-  const { privateKey, publicKeyBytes } = keys;
+  const { privateKey, publicKeyBytes, keyId } = keys;
 
   // Step 2: Build WARC
   const { warcBytes, recordMeta } = await buildWarc(url, captureDate, artifacts);
@@ -106,6 +106,7 @@ export async function buildWacz(url, captureDate, artifacts, env) {
       hash: bundleHash,
       signature,
       publicKey: publicKeyBase64,
+      keyId,
       created: captureDate,
       software: 'WRL/0.1',
       version: '0.1.0',
@@ -126,5 +127,5 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 11: Compute SHA-256 of the final WACZ bytes for content-addressed R2 key
   const waczHash = await sha256(waczBytes);
 
-  return { waczBytes, waczHash, bundleHash, publicKeyBase64 };
+  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId };
 }

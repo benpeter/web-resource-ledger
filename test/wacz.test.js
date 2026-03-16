@@ -165,6 +165,34 @@ describe('WACZ integration -- R2 storage', () => {
     }
   });
 
+  it('datapackage-digest.json includes keyId in signedData', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+
+    const listed = await env.BUCKET.list({ prefix: 'captures/' });
+    const waczKey = listed.objects.find(obj => obj.key.endsWith('.wacz'))?.key;
+    const obj = await env.BUCKET.get(waczKey);
+    const waczBytes = new Uint8Array(await obj.arrayBuffer());
+    const files = unzipSync(waczBytes);
+
+    const digest = JSON.parse(new TextDecoder().decode(files['datapackage-digest.json']));
+    expect(digest.signedData.keyId).toBeDefined();
+    expect(typeof digest.signedData.keyId).toBe('string');
+    expect(digest.signedData.keyId).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('KV record includes wacz.keyId after capture', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    expect(record.wacz.keyId).toBeDefined();
+    expect(typeof record.wacz.keyId).toBe('string');
+    expect(record.wacz.keyId).toMatch(/^[0-9a-f]{8}$/);
+  });
+
   it('datapackage-digest.json has a valid Ed25519 signature', async () => {
     mockHeaderFetch();
     await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
@@ -189,6 +217,23 @@ describe('WACZ integration -- R2 storage', () => {
 
     const valid = await crypto.subtle.verify('Ed25519', pubKey, signatureBytes, dataBytes);
     expect(valid).toBe(true);
+  });
+
+  it('signing key is archived in KV after capture', async () => {
+    mockHeaderFetch();
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
+
+    const record = await getCapture(env.KV, TEST_ID);
+    const keyId = record.wacz.keyId;
+    expect(keyId).toBeDefined();
+
+    // Verify the key is archived
+    const archived = await env.KV.get(`signing-key:${keyId}`, 'json');
+    expect(archived).not.toBeNull();
+    expect(archived.algorithm).toBe('Ed25519');
+    expect(typeof archived.publicKey).toBe('string');
+    expect(typeof archived.archivedAt).toBe('string');
   });
 
   it('KV record includes wacz.key, wacz.bundleHash, wacz.size after capture', async () => {

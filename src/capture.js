@@ -58,7 +58,7 @@
  */ // tva
 
 import { connect, acquire, sessions, limits } from '@cloudflare/playwright';
-import { completeCapture, failCapture } from './kv.js';
+import { completeCapture, failCapture, archiveSigningKey } from './kv.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
 
@@ -141,17 +141,25 @@ export async function performCapture(env, url, ip, captureId, tenantId, renderer
       };
       const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
       if (result) {
-        const { waczBytes, waczHash, bundleHash } = result;
+        const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId } = result;
         await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
           httpMetadata: {
             contentType: 'application/wacz+zip',
             contentDisposition: `attachment; filename="${waczHash}.wacz"`,
           },
         });
+        // Archive signing key BEFORE completeCapture() -- no race window
+        try {
+          await archiveSigningKey(env.KV, keyId, publicKeyBase64);
+        } catch (err) {
+          // Non-fatal: key may already be archived from a prior capture
+          await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId });
+        }
         waczInfo = {
           key: `captures/${waczHash}.wacz`,
           bundleHash,
           size: waczBytes.byteLength,
+          keyId,
         };
       }
     } catch (err) {

@@ -1,9 +1,14 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 import { generateKeyPairSync } from 'node:crypto';
 
-// Test key generated at load time -- no key material committed to VCS
+// Test keys generated at load time -- no key material committed to VCS
+// Primary key: used as the current SIGNING_KEY
+// Archived key: injected as TEST_ARCHIVED_KEY for key rotation test scenarios
 const { privateKey: _testPrivateKey } = generateKeyPairSync('ed25519');
 const testSigningKey = _testPrivateKey.export({ type: 'pkcs8', format: 'der' }).toString('base64');
+
+const { privateKey: _testArchivedKey } = generateKeyPairSync('ed25519');
+const testArchivedKey = _testArchivedKey.export({ type: 'pkcs8', format: 'der' }).toString('base64');
 
 export default defineWorkersConfig({
   test: {
@@ -17,6 +22,7 @@ export default defineWorkersConfig({
           bindings: {
             CAPTURE_API_KEY: 'test-api-key-for-vitest',
             SIGNING_KEY: testSigningKey,
+            TEST_ARCHIVED_KEY: testArchivedKey,
           },
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"

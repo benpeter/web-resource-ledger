@@ -1130,7 +1130,7 @@ paths:
               schema:
                 type: object
                 description: The service's current Ed25519 public signing key.
-                required: [algorithm, publicKey]
+                required: [algorithm, publicKey, keyId]
                 additionalProperties: false
                 properties:
                   algorithm:
@@ -1142,13 +1142,87 @@ paths:
                     description: Base64-encoded 32-byte Ed25519 public key.
                     examples:
                       - 'MCowBQYDK2VwAyEA...'
+                  keyId:
+                    type: string
+                    pattern: '^[0-9a-f]{8}$'
+                    description: >
+                      Key fingerprint -- first 8 hex chars of SHA-256(raw public key bytes).
+                      Used to identify which historical key signed a given WACZ bundle.
+                    examples:
+                      - 'a1b2c3d4'
               examples:
                 signingKey:
                   summary: Service signing key
                   value:
                     algorithm: Ed25519
                     publicKey: 'MCowBQYDK2VwAyEA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='
+                    keyId: 'a1b2c3d4'
         '429':
           $ref: '#/components/responses/Problem429'
         '503':
           $ref: '#/components/responses/Problem503'
+
+  /.well-known/signing-keys:
+    get:
+      operationId: getSigningKeys
+      summary: List all historical signing keys
+      description: >
+        Returns all Ed25519 public keys that have been used to sign WACZ bundles,
+        including the current key. Third-party verifiers can use this to look up
+        the correct key for a given WACZ bundle using the keyId field from
+        signedData in the bundle's datapackage-digest.json.
+      tags: [signing]
+      security: []
+      responses:
+        '200':
+          description: List of archived signing keys.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Cache-Control:
+              description: Key list is stable; cached for one hour with a long stale window.
+              schema:
+                type: string
+                enum: ['public, max-age=3600, stale-while-revalidate=86400']
+            Access-Control-Allow-Origin:
+              description: Allows cross-origin access.
+              schema:
+                type: string
+                enum: ['*']
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                additionalProperties: false
+                properties:
+                  keys:
+                    type: array
+                    description: All historical signing keys, including the current one.
+                    items:
+                      type: object
+                      required: [keyId, algorithm, publicKey, archivedAt]
+                      additionalProperties: false
+                      properties:
+                        keyId:
+                          type: string
+                          pattern: '^[0-9a-f]{8}$'
+                          description: Key fingerprint.
+                        algorithm:
+                          type: string
+                          const: Ed25519
+                        publicKey:
+                          type: string
+                          description: Base64-encoded 32-byte Ed25519 public key.
+                        archivedAt:
+                          type: string
+                          format: date-time
+                          description: ISO 8601 timestamp when the key was first archived.
+        '429':
+          $ref: '#/components/responses/Problem429'
