@@ -45,16 +45,6 @@ jobs:
       - uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          secrets: |
-            CAPTURE_API_KEY
-            SIGNING_KEY
-            CORALOGIX_SEND_KEY
-            IP_HASH_SEED
-        env:
-          CAPTURE_API_KEY: ${{ secrets.WRL_PROD_CAPTURE_API_KEY }}
-          SIGNING_KEY: ${{ secrets.WRL_PROD_SIGNING_KEY }}
-          CORALOGIX_SEND_KEY: ${{ secrets.WRL_PROD_CORALOGIX_SEND_KEY }}
-          IP_HASH_SEED: ${{ secrets.WRL_PROD_IP_HASH_SEED }}
 
   smoke:
     needs: deploy
