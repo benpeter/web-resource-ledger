@@ -105,6 +105,34 @@ SMOKE_URL=<YOUR_PRODUCTION_URL> SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scrip
 
 ---
 
+## Secret Surfaces
+
+WRL uses three distinct secret surfaces for different purposes. Knowing which surface a secret lives on determines how to set it and when.
+
+| Surface | Set via | Used by | Persists across deploys? |
+|---------|---------|---------|--------------------------|
+| Worker runtime | `wrangler secret put` | Worker code at execution time | Yes -- one-time setup, survives all deploys |
+| GitHub environment | Repo Settings > Environments | CD workflows (deploy auth, smoke tests) | Yes -- until manually changed |
+| Local dev (`.dev.vars`) | Manual file edit | `wrangler dev` | N/A -- never deployed |
+
+> **The CD pipeline deploys code only.** Worker runtime secrets (`CAPTURE_API_KEY`, `SIGNING_KEY`, etc.) must be set once via `wrangler secret put` and persist across all subsequent deploys. You do not need to re-set secrets after each deploy.
+
+See README steps 4-7 for secret generation commands and initial setup.
+
+### Cloudflare API Token Permissions
+
+Required permissions when creating the Cloudflare API token:
+
+- Account > Workers Scripts > Edit
+- Account > Workers KV Storage > Edit
+- Account > Workers R2 Storage > Edit
+- Account > Account Settings > Read
+- User > Memberships > Read
+
+Scope the token to the specific account that owns the WRL Workers. Do not use the broad "Edit Cloudflare Workers" template -- it grants more access than needed.
+
+---
+
 ## GitHub Environment Setup
 
 ### `production` environment
@@ -113,11 +141,11 @@ SMOKE_URL=<YOUR_PRODUCTION_URL> SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scrip
 
 | Name | Description |
 |------|-------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers deploy permission |
-| `WRL_PROD_CAPTURE_API_KEY` | Bearer token for the capture API |
-| `WRL_PROD_SIGNING_KEY` | Ed25519 private key (PKCS8 DER, base64) |
-| `WRL_PROD_CORALOGIX_SEND_KEY` | Coralogix log ingestion key |
-| `WRL_PROD_IP_HASH_SEED` | Random seed for IP hashing |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token -- see [permissions above](#cloudflare-api-token-permissions) |
+| `WRL_PROD_CAPTURE_API_KEY` | See [README step 4](README.md#4-configure-capture-api-key) |
+| `WRL_PROD_SIGNING_KEY` | See [README step 5](README.md#5-configure-signing-key) |
+| `WRL_PROD_IP_HASH_SEED` | See [README step 6](README.md#6-configure-ip-hash-seed-recommended) |
+| `WRL_PROD_CORALOGIX_SEND_KEY` | See [README step 7](README.md#7-configure-coralogix-log-ingestion-required-for-production-observability) |
 
 **Variables:**
 
@@ -127,17 +155,21 @@ SMOKE_URL=<YOUR_PRODUCTION_URL> SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scrip
 
 **Protection rules:** Add required reviewer to gate production deploys.
 
+See README steps 4-7 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.
+
+The `production` GitHub environment maps to the top-level wrangler.toml config (`wrangler deploy`). The `staging` environment maps to `[env.staging]` (`wrangler deploy --env staging`).
+
 ### `staging` environment
 
 **Secrets:**
 
 | Name | Description |
 |------|-------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers deploy permission |
-| `WRL_STAGING_CAPTURE_API_KEY` | Bearer token for the staging capture API |
-| `WRL_STAGING_SIGNING_KEY` | Ed25519 private key for staging |
-| `WRL_STAGING_CORALOGIX_SEND_KEY` | Coralogix log ingestion key for staging |
-| `WRL_STAGING_IP_HASH_SEED` | Random seed for staging IP hashing |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token -- see [permissions above](#cloudflare-api-token-permissions) |
+| `WRL_STAGING_CAPTURE_API_KEY` | See [README step 4](README.md#4-configure-capture-api-key) |
+| `WRL_STAGING_SIGNING_KEY` | See [README step 5](README.md#5-configure-signing-key) |
+| `WRL_STAGING_IP_HASH_SEED` | See [README step 6](README.md#6-configure-ip-hash-seed-recommended) |
+| `WRL_STAGING_CORALOGIX_SEND_KEY` | See [README step 7](README.md#7-configure-coralogix-log-ingestion-required-for-production-observability) |
 
 **Variables:**
 
@@ -147,3 +179,5 @@ SMOKE_URL=<YOUR_PRODUCTION_URL> SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scrip
 
 **Protection rules:** Do NOT add required reviewer -- staging must deploy without approval
 (the production pipeline's `staging-smoke` job polls staging before every prod deploy).
+
+See README steps 4-7 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.

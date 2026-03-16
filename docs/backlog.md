@@ -108,6 +108,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
+| [consider] Fork setup onboarding checklist | When a second operator forks and reports setup confusion | ux-strategy-minion, 0026-secrets-env-docs-onboarding |
+| [consider] Cross-document anchor link lint in CI | When cross-document link rot is observed | software-docs-minion, 0026-secrets-env-docs-onboarding |
 | [consider] Session pre-warming via cron | When Coralogix shows cold-start latency is measurable | iac-minion |
 | [consider] Coralogix alerting rules | When operational load justifies alerting | observability-minion, mvo-coralogix |
 | [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
