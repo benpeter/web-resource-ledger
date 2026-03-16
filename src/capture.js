@@ -49,7 +49,7 @@
  *   - context.close() in try/finally is MANDATORY (clears all context state)
  *   - browser.close() disconnects the session; it does NOT kill the process
  *     for connect()-obtained sessions (keep_alive keeps browser hot)
- *   - Cross-domain navigation blocked via context.route() (closes TOCTOU gap)
+ *   - Cross-domain main-frame navigation blocked via context.route() (closes TOCTOU gap)
  *   - Service workers blocked to prevent route bypass
  *   - Header fetch uses redirect:'manual' (no unvalidated redirects)
  *   - Set-Cookie values redacted in captured headers
@@ -454,12 +454,15 @@ async function defaultRenderer(browserBinding, url) {
         route.request().isNavigationRequest() &&
         new URL(route.request().url()).origin !== targetOrigin
       ) {
+        // Only block main-frame navigations. page is null before newPage()
+        // resolves; Playwright cannot fire navigation requests on a context
+        // with no pages, so the null window is provably safe.
         let isMainFrame = false;
         if (page) {
           try {
             isMainFrame = route.request().frame() === page.mainFrame();
           } catch (err) {
-            // frame() throws for pre-creation requests -- treat as non-main-frame
+            // frame() throws for detached frames during lifecycle transitions
           }
         }
         if (isMainFrame) {
