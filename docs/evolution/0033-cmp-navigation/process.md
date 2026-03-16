@@ -1,12 +1,13 @@
 # Process: CMP navigation fix
 
 TL;DR: Three specialists (security-minion, test-minion, debugger-minion)
-planned a single-file fix to narrow the route handler's cross-domain
-navigation block from all navigations to main-frame only. debugger-minion
-found two critical bugs in the naive approach via Playwright source code
-tracing. The fix was implemented in ~15 lines with zero test regressions
-(503/503 pass). Total orchestration: 8 phases, 3 planning specialists,
-5 architecture reviewers, 3 code reviewers.
+planned the route handler fix, then staging validation revealed a second
+blocker: autoconsent only ran in the main frame, missing iframe-based CMPs.
+Scope expanded from capture.js to include consent.js multi-frame injection.
+Final result: two files changed, Sourcepoint detected on Guardian/Spiegel
+(was notDetected), opt-out still failing (follow-up). Total orchestration:
+two review rounds (pre- and post-expansion), 3 planning specialists, 5
+architecture reviewers, 3 code reviewers.
 
 ## Which specialists were consulted and why
 

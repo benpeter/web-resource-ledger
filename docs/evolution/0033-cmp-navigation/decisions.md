@@ -61,7 +61,31 @@ allowing rather than blocking unknown requests.
 Would test mock wiring, not actual Playwright behavior. Explicitly warned
 against in CLAUDE.md.
 
-## 5. Empty catch block handling
+## 5. Scope expansion: consent.js multi-frame injection
+
+**Decision:** Expand scope from capture.js-only to include consent.js changes
+for multi-frame autoconsent injection.
+
+**Rationale:** After deploying the capture.js route handler fix to staging,
+CMP banners became visible in screenshots (iframes loading correctly), but
+autoconsent still reported `notDetected`. Investigation revealed that
+autoconsent was only injected into the main frame via `page.evaluate()`, but
+Sourcepoint-frame's `detectCmp()` checks `location.href` inside the iframe
+(it has `runContext: { frame: true }`). The fix required injecting autoconsent
+into all frames and routing binding responses back to the originating frame.
+
+The original issue scope statement ("Out: Autoconsent library changes,
+CMP-specific handling") was intended to exclude changes to the vendored
+autoconsent script itself, not to exclude fixing the injection mechanism.
+The user explicitly authorized the expanded scope: "the scope statement tried
+to say you cant change the upstream autoconsent code but fix the CMP handling
+please."
+
+**Rejected alternative:** File a separate issue and defer. Rejected because
+the navigation fix alone delivers no user-visible improvement -- the CMP
+banners appear but aren't detected or dismissed.
+
+## 6. Empty catch block handling
 
 **Decision:** The catch block names the error parameter (`catch (err)`) and
 includes a descriptive comment. No logging added.
