@@ -1,4 +1,4 @@
-# Phase 0021: Staged Fallback for Capture Timeout
+# Phase 0023: Staged Fallback for Capture Timeout
 
 **Source**: GitHub issue #53
 **Advisory**: docs/history/nefario-reports/2026-03-16-112535-staged-fallback-capture-timeout.md
