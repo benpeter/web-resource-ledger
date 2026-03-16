@@ -291,7 +291,7 @@ export async function run(argv) {
   const nodeVersion = process.versions.node;
   const nodeMajor   = parseInt(nodeVersion.split('.')[0], 10);
   if (nodeMajor < 20) {
-    const msg = `@wrl/verify requires Node.js 20 or later.\nYou are running Node.js ${nodeVersion}.`;
+    const msg = `@w-r-l/verify requires Node.js 20 or later.\nYou are running Node.js ${nodeVersion}.`;
     if (jsonMode) {
       formatJsonError(msg, opts.target ?? '');
     } else {

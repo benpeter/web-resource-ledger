@@ -79,7 +79,7 @@ The `verifyUrl` is safe to share publicly. The capture ID grants full access to 
 For independent, offline verification -- including full CMS/PKCS#7 certificate chain validation -- use the CLI tool:
 
 ```bash
-npx @wrl/verify capture.wacz --origin https://wrl.example.com
+npx @w-r-l/verify capture.wacz --origin https://wrl.example.com
 ```
 
 See [`packages/verify/`](packages/verify/) for details.

@@ -2,15 +2,15 @@
 
 ## What was built
 
-A standalone CLI npm package (`@wrl/verify`) at `packages/verify/` that provides
+A standalone CLI npm package (`@w-r-l/verify`) at `packages/verify/` that provides
 independent, offline-capable cryptographic verification of WRL WACZ captures,
 including full CMS/PKCS#7 certificate chain validation for RFC 3161 timestamps.
 
 ### Deliverables
 
 **CLI tool** (`bin/wrl-verify.js`):
-- `npx @wrl/verify capture.wacz --key <base64>` for local verification
-- `npx @wrl/verify https://wrl.benpeter.workers.dev/v1/captures/cap_xxx` for remote
+- `npx @w-r-l/verify capture.wacz --key <base64>` for local verification
+- `npx @w-r-l/verify https://wrl.benpeter.workers.dev/v1/captures/cap_xxx` for remote
 - Human-readable output by default, `--json` for machine consumption
 - Exit codes: 0 (pass), 1 (fail), 2 (error)
 - Three key trust levels: origin-verified, user-pinned, embedded (with warning)

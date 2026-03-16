@@ -3,7 +3,7 @@
 ## TL;DR
 
 Six specialists planned, five reviewers assessed, four sequential tasks
-executed. The team built a standalone `@wrl/verify` CLI tool with full
+executed. The team built a standalone `@w-r-l/verify` CLI tool with full
 CMS/PKCS#7 certificate chain validation in ~2 hours of wall clock time.
 Key conflict: security-minion won the PKIjs argument over devx-minion's
 lightweight-only stance. 136 tests pass. One surprise: DigiCert TSA tokens

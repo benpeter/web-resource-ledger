@@ -5,8 +5,8 @@
 **Outcome**: Anyone can independently verify the integrity and authenticity of a WRL capture — including the TSA's cryptographic signature — without installing software, closing the verification gap where the Worker can only check hash matches but not the CMS signature chain.
 
 **Success criteria**:
-- `npx @wrl/verify capture.wacz` runs without prior installation and produces a clear pass/fail report
-- `npx @wrl/verify https://wrl.benpeter.workers.dev/v1/verify/cap_xxx` fetches and verifies a remote capture
+- `npx @w-r-l/verify capture.wacz` runs without prior installation and produces a clear pass/fail report
+- `npx @w-r-l/verify https://wrl.benpeter.workers.dev/v1/verify/cap_xxx` fetches and verifies a remote capture
 - RFC 3161 CMS/PKCS#7 signature verified against TSA certificate chain up to trusted root
 - Ed25519 bundle signature verified against operator's published signing key
 - All artifact SHA-256 hashes verified against datapackage.json
