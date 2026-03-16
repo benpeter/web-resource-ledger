@@ -1,9 +1,13 @@
 /*
- * kv.js -- KV access layer for capture status tracking
+ * kv.js -- KV access layer for capture status tracking and signing key archive
  *
  * Data model: one record per capture, stored as JSON under key `capture:{captureId}`.
  * Secondary index keys: `tenant:{tenantId}:ts:{createdAt}:{captureId}` with value ''
  * for tenant-scoped listing.
+ *
+ * Signing key archive: historical public keys stored under `signing-key:{keyId}`
+ * where keyId is the first 8 hex chars of SHA-256(raw public key bytes).
+ * Used for verifying captures signed with rotated keys.
  *
  * Lifecycle:
  *   pending  -- written by createCapture() before 202 is returned; expires in 24h
@@ -227,4 +231,63 @@ export async function listCaptures(kv, tenantId, { cursor, limit = 20, status } 
     data: page,
     pagination: { cursor: cursorStr, hasMore: !!cursorStr, limit },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Signing key archive
+// ---------------------------------------------------------------------------
+
+const SIGNING_KEY_PREFIX = 'signing-key:';
+
+/**
+ * Archive a signing key. Idempotent -- same keyId overwrites same value.
+ * Called before completeCapture() to ensure the key is available before any
+ * record references it.
+ *
+ * @param {KVNamespace} kv
+ * @param {string} keyId  8-char hex fingerprint
+ * @param {string} publicKeyBase64  Base64-encoded raw 32-byte public key
+ */
+export async function archiveSigningKey(kv, keyId, publicKeyBase64) {
+  // Validate key decodes to exactly 32 bytes (Ed25519 public key length)
+  const decoded = atob(publicKeyBase64);
+  if (decoded.length !== 32) {
+    throw new Error(`Expected 32-byte public key, got ${decoded.length}`);
+  }
+  const value = {
+    algorithm: 'Ed25519',
+    publicKey: publicKeyBase64,
+    archivedAt: new Date().toISOString(),
+  };
+  await kv.put(`${SIGNING_KEY_PREFIX}${keyId}`, JSON.stringify(value));
+}
+
+/**
+ * Retrieve an archived signing key by keyId.
+ *
+ * @param {KVNamespace} kv
+ * @param {string} keyId  8-char hex fingerprint
+ * @returns {Promise<{ algorithm: string, publicKey: string, archivedAt: string } | null>}
+ */
+export async function getArchivedSigningKey(kv, keyId) {
+  return kv.get(`${SIGNING_KEY_PREFIX}${keyId}`, 'json');
+}
+
+/**
+ * List all archived signing keys. Key count is single-digit over service
+ * lifetime, so a single KV list call is always sufficient.
+ *
+ * @param {KVNamespace} kv
+ * @returns {Promise<Array<{ keyId: string, algorithm: string, publicKey: string, archivedAt: string }>>}
+ */
+export async function listArchivedSigningKeys(kv) {
+  const listResult = await kv.list({ prefix: SIGNING_KEY_PREFIX });
+  const keys = await Promise.all(
+    listResult.keys.map(async (k) => {
+      const keyId = k.name.slice(SIGNING_KEY_PREFIX.length);
+      const record = await kv.get(k.name, 'json');
+      return record ? { keyId, ...record } : null;
+    }),
+  );
+  return keys.filter(k => k !== null);
 }

@@ -1,10 +1,10 @@
 import { problemResponse, jsonResponse } from './responses.js';
 import { verifyApiKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, listCaptures } from './kv.js';
+import { createCapture, getCapture, listCaptures, getArchivedSigningKey, listArchivedSigningKeys } from './kv.js';
 import { performCapture } from './capture.js';
 import { verifyWacz } from './verify.js';
-import { getSigningKeys } from './signing.js';
+import { getSigningKeys, verifySignature } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { log } from './log.js';
 
@@ -22,6 +22,7 @@ const routes = [
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
   ['GET',  /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',  /^\/\.well-known\/signing-key$/, handleGetSigningKey],
+  ['GET',  /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
 ];
 
 export default {
@@ -361,14 +362,32 @@ async function handleVerifyCapture(request, env, ctx, match) {
     }
   }
 
-  // Step 2: Signing key availability check
-  const keys = await getSigningKeys(env);
-  if (!keys) return problemResponse(503, 'Verification service is not configured');
-
-  // Step 3: KV lookup (fast-fail before expensive R2 fetch)
+  // Step 2: KV lookup (fast-fail before expensive R2 fetch)
   const record = await getCapture(env.KV, captureId);
   if (!record || record.status !== 'complete' || !record.wacz) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  // Step 3: Resolve public key for verification
+  // SECURITY: keyId is read from the KV record (server-controlled), NEVER from the
+  // WACZ's signedData. The WACZ-embedded keyId is for offline/third-party verifiers
+  // only and must not influence server-side key selection.
+  // Priority: KV record keyId → archived key → current key (legacy fallback)
+  let publicKeyBytes = null;
+  if (record.wacz.keyId) {
+    // Server-controlled: keyId stored at signing time
+    const archived = await getArchivedSigningKey(env.KV, record.wacz.keyId);
+    if (archived) {
+      publicKeyBytes = Uint8Array.from(atob(archived.publicKey), c => c.charCodeAt(0));
+    }
+  }
+  if (!publicKeyBytes) {
+    // Fallback: current signing key (covers legacy captures before key versioning)
+    const keys = await getSigningKeys(env);
+    if (keys) publicKeyBytes = keys.publicKeyBytes;
+  }
+  if (!publicKeyBytes) {
+    return problemResponse(503, 'Verification service is not configured');
   }
 
   // Step 4: R2 fetch
@@ -396,7 +415,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
 
   // Step 6: Verify
   const waczBytes = new Uint8Array(await obj.arrayBuffer());
-  const result = await verifyWacz(waczBytes, keys.publicKeyBytes);
+  const result = await verifyWacz(waczBytes, publicKeyBytes);
 
   // Step 7: Build response body
   const body = {
@@ -445,7 +464,26 @@ async function handleGetSigningKey(request, env, ctx) {
   // Use Array.from to avoid spread operator RangeError on large arrays
   const publicKeyBase64 = btoa(Array.from(keys.publicKeyBytes.slice()).map(b => String.fromCharCode(b)).join(''));
 
-  return jsonResponse({ algorithm: 'Ed25519', publicKey: publicKeyBase64 }, 200, {
+  return jsonResponse({ algorithm: 'Ed25519', publicKey: publicKeyBase64, keyId: keys.keyId }, 200, {
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+    'Access-Control-Allow-Origin': '*',
+  });
+}
+
+async function handleGetSigningKeys(request, env, ctx) {
+  if (env.VERIFY_RATE_LIMITER) {
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({
+      key: request.headers.get('CF-Connecting-IP') || 'unknown',
+    });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_keys' }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
+  }
+
+  const archived = await listArchivedSigningKeys(env.KV);
+
+  return jsonResponse({ keys: archived }, 200, {
     'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
     'Access-Control-Allow-Origin': '*',
   });

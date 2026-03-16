@@ -4,6 +4,10 @@
  * Lazily imports and caches the private CryptoKey from env.SIGNING_KEY.
  * Supports key rotation: re-imports if env.SIGNING_KEY changes between calls.
  *
+ * Key versioning: each key is identified by a keyId -- the first 8 hex chars
+ * of SHA-256(raw 32-byte public key). This fingerprint is embedded in WACZ
+ * signedData and stored in KV capture records for historical key lookup.
+ *
  * SECURITY: env.SIGNING_KEY is accessed here and nowhere else.
  *
  * Expected SPKI prefix for Ed25519 public key: 302a300506032b6570032100
@@ -21,6 +25,7 @@ import { createPrivateKey, createPublicKey } from 'node:crypto';
 let _cachedKeyString = null;
 let _cachedPrivateKey = null;
 let _cachedPublicKeyBytes = null;
+let _cachedKeyId = null;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -31,7 +36,7 @@ let _cachedPublicKeyBytes = null;
  * Detects key rotation by comparing the base64 string on each call.
  *
  * @param {{ SIGNING_KEY?: string }} env
- * @returns {Promise<{ privateKey: CryptoKey, publicKeyBytes: Uint8Array } | null>}
+ * @returns {Promise<{ privateKey: CryptoKey, publicKeyBytes: Uint8Array, keyId: string } | null>}
  */
 export async function getSigningKeys(env) {
   if (!env?.SIGNING_KEY) return null;
@@ -39,7 +44,7 @@ export async function getSigningKeys(env) {
   try {
     // Key rotation: re-import if env.SIGNING_KEY differs from cached string
     if (env.SIGNING_KEY === _cachedKeyString && _cachedPrivateKey && _cachedPublicKeyBytes) {
-      return { privateKey: _cachedPrivateKey, publicKeyBytes: _cachedPublicKeyBytes };
+      return { privateKey: _cachedPrivateKey, publicKeyBytes: _cachedPublicKeyBytes, keyId: _cachedKeyId };
     }
 
     const pkcs8Bytes = Uint8Array.from(atob(env.SIGNING_KEY), c => c.charCodeAt(0));
@@ -65,16 +70,33 @@ export async function getSigningKeys(env) {
       throw new Error(`Expected 32-byte Ed25519 public key, got ${publicKeyBytes.length}`);
     }
 
+    // Compute keyId: first 8 hex chars of SHA-256(raw public key bytes)
+    const keyId = await computeKeyId(publicKeyBytes);
+
     // Update cache (including key string for rotation detection)
     _cachedKeyString = env.SIGNING_KEY;
     _cachedPrivateKey = privateKey;
     _cachedPublicKeyBytes = publicKeyBytes;
+    _cachedKeyId = keyId;
 
-    return { privateKey, publicKeyBytes };
+    return { privateKey, publicKeyBytes, keyId };
   } catch {
     console.warn('Signing key validation failed');
     return null;
   }
+}
+
+/**
+ * Computes a key fingerprint: first 8 hex chars of SHA-256(raw public key bytes).
+ * Deterministic -- same key always produces the same keyId.
+ *
+ * @param {Uint8Array} publicKeyBytes Raw 32-byte Ed25519 public key
+ * @returns {Promise<string>} 8-char hex fingerprint
+ */
+export async function computeKeyId(publicKeyBytes) {
+  const hash = await crypto.subtle.digest('SHA-256', publicKeyBytes);
+  const hex = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+  return hex.slice(0, 8);
 }
 
 /**

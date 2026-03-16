@@ -25,3 +25,4 @@ software development.
 | [0014-browser-session-reuse](0014-browser-session-reuse/) | Browser session reuse with Playwright migration for 10x throughput (Issue #21) |
 | [0015-coralogix-logging](0015-coralogix-logging/) | Minimum viable observability with Coralogix integration (Issue #17) |
 | [0016-auth-identity-list-endpoint](0016-auth-identity-list-endpoint/) | Auth identity enrichment and list captures endpoint (Issues #38, #31) |
+| [0017-key-versioning](0017-key-versioning/) | Key versioning and public key archive for signing key rotation (Issue #32) |

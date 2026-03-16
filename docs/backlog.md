@@ -21,7 +21,7 @@ security hardening for the current single-operator use case.
 
 - ~~#38 **R8: Auth identity enrichment** [S]~~ -- DONE: internal refactor, prerequisite for R1
 - ~~#31 **R1: List captures endpoint** [M]~~ -- DONE: eliminates lost-ID problem; depends on R8
-- #32 **R2: Key versioning and public key archive** [M] -- must ship before any key rotation
+- ~~#32 **R2: Key versioning and public key archive** [M]~~ -- DONE: keyId in signedData, /.well-known/signing-keys, historical key lookup
 - #33 **R3: CORS for capture POST** [S] -- unblocks browser-based integrations
 - #34 **R4: HSTS preload submission** [XS] -- one header change + form submission
 - #35 **R5: X-RateLimit-Limit header** [XS] -- static ceiling header on rate-limited endpoints
@@ -159,6 +159,7 @@ Completed items removed from active tracking:
 
 - ~~R8: Auth identity enrichment~~ -- DONE (list-endpoint phase)
 - ~~R1: List captures endpoint~~ -- DONE (list-endpoint phase): `GET /v1/captures` with cursor pagination, status filter, tenant isolation
+- ~~R2: Key versioning and public key archive~~ -- DONE (key-versioning phase): keyId fingerprints, signing key archive in KV, historical key verification
 - ~~CI/CD pipeline~~ -- CI added in 0012-open-source-readiness
 - ~~Structured logging~~ -- DONE (mvo-coralogix)
 - ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration)
