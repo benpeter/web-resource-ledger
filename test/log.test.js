@@ -80,6 +80,40 @@ describe('log -- Coralogix payload structure', () => {
     const text = JSON.parse(entry.text);
     expect(text).toEqual({ event: 'capture.success', captureId: 'cap_abc' });
   });
+
+  it('uses APPLICATION_NAME from env when set', async () => {
+    let capturedRequest;
+
+    fetchMock
+      .get(MOCK_ORIGIN)
+      .intercept({ path: MOCK_PATH, method: 'POST' })
+      .reply(200, (req) => {
+        capturedRequest = req;
+        return 'ok';
+      });
+
+    await log({ ...mockEnv, APPLICATION_NAME: 'wrl-staging' }, 3, 'capture', { event: 'test' });
+
+    const body = JSON.parse(capturedRequest.body);
+    expect(body[0].applicationName).toBe('wrl-staging');
+  });
+
+  it('falls back to wrl when APPLICATION_NAME is not set', async () => {
+    let capturedRequest;
+
+    fetchMock
+      .get(MOCK_ORIGIN)
+      .intercept({ path: MOCK_PATH, method: 'POST' })
+      .reply(200, (req) => {
+        capturedRequest = req;
+        return 'ok';
+      });
+
+    await log(mockEnv, 3, 'capture', { event: 'test' });
+
+    const body = JSON.parse(capturedRequest.body);
+    expect(body[0].applicationName).toBe('wrl');
+  });
 });
 
 // ---------------------------------------------------------------------------

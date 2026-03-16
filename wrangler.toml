@@ -39,3 +39,45 @@ binding = "BROWSER"
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
+APPLICATION_NAME = "wrl"
+
+# --- Staging environment ---
+# Fully isolated: separate Worker, KV, R2, rate limiters.
+# Secrets (CAPTURE_API_KEY, SIGNING_KEY, CORALOGIX_SEND_KEY) are set via:
+#   wrangler secret put <NAME> --env staging
+
+[env.staging]
+
+[[env.staging.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "wrl-captures-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "KV"
+# Replace with output of: wrangler kv namespace create KV --env staging
+id = "STAGING_KV_ID_PLACEHOLDER"
+
+[[env.staging.unsafe.bindings]]
+name = "CAPTURE_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "2001"
+simple = { limit = 10, period = 60 }
+
+[[env.staging.unsafe.bindings]]
+name = "VERIFY_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "2002"
+simple = { limit = 60, period = 60 }
+
+[[env.staging.unsafe.bindings]]
+name = "GLOBAL_CAPTURE_LIMITER"
+type = "ratelimit"
+namespace_id = "2003"
+simple = { limit = 200, period = 60 }
+
+[env.staging.browser]
+binding = "BROWSER"
+
+[env.staging.vars]
+CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
+APPLICATION_NAME = "wrl-staging"

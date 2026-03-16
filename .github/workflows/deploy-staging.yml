@@ -1,0 +1,61 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint:api
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - uses: cloudflare/wrangler-action@da0e0edf58b41e3cd8317c1a9dbb2f0cd2791a54 # v3.14.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          environment: staging
+          secrets: |
+            CAPTURE_API_KEY
+            SIGNING_KEY
+            CORALOGIX_SEND_KEY
+        env:
+          CAPTURE_API_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}
+          SIGNING_KEY: ${{ secrets.WRL_STAGING_SIGNING_KEY }}
+          CORALOGIX_SEND_KEY: ${{ secrets.WRL_STAGING_CORALOGIX_SEND_KEY }}
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    environment: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: ./scripts/smoke-test.sh
+        env:
+          SMOKE_URL: ${{ vars.WRL_STAGING_BASE_URL }}
+          SMOKE_API_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}

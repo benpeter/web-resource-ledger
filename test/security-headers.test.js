@@ -10,6 +10,9 @@ function expectSecurityHeaders(response) {
   expect(hsts).toBeTruthy();
   expect(hsts).toContain('max-age=');
   expect(hsts).toContain('includeSubDomains');
+  const link = response.headers.get('Link');
+  expect(link).toBeTruthy();
+  expect(link).toContain('rel="terms-of-service"');
 }
 
 describe('Security headers -- present on all routes', () => {

@@ -53,12 +53,20 @@ export default {
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // URL is coupled to the GitHub repository path -- update if the repo is renamed.
+    response.headers.set('Link', '<https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md>; rel="terms-of-service"');
     return response;
   },
 };
 
 function handleHealth() {
-  return jsonResponse({ status: 'ok' });
+  return jsonResponse({
+    status: 'ok',
+    legal: {
+      terms: 'https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md',
+      policy: 'https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md',
+    },
+  });
 }
 
 async function handleCreateCapture(request, env, ctx) {

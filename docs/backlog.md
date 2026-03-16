@@ -26,8 +26,8 @@ security hardening for the current single-operator use case.
 - #34 **R4: HSTS preload submission** [XS] -- one header change + form submission
 - #35 **R5: X-RateLimit-Limit header** [XS] -- static ceiling header on rate-limited endpoints
 - #36 **R6: Hashed IP logging** [S] -- HMAC-SHA256 abuse correlation without PII
-- #37 **R7: Content moderation policy and ToS** [S] -- required before external promotion
-- #39 **R9: Staging environment** [S] -- automated deploy-to-staging on push to main
+- ~~#37 **R7: Content moderation policy and ToS** [S]~~ -- DONE: TERMS.md + CONTENT-POLICY.md at repo root, Link header on all responses
+- ~~#39 **R9: Staging environment** [S]~~ -- DONE: wrangler.toml env.staging, deploy-staging.yml, smoke-test.sh
 - ~~#40 **R10: Backlog cleanup and restructure** [S]~~ -- DONE: this document
 
 ## Act 2: Evidence-Grade (mid-term)
@@ -160,6 +160,8 @@ Completed items removed from active tracking:
 - ~~R8: Auth identity enrichment~~ -- DONE (list-endpoint phase)
 - ~~R1: List captures endpoint~~ -- DONE (list-endpoint phase): `GET /v1/captures` with cursor pagination, status filter, tenant isolation
 - ~~R2: Key versioning and public key archive~~ -- DONE (key-versioning phase): keyId fingerprints, signing key archive in KV, historical key verification
+- ~~R7: Content moderation policy and ToS~~ -- DONE (staging-and-tos phase)
+- ~~R9: Staging environment~~ -- DONE (staging-and-tos phase)
 - ~~CI/CD pipeline~~ -- CI added in 0012-open-source-readiness
 - ~~Structured logging~~ -- DONE (mvo-coralogix)
 - ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration)

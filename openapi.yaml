@@ -3,6 +3,7 @@ info:
   title: Web Resource Ledger API
   version: 0.2.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
+  termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
     name: Apache 2.0
     identifier: Apache-2.0
@@ -10,6 +11,8 @@ info:
 servers:
   - url: https://wrl.example.com
     description: Production
+  - url: https://wrl-staging.example.workers.dev
+    description: Staging
 
 tags:
   - name: health
@@ -52,6 +55,11 @@ components:
       description: Seconds to wait before retrying.
       schema:
         type: integer
+    TermsLink:
+      description: Link to Terms of Service per RFC 8288.
+      schema:
+        type: string
+        example: '<https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md>; rel="terms-of-service"'
 
   schemas:
     CaptureId:
@@ -592,6 +600,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
           content:
             application/json:
               schema:
@@ -601,9 +611,22 @@ paths:
                   status:
                     type: string
                     const: ok
+                  legal:
+                    type: object
+                    properties:
+                      terms:
+                        type: string
+                        format: uri
+                      policy:
+                        type: string
+                        format: uri
               examples:
                 healthy:
-                  value: {status: ok}
+                  value:
+                    status: ok
+                    legal:
+                      terms: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
+                      policy: https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md
 
   /v1/captures:
     get:

@@ -222,6 +222,10 @@ footer {
   color: #6d6d6d;
 }
 
+footer a { color: #1a1a1a; text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border-radius: 2px; }
+
 @media (max-width: 640px) {
   body { padding: 1rem 0.75rem; }
   .status-banner, section, details { padding-left: 1.25rem; padding-right: 1.25rem; }
@@ -258,7 +262,7 @@ footer {
     </noscript>
   </main>
 
-  <footer>Verified by Web Resource Ledger</footer>
+  <footer>Web Resource Ledger · <a href="https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md" target="_blank" rel="noopener">Terms</a> · <a href="https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md#abuse-reporting" target="_blank" rel="noopener">Report Abuse</a></footer>
 </div>
 
 <script>

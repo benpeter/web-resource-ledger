@@ -229,6 +229,13 @@ Key versioning and old-key verification are not yet implemented. See `docs/backl
 
 `GET /.well-known/signing-key` returns the current Ed25519 public key for independent verification. Third-party verifiers can fetch the key without trusting the `publicKey` embedded in individual WACZ bundles. The response is JSON with shape `{ algorithm, publicKey }`, where `publicKey` is the base64-encoded raw 32-byte Ed25519 key. Responses are cached for 1 hour at the edge.
 
+## Legal
+
+- [Terms of Service](TERMS.md)
+- [Content Moderation Policy](CONTENT-POLICY.md)
+
+By using this API, you agree to the [Terms of Service](TERMS.md).
+
 ## License
 
 [Apache 2.0](LICENSE)
