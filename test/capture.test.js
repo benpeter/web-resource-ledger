@@ -138,7 +138,7 @@ describe('performCapture -- renderer failure: timeout', () => {
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, timeoutRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
     expect(record.error).not.toContain('at ');
     expect(record.error).not.toContain('Error:');
   });
@@ -287,7 +287,7 @@ describe('performCapture -- Playwright-specific errors', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 
   it('handles page crash as retryable', async () => {
@@ -710,7 +710,7 @@ describe('performCapture -- partial capture failure paths', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 
   it('existing timeout (no DOMContentLoaded) still fails', async () => {
@@ -724,7 +724,7 @@ describe('performCapture -- partial capture failure paths', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 });
 

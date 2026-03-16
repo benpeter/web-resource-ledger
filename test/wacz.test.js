@@ -261,7 +261,7 @@ describe('WACZ -- graceful degradation', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       {}, // env with no SIGNING_KEY
     );
     expect(result).toBeNull();
@@ -315,7 +315,7 @@ describe('WARC structure', () => {
     const { warcBytes } = await buildWarc(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
     );
     const text = new TextDecoder().decode(warcBytes);
     expect(text.startsWith('WARC/1.1\r\n')).toBe(true);
