@@ -39,7 +39,7 @@ export const consentNotDetectedRenderer = async () => ({
   screenshotBefore: null,
   html: TEST_HTML,
   partial: false,
-  render: { waitUntilReached: 'networkidle', timedOut: false, durationMs: 2800 },
+  render: { waitUntilReached: 'load', timedOut: false, durationMs: 2800 },
   consent: { status: 'none', cmp: null, durationMs: 2500 },
 });
 
@@ -52,7 +52,7 @@ export const dualScreenshotRenderer = async () => ({
   screenshotBefore: PNG_BYTES,
   html: TEST_HTML,
   partial: false,
-  render: { waitUntilReached: 'networkidle', timedOut: false, durationMs: 3500 },
+  render: { waitUntilReached: 'load', timedOut: false, durationMs: 3500 },
   consent: { status: 'dismissed', cmp: 'cookiebot', durationMs: 850 },
 });
 
@@ -64,7 +64,7 @@ export const consentFailedRenderer = async () => ({
   screenshotBefore: null,
   html: TEST_HTML,
   partial: false,
-  render: { waitUntilReached: 'networkidle', timedOut: false, durationMs: 4200 },
+  render: { waitUntilReached: 'load', timedOut: false, durationMs: 4200 },
   consent: { status: 'timeout', cmp: null, durationMs: 8000 },
 });
 

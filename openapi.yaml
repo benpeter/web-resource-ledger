@@ -259,9 +259,9 @@ components:
       description: >
         Rendering process metadata. Reports which browser readiness milestone was
         reached and whether the navigation timed out before reaching the target
-        (networkidle). Present on completed captures created after this feature;
-        absent on earlier captures. When absent, the page reached networkidle
-        (consistent with renderQuality: full).
+        (load). Present on completed captures created after this feature;
+        absent on earlier captures. When absent, the page reached the load
+        milestone (consistent with renderQuality: full).
       required: [waitUntilReached, timedOut, durationMs]
       properties:
         waitUntilReached:
@@ -269,21 +269,23 @@ components:
           enum: [domcontentloaded, load, networkidle]
           description: >
             Highest browser readiness milestone confirmed before the page was
-            captured. "networkidle" means fewer than two open network connections
-            for 500ms. "load" means the load event fired. "domcontentloaded"
-            means the DOM was parsed but some resources may still be loading.
+            captured. "load" means the load event fired (default for new captures).
+            "networkidle" means fewer than two open network connections for 500ms
+            (used by older captures -- retained in enum for backward compatibility).
+            "domcontentloaded" means the DOM was parsed but some resources may
+            still be loading.
         timedOut:
           type: boolean
           description: >
             True when the navigation did not reach the target milestone
-            (networkidle) within the timeout window. When true, renderQuality
+            (load) within the timeout window. When true, renderQuality
             is "partial".
         durationMs:
           type: integer
           minimum: 0
           description: >
             Wall-clock milliseconds from navigation start to the point the page
-            was captured (either at networkidle or at timeout).
+            was captured (either at load + settle delay, or at timeout).
           examples:
             - 25012
 
@@ -329,15 +331,16 @@ components:
           type: string
           enum: [full, partial]
           description: >
-            Render quality of the capture. 'full' when the page reached networkidle
-            before capture. 'partial' when the capture was taken after a navigation
-            timeout but DOMContentLoaded had fired. Defaults to 'full' for captures
-            created before this feature.
+            Render quality of the capture. 'full' when the page reached the load
+            milestone before capture (followed by a 3s settle delay). 'partial'
+            when the capture was taken after a navigation timeout but
+            DOMContentLoaded had fired. Defaults to 'full' for captures created
+            before this feature.
         render:
           $ref: '#/components/schemas/RenderInfo'
           description: >
             Rendering process metadata. Present on captures created after this feature.
-            When absent, the page reached networkidle (consistent with renderQuality: full).
+            When absent, the page reached the load milestone (consistent with renderQuality: full).
         artifacts:
           $ref: '#/components/schemas/CaptureArtifacts'
         wacz:
