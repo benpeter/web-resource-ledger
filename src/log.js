@@ -26,7 +26,7 @@ export function log(env, severity, subsystem, data) {
         Authorization: `Bearer ${env.CORALOGIX_SEND_KEY}`,
       },
       body: JSON.stringify([{
-        applicationName: 'wrl',
+        applicationName: env.APPLICATION_NAME || 'wrl',
         subsystemName: subsystem,
         severity,
         timestamp: Date.now(),
