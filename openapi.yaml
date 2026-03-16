@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.3.0
+  version: 0.4.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
@@ -396,11 +396,12 @@ components:
       properties:
         name:
           type: string
-          enum: [artifactHashes, bundleHash, signature]
+          enum: [artifactHashes, bundleHash, signature, timestamp]
           description: >
             Which check this result represents. artifactHashes verifies individual
             file integrity; bundleHash verifies the overall archive; signature
-            verifies the Ed25519 signature over the bundle hash.
+            verifies the Ed25519 signature over the bundle hash; timestamp verifies
+            the RFC 3161 independent timestamp when present (v0.2.0 bundles only).
         status:
           type: string
           enum: [pass, fail, skip]
@@ -434,6 +435,19 @@ components:
         signedAt:
           type: ["string", "null"]
           description: ISO 8601 timestamp when the bundle was signed, from signedData.created.
+        timestamp:
+          type: ["object", "null"]
+          description: >
+            RFC 3161 timestamp data when an independent timestamp was obtained.
+            Null or absent when no timestamp exists (legacy captures or TSA unavailable).
+          properties:
+            genTime:
+              type: string
+              format: date-time
+              description: Time recorded by the TSA.
+            tsa:
+              type: string
+              description: TSA endpoint URL.
 
     VerificationCapture:
       type: object
@@ -468,7 +482,7 @@ components:
       properties:
         verified:
           type: boolean
-          description: True only when all three checks pass. False for any failure or skip.
+          description: True only when all checks pass or skip. False for any failure.
         capture:
           $ref: '#/components/schemas/VerificationCapture'
         signing:
@@ -480,7 +494,10 @@ components:
             - type: "null"
         checks:
           type: array
-          description: "Results of the three verification checks, always in order: artifactHashes, bundleHash, signature."
+          description: >
+            Verification check results, always in order: artifactHashes, bundleHash, signature,
+            and (for v0.2.0 bundles) timestamp. Legacy v0.1.0 bundles produce three checks;
+            v0.2.0 bundles produce up to four.
           items:
             $ref: '#/components/schemas/VerificationCheck'
 
@@ -1380,6 +1397,11 @@ paths:
         Performs cryptographic verification of the WACZ bundle for a completed capture
         and returns the result. No authentication required.
 
+        Verification runs up to four checks: artifactHashes, bundleHash, signature,
+        and (for v0.2.0 bundles) timestamp. The timestamp check verifies an RFC 3161
+        independent timestamp against the bundle hash. Legacy v0.1.0 bundles produce
+        three checks; the timestamp check is absent.
+
         Content negotiation: browsers (Accept: text/html) receive a self-contained
         HTML verification page that fetches the JSON result client-side. API clients
         receive JSON directly.
@@ -1438,7 +1460,7 @@ paths:
                 $ref: '#/components/schemas/VerificationResult'
               examples:
                 verified:
-                  summary: All three checks passed
+                  summary: All four checks passed (v0.2.0 bundle with timestamp)
                   value:
                     verified: true
                     capture:
@@ -1451,6 +1473,29 @@ paths:
                       signature: 'base64encodedSignatureHere=='
                       publicKey: 'base64encodedPublicKeyHere='
                       signedAt: '2024-01-15T10:30:44.000Z'
+                      timestamp:
+                        genTime: '2024-01-15T10:30:46.000Z'
+                        tsa: 'https://freetsa.org/tsr'
+                    checks:
+                      - {name: artifactHashes, status: pass}
+                      - {name: bundleHash, status: pass}
+                      - {name: signature, status: pass}
+                      - {name: timestamp, status: pass}
+                verifiedLegacy:
+                  summary: All three checks passed (v0.1.0 legacy bundle, no timestamp)
+                  value:
+                    verified: true
+                    capture:
+                      id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      createdAt: '2024-01-15T10:30:00.000Z'
+                      completedAt: '2024-01-15T10:30:45.123Z'
+                      renderQuality: full
+                    signing:
+                      bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+                      signature: 'base64encodedSignatureHere=='
+                      publicKey: 'base64encodedPublicKeyHere='
+                      signedAt: '2024-01-15T10:30:44.000Z'
+                      timestamp: null
                     checks:
                       - {name: artifactHashes, status: pass}
                       - {name: bundleHash, status: pass}

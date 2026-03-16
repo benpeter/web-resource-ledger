@@ -147,7 +147,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         };
         const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
         if (result) {
-          const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId } = result;
+          const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus } = result;
           await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
             httpMetadata: {
               contentType: 'application/wacz+zip',
@@ -166,6 +166,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
             bundleHash,
             size: waczBytes.byteLength,
             keyId,
+            timestampStatus,
           };
         }
       } catch (err) {
@@ -198,6 +199,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         bundleSize: waczInfo?.size ?? 0,
         renderQuality: 'full',
         cip,
+        timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
       });
     }
   } catch (err) {

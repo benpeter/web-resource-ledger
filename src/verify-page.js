@@ -281,12 +281,14 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
     artifactHashes: 'File integrity',
     bundleHash:     'Bundle integrity',
     signature:      'Digital signature',
+    timestamp:      'Independent time verification',
   };
 
   var CHECK_DESCS = {
     artifactHashes: 'Confirms individual captured files have not been modified.',
     bundleHash:     'Confirms the overall archive bundle has not been altered.',
     signature:      'Confirms the bundle was signed by the capture service.',
+    timestamp:      'Time was recorded by an independent authority (not verified cryptographically).',
   };
 
   function safeUrl(raw) {
@@ -390,6 +392,16 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
             '<div class="crypto-label">Public key</div>' +
             '<div class="crypto-value" id="public-key-url"></div>' +
           '</div>' +
+          (signing && signing.timestamp ? (
+            '<div class="crypto-row">' +
+              '<div class="crypto-label">Timestamp authority</div>' +
+              '<div class="crypto-value" id="tsa-name-value"></div>' +
+            '</div>' +
+            '<div class="crypto-row">' +
+              '<div class="crypto-label">Timestamp issued</div>' +
+              '<div class="crypto-value" id="tsa-time-value"></div>' +
+            '</div>'
+          ) : '') +
         '</div>' +
         '</details>';
     }
@@ -491,6 +503,16 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
       keyLink.href = origin + '/.well-known/signing-key';
       keyLink.textContent = origin + '/.well-known/signing-key';
       keyUrlEl.appendChild(keyLink);
+    }
+
+    var tsaNameEl = document.getElementById('tsa-name-value');
+    if (tsaNameEl && signing.timestamp && signing.timestamp.tsa) {
+      tsaNameEl.textContent = signing.timestamp.tsa;
+    }
+
+    var tsaTimeEl = document.getElementById('tsa-time-value');
+    if (tsaTimeEl && signing.timestamp && signing.timestamp.genTime) {
+      tsaTimeEl.textContent = fmtDate(signing.timestamp.genTime);
     }
   }
 

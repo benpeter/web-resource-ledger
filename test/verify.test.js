@@ -420,3 +420,269 @@ describe('verifyWacz -- security', () => {
     expect(['pass', 'fail', 'skip']).toContain(byName.signature.status);
   });
 });
+
+// ---------------------------------------------------------------------------
+// v0.2.0 format helpers
+// ---------------------------------------------------------------------------
+
+// Minimal DER helpers for building synthetic RFC 3161 timestamp tokens.
+// These mirror the test fixtures in test/rfc3161.test.js but are inlined here
+// to keep verify.test.js self-contained.
+
+function _writeLength(n) {
+  if (n < 0x80) return new Uint8Array([n]);
+  if (n <= 0xff) return new Uint8Array([0x81, n]);
+  if (n <= 0xffff) return new Uint8Array([0x82, n >> 8, n & 0xff]);
+  throw new Error('_writeLength: value too large');
+}
+
+function _writeTLV(tag, content) {
+  const lenBytes = _writeLength(content.length);
+  const out = new Uint8Array(1 + lenBytes.length + content.length);
+  out[0] = tag;
+  out.set(lenBytes, 1);
+  out.set(content, 1 + lenBytes.length);
+  return out;
+}
+
+function _concat(...arrays) {
+  const total = arrays.reduce((n, a) => n + a.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const a of arrays) { out.set(a, pos); pos += a.length; }
+  return out;
+}
+
+const _OID_SHA256 = new Uint8Array([0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01]);
+const _OID_POLICY = new Uint8Array([0x2a, 0x03, 0x04]);
+
+function _buildTSTInfo(hashBytes) {
+  const version    = _writeTLV(0x02, new Uint8Array([0x01]));
+  const policy     = _writeTLV(0x06, _OID_POLICY);
+  const algId      = _writeTLV(0x30, _concat(_writeTLV(0x06, _OID_SHA256), _writeTLV(0x05, new Uint8Array(0))));
+  const msgImprint = _writeTLV(0x30, _concat(algId, _writeTLV(0x04, hashBytes)));
+  const serial     = _writeTLV(0x02, new Uint8Array([0x01]));
+  const genTime    = _writeTLV(0x18, enc.encode('20260316120000Z'));
+  return _writeTLV(0x30, _concat(version, policy, msgImprint, serial, genTime));
+}
+
+function _buildTimeStampToken(tstInfoDer) {
+  const oidSD     = _writeTLV(0x06, new Uint8Array([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02]));
+  const oidTSTI   = _writeTLV(0x06, new Uint8Array([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x10, 0x01, 0x04]));
+  const eContent  = _writeTLV(0xa0, _writeTLV(0x04, tstInfoDer));
+  const encapInfo = _writeTLV(0x30, _concat(oidTSTI, eContent));
+  const sdVersion = _writeTLV(0x02, new Uint8Array([0x03]));
+  const digestAlgs = _writeTLV(0x31, new Uint8Array(0));
+  const signedData = _writeTLV(0x30, _concat(sdVersion, digestAlgs, encapInfo));
+  const ctx0       = _writeTLV(0xa0, signedData);
+  return _writeTLV(0x30, _concat(oidSD, ctx0));
+}
+
+/** Builds a base64 RFC 3161 token whose messageImprint matches bundleHash. */
+function buildValidToken(bundleHash) {
+  const hex = bundleHash.slice(7);
+  const hashBytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) hashBytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  const tokenDer = _buildTimeStampToken(_buildTSTInfo(hashBytes));
+  return btoa(String.fromCharCode(...tokenDer));
+}
+
+/** Builds a base64 RFC 3161 token whose messageImprint deliberately MISMATCHES bundleHash. */
+function buildMismatchedToken(bundleHash) {
+  const wrongBytes = new Uint8Array(32).fill(0xff); // definitely won't match real hash
+  const tokenDer = _buildTimeStampToken(_buildTSTInfo(wrongBytes));
+  return btoa(String.fromCharCode(...tokenDer));
+}
+
+/**
+ * Builds a v0.2.0 WACZ with a signatures array.
+ *
+ * @param {CryptoKey}   privateKey
+ * @param {Uint8Array}  publicKeyBytes
+ * @param {{ token?: string, tsa?: string } | null} tsaEntry
+ *   When non-null, adds an rfc3161 entry to the signatures array.
+ *   Pass a valid token to simulate a good timestamp, or a bad one to simulate failure.
+ */
+async function buildTestWaczV2(privateKey, publicKeyBytes, tsaEntry = null) {
+  const warcBytes  = enc.encode('WARC/1.1\r\ntest warc content v2');
+  const cdxjBytes  = enc.encode('test cdxj content v2');
+  const pagesBytes = enc.encode('{"format":"json-pages-1.0"}\n');
+
+  const warcHash  = await sha256(warcBytes);
+  const cdxjHash  = await sha256(cdxjBytes);
+  const pagesHash = await sha256(pagesBytes);
+
+  const datapackage = {
+    profile: 'data-package',
+    wacz_version: '1.1.1',
+    resources: [
+      { name: 'data.warc',    path: 'archive/data.warc',   hash: warcHash,  bytes: warcBytes.byteLength },
+      { name: 'index.cdxj',  path: 'indexes/index.cdxj',  hash: cdxjHash,  bytes: cdxjBytes.byteLength },
+      { name: 'pages.jsonl', path: 'pages/pages.jsonl',    hash: pagesHash, bytes: pagesBytes.byteLength },
+    ],
+  };
+
+  const dpBytes    = enc.encode(JSON.stringify(datapackage, null, 2));
+  const bundleHash = await sha256(enc.encode(canonicalize(datapackage)));
+  const signature  = await signBytes(privateKey, enc.encode(bundleHash));
+  const publicKeyBase64 = btoa(String.fromCharCode(...publicKeyBytes));
+  const dpHashOfBytes   = await sha256(dpBytes);
+
+  const signatures = [
+    { type: 'self', signature, publicKey: publicKeyBase64, keyId: 'aaaabbbb' },
+  ];
+  if (tsaEntry) {
+    signatures.push({ type: 'rfc3161', token: tsaEntry.token, tsa: tsaEntry.tsa ?? 'https://tsa.example.com' });
+  }
+
+  const digestDoc = {
+    path: 'datapackage.json',
+    hash: dpHashOfBytes,
+    signedData: {
+      hash: bundleHash,
+      created: new Date().toISOString(),
+      software: 'WRL/0.1',
+      version: '0.2.0',
+      signatures,
+    },
+  };
+
+  const digestBytes = enc.encode(JSON.stringify(digestDoc, null, 2));
+
+  const waczBytes = zipSync({
+    'datapackage.json':        [dpBytes,     { level: 0 }],
+    'datapackage-digest.json': [digestBytes, { level: 0 }],
+    'archive/data.warc':       [warcBytes,   { level: 0 }],
+    'indexes/index.cdxj':      [cdxjBytes,   { level: 0 }],
+    'pages/pages.jsonl':       [pagesBytes,  { level: 0 }],
+  });
+
+  return { waczBytes, datapackage, dpBytes, digestDoc, digestBytes, warcBytes, cdxjBytes, pagesBytes, bundleHash };
+}
+
+// ---------------------------------------------------------------------------
+// v0.2.0 -- self-signature only (no timestamp)
+// ---------------------------------------------------------------------------
+
+describe('verifyWacz v0.2.0 -- valid self-signature, no timestamp', () => {
+  it('verified: true with 4 checks, timestamp: skip', async () => {
+    const { waczBytes } = await buildTestWaczV2(privateKeyA, publicKeyBytesA, null);
+    const result = await verifyWacz(waczBytes, publicKeyBytesA);
+
+    expect(result.verified).toBe(true);
+    expect(result.checks).toHaveLength(4);
+
+    const byName = Object.fromEntries(result.checks.map(c => [c.name, c]));
+    expect(byName.artifactHashes.status).toBe('pass');
+    expect(byName.bundleHash.status).toBe('pass');
+    expect(byName.signature.status).toBe('pass');
+    expect(byName.timestamp.status).toBe('skip');
+  });
+
+  it('capture metadata is present and has expected shape', async () => {
+    const { waczBytes } = await buildTestWaczV2(privateKeyA, publicKeyBytesA, null);
+    const result = await verifyWacz(waczBytes, publicKeyBytesA);
+
+    expect(result.capture).toBeDefined();
+    expect(result.capture.bundleHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(typeof result.capture.signature).toBe('string');
+    expect(typeof result.capture.publicKey).toBe('string');
+    expect(typeof result.capture.signedAt).toBe('string');
+    expect(result.capture.timestamp).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v0.2.0 -- valid self-signature + valid timestamp
+// ---------------------------------------------------------------------------
+
+describe('verifyWacz v0.2.0 -- valid self-signature + valid timestamp', () => {
+  it('verified: true, all 4 checks pass', async () => {
+    // Build the WACZ first to get the bundleHash, then create a matching token
+    const { waczBytes, bundleHash } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: 'placeholder', tsa: 'https://tsa.example.com' }
+    );
+
+    // Re-build with a token that actually matches the bundleHash
+    const validToken = buildValidToken(bundleHash);
+    const { waczBytes: waczBytesWithTs } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: validToken, tsa: 'https://tsa.example.com' }
+    );
+
+    const result = await verifyWacz(waczBytesWithTs, publicKeyBytesA);
+
+    expect(result.verified).toBe(true);
+    expect(result.checks).toHaveLength(4);
+
+    const byName = Object.fromEntries(result.checks.map(c => [c.name, c]));
+    expect(byName.artifactHashes.status).toBe('pass');
+    expect(byName.bundleHash.status).toBe('pass');
+    expect(byName.signature.status).toBe('pass');
+    expect(byName.timestamp.status).toBe('pass');
+  });
+
+  it('capture.timestamp is populated with genTime and tsa', async () => {
+    const { waczBytes: waczInit, bundleHash } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: 'placeholder', tsa: 'https://tsa.example.com' }
+    );
+    const validToken = buildValidToken(bundleHash);
+    const { waczBytes } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: validToken, tsa: 'https://tsa.example.com' }
+    );
+
+    const result = await verifyWacz(waczBytes, publicKeyBytesA);
+
+    expect(result.capture.timestamp).toBeDefined();
+    expect(result.capture.timestamp.genTime).toBe('2026-03-16T12:00:00.000Z');
+    expect(result.capture.timestamp.tsa).toBe('https://tsa.example.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v0.2.0 -- valid self-signature + invalid timestamp
+// ---------------------------------------------------------------------------
+
+describe('verifyWacz v0.2.0 -- valid self-signature + invalid timestamp', () => {
+  it('verified: false, timestamp check fails', async () => {
+    // Build a WACZ whose bundleHash will NOT match the token's messageImprint
+    const { waczBytes, bundleHash } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: 'placeholder', tsa: 'https://tsa.example.com' }
+    );
+
+    // Use a token with a MISMATCHED hash
+    const badToken = buildMismatchedToken(bundleHash);
+    const { waczBytes: waczBytesWithBadTs } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: badToken, tsa: 'https://tsa.example.com' }
+    );
+
+    const result = await verifyWacz(waczBytesWithBadTs, publicKeyBytesA);
+
+    expect(result.verified).toBe(false);
+    expect(result.checks).toHaveLength(4);
+
+    const byName = Object.fromEntries(result.checks.map(c => [c.name, c]));
+    expect(byName.artifactHashes.status).toBe('pass');
+    expect(byName.bundleHash.status).toBe('pass');
+    expect(byName.signature.status).toBe('pass');
+    expect(byName.timestamp.status).toBe('fail');
+  });
+
+  it('malformed token base64 causes timestamp: fail', async () => {
+    const { waczBytes: waczInit, bundleHash } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: 'placeholder' }
+    );
+    const { waczBytes } = await buildTestWaczV2(
+      privateKeyA, publicKeyBytesA, { token: '!!!not-base64!!!' }
+    );
+
+    const result = await verifyWacz(waczBytes, publicKeyBytesA);
+
+    expect(result.verified).toBe(false);
+    const byName = Object.fromEntries(result.checks.map(c => [c.name, c]));
+    expect(byName.timestamp.status).toBe('fail');
+    // Other checks should still run and pass (self-signature is still valid)
+    expect(byName.artifactHashes.status).toBe('pass');
+    expect(byName.bundleHash.status).toBe('pass');
+    expect(byName.signature.status).toBe('pass');
+  });
+});

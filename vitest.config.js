@@ -25,6 +25,7 @@ export default defineWorkersConfig({
             TEST_ARCHIVED_KEY: testArchivedKey,
             CORS_ORIGINS: 'https://allowed.example.com,https://other-allowed.example.com',
             IP_HASH_SEED: 'test-ip-hash-seed-for-vitest',
+            TSA_URL: 'https://timestamp.digicert.com',
           },
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"
