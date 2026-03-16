@@ -138,7 +138,7 @@ async function handleCreateCapture(request, env, ctx) {
   return jsonResponse({
     id: captureId,
     statusUrl,
-    note: 'No list endpoint is available. Store the capture ID -- it is the only way to access this capture.',
+    note: 'Use GET /v1/captures to list and search your captures.',
   }, 202, { 'Retry-After': '5' });
 }
 

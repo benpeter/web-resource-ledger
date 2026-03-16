@@ -41,11 +41,11 @@ curl -X POST https://wrl.example.com/v1/captures \
 {
   "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
   "statusUrl": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status",
-  "note": "No list endpoint is available. Store the capture ID -- it is the only way to access this capture."
+  "note": "Use GET /v1/captures to list and search your captures."
 }
 ```
 
-Store the capture ID. There is no listing endpoint to recover it.
+Your captures are always accessible. Use `GET /v1/captures` to list them, or save the capture ID for direct access.
 
 #### Step 2: Poll for completion
 
@@ -71,7 +71,37 @@ curl https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
 Returns a JSON verification result with three checks: `artifactHashes`, `bundleHash`, and `signature`. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
 
-The `verifyUrl` is safe to share publicly. The raw capture ID grants full access to all artifacts -- treat it as a secret.
+The `verifyUrl` is safe to share publicly. The capture ID grants full access to all artifacts without authentication -- treat it as a secret. Anyone with the ID can view the capture.
+
+#### Finding and sharing captures
+
+**Finding captures:** `GET /v1/captures` lists your captures (requires your API key). Use it to browse and recover capture IDs. **Sharing captures:** The capture ID in any URL works without authentication. Share verification URLs freely.
+
+```bash
+curl https://wrl.example.com/v1/captures \
+  -H "Authorization: Bearer $WRL_API_KEY"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+      "status": "complete",
+      "url": "https://example.com",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "completedAt": "2024-01-15T10:30:45.123Z"
+    }
+  ],
+  "pagination": {
+    "cursor": null,
+    "hasMore": false,
+    "limit": 20
+  }
+}
+```
+
+Optional query parameters: `limit` (1-100, default 20), `cursor` (for paging), `status` (`pending`, `complete`, or `failed`).
 
 Captures are rate-limited to 10 per minute per IP. Verification is limited to 60 per minute per IP. Error responses use RFC 9457 `application/problem+json` format. For full details, see [`openapi.yaml`](openapi.yaml).
 

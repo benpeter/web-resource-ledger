@@ -57,7 +57,7 @@ components:
     CaptureId:
       type: string
       pattern: '^cap_[a-f0-9]{32}$'
-      description: Unique capture identifier. Also serves as the access secret — store it.
+      description: Unique capture identifier. Also serves as the access secret for per-capture access.
       examples:
         - cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
@@ -93,7 +93,7 @@ components:
           description: Absolute URL to poll for capture status.
         note:
           type: string
-          description: Advisory message reminding callers to store the capture ID.
+          description: Advisory message about related API capabilities.
 
     CaptureStatus:
       type: object
@@ -189,8 +189,8 @@ components:
       type: object
       description: >
         Metadata and artifact links for a completed capture. The capture ID acts
-        as the access secret -- no authentication header is required. Store it;
-        there is no listing endpoint to recover it.
+        as the access secret -- no authentication header is required. Captures are
+        also accessible via GET /v1/captures.
 
         Artifact URLs are served via the API Worker to ensure correct security
         headers (XSS prevention for HTML artifact). URLs do not expire.
@@ -746,7 +746,7 @@ paths:
                   value:
                     id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                     statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
-                    note: No list endpoint is available. Store the capture ID -- it is the only way to access this capture.
+                    note: Use GET /v1/captures to list and search your captures.
         '400':
           $ref: '#/components/responses/Problem400'
         '401':

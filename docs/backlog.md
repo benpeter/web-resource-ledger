@@ -19,8 +19,8 @@ for full rationale, conflict resolutions, and specialist contributions.
 These close the trust gaps (recoverability, verifiability) and handle quick-win
 security hardening for the current single-operator use case.
 
-- #38 **R8: Auth identity enrichment** [S] -- internal refactor, prerequisite for R1
-- #31 **R1: List captures endpoint** [M] -- eliminates lost-ID problem; depends on R8
+- ~~#38 **R8: Auth identity enrichment** [S]~~ -- DONE: internal refactor, prerequisite for R1
+- ~~#31 **R1: List captures endpoint** [M]~~ -- DONE: eliminates lost-ID problem; depends on R8
 - #32 **R2: Key versioning and public key archive** [M] -- must ship before any key rotation
 - #33 **R3: CORS for capture POST** [S] -- unblocks browser-based integrations
 - #34 **R4: HSTS preload submission** [XS] -- one header change + form submission
@@ -120,7 +120,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Change detection / diffing | Requires multiple captures over time; no demand | MVP.md |
 | [consider] Notifications | When event-driven workflows needed | MVP.md |
 | [consider] Billing and quotas | When monetization actively planned | MVP.md |
-| [consider] Capture ID recovery | Solved by R1; remove after R1 ships | ux-strategy-minion, kickoff |
+| ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |
 
 ---
 
@@ -157,6 +157,8 @@ Removed from active backlog. Rationale preserved here.
 
 Completed items removed from active tracking:
 
+- ~~R8: Auth identity enrichment~~ -- DONE (list-endpoint phase)
+- ~~R1: List captures endpoint~~ -- DONE (list-endpoint phase): `GET /v1/captures` with cursor pagination, status filter, tenant isolation
 - ~~CI/CD pipeline~~ -- CI added in 0012-open-source-readiness
 - ~~Structured logging~~ -- DONE (mvo-coralogix)
 - ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration)
