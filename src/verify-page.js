@@ -181,6 +181,16 @@ h2 {
 
 .screenshot-error { font-size: 0.875rem; color: #6d6d6d; font-style: italic; }
 
+.screenshot-caption {
+  font-size: 0.875rem;
+  color: #6d6d6d;
+  margin-top: 0.5rem;
+}
+
+.screenshot-section details {
+  margin-top: 1rem;
+}
+
 /* Crypto details */
 details { padding: 1.5rem 2rem; border-top: 1px solid #e8e8e8; }
 
@@ -278,17 +288,19 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
   var SVG_DASH  = '<svg class="check-icon skip" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>';
 
   var CHECK_LABELS = {
-    artifactHashes: 'File integrity',
-    bundleHash:     'Bundle integrity',
-    signature:      'Digital signature',
-    timestamp:      'Independent time verification',
+    artifactHashes:  'File integrity',
+    bundleHash:      'Bundle integrity',
+    signature:       'Digital signature',
+    timestamp:       'Independent time verification',
+    consentHandling: 'Cookie consent handled',
   };
 
   var CHECK_DESCS = {
-    artifactHashes: 'Confirms individual captured files have not been modified.',
-    bundleHash:     'Confirms the overall archive bundle has not been altered.',
-    signature:      'Confirms the bundle was signed by the capture service.',
-    timestamp:      'Time was recorded by an independent authority (not verified cryptographically).',
+    artifactHashes:  'Confirms individual captured files have not been modified.',
+    bundleHash:      'Confirms the overall archive bundle has not been altered.',
+    signature:       'Confirms the bundle was signed by the capture service.',
+    timestamp:       'Time was recorded by an independent authority (not verified cryptographically).',
+    consentHandling: 'The capture dismissed a cookie consent banner to reveal the page content.',
   };
 
   function safeUrl(raw) {
@@ -331,12 +343,38 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
     var verified = verifyData.verified;
     var capture  = verifyData.capture || {};
     var signing  = verifyData.signing || {};
-    var checks   = verifyData.checks || [];
+    var checks   = (verifyData.checks || []).slice();
 
     var capturedUrl = retrievalData ? (retrievalData.url || null) : null;
     var screenshotUrl = retrievalData
       ? (retrievalData.artifacts && retrievalData.artifacts.screenshot ? retrievalData.artifacts.screenshot : null)
       : null;
+    var screenshotBeforeUrl = retrievalData
+      ? (retrievalData.artifacts && retrievalData.artifacts.screenshotBefore
+         ? retrievalData.artifacts.screenshotBefore : null)
+      : null;
+
+    var captureSettings = verifyData.captureSettings;
+    var consentResult = captureSettings && captureSettings.consent
+      ? captureSettings.consent.result
+      : null;
+
+    // Append consent check if CMP was found
+    if (consentResult === 'success') {
+      checks = checks.concat([{
+        name: 'consentHandling',
+        status: 'pass',
+        detail: captureSettings.consent.cmpDetected
+          ? 'Detected: ' + captureSettings.consent.cmpDetected
+          : null,
+      }]);
+    } else if (consentResult === 'failed') {
+      checks = checks.concat([{
+        name: 'consentHandling',
+        status: 'skip',
+        detail: 'A consent banner was detected but could not be dismissed.',
+      }]);
+    }
 
     var completedAt = fmtDate(capture.completedAt);
 
@@ -371,9 +409,18 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
 
     // Screenshot
     if (screenshotUrl) {
-      html += '<section aria-label="Screenshot"><h2>Screenshot</h2>' +
+      html += '<section aria-label="Screenshot" class="screenshot-section"><h2>Screenshot</h2>' +
         '<div id="screenshot-wrap"></div>' +
+        '<p class="screenshot-caption" id="screenshot-caption"></p>' +
+        '<div id="screenshot-before-wrap"></div>' +
         '</section>';
+    }
+
+    // Capture details (only when captureSettings present)
+    if (captureSettings) {
+      html += '<details id="capture-details-disclosure"><summary>Capture details</summary>' +
+        '<div class="crypto-grid" id="capture-details-grid"></div>' +
+        '</details>';
     }
 
     // Cryptographic details
@@ -406,12 +453,14 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
         '</details>';
     }
 
-    return html;
+    return { html: html, checks: checks };
   }
 
   function populate(verifyData, retrievalData) {
     var el = document.getElementById('result');
-    el.innerHTML = buildResult(verifyData, retrievalData);
+    var built = buildResult(verifyData, retrievalData);
+    el.innerHTML = built.html;
+    var allChecks = built.checks;
 
     // Set h1
     var h1 = document.querySelector('h1');
@@ -422,12 +471,20 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
 
     var capture  = verifyData.capture || {};
     var signing  = verifyData.signing || {};
-    var checks   = verifyData.checks || [];
+
+    var captureSettings = verifyData.captureSettings;
+    var consentResult = captureSettings && captureSettings.consent
+      ? captureSettings.consent.result
+      : null;
 
     // Populate capture metadata using textContent (no innerHTML for user data)
     var capturedUrl = retrievalData ? (retrievalData.url || null) : null;
     var screenshotUrl = retrievalData
       ? (retrievalData.artifacts && retrievalData.artifacts.screenshot ? retrievalData.artifacts.screenshot : null)
+      : null;
+    var screenshotBeforeUrl = retrievalData
+      ? (retrievalData.artifacts && retrievalData.artifacts.screenshotBefore
+         ? retrievalData.artifacts.screenshotBefore : null)
       : null;
 
     if (capturedUrl) {
@@ -450,8 +507,8 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
       metaTime.textContent = 'Captured on ' + fmtDate(capture.completedAt);
     }
 
-    // Populate check details
-    checks.forEach(function (c) {
+    // Populate check details (use augmented checks array including consent check)
+    allChecks.forEach(function (c) {
       if (c.detail) {
         var detailEl = document.querySelector('[data-check-detail="' + c.name + '"]');
         if (detailEl) detailEl.textContent = c.detail;
@@ -468,7 +525,11 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
           img.className = 'screenshot-img';
           var altDate = capture.completedAt ? fmtDate(capture.completedAt) : 'unknown date';
           var altUrl  = capturedUrl || 'unknown URL';
-          img.alt = 'Screenshot of ' + altUrl + ' captured on ' + altDate;
+          if (consentResult === 'success') {
+            img.alt = 'Screenshot of ' + altUrl + ' captured on ' + altDate + ', after cookie consent dismissal';
+          } else {
+            img.alt = 'Screenshot of ' + altUrl + ' captured on ' + altDate;
+          }
           img.setAttribute('src', safeImgSrc);
           img.onerror = function () {
             var p = document.createElement('p');
@@ -483,6 +544,70 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
           errP.textContent = 'Screenshot not available';
           imgWrap.appendChild(errP);
         }
+      }
+
+      // Screenshot caption (only when consent was dismissed)
+      if (consentResult === 'success') {
+        var captionEl = document.getElementById('screenshot-caption');
+        if (captionEl) captionEl.textContent = 'Page after cookie consent dismissal';
+      }
+
+      // Before screenshot (inside a <details> disclosure)
+      if (screenshotBeforeUrl) {
+        var beforeWrap = document.getElementById('screenshot-before-wrap');
+        if (beforeWrap) {
+          var safeBeforeSrc = safeUrl(screenshotBeforeUrl);
+          if (safeBeforeSrc) {
+            var detailsEl = document.createElement('details');
+            var summaryEl = document.createElement('summary');
+            summaryEl.textContent = 'Show screenshot before consent dismissal';
+            var beforeImg = document.createElement('img');
+            beforeImg.className = 'screenshot-img';
+            var beforeAltDate = capture.completedAt ? fmtDate(capture.completedAt) : 'unknown date';
+            var beforeAltUrl  = capturedUrl || 'unknown URL';
+            beforeImg.alt = 'Screenshot of ' + beforeAltUrl + ' captured on ' + beforeAltDate + ', showing original cookie consent banner';
+            beforeImg.setAttribute('src', safeBeforeSrc);
+            detailsEl.appendChild(summaryEl);
+            detailsEl.appendChild(beforeImg);
+            beforeWrap.appendChild(detailsEl);
+          }
+        }
+      }
+    }
+
+    // Capture details disclosure
+    if (captureSettings) {
+      var captureGrid = document.getElementById('capture-details-grid');
+      if (captureGrid && captureSettings.consent) {
+        var consent = captureSettings.consent;
+        var consentRow = document.createElement('div');
+        consentRow.className = 'crypto-row';
+
+        var consentLabelEl = document.createElement('div');
+        consentLabelEl.className = 'crypto-label';
+        consentLabelEl.textContent = 'Cookie consent';
+
+        var consentValueEl = document.createElement('div');
+        consentValueEl.className = 'crypto-value';
+
+        var consentText;
+        if (consent.result === 'success') {
+          consentText = 'Dismissed';
+          if (consent.cmpDetected) {
+            consentText += ' (' + consent.cmpDetected + ')';
+          }
+        } else if (consent.result === 'notDetected') {
+          consentText = 'Not detected';
+        } else if (consent.result === 'failed') {
+          consentText = 'Attempted, failed';
+        } else {
+          consentText = consent.result || '';
+        }
+        consentValueEl.textContent = consentText;
+
+        consentRow.appendChild(consentLabelEl);
+        consentRow.appendChild(consentValueEl);
+        captureGrid.appendChild(consentRow);
       }
     }
 
