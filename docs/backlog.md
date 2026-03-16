@@ -1,117 +1,174 @@
 # Backlog
 
-Items deferred from MVP scope. Extracted from `docs/evolution/` and
-`docs/history/` after phases 0001-0003. Updated through 0012-open-source-readiness.
+Product roadmap produced by advisory orchestration (2026-03-15). See
+[advisory report](history/nefario-reports/2026-03-15-103905-prioritized-product-roadmap.md)
+and [synthesis](history/nefario-reports/2026-03-15-103905-prioritized-product-roadmap/phase3-synthesis.md)
+for full rationale, conflict resolutions, and specialist contributions.
 
-Tier definitions:
-- **[must]** -- explicitly committed to or "must add before production"
-- **[should]** -- strong specialist consensus it's needed, no hard commitment
-- **[consider]** -- mentioned as a possibility, may or may not be needed
+## Tier Definitions
 
-Sources are abbreviated: `kickoff` = 0001, `scaffold` = 0002, `urlval` = 0003.
-Agent names reference the specialist who raised the item.
+- **[must:condition]** -- required before a stated condition (e.g., `[must:multi-user]`
+  means "must ship before a second user touches WRL"). Not unconditionally urgent.
+- **[should]** -- strong consensus it's needed, no hard commitment yet
+- **[consider]** -- may or may not be needed; parked with activation trigger
+
+## Backlog Inflation Policy
+
+Only add items to the active backlog that the human explicitly deferred or that
+address a demonstrated (not theoretical) need. Agent-originated items go to the
+Parking Lot with a revisit condition. Backlog should not exceed ~25 active items;
+exceeding this triggers a cleanup pass.
 
 ---
 
-## Auth and Access Control
+## Act 1: Solid Foundation (near-term, next 1-3 phases)
 
-- [must] Per-tenant API keys -- single static key is MVP only; need per-tenant keys before second user (security-minion, kickoff)
-- [must] API key rotation without downtime -- support multiple active keys (security-minion, kickoff)
-- [must] Key scoping -- read vs write permissions per key (security-minion, kickoff)
-- [must] Audit logging of key usage (security-minion, kickoff)
-- [must] Tenant isolation / RBAC -- required before multi-user (security-minion, kickoff)
-- [consider] OAuth for web UI -- only if a web capture UI is built (security-minion, kickoff)
-- [consider] Social signup (GitHub first) -- YAGNI until multi-user (margo, kickoff)
+These close the trust gaps (recoverability, verifiability) and handle quick-win
+security hardening for the current single-operator use case.
 
-## API
+- #38 **R8: Auth identity enrichment** [S] -- internal refactor, prerequisite for R1
+- #31 **R1: List captures endpoint** [M] -- eliminates lost-ID problem; depends on R8
+- #32 **R2: Key versioning and public key archive** [M] -- must ship before any key rotation
+- #33 **R3: CORS for capture POST** [S] -- unblocks browser-based integrations
+- #34 **R4: HSTS preload submission** [XS] -- one header change + form submission
+- #35 **R5: X-RateLimit-Limit header** [XS] -- static ceiling header on rate-limited endpoints
+- #36 **R6: Hashed IP logging** [S] -- HMAC-SHA256 abuse correlation without PII
+- #37 **R7: Content moderation policy and ToS** [S] -- required before external promotion
+- #39 **R9: Staging environment** [S] -- automated deploy-to-staging on push to main
+- #40 **R10: Backlog cleanup and restructure** [S] -- this restructure; evolution log entry
 
-- [must] List/search captures (`GET /v1/captures`) -- "first addition post-MVP" (MVP.md, api-design-minion, kickoff)
-- [should] Rate limit headers in responses -- `Retry-After` implemented on 429 and 202/pending; `X-RateLimit-*` headers (limit, remaining, reset) still deferred (api-design-minion, kickoff; partial: capture-endpoint)
-- [should] CORS configuration -- retrieval GET endpoints use `*` (retrieval-endpoint); capture POST endpoint should restrict origins (security-minion, kickoff; partial: retrieval-endpoint)
-- [should] Queue migration for capture processing -- ctx.waitUntil() has 30s hard limit; Cloudflare Queue gives 15min processing budget; add when slow-page timeouts recur; session reuse eliminates ~2-5s browser launch overhead, freeing more budget for rendering (edge-minion, capture-endpoint)
-- [consider] Per-tenant rate limiting -- current rate limit keys on CF-Connecting-IP; should switch to tenant ID when per-tenant keys are added; with 10x capacity (300/min) the per-IP 10/min limit feels more constraining (edge-minion, capture-endpoint)
-- [consider] Webhooks / outbound callbacks -- additional notification channel alongside polling (api-design-minion, kickoff)
-- [consider] Batch capture -- multiple URLs in one request (api-design-minion, kickoff)
-- [consider] SSE / WebSocket -- alternative async notification for capture completion (api-design-minion, kickoff)
-- [consider] Pagination, filtering, sorting -- depends on list endpoint (api-design-minion, kickoff)
+## Act 2: Evidence-Grade (mid-term)
 
-## Signing and Legal Admissibility
+Upgrade integrity claims from self-asserted to independently verifiable. Make the
+word "evidence" defensible.
 
-- [should] RFC 3161 timestamps via TSA -- upgrade path designed (add entry to signatures array), requires ASN.1 parsing (gru vs security-minion conflict, resolved: deferred; kickoff)
-- [should] Key versioning / key ID in signature entries -- needed for key rotation; without it, verification returns false for captures signed with rotated keys (security-minion, kickoff; confirmed: verification-endpoint)
-- [should] Old public key archive endpoint -- needed for verifying captures signed with rotated keys (security-minion, kickoff; confirmed: verification-endpoint)
-- [consider] eIDAS Qualified TSA -- strategic for European customers, eIDAS 2.0 rollout by end 2026 (gru, kickoff)
-- [consider] WACZ-Auth signing spec -- full implementation, MVP uses simplified version (gru, kickoff)
-- [consider] Domain-ownership certificate -- identity proof component of WACZ-Auth (gru, kickoff)
-- [consider] Multiple TSAs for redundancy -- FreeTSA has no SLA (gru, kickoff)
-- [consider] HSM-backed key storage -- mentioned for production key management (security-minion, kickoff)
+- #41 **R11: RFC 3161 timestamp integration** [L] -- third-party temporal proof; depends on R2
+- #42 **R12: Per-tenant API keys and tenant isolation** [L] -- gated on multi-user decision; depends on R1, R8
+- #43 **R13: Audit logging** [S] -- full audit trail; depends on R12
+- #44 **R14: Production CD pipeline** [M] -- automated deploy with environment protection; depends on R9
 
-## Capture Fidelity
+## Act 3: Infrastructure (longer-horizon)
 
-- [should] Screenshot timing / wait-for-load -- pages with dynamic content, lazy loading, or CSR may not be fully rendered (process.md, kickoff; deliberately untested)
-- [consider] Screenshot height cap is 8000px -- pages taller than this produce capped screenshots; may need configurable viewport height (edge-minion, capture-endpoint)
-- [consider] Resource manifest (CSS/JS/images) -- captured individually; significant complexity escalation (MVP.md)
-- [consider] Full HTTP exchange capture -- Scoop-style proxy-based; forensic-grade (MVP.md, gru, kickoff)
-- [consider] Sub-resource archiving -- offline replay fidelity (gru, kickoff)
-- [consider] Certificate info capture -- not available via Browser Rendering REST API (gru, kickoff)
-- [consider] Network timing capture -- not available via Browser Rendering REST API (gru, kickoff)
+Expand WRL into a platform that other tools and agents build on.
 
-## Security
+- #45 **R15: MCP server for web evidence** [M] -- AI agent integration; depends on R1, R11 recommended
+- #46 **R16: Queue migration for capture processing** [M] -- data-driven: when timeouts >5%
+- #47 **R17: Web UI for capture submission** [M] -- browser-based capture; depends on R1, R3
+- #48 **R18: Batch capture endpoint** [M] -- bulk archival workflows; depends on R1, R5
 
-- [should] ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration): cross-domain navigation blocking implemented via `browserContext.route()`; residual risk: same-domain DNS rebinding is an accepted risk (urlval decisions #3, security-minion; updated: capture-endpoint)
-- [should] ~~Puppeteer request interception for cross-domain navigation blocking~~ -- DONE (playwright-migration): `browserContext.route()` blocks navigations to origins other than the validated target URL; covers server-side redirects, client-side navigations, and popup first-requests; Service Workers blocked via context options (security-minion, capture-endpoint)
-- [should] ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint): HTML artifacts served as text/plain with Content-Disposition: attachment at both R2 write time and Worker serve time
-- [should] Content security scanning -- prevent WRL from being used as malware mirror; check against Safe Browsing (security-minion, kickoff)
-- [should] ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, and rate limit hits logged to Coralogix; alerting rules and dashboards still needed (security-minion, kickoff)
-- [should] Content moderation policy and abuse reporting mechanism (security-minion, kickoff)
-- [should] Terms of service prohibiting illegal use (security-minion, kickoff)
-- [consider] Network namespace isolation for browser -- defense-in-depth; browser can only reach public internet (security-minion, kickoff)
-- [consider] DNS rebinding integration tests -- requires controlled DNS with TTL manipulation (urlval outcome)
-- [consider] Cloud metadata DNS alias tests -- only resolvable inside cloud VPCs (urlval outcome)
-- [consider] Coralogix Send Key IP allowlisting -- restrict to Cloudflare Worker egress IPs; reduces blast radius of key leak to log injection (security-minion, mvo-coralogix)
+---
 
-## Storage and Immutability
+## Parking Lot
 
-- [consider] S3 Object Lock (WORM-certified) -- for regulated customers (SEC 17a-4, FINRA) (gru, iac-minion, kickoff)
-- [consider] Database for metadata -- add when query-by-attribute needed (margo, iac-minion, kickoff)
-- [consider] D1 (edge SQLite) -- if KV becomes limiting for metadata queries (iac-minion, kickoff)
+Deferred items with explicit activation triggers. Revisit when condition is met.
 
-## Operations
+### Auth (revisit with multi-user decision)
 
-- ~~[must] CI/CD pipeline~~ -- CI added in 0012-open-source-readiness; CD (deployment automation) still deferred (MVP.md, iac-minion, kickoff)
-- ~~[should] Structured logging~~ -- DONE (mvo-coralogix): log() helper ships structured JSON to Coralogix at every pipeline outcome and security rejection point
-- [should] Hashed IP logging -- HMAC-SHA256 of CF-Connecting-IP with daily-rotating key for brute-force correlation; design from security-minion ready for implementation (security-minion, mvo-coralogix)
-- [consider] Additional security event types -- Content-Type 415, malformed JSON 400, missing URL 400, unmatched route 404 rejections; low signal-to-noise for MVP (security-minion, mvo-coralogix)
-- [consider] Auth reason codes -- refactor verifyApiKey() to return reason discriminant (missing_header, wrong_scheme, invalid_key, misconfigured); enables finer-grained auth failure logging (debugger-minion, mvo-coralogix)
-- [consider] R2 write try/catch granularity -- dedicated catch block around R2 Promise.all for stage-level failure logging; catch-all sufficient for MVP (observability-minion, mvo-coralogix)
-- [consider] 404 rate limiting -- unmatched routes have no rate limiter; potential log volume amplification vector under scanning attacks (security-minion, mvo-coralogix)
-- [consider] Coralogix alerting rules -- severity-based alerts, log volume anomaly detection, SSRF spike dashboards (observability-minion, mvo-coralogix)
-- [consider] Preview deployments on PRs -- CI/CD enhancement (iac-minion, kickoff)
-- [consider] Fastly CDN layer -- evaluate when verification traffic justifies it (iac-minion, kickoff)
-- [consider] Capture service container migration -- if Browser Rendering limits hit; session reuse pushes this further out: 30 reusable sessions at ~300 captures/min is sufficient for current scale (iac-minion, kickoff)
-- [consider] R2 artifact streaming -- switch `arrayBuffer()` to `obj.body` ReadableStream in artifact handler and verification endpoint when workerd test runner supports it or when large WACZ bundles (>10MB) become common; verification endpoint has 100MB hard limit (margo, retrieval-endpoint; updated: verification-endpoint)
+| Item | Condition | Source |
+|------|-----------|--------|
+| [must:multi-user] API key rotation without downtime | When R12 (per-tenant keys) ships | security-minion, kickoff |
+| [must:multi-user] Tenant isolation / RBAC | Folded into R12 | security-minion, kickoff |
+| [consider] Per-tenant rate limiting | When R12 ships; switch rate limit key from IP to tenantId | edge-minion, capture-endpoint |
+| [consider] OAuth for web UI | When R17 (web UI) is built and needs user auth | security-minion, kickoff |
 
-## Verification Page
+### Signing and Legal
 
-- ~~[should] HSTS header~~ -- [DONE] implemented in Step 8; affects all responses not just verification (security-minion, static-verification-page)
-- [should] HSTS preload submission -- add preload directive and submit to hstspreload.org after domain is finalized
-- [consider] HTML error pages for 404/429/503 -- browsers currently display JSON problem responses; acceptable for MVP (margo, static-verification-page)
-- [consider] Nonce-based CSP -- upgrade from unsafe-inline if template ever needs server-side dynamic data in script blocks (security-minion, static-verification-page)
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] eIDAS Qualified TSA | 3+ QTSPs with published pricing and APIs; not before 2027 | gru, kickoff |
+| [consider] WACZ-Auth full spec compliance | When a production toolchain consumes WACZ-Auth signatures | gru, kickoff |
+| [consider] Multiple TSAs for redundancy | 6+ months after R11 ships; based on observed TSA reliability | gru, kickoff |
+| [consider] HSM-backed key storage | When FIPS 140-2 Level 3 explicitly required or multi-tenant key management at scale | security-minion, kickoff |
 
-## Product Features
+### Capture Fidelity
 
-- [consider] Scheduled captures (cron-style) -- additional trigger method (MVP.md)
-- [consider] MCP / AI-agent triggers -- layers on top of API (MVP.md)
-- [consider] Watch lists / bulk monitoring -- requires scheduling (also deferred) (MVP.md)
-- [consider] Change detection / diffing -- requires multiple captures over time (MVP.md)
-- [consider] Notifications -- event system, channel integrations (MVP.md)
-- [consider] Billing and quotas -- no monetization for MVP (MVP.md)
-- [consider] Web UI for capture submission -- curl/API sufficient for MVP (margo, kickoff)
-- [consider] Capture ID recovery -- no list endpoint means lost ID = lost capture (ux-strategy-minion, kickoff)
+| Item | Condition | Source |
+|------|-----------|--------|
+| [should] Screenshot timing / wait-for-load | When a user reports incomplete renders | kickoff |
+| [consider] Screenshot height cap configurability | When a user reports capped screenshots as a problem | edge-minion, capture-endpoint |
 
-## Scaling Beyond Session Reuse
+### API Enhancements
 
-- [consider] Session pre-warming via cron trigger -- keep sessions alive between bursts to reduce cold-start latency on low-traffic deployments
-- [consider] Queue-based backpressure with Cloudflare Queues -- decouple capture requests from Worker execution; absorb traffic spikes without dropping requests
-- [consider] Durable Object session coordinator -- centralize session lifecycle management across Workers; enables finer-grained concurrency control and session affinity
-- [consider] Cloudflare Containers -- escape Browser Rendering limits entirely; full Chromium with unrestricted network and storage; evaluate when container pricing and availability stabilize
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Webhooks / outbound callbacks | When per-tenant keys exist and async notification demand demonstrated | api-design-minion, kickoff |
+| [consider] Pagination filtering and sorting | URL filter and sorting require D1; cursor pagination in R1 | api-design-minion, kickoff |
+
+### Security
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [should] Content security scanning (Safe Browsing) | When WRL serves text/html content or multi-user opens public submission | security-minion, kickoff |
+
+### Storage
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] D1 (edge SQLite) | When KV list latency >300ms at observed capture counts | iac-minion, kickoff |
+| [consider] R2 artifact streaming | When WACZ bundles >10MB become common | margo, retrieval-endpoint |
+
+### Operations
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Session pre-warming via cron | When Coralogix shows cold-start latency is measurable | iac-minion |
+| [consider] Coralogix alerting rules | When operational load justifies alerting | observability-minion, mvo-coralogix |
+| [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
+| [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
+| [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
+| [consider] Cloudflare Containers | When Browser Rendering limits exhausted AND Queues insufficient; monitor for GA | iac-minion, kickoff |
+
+### Product Features
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Scheduled captures (cron-style) | When a user requests recurring capture | MVP.md |
+| [consider] Watch lists / bulk monitoring | Requires scheduling (also parked) | MVP.md |
+| [consider] Change detection / diffing | Requires multiple captures over time; no demand | MVP.md |
+| [consider] Notifications | When event-driven workflows needed | MVP.md |
+| [consider] Billing and quotas | When monetization actively planned | MVP.md |
+| [consider] Capture ID recovery | Solved by R1; remove after R1 ships | ux-strategy-minion, kickoff |
+
+---
+
+## Dropped Items
+
+Removed from active backlog. Rationale preserved here and in
+[evolution log](evolution/0016-roadmap-backlog-cleanup/).
+
+| Item | Rationale |
+|------|-----------|
+| SSE / WebSocket | Explicitly rejected during kickoff; polling works for 5-30s lifecycle |
+| Database for metadata (generic) | Rejected during kickoff; D1 is the specific option if needed |
+| Domain-ownership certificate | Architecturally problematic; .well-known/signing-key already ties key to domain |
+| Social signup (GitHub first) | No identity system, no users; self-acknowledged YAGNI |
+| Network namespace isolation | Over-engineering; Cloudflare manages the browser sandbox |
+| DNS rebinding integration tests | Untestable in current environment; residual risk accepted in Phase 0014 |
+| Cloud metadata DNS alias tests | Only resolvable inside cloud VPCs; untestable on Cloudflare Workers |
+| Additional security event types | Self-acknowledged "low signal-to-noise for MVP" |
+| Auth reason codes | Finer-grained logging with no demonstrated need |
+| R2 write try/catch granularity | Self-acknowledged "catch-all sufficient for MVP" |
+| 404 rate limiting | Theoretical log amplification with no evidence of scanning |
+| Coralogix Send Key IP allowlisting | Blast radius reduction for a key that hasn't leaked |
+| Nonce-based CSP | Template doesn't use server-side dynamic data in scripts |
+| HTML error pages for 404/429/503 | "Acceptable for MVP"; fix opportunistically |
+| S3 Object Lock (WORM-certified) | For regulated customers who don't exist |
+| Full HTTP exchange capture | Forensic-grade; far beyond current scope |
+| Sub-resource archiving | Significant complexity for offline replay; not core to evidence |
+| Certificate info capture | Not available via Playwright API; forensic nicety |
+| Network timing capture | Not available via Playwright API; forensic nicety |
+| Resource manifest (CSS/JS/images) | Significant complexity; HTML + screenshot prove content state |
+
+---
+
+## Done
+
+Completed items removed from active tracking:
+
+- ~~CI/CD pipeline~~ -- CI added in 0012-open-source-readiness
+- ~~Structured logging~~ -- DONE (mvo-coralogix)
+- ~~TOCTOU gap mitigation~~ -- DONE (playwright-migration)
+- ~~Cross-domain navigation blocking~~ -- DONE (playwright-migration)
+- ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint)
+- ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
+- ~~HSTS header~~ -- DONE (static-verification-page)
