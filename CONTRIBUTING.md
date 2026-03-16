@@ -17,10 +17,58 @@ This works immediately -- no accounts or API keys needed. The test suite is full
 Running the actual capture pipeline requires:
 
 - Cloudflare Workers Paid plan with Browser Rendering enabled
-- A `.dev.vars` file with `SIGNING_KEY` and `CAPTURE_API_KEY` set
+- A `.dev.vars` file -- create it from this template:
+
+```ini
+# Required
+SIGNING_KEY=<your Ed25519 private key>
+CAPTURE_API_KEY=<a secret API key you choose>
+IP_HASH_SEED=<any random string, used for privacy-safe IP hashing>
+
+# Optional -- structured log ingestion; omit to log to console only
+CORALOGIX_SEND_KEY=<your Coralogix send key>
+
+# Optional -- only needed when testing browser clients with CORS
+CORS_ORIGINS=http://localhost:3000
+```
+
 - Then `npm run dev`
 
 The README covers the Cloudflare setup in detail.
+
+## Staging & Deployment
+
+Merging to `main` automatically runs three jobs in sequence:
+**CI tests** -> **staging deploy** -> **smoke tests** (`deploy-staging.yml`).
+All three must pass; a failed smoke test blocks the deployment from being
+considered complete.
+
+**Deploy to staging manually:**
+
+```bash
+wrangler deploy --env staging
+```
+
+**Set staging secrets** (one-time, or when rotating):
+
+```bash
+wrangler secret put SIGNING_KEY --env staging
+wrangler secret put CAPTURE_API_KEY --env staging
+wrangler secret put IP_HASH_SEED --env staging
+wrangler secret put CORALOGIX_SEND_KEY --env staging
+```
+
+**Run smoke tests against any environment:**
+
+```bash
+SMOKE_URL=https://wrl-staging.example.workers.dev \
+SMOKE_API_KEY=<staging capture api key> \
+npm run smoke
+```
+
+The smoke test validates four things: health endpoint returns `200 { status: "ok" }`,
+required security headers are present, `/.well-known/signing-key` returns a valid
+Ed25519 key, and a capture round-trip completes (or at least enters the queue).
 
 ## Running Tests
 
