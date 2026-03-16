@@ -4,12 +4,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { getSigningKeys, computeKeyId } from '../src/signing.js';
 import { buildWacz } from '../src/wacz.js';
 import { createCapture, completeCapture, archiveSigningKey, getArchivedSigningKey } from '../src/kv.js';
+import { PNG_BYTES } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const TEST_HTML = '<html><body>key rotation test</body></html>';
 const TEST_URL = 'https://example.com/key-rotation';
 

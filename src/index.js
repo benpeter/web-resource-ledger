@@ -21,7 +21,7 @@ const routes = [
   ['GET',  /^\/v1\/captures$/, handleListCaptures],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
-  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
+  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
   ['GET',  /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',  /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',  /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
@@ -328,6 +328,9 @@ async function handleGetCapture(request, env, ctx, match) {
   if (record.artifacts?.headers) {
     artifacts.headers = `${artifactBase}/headers`;
   }
+  if (record.artifacts?.screenshotBefore) {
+    artifacts.screenshotBefore = `${artifactBase}/screenshot-before`;
+  }
 
   const body = {
     id: record.captureId,
@@ -341,6 +344,10 @@ async function handleGetCapture(request, env, ctx, match) {
 
   if (record.render) {
     body.render = record.render;
+  }
+
+  if (record.captureSettings) {
+    body.captureSettings = record.captureSettings;
   }
 
   if (record.wacz) {
@@ -369,9 +376,12 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
 
+  // Map kebab artifact names to camelCase KV keys
+  const artifactKey = artifactName === 'screenshot-before' ? 'screenshotBefore' : artifactName;
+
   const r2Key = artifactName === 'wacz'
     ? record.wacz?.key
-    : record.artifacts?.[artifactName];
+    : record.artifacts?.[artifactKey];
 
   if (!r2Key) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
@@ -384,6 +394,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   }
 
   const contentTypes = {
+    'screenshot-before': 'image/png',
     screenshot: 'image/png',
     html:       'text/plain',       // CRITICAL: never text/html (XSS)
     headers:    'application/json',
@@ -391,6 +402,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   };
 
   const filenames = {
+    'screenshot-before': 'screenshot-before.png',
     screenshot: 'screenshot.png',
     html:       'rendered.html',
     headers:    'headers.json',
@@ -496,6 +508,10 @@ async function handleVerifyCapture(request, env, ctx, match) {
     signing: result.capture || null,
     checks: result.checks,
   };
+
+  if (record.captureSettings) {
+    body.captureSettings = record.captureSettings;
+  }
 
   // Step 8: Cache-Control -- only cache verified results
   const cacheControl = result.verified

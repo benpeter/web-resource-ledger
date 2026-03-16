@@ -81,6 +81,41 @@ components:
       examples:
         - cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
+    ConsentHandling:
+      type: object
+      description: Consent Management Platform (CMP) interaction metadata captured during a consent-aware capture.
+      required: [library, libraryVersion, action, result]
+      properties:
+        library:
+          type: string
+          description: Name of the autoconsent library used.
+        libraryVersion:
+          type: string
+          description: Version of the autoconsent library used.
+        action:
+          type: string
+          enum: [optOut]
+          description: Consent action attempted.
+        result:
+          type: string
+          enum: [success, notDetected, failed]
+          description: Outcome of the consent action.
+        cmpDetected:
+          type: ["string", "null"]
+          description: Name of the CMP detected, if any. Null when no CMP was found.
+
+    CaptureSettings:
+      type: object
+      description: Settings and metadata about how the capture was performed.
+      required: [version]
+      properties:
+        version:
+          type: integer
+          description: Schema version for captureSettings.
+        consent:
+          $ref: '#/components/schemas/ConsentHandling'
+          description: Consent handling metadata. Present when consent opt-out was attempted.
+
     ProblemDetail:
       type: object
       description: RFC 9457 problem response.
@@ -145,16 +180,30 @@ components:
         fetch failed or timed out. The html artifact is served as text/plain
         with Content-Disposition: attachment to prevent XSS -- do not embed
         in iframes or inject as HTML.
+
+        The `screenshot` field always points to the best-available screenshot
+        (backward compatible). `screenshotBefore` is the pre-consent-dismissal
+        screenshot; present only when consent was detected and dismissed.
       required: [screenshot, html]
       properties:
         screenshot:
           type: string
           format: uri
           description: >
-            Full-page PNG screenshot. Served via the API Worker with
+            Full-page PNG screenshot (best available). When consent was dismissed,
+            this is the post-dismissal screenshot. Served via the API Worker with
             Content-Type: image/png and Content-Disposition: attachment.
           examples:
             - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+        screenshotBefore:
+          type: string
+          format: uri
+          description: >
+            Pre-consent-dismissal screenshot. Present only when consent was detected
+            and successfully dismissed. Corresponds to the page state before the CMP
+            was closed. Served as image/png with Content-Disposition: attachment.
+          examples:
+            - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot-before
         html:
           type: string
           format: uri
@@ -305,6 +354,11 @@ components:
             bundle (e.g., partial captures from navigation timeouts).
           examples:
             - https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+        captureSettings:
+          $ref: '#/components/schemas/CaptureSettings'
+          description: >
+            Settings and metadata about how the capture was performed. Present when
+            capture settings were recorded (e.g., consent handling was attempted).
 
     CaptureSummary:
       type: object
@@ -500,6 +554,11 @@ components:
             v0.2.0 bundles produce up to four.
           items:
             $ref: '#/components/schemas/VerificationCheck'
+        captureSettings:
+          $ref: '#/components/schemas/CaptureSettings'
+          description: >
+            Settings and metadata about how the capture was performed. Present when
+            capture settings were recorded.
 
   responses:
     Problem400:
@@ -1335,7 +1394,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [screenshot, html, headers, wacz]
+            enum: [screenshot-before, screenshot, html, headers, wacz]
           description: Artifact name to retrieve.
       responses:
         '200':

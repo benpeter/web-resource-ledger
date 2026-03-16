@@ -37,7 +37,7 @@ const enc = new TextEncoder();
  *
  * @param {string} url Captured URL
  * @param {string} captureDate ISO 8601 capture timestamp
- * @param {{ screenshot: Uint8Array, html: string, headers: object|null }} artifacts
+ * @param {{ screenshotBefore: Uint8Array, screenshotAfter: Uint8Array|null, html: string, headers: object|null, captureSettings: object|null }} artifacts
  * @param {{ SIGNING_KEY?: string }} env
  * @returns {Promise<{ waczBytes: Uint8Array, waczHash: string, bundleHash: string,
  *                     publicKeyBase64: string, keyId: string,
@@ -80,6 +80,7 @@ export async function buildWacz(url, captureDate, artifacts, env) {
     created: captureDate,
     mainPageUrl: url,
     mainPageDate: captureDate,
+    ...(artifacts.captureSettings ? { captureSettings: artifacts.captureSettings } : {}),
     resources: [
       { name: 'data.warc', path: 'archive/data.warc', hash: warcHash, bytes: warcBytes.byteLength },
       { name: 'index.cdxj', path: 'indexes/index.cdxj', hash: cdxjHash, bytes: cdxjBytes.byteLength },

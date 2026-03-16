@@ -4,23 +4,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture } from '../src/capture.js';
 import { createCapture, getCapture, completeCapture } from '../src/kv.js';
 import { unzipSync, zipSync } from 'fflate';
+import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
 const TEST_ID   = 'cap_' + 'f'.repeat(32);
-const TEST_URL  = 'https://example.com';
-const TEST_IP   = '93.184.216.34';
 const TEST_ORIGIN = 'https://example.com';
-
-const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const TEST_HTML = '<html><body>verify test</body></html>';
-
-const stubRenderer = async () => ({
-  screenshot: PNG_BYTES,
-  html: TEST_HTML,
-});
 
 // ---------------------------------------------------------------------------
 // Setup / teardown

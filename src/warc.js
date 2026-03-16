@@ -5,10 +5,11 @@
  * Records are uncompressed (STORE mode) -- no gzip wrapping.
  *
  * Record order:
- *   1. warcinfo   (software metadata)
- *   2. resource   (rendered HTML)
- *   3. metadata   (HTTP headers, if present)
- *   4. resource   (screenshot PNG)
+ *   1. warcinfo     (software metadata)
+ *   2. resource     (rendered HTML)
+ *   3. metadata     (HTTP headers, if present)
+ *   4. resource     (screenshot-before PNG)
+ *   5. resource     (screenshot-after PNG, if consent dismissed)
  *
  * Tests: test/warc.test.js
  */ // tva
@@ -26,13 +27,13 @@ const enc = new TextEncoder();
  *
  * @param {string} url Captured URL
  * @param {Date|string} captureDate ISO 8601 date string or Date object
- * @param {{ screenshot: Uint8Array, html: string, headers: object|null }} artifacts
+ * @param {{ screenshotBefore: Uint8Array, screenshotAfter: Uint8Array|null, html: string, headers: object|null, captureSettings: object|null }} artifacts
  * @returns {Promise<{ warcBytes: Uint8Array, recordMeta: Array }>}
  */
 export async function buildWarc(url, captureDate, artifacts) {
   const isoDate = typeof captureDate === 'string' ? captureDate : captureDate.toISOString();
   const ts14 = toTimestamp14(isoDate);
-  const { screenshot, html, headers } = artifacts;
+  const { screenshotBefore, screenshotAfter, html, headers } = artifacts;
 
   const htmlBytes = enc.encode(html);
   const headersBytes = headers ? enc.encode(JSON.stringify(headers)) : null;
@@ -40,7 +41,8 @@ export async function buildWarc(url, captureDate, artifacts) {
   const warcinfoId = `<urn:uuid:${crypto.randomUUID()}>`;
   const htmlRecordId = `<urn:uuid:${crypto.randomUUID()}>`;
   const headersRecordId = headersBytes ? `<urn:uuid:${crypto.randomUUID()}>` : null;
-  const screenshotRecordId = `<urn:uuid:${crypto.randomUUID()}>`;
+  const screenshotBeforeRecordId = `<urn:uuid:${crypto.randomUUID()}>`;
+  const screenshotAfterRecordId = screenshotAfter ? `<urn:uuid:${crypto.randomUUID()}>` : null;
 
   const warcinfoBody = enc.encode('software: WRL/0.1\r\nformat: WARC/1.1\r\n');
 
@@ -110,29 +112,56 @@ export async function buildWarc(url, captureDate, artifacts) {
     });
   }
 
-  // 4. resource record: screenshot PNG
-  const screenshotDigest = await sha256(screenshot);
-  const screenshotUri = `urn:wrl:screenshot:${url}`;
-  const screenshotChunk = buildRecord({
+  // 4. resource record: screenshot-before PNG
+  const screenshotBeforeDigest = await sha256(screenshotBefore);
+  const screenshotBeforeUri = `urn:wrl:screenshot:before:${url}`;
+  const screenshotBeforeChunk = buildRecord({
     type: 'resource',
-    recordId: screenshotRecordId,
-    targetUri: screenshotUri,
+    recordId: screenshotBeforeRecordId,
+    targetUri: screenshotBeforeUri,
     date: isoDate,
     contentType: 'image/png',
-    body: screenshot,
+    body: screenshotBefore,
   });
-  const screenshotOffset = offset;
-  chunks.push(screenshotChunk);
+  const screenshotBeforeOffset = offset;
+  chunks.push(screenshotBeforeChunk);
+  offset += screenshotBeforeChunk.length;
   recordMeta.push({
-    url: screenshotUri,
-    offset: screenshotOffset,
-    length: screenshotChunk.length,
+    url: screenshotBeforeUri,
+    offset: screenshotBeforeOffset,
+    length: screenshotBeforeChunk.length,
     mime: 'image/png',
-    digest: screenshotDigest,
+    digest: screenshotBeforeDigest,
     type: 'resource',
     status: '200',
     ts14,
   });
+
+  // 5. resource record: screenshot-after PNG (only when consent was dismissed)
+  if (screenshotAfter && screenshotAfterRecordId) {
+    const screenshotAfterDigest = await sha256(screenshotAfter);
+    const screenshotAfterUri = `urn:wrl:screenshot:after:${url}`;
+    const screenshotAfterChunk = buildRecord({
+      type: 'resource',
+      recordId: screenshotAfterRecordId,
+      targetUri: screenshotAfterUri,
+      date: isoDate,
+      contentType: 'image/png',
+      body: screenshotAfter,
+    });
+    const screenshotAfterOffset = offset;
+    chunks.push(screenshotAfterChunk);
+    recordMeta.push({
+      url: screenshotAfterUri,
+      offset: screenshotAfterOffset,
+      length: screenshotAfterChunk.length,
+      mime: 'image/png',
+      digest: screenshotAfterDigest,
+      type: 'resource',
+      status: '200',
+      ts14,
+    });
+  }
 
   // Concatenate all chunks into a single Uint8Array
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
