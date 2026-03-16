@@ -1,8 +1,10 @@
 /*
  * consent.js -- Cookie consent dismissal via DuckDuckGo autoconsent
  *
- * Injects the vendored autoconsent script after page navigation and
- * before the after-consent screenshot. Communicates via the
+ * Injects the vendored autoconsent script into all frames (main + child
+ * iframes) after page navigation and before the after-consent screenshot.
+ * Multi-frame injection is required because some CMPs (Sourcepoint, etc.)
+ * run detection inside cross-origin iframes. Communicates via the
  * autoconsentSendMessage / autoconsentReceiveMessage channel.
  *
  * Returns a consistent result shape regardless of outcome:
@@ -82,14 +84,18 @@ async function _dismissWithBinding(page, start) {
 
   let detectedCmp = null;
 
-  await page.exposeBinding('autoconsentSendMessage', (_source, msg) => {
+  await page.exposeBinding('autoconsentSendMessage', (source, msg) => {
     if (!msg || !ALLOWED_MSG_TYPES.has(msg.type)) {
       return;
     }
 
+    // Route responses back to the frame that sent the message (may be an
+    // iframe for CMP providers like Sourcepoint that run inside iframes).
+    const frame = source.frame;
+
     switch (msg.type) {
       case 'init':
-        page.evaluate((cfg) => {
+        frame.evaluate((cfg) => {
           if (window.autoconsentReceiveMessage) {
             window.autoconsentReceiveMessage({ type: 'initResp', config: cfg });
           }
@@ -120,7 +126,7 @@ async function _dismissWithBinding(page, start) {
 
       case 'eval': {
         const code = typeof msg.code === 'string' ? msg.code.slice(0, 2048) : '';
-        page.evaluate((c) => {
+        frame.evaluate((c) => {
           try {
             // eslint-disable-next-line no-eval
             const result = eval(c);
@@ -129,7 +135,7 @@ async function _dismissWithBinding(page, start) {
             return Promise.resolve(null);
           }
         }, code).then((result) => {
-          page.evaluate(({ id, res }) => {
+          frame.evaluate(({ id, res }) => {
             if (window.autoconsentReceiveMessage) {
               window.autoconsentReceiveMessage({ type: 'evalResp', id, result: res });
             }
@@ -144,13 +150,14 @@ async function _dismissWithBinding(page, start) {
     }
   });
 
-  await page.evaluate(
-    ([script]) => {
-      const fn = new Function(script);
-      fn();
-    },
-    [autoconsentScript],
-  );
+  // Inject autoconsent into main frame and all child frames (CMP iframes)
+  const inject = ([script]) => { const fn = new Function(script); fn(); };
+  await page.evaluate(inject, [autoconsentScript]);
+  for (const frame of page.frames()) {
+    if (frame !== page.mainFrame()) {
+      frame.evaluate(inject, [autoconsentScript]).catch(() => {});
+    }
+  }
 
   const timeoutPromise = new Promise((resolve) =>
     setTimeout(() => resolve({ status: detectedCmp ? 'timeout' : 'none', cmp: detectedCmp }), CONSENT_TIMEOUT_MS)
@@ -200,20 +207,33 @@ async function _dismissWithPolling(page, start) {
 })();
 `;
 
+  // Inject into main frame and all child frames (CMP iframes)
   await page.evaluate(wrappedScript);
+  for (const frame of page.frames()) {
+    if (frame !== page.mainFrame()) {
+      frame.evaluate(wrappedScript).catch(() => {});
+    }
+  }
 
   const deadline = Date.now() + CONSENT_TIMEOUT_MS;
   const pollIntervalMs = 200;
 
   while (Date.now() < deadline) {
-    const result = await page.evaluate(() => window.__autoconsentResult).catch(() => null);
-    if (result) {
-      return { ...result, durationMs: Date.now() - start };
+    // Poll all frames -- CMP result may come from an iframe
+    for (const frame of page.frames()) {
+      const result = await frame.evaluate(() => window.__autoconsentResult).catch(() => null);
+      if (result) {
+        return { ...result, durationMs: Date.now() - start };
+      }
     }
     await new Promise((r) => setTimeout(r, pollIntervalMs));
   }
 
-  // Timed out -- check if a CMP was ever detected
-  const cmp = await page.evaluate(() => window.__autoconsentCmp).catch(() => null);
+  // Timed out -- check if a CMP was ever detected in any frame
+  let cmp = null;
+  for (const frame of page.frames()) {
+    const frameCmp = await frame.evaluate(() => window.__autoconsentCmp).catch(() => null);
+    if (frameCmp) { cmp = frameCmp; break; }
+  }
   return { status: cmp ? 'timeout' : 'none', cmp, durationMs: Date.now() - start };
 }
