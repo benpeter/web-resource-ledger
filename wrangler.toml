@@ -60,7 +60,7 @@ bucket_name = "wrl-captures-staging"
 [[env.staging.kv_namespaces]]
 binding = "KV"
 # Replace with output of: wrangler kv namespace create KV --env staging
-id = "STAGING_KV_ID_PLACEHOLDER"
+id = "ed564f8e8f4d4133aaee779e7f9e61cb"
 
 [[env.staging.unsafe.bindings]]
 name = "CAPTURE_RATE_LIMITER"

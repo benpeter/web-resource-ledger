@@ -244,6 +244,8 @@ wrangler deploy
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, test conventions, and contribution guidelines.
 
+See [OPERATIONS.md](OPERATIONS.md) for deployment, rollback, and environment setup.
+
 ### Staging
 
 `wrangler.toml` includes an `[env.staging]` configuration with its own R2 bucket and KV namespace. Deploy to staging:

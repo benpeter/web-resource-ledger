@@ -38,7 +38,7 @@ word "evidence" defensible.
 - #41 **R11: RFC 3161 timestamp integration** [L] -- third-party temporal proof; depends on R2
 - #42 **R12: Per-tenant API keys and tenant isolation** [L] -- gated on multi-user decision; depends on R1, R8
 - #43 **R13: Audit logging** [S] -- full audit trail; depends on R12
-- #44 **R14: Production CD pipeline** [M] -- automated deploy with environment protection; depends on R9
+- ~~#44 **R14: Production CD pipeline** [M]~~ -- DONE: deploy-production.yml, OPERATIONS.md, environment protection
 
 ## Act 3: Infrastructure (longer-horizon)
 
@@ -114,6 +114,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
 | [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
 | [consider] Cloudflare Containers | When Browser Rendering limits exhausted AND Queues insufficient; monitor for GA | iac-minion, kickoff |
+| [consider] Deploy version check in smoke test | When a deploy silently fails to update the Worker | test-minion, cd-pipeline |
+| [consider] Smoke test response time assertion | When Coralogix/RUM shows latency regression | test-minion, cd-pipeline |
+| [consider] Automatic rollback on smoke failure | When deploy frequency >1/day or team size >1 | iac-minion, cd-pipeline |
+| [consider] Tag-based release versioning | When external consumers need stable version references | ux-strategy-minion, cd-pipeline |
 
 ### Product Features
 
@@ -177,6 +181,7 @@ Completed items removed from active tracking:
 - ~~R6: Hashed IP logging~~ -- DONE (hashed-ip-logging phase): HMAC-SHA256 `cip` field, daily key rotation, graceful degradation
 - ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
 - ~~HSTS header~~ -- DONE (static-verification-page)
+- ~~R14: Production CD pipeline~~ -- DONE (cd-pipeline phase): deploy-production.yml, OPERATIONS.md, environment protection with approval gate
 
 ---
 

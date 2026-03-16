@@ -32,4 +32,5 @@ software development.
 | [0021-capture-parameterization-advisory](0021-capture-parameterization-advisory/) | Advisory: capture request parameterization (cookies, viewport, evidence integrity) |
 | [0022-docs-drift-audit](0022-docs-drift-audit/) | Post-Act 1 documentation drift audit and fix |
 | [0023-staged-fallback-timeout](0023-staged-fallback-timeout/) | Staged fallback for capture timeout -- partial captures (Issue #53) |
-| [0024-rfc3161-timestamps](0024-rfc3161-timestamps/) | RFC 3161 timestamp integration -- independent TSA temporal proof (Issue #41) |
+| [0024-cd-pipeline](0024-cd-pipeline/) | Production CD pipeline with environment protection (Issue #44) |
+| [0025-rfc3161-timestamps](0025-rfc3161-timestamps/) | RFC 3161 timestamp integration -- independent TSA temporal proof (Issue #41) |
