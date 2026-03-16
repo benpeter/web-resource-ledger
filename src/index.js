@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse } from './responses.js';
 import { verifyApiKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture } from './kv.js';
+import { createCapture, getCapture, listCaptures } from './kv.js';
 import { performCapture } from './capture.js';
 import { verifyWacz } from './verify.js';
 import { getSigningKeys } from './signing.js';
@@ -16,6 +16,7 @@ import { log } from './log.js';
 const routes = [
   ['GET',  /^\/health$/, handleHealth],
   ['POST', /^\/v1\/captures$/, handleCreateCapture],
+  ['GET',  /^\/v1\/captures$/, handleListCaptures],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
@@ -139,6 +140,98 @@ async function handleCreateCapture(request, env, ctx) {
     statusUrl,
     note: 'No list endpoint is available. Store the capture ID -- it is the only way to access this capture.',
   }, 202, { 'Retry-After': '5' });
+}
+
+async function handleListCaptures(request, env, ctx) {
+  // Step 1: Auth check
+  const auth = await verifyApiKey(request, env);
+  if (!auth.ok) {
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status }) ?? Promise.resolve());
+    return auth.response;
+  }
+
+  // Step 2: Rate limit check (reuse CAPTURE_RATE_LIMITER)
+  if (env.CAPTURE_RATE_LIMITER) {
+    const { success } = await env.CAPTURE_RATE_LIMITER.limit({
+      key: request.headers.get('CF-Connecting-IP') || 'unknown',
+    });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip' }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
+  }
+
+  // Step 3: Parse query params
+  const params = new URL(request.url).searchParams;
+
+  // limit: default 20, clamp >100, reject <1 / NaN / non-integer
+  let limit = 20;
+  const limitParam = params.get('limit');
+  if (limitParam !== null) {
+    const parsed = Number(limitParam);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      return problemResponse(400, "Query parameter 'limit' must be a positive integer.");
+    }
+    limit = Math.min(parsed, 100);
+  }
+
+  const cursor = params.get('cursor') || undefined;
+
+  const statusParam = params.get('status') || undefined;
+  if (statusParam !== undefined && !['pending', 'complete', 'failed'].includes(statusParam)) {
+    return problemResponse(400, "Query parameter 'status' must be 'pending', 'complete', or 'failed'.");
+  }
+
+  // Step 4: Start timer
+  const start = Date.now();
+
+  // Step 5: List captures
+  let result;
+  try {
+    result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
+  } catch (err) {
+    const durationMs = Date.now() - start;
+    ctx.waitUntil(log(env, 3, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs }) ?? Promise.resolve());
+    return problemResponse(500, 'Could not list captures');
+  }
+
+  if (result.error === 'invalid_cursor') {
+    return problemResponse(400, "Query parameter 'cursor' is invalid.");
+  }
+
+  // Step 6: Build CaptureSummary projection (exclude ip, artifacts.*, wacz.key)
+  const data = result.data.map(r => {
+    const summary = {
+      id: r.captureId,
+      status: r.status,
+      url: r.url,
+      createdAt: r.createdAt,
+    };
+    if (r.status === 'complete') {
+      summary.completedAt = r.completedAt;
+    } else if (r.status === 'failed') {
+      summary.failedAt = r.failedAt;
+      summary.error = r.error;
+      summary.retryable = r.retryable;
+    }
+    return summary;
+  });
+
+  // Step 7: Log success
+  const durationMs = Date.now() - start;
+  ctx.waitUntil(log(env, 6, 'list', {
+    event: 'list.success',
+    tenantId: auth.tenantId,
+    resultCount: data.length,
+    status: statusParam || 'all',
+    cursor: result.pagination.cursor ? 'present' : 'absent',
+    durationMs,
+  }) ?? Promise.resolve());
+
+  // Step 8: Return response
+  return jsonResponse({ data, pagination: result.pagination }, 200, {
+    'Cache-Control': 'private, no-store',
+  });
 }
 
 // SECURITY: No authentication required -- capture ID acts as the access secret.
