@@ -2,9 +2,11 @@
 
 [![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![despicable](https://img.shields.io/badge/%E2%9A%97%EF%B8%8F-despicable-FFC107?style=flat&labelColor=FFF8E1)](https://github.com/benpeter/despicable-agents) [![99% Vibe Coded](https://img.shields.io/badge/99%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
 
-Tamper-evident archival of web resources -- captures rendered screenshots, HTML snapshots, HTTP headers, and resource manifests as cryptographically signed, immutable bundles.
+Cryptographic evidence of web content -- capture what a page looked like, when, with proof anyone can verify.
 
-Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519-signed archive that anyone can verify without an account. Deploy it on your own infrastructure; your captures, your keys, your evidence.
+Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519-signed WACZ bundle. The verification URL works for anyone -- no account needed. Deploy on your own infrastructure; your captures, your keys, your evidence.
+
+> **Status:** Early development, single-operator deployment. The API is functional and deployed but pre-1.0. See the [roadmap](#roadmap) for what's coming.
 
 ## What you get
 
@@ -71,14 +73,14 @@ Returns a JSON verification result with three checks: `artifactHashes`, `bundleH
 
 The `verifyUrl` is safe to share publicly. The raw capture ID grants full access to all artifacts -- treat it as a secret.
 
-For error codes and full request/response shapes, see [`openapi.yaml`](openapi.yaml).
+Captures are rate-limited to 10 per minute per IP. Verification is limited to 60 per minute per IP. Error responses use RFC 9457 `application/problem+json` format. For full details, see [`openapi.yaml`](openapi.yaml).
 
 ## Setup
 
 ### Prerequisites
 
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) installed and authenticated
-- Node.js 20+
+- Node.js 22+ (see `.nvmrc`)
 - Cloudflare account with R2 and Browser Rendering enabled
 
 ### 1. Install dependencies
@@ -165,9 +167,19 @@ wrangler deploy
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, test conventions, and contribution guidelines.
 
+## Roadmap
+
+WRL follows a three-act development plan:
+
+1. **Solid Foundation** (in progress) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
+2. **Evidence-Grade** -- RFC 3161 timestamps, per-tenant keys, audit logging. Makes "evidence" independently verifiable.
+3. **Infrastructure** -- MCP server, web UI, batch capture. Expands WRL into a platform other tools build on.
+
+See [`docs/backlog.md`](docs/backlog.md) for the full roadmap and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.
+
 ## Built with despicable-agents
 
-WRL was built using [despicable-agents](https://github.com/benpeter/despicable-agents), a multi-agent orchestration framework. Every phase of development is documented in [`docs/evolution/`](docs/evolution/) -- 12 phases from initial scaffolding to open-source readiness. The prompts, decisions, and outcomes are all there.
+WRL was built using [despicable-agents](https://github.com/benpeter/despicable-agents), a multi-agent orchestration framework. Every phase of development is documented in [`docs/evolution/`](docs/evolution/) -- the prompts, decisions, and outcomes are all there.
 
 ## Reference
 
