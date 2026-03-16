@@ -19,6 +19,7 @@ import { getSigningKeys, signBytes } from './signing.js';
 import { buildWarc, sha256 } from './warc.js';
 import { buildCdxj } from './cdxj.js';
 import { canonicalize } from './canonical-json.js';
+import { requestTimestamp } from './rfc3161.js';
 
 const enc = new TextEncoder();
 
@@ -34,7 +35,8 @@ const enc = new TextEncoder();
  * @param {{ screenshot: Uint8Array, html: string, headers: object|null }} artifacts
  * @param {{ SIGNING_KEY?: string }} env
  * @returns {Promise<{ waczBytes: Uint8Array, waczHash: string, bundleHash: string,
- *                     publicKeyBase64: string } | null>}
+ *                     publicKeyBase64: string, keyId: string,
+ *                     timestampStatus: 'present'|'absent' } | null>}
  */
 export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 1: Get signing keys -- graceful degradation if not configured
@@ -95,21 +97,37 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Base64-encode the raw 32-byte public key for embedding
   const publicKeyBase64 = btoa(String.fromCharCode(...publicKeyBytes));
 
+  // Step 8.5: Request RFC 3161 timestamp (optional, graceful degradation)
+  let tsaResult = null;
+  if (env.TSA_URL) {
+    try {
+      tsaResult = await requestTimestamp(env.TSA_URL, bundleHash);
+    } catch {
+      // TSA unreachable -- capture continues without timestamp
+    }
+  }
+
   // Step 9: Assemble datapackage-digest.json
   // NOTE: publicKey is embedded for convenience only. Verifiers MUST pin against
   // an operator-published key, not trust the embedded key blindly.
   const dpHashOfBytes = await sha256(dpBytes);
+
+  const signatures = [
+    { type: 'self', signature, publicKey: publicKeyBase64, keyId },
+  ];
+  if (tsaResult) {
+    signatures.push({ type: 'rfc3161', token: tsaResult.token, tsa: tsaResult.tsa });
+  }
+
   const digestDoc = {
     path: 'datapackage.json',
     hash: dpHashOfBytes,
     signedData: {
       hash: bundleHash,
-      signature,
-      publicKey: publicKeyBase64,
-      keyId,
       created: captureDate,
       software: 'WRL/0.1',
-      version: '0.1.0',
+      version: '0.2.0',
+      signatures,
     },
   };
 
@@ -127,5 +145,5 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 11: Compute SHA-256 of the final WACZ bytes for content-addressed R2 key
   const waczHash = await sha256(waczBytes);
 
-  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId };
+  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : 'absent' };
 }
