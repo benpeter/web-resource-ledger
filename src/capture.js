@@ -629,10 +629,13 @@ async function defaultRenderer(browserBinding, url) {
       screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,
     };
   } finally {
-    // MANDATORY: close context before disconnecting to clear all isolation state
-    await context.close();
-    // Disconnects from the browser process; does NOT kill it (keep_alive keeps it hot)
-    await browser.close();
+    // MANDATORY: close context before disconnecting to clear all isolation state.
+    // Timeout cleanup to prevent hanging on unresponsive browser sessions
+    // (e.g., Akamai stalling with 0 bytes) from eating the ctx.waitUntil budget.
+    await Promise.race([
+      context.close().then(() => browser.close()),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]).catch(() => {});
   }
 }
 
