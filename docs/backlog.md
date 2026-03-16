@@ -22,9 +22,9 @@ security hardening for the current single-operator use case.
 - ~~#38 **R8: Auth identity enrichment** [S]~~ -- DONE: internal refactor, prerequisite for R1
 - ~~#31 **R1: List captures endpoint** [M]~~ -- DONE: eliminates lost-ID problem; depends on R8
 - ~~#32 **R2: Key versioning and public key archive** [M]~~ -- DONE: keyId in signedData, /.well-known/signing-keys, historical key lookup
-- #33 **R3: CORS for capture POST** [S] -- unblocks browser-based integrations
-- #34 **R4: HSTS preload submission** [XS] -- one header change + form submission
-- #35 **R5: X-RateLimit-Limit header** [XS] -- static ceiling header on rate-limited endpoints
+- ~~#33 **R3: CORS for capture POST** [S]~~ -- DONE: configurable origin allowlist, preflight handler, CORS headers on all POST responses including errors
+- ~~#34 **R4: HSTS preload submission** [XS]~~ -- DONE: `preload` directive added; post-merge: submit domain to hstspreload.org
+- ~~#35 **R5: X-RateLimit-Limit header** [XS]~~ -- DONE: per-IP ceiling on rate-limited endpoints; global limiter 503s omit header
 - #36 **R6: Hashed IP logging** [S] -- HMAC-SHA256 abuse correlation without PII
 - ~~#37 **R7: Content moderation policy and ToS** [S]~~ -- DONE: TERMS.md + CONTENT-POLICY.md at repo root, Link header on all responses
 - ~~#39 **R9: Staging environment** [S]~~ -- DONE: wrangler.toml env.staging, deploy-staging.yml, smoke-test.sh
@@ -160,6 +160,9 @@ Completed items removed from active tracking:
 - ~~R8: Auth identity enrichment~~ -- DONE (list-endpoint phase)
 - ~~R1: List captures endpoint~~ -- DONE (list-endpoint phase): `GET /v1/captures` with cursor pagination, status filter, tenant isolation
 - ~~R2: Key versioning and public key archive~~ -- DONE (key-versioning phase): keyId fingerprints, signing key archive in KV, historical key verification
+- ~~R3: CORS for capture POST~~ -- DONE (cors-hsts-ratelimit phase): configurable origin allowlist, CORS headers on all POST responses including errors
+- ~~R4: HSTS preload submission~~ -- DONE (cors-hsts-ratelimit phase): `preload` directive; submit domain to hstspreload.org post-merge
+- ~~R5: X-RateLimit-Limit header~~ -- DONE (cors-hsts-ratelimit phase): per-IP ceiling header; global 503s omit it
 - ~~R7: Content moderation policy and ToS~~ -- DONE (staging-and-tos phase)
 - ~~R9: Staging environment~~ -- DONE (staging-and-tos phase)
 - ~~CI/CD pipeline~~ -- CI added in 0012-open-source-readiness
