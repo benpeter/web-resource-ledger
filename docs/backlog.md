@@ -12,13 +12,6 @@ for full rationale, conflict resolutions, and specialist contributions.
 - **[should]** -- strong consensus it's needed, no hard commitment yet
 - **[consider]** -- may or may not be needed; parked with activation trigger
 
-## Backlog Inflation Policy
-
-Only add items to the active backlog that the human explicitly deferred or that
-address a demonstrated (not theoretical) need. Agent-originated items go to the
-Parking Lot with a revisit condition. Backlog should not exceed ~25 active items;
-exceeding this triggers a cleanup pass.
-
 ---
 
 ## Act 1: Solid Foundation (near-term, next 1-3 phases)
@@ -35,7 +28,7 @@ security hardening for the current single-operator use case.
 - #36 **R6: Hashed IP logging** [S] -- HMAC-SHA256 abuse correlation without PII
 - #37 **R7: Content moderation policy and ToS** [S] -- required before external promotion
 - #39 **R9: Staging environment** [S] -- automated deploy-to-staging on push to main
-- #40 **R10: Backlog cleanup and restructure** [S] -- this restructure; evolution log entry
+- ~~#40 **R10: Backlog cleanup and restructure** [S]~~ -- DONE: this document
 
 ## Act 2: Evidence-Grade (mid-term)
 
@@ -133,8 +126,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 ## Dropped Items
 
-Removed from active backlog. Rationale preserved here and in
-[evolution log](evolution/0016-roadmap-backlog-cleanup/).
+Removed from active backlog. Rationale preserved here.
 
 | Item | Rationale |
 |------|-----------|
@@ -153,11 +145,11 @@ Removed from active backlog. Rationale preserved here and in
 | Nonce-based CSP | Template doesn't use server-side dynamic data in scripts |
 | HTML error pages for 404/429/503 | "Acceptable for MVP"; fix opportunistically |
 | S3 Object Lock (WORM-certified) | For regulated customers who don't exist |
-| Full HTTP exchange capture | Forensic-grade; far beyond current scope |
-| Sub-resource archiving | Significant complexity for offline replay; not core to evidence |
+| Full HTTP exchange capture | Forensic-grade; far beyond current scope. HAR recording evaluated (Phase 0016-advisory) — Playwright `recordHar()` non-functional on Workers (3 independent blockers). Application-level serializer via existing route interceptor is viable future path if demand emerges. |
+| Sub-resource archiving | Significant complexity for offline replay; not core to evidence. Partial coverage possible via application-level HAR serializer (see Full HTTP exchange capture). |
 | Certificate info capture | Not available via Playwright API; forensic nicety |
-| Network timing capture | Not available via Playwright API; forensic nicety |
-| Resource manifest (CSS/JS/images) | Significant complexity; HTML + screenshot prove content state |
+| Network timing capture | Not available via Playwright API; forensic nicety. Partial coverage possible via application-level HAR serializer timing data. |
+| Resource manifest (CSS/JS/images) | Significant complexity; HTML + screenshot prove content state. Partial coverage possible via application-level HAR serializer (see Full HTTP exchange capture). |
 
 ---
 
@@ -172,3 +164,20 @@ Completed items removed from active tracking:
 - ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint)
 - ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
 - ~~HSTS header~~ -- DONE (static-verification-page)
+
+---
+
+## Backlog Governance
+
+**Adding items**: Only items the project owner explicitly deferred or that
+address a user-reported need belong in the active backlog (Acts 1-3).
+Agent-originated suggestions go to the Parking Lot with a concrete revisit
+condition — not to the active backlog.
+
+**Removing items**: Items are dropped when their premise is invalidated,
+their scope is absorbed by another item, or they were added speculatively
+without human validation. Dropped items stay in the Dropped Items table
+with rationale.
+
+**Size cap**: The active backlog (Acts 1-3) should not exceed 25 items.
+Exceeding this threshold triggers a cleanup pass before new items are added.
