@@ -1,3 +1,9 @@
+> **This document is a historical artifact.** It was the implementation
+> plan for WRL's initial build (phases 0001-0011, March 2025). All items
+> are now implemented, deferred to [docs/backlog.md](backlog.md), or
+> explicitly dropped. The document is preserved for traceability -- the
+> evolution log phases reference it.
+
 # WRL Minimum Viable Product
 
 ## Goal

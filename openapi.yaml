@@ -56,13 +56,17 @@ components:
       description: Seconds to wait before retrying.
       schema:
         type: integer
+        example: 60
     XRateLimitLimit:
-      description: Maximum number of requests allowed per IP in the current rate-limit window.
+      description: >
+        Maximum number of requests allowed per IP in the current rate-limit window.
+        Present on all non-503 responses from rate-limited endpoints, including error responses.
       schema:
         type: integer
         minimum: 1
         examples:
           - 10
+          - 60
     TermsLink:
       description: Link to Terms of Service per RFC 8288.
       schema:
@@ -435,6 +439,8 @@ components:
           $ref: '#/components/headers/XFrameOptions'
         Strict-Transport-Security:
           $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
       content:
         application/problem+json:
           schema:
@@ -445,7 +451,7 @@ components:
               value: {type: about:blank, status: 400, title: Bad Request, detail: Request body is missing or not valid JSON.}
             missingUrl:
               summary: url field absent
-              value: {type: about:blank, status: 400, title: Bad Request, detail: Request body must include a "url" field.}
+              value: {type: about:blank, status: 400, title: Bad Request, detail: Field 'url' is required}
             badScheme:
               summary: Non-http/https scheme
               value: {type: about:blank, status: 400, title: Bad Request, detail: "URL scheme 'ftp' is not allowed; use http or https"}
@@ -461,6 +467,8 @@ components:
           $ref: '#/components/headers/XFrameOptions'
         Strict-Transport-Security:
           $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
         Cache-Control:
           description: Prevents caching of not-found responses.
           schema:
@@ -490,6 +498,8 @@ components:
           $ref: '#/components/headers/XFrameOptions'
         Strict-Transport-Security:
           $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
         WWW-Authenticate:
           description: Authentication challenge.
           schema:
@@ -504,49 +514,6 @@ components:
               summary: No Authorization header
               value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
 
-    Problem415:
-      description: Unsupported Media Type — Content-Type is not application/json.
-      headers:
-        Referrer-Policy:
-          $ref: '#/components/headers/ReferrerPolicy'
-        X-Content-Type-Options:
-          $ref: '#/components/headers/XContentTypeOptions'
-        X-Frame-Options:
-          $ref: '#/components/headers/XFrameOptions'
-        Strict-Transport-Security:
-          $ref: '#/components/headers/StrictTransportSecurity'
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetail'
-          examples:
-            wrongContentType:
-              summary: Text/plain submitted instead of JSON
-              value: {type: about:blank, status: 415, title: Unsupported Media Type, detail: Content-Type must be application/json.}
-
-    Problem422:
-      description: Unprocessable Content — private IP, embedded credentials, or double-encoded URL.
-      headers:
-        Referrer-Policy:
-          $ref: '#/components/headers/ReferrerPolicy'
-        X-Content-Type-Options:
-          $ref: '#/components/headers/XContentTypeOptions'
-        X-Frame-Options:
-          $ref: '#/components/headers/XFrameOptions'
-        Strict-Transport-Security:
-          $ref: '#/components/headers/StrictTransportSecurity'
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetail'
-          examples:
-            privateIp:
-              summary: URL resolves to a private address
-              value: {type: about:blank, status: 422, title: Unprocessable Content, detail: Host resolves to a private IP address.}
-            doubleEncoded:
-              summary: Double-encoded characters in URL
-              value: {type: about:blank, status: 422, title: Unprocessable Content, detail: URL contains double-encoded characters.}
-
     Problem429:
       description: Too Many Requests — rate limit exceeded.
       headers:
@@ -558,6 +525,8 @@ components:
           $ref: '#/components/headers/XFrameOptions'
         Strict-Transport-Security:
           $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
         Retry-After:
           $ref: '#/components/headers/RetryAfter'
         X-RateLimit-Limit:
@@ -569,7 +538,7 @@ components:
           examples:
             rateLimited:
               summary: Caller exceeded allowed request rate
-              value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again in 60 seconds.}
+              value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again later.}
 
     Problem503:
       description: Service Unavailable -- required configuration is missing or service is at capacity.
@@ -582,14 +551,18 @@ components:
           $ref: '#/components/headers/XFrameOptions'
         Strict-Transport-Security:
           $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
           examples:
-            misconfigured:
-              summary: Service missing required environment configuration
-              value: {type: about:blank, status: 503, title: Service Unavailable, detail: Service is not configured. Contact the operator.}
+            atCapacity:
+              summary: Service is at capacity
+              value: {type: about:blank, status: 503, title: Service Unavailable, detail: Service is at capacity. Retry in 10 seconds.}
 
 paths:
   /health:
@@ -616,13 +589,14 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [status]
+                required: [status, legal]
                 properties:
                   status:
                     type: string
                     const: ok
                   legal:
                     type: object
+                    required: [terms, policy]
                     properties:
                       terms:
                         type: string
@@ -639,6 +613,48 @@ paths:
                       policy: https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md
 
   /v1/captures:
+    options:
+      operationId: preflightCaptures
+      summary: CORS preflight for POST /v1/captures
+      description: >
+        Handles CORS preflight requests for POST /v1/captures. Returns 204 with
+        appropriate CORS headers when the requesting origin matches the configured
+        allowlist. CORS headers are absent when the origin is not allowed.
+      tags: [captures]
+      security: []
+      responses:
+        '204':
+          description: Preflight accepted.
+          headers:
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              description: Allowed methods for cross-origin requests.
+              schema:
+                type: string
+                enum: [POST]
+            Access-Control-Allow-Headers:
+              description: Allowed request headers for cross-origin requests.
+              schema:
+                type: string
+                enum: ['Content-Type, Authorization']
+            Access-Control-Max-Age:
+              description: Seconds the preflight result may be cached.
+              schema:
+                type: integer
+                example: 7200
+            Vary:
+              description: Indicates the response varies by Origin header.
+              schema:
+                type: string
+                enum: [Origin]
+            Cache-Control:
+              description: Prevents caching of preflight responses.
+              schema:
+                type: string
+                enum: [no-store]
     get:
       operationId: listCaptures
       summary: List captures
@@ -694,6 +710,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Cache-Control:
               description: Prevents caching of tenant-scoped list responses.
               schema:
@@ -727,12 +745,59 @@ paths:
                       cursor: eyJrdiI6Im9wYXF1ZS1rdC1jdXJzb3IifQ
                       hasMore: true
                       limit: 20
+                mixedStatuses:
+                  summary: Page with pending, failed, and complete captures
+                  value:
+                    data:
+                      - id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                        status: complete
+                        url: https://example.com
+                        createdAt: '2024-01-15T10:30:00.000Z'
+                        completedAt: '2024-01-15T10:30:45.123Z'
+                      - id: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+                        status: failed
+                        url: https://slow-site.example.com
+                        createdAt: '2024-01-15T11:00:00.000Z'
+                        failedAt: '2024-01-15T11:00:30.000Z'
+                        error: Page did not finish loading within 25 seconds.
+                        retryable: true
+                      - id: cap_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
+                        status: pending
+                        url: https://another.example.com
+                        createdAt: '2024-01-15T11:05:00.000Z'
+                    pagination:
+                      cursor: null
+                      hasMore: false
+                      limit: 20
         '400':
           $ref: '#/components/responses/Problem400'
         '401':
           $ref: '#/components/responses/Problem401'
         '429':
           $ref: '#/components/responses/Problem429'
+        '500':
+          description: Internal Server Error — KV storage read failed.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                kvError:
+                  summary: KV storage read failed
+                  value: {type: about:blank, status: 500, title: Internal Server Error, detail: Could not list captures}
+        '503':
+          $ref: '#/components/responses/Problem503'
     post:
       operationId: createCapture
       summary: Submit a URL for capture
@@ -774,8 +839,13 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Retry-After:
-              $ref: '#/components/headers/RetryAfter'
+              description: Suggested seconds before polling capture status.
+              schema:
+                type: integer
+                example: 5
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
             Access-Control-Allow-Origin:
@@ -798,17 +868,213 @@ paths:
                     statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
                     note: Use GET /v1/captures to list and search your captures.
         '400':
-          $ref: '#/components/responses/Problem400'
+          description: Bad request — missing or malformed body, missing `url` field, invalid URL scheme.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                missingBody:
+                  summary: No JSON body provided
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: Request body is missing or not valid JSON.}
+                missingUrl:
+                  summary: url field absent
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: Field 'url' is required}
+                badScheme:
+                  summary: Non-http/https scheme
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "URL scheme 'ftp' is not allowed; use http or https"}
         '401':
-          $ref: '#/components/responses/Problem401'
+          description: Unauthorized — missing, malformed, or invalid Authorization header.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            WWW-Authenticate:
+              description: Authentication challenge.
+              schema:
+                type: string
+                enum: [Bearer]
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                missing:
+                  summary: No Authorization header
+                  value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
         '415':
-          $ref: '#/components/responses/Problem415'
+          description: Unsupported Media Type — Content-Type is not application/json.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                wrongContentType:
+                  summary: Text/plain submitted instead of JSON
+                  value: {type: about:blank, status: 415, title: Unsupported Media Type, detail: Content-Type must be application/json}
         '422':
-          $ref: '#/components/responses/Problem422'
+          description: Unprocessable Content — private IP, embedded credentials, or double-encoded URL.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                privateIp:
+                  summary: URL resolves to a private address
+                  value: {type: about:blank, status: 422, title: Unprocessable Content, detail: Host resolves to a private IP address.}
+                doubleEncoded:
+                  summary: Double-encoded characters in URL
+                  value: {type: about:blank, status: 422, title: Unprocessable Content, detail: URL contains double-encoded characters.}
         '429':
-          $ref: '#/components/responses/Problem429'
+          description: Too Many Requests — rate limit exceeded.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Retry-After:
+              $ref: '#/components/headers/RetryAfter'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                rateLimited:
+                  summary: Caller exceeded allowed request rate
+                  value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again later.}
         '503':
-          $ref: '#/components/responses/Problem503'
+          description: Service Unavailable -- service is at capacity.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Retry-After:
+              $ref: '#/components/headers/RetryAfter'
+            Access-Control-Allow-Origin:
+              description: Echoes the requesting origin when it matches the configured allowlist.
+              schema:
+                type: string
+            Vary:
+              description: Indicates the response varies by Origin header for CORS.
+              schema:
+                type: string
+                enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                atCapacity:
+                  summary: Service is at capacity
+                  value: {type: about:blank, status: 503, title: Service Unavailable, detail: Service is at capacity. Retry in 10 seconds.}
 
   /v1/captures/{captureId}/status:
     get:
@@ -838,6 +1104,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Cache-Control:
               description: Prevents caching of status responses.
               schema:
@@ -902,6 +1170,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Cache-Control:
               description: Prevents caching of capture records.
               schema:
@@ -985,6 +1255,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Content-Disposition:
               description: Always "attachment" to prevent browser rendering.
               schema:
@@ -1060,6 +1332,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Cache-Control:
               description: >
                 "public, max-age=86400, stale-while-revalidate=604800" for verified captures;
@@ -1140,6 +1414,27 @@ paths:
                   no-script fallback links to the JSON endpoint.
         '404':
           $ref: '#/components/responses/Problem404'
+        '422':
+          description: Unprocessable Content — WACZ bundle exceeds maximum verifiable size.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                bundleTooLarge:
+                  summary: WACZ bundle exceeds 100 MB limit
+                  value: {type: about:blank, status: 422, title: Unprocessable Content, detail: WACZ bundle exceeds maximum verifiable size}
         '429':
           $ref: '#/components/responses/Problem429'
         '503':
@@ -1167,6 +1462,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Cache-Control:
               description: Public key is stable; cached for one hour with a long stale window.
               schema:
@@ -1239,6 +1536,8 @@ paths:
               $ref: '#/components/headers/XFrameOptions'
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
             Cache-Control:
               description: Key list is stable; cached for one hour with a long stale window.
               schema:
@@ -1282,3 +1581,5 @@ paths:
                           description: ISO 8601 timestamp when the key was first archived.
         '429':
           $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'

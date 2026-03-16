@@ -187,7 +187,54 @@ SIGNING_KEY=<base64 string from the script>
 
 **Security:** Never commit the private key to version control. `.dev.vars` is already in `.gitignore`.
 
-### 6. Deploy
+### 6. Configure IP hash seed (recommended)
+
+`IP_HASH_SEED` is an HMAC seed used to hash IP addresses before they appear in logs. Without it, log entries have no IP correlation for abuse analysis.
+
+Generate a seed:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the production secret:
+
+```bash
+wrangler secret put IP_HASH_SEED
+```
+
+For local dev, add to `.dev.vars`:
+
+```
+IP_HASH_SEED=<hex string from the command above>
+```
+
+### 7. Configure Coralogix log ingestion (required for production observability)
+
+`CORALOGIX_SEND_KEY` is the API key for structured log ingestion to Coralogix. Without it, the worker produces no structured logs.
+
+Set the production secret:
+
+```bash
+wrangler secret put CORALOGIX_SEND_KEY
+```
+
+For local dev, structured logs are emitted to the console. No key is needed for `wrangler dev`.
+
+### 8. Configure CORS origins (optional)
+
+`CORS_ORIGINS` is a comma-separated list of allowed origins for CORS preflight responses. Only needed if browser-based clients will call the API directly.
+
+Set it as an environment variable in `wrangler.toml` (not a secret):
+
+```toml
+[vars]
+CORS_ORIGINS = "https://app.example.com,https://www.example.com"
+```
+
+If omitted, cross-origin requests from browsers are blocked. Server-to-server requests are unaffected.
+
+### 9. Deploy
 
 ```bash
 wrangler deploy
@@ -197,11 +244,33 @@ wrangler deploy
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, test conventions, and contribution guidelines.
 
+### Staging
+
+`wrangler.toml` includes an `[env.staging]` configuration with its own R2 bucket and KV namespace. Deploy to staging:
+
+```bash
+wrangler deploy --env staging
+```
+
+Staging auto-deploys on merge to `main` via `deploy-staging.yml`. Secrets must be set separately for the staging environment:
+
+```bash
+wrangler secret put CAPTURE_API_KEY --env staging
+wrangler secret put SIGNING_KEY --env staging
+# repeat for any other secrets
+```
+
+Smoke tests run against a live deployment. Set `SMOKE_URL` and `SMOKE_API_KEY`, then:
+
+```bash
+npm run smoke
+```
+
 ## Roadmap
 
 WRL follows a three-act development plan:
 
-1. **Solid Foundation** (in progress) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
+1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
 2. **Evidence-Grade** -- RFC 3161 timestamps, per-tenant keys, audit logging. Makes "evidence" independently verifiable.
 3. **Infrastructure** -- MCP server, web UI, batch capture. Expands WRL into a platform other tools build on.
 
@@ -215,19 +284,66 @@ WRL was built using [despicable-agents](https://github.com/benpeter/despicable-a
 
 ### Key Rotation
 
-> **Warning:** Rotating the signing key invalidates signature verification for all captures signed with the previous key. There is no key history endpoint yet -- old captures will show "Verification Failed" until key versioning is implemented.
+Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData` and in the KV capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
+
+Rotation procedure:
 
 1. Generate a new key pair: `node scripts/generate-signing-key.js`
 2. Update the production secret: `wrangler secret put SIGNING_KEY`
 3. Update local dev secret in `.dev.vars` (if applicable)
 
-New captures are signed with the new key. Existing captures signed with the old key will fail signature verification. The `/.well-known/signing-key` endpoint serves the current key -- third-party verifiers should re-fetch after rotation. Caches converge within 1 hour.
-
-Key versioning and old-key verification are not yet implemented. See `docs/backlog.md` under "Signing and Legal Admissibility."
+New captures are signed with the new key. Existing captures are verified against the archived key that signed them. The `/.well-known/signing-keys` endpoint lists the full key archive for third-party verifiers.
 
 ### Public Key Endpoint
 
-`GET /.well-known/signing-key` returns the current Ed25519 public key for independent verification. Third-party verifiers can fetch the key without trusting the `publicKey` embedded in individual WACZ bundles. The response is JSON with shape `{ algorithm, publicKey }`, where `publicKey` is the base64-encoded raw 32-byte Ed25519 key. Responses are cached for 1 hour at the edge.
+`GET /.well-known/signing-key` returns the current Ed25519 public key. Third-party verifiers can fetch the key without trusting the `publicKey` embedded in individual WACZ bundles. Responses are cached for 1 hour at the edge.
+
+```json
+{
+  "algorithm": "Ed25519",
+  "publicKey": "<base64-encoded raw 32-byte key>",
+  "keyId": "<8-char hex fingerprint>"
+}
+```
+
+`keyId` is the first 8 hex characters of the SHA-256 of the raw public key bytes. Use it to match against the key archive when verifying historical captures.
+
+### Key Archive Endpoint
+
+`GET /.well-known/signing-keys` lists all historical signing keys. Use this endpoint to verify captures signed with any key, not just the current one.
+
+```json
+{
+  "keys": [
+    {
+      "keyId": "<8-char hex fingerprint>",
+      "algorithm": "Ed25519",
+      "publicKey": "<base64-encoded raw 32-byte key>",
+      "archivedAt": "<ISO 8601 timestamp>"
+    }
+  ]
+}
+```
+
+Third-party verifiers: match the `keyId` from a WACZ bundle's `signedData` against this list to retrieve the correct public key for signature verification. Rate-limited at the same limit as the singular endpoint.
+
+### Health Endpoint
+
+`GET /health` returns the current service status and legal document URLs.
+
+```json
+{ "status": "ok", "legal": { "terms": "<url>", "policy": "<url>" } }
+```
+
+Useful for uptime monitoring and smoke tests.
+
+### Response Headers
+
+All responses include:
+
+- `Link` -- points to the terms-of-service URL with `rel="terms-of-service"`. Present on every response.
+- `Strict-Transport-Security` -- includes `preload` and `includeSubDomains`. Present on every response.
+- `X-RateLimit-Limit` -- the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints (captures, verification, signing key endpoints).
 
 ## Legal
 
