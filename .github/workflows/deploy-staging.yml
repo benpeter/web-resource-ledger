@@ -43,10 +43,12 @@ jobs:
             CAPTURE_API_KEY
             SIGNING_KEY
             CORALOGIX_SEND_KEY
+            IP_HASH_SEED
         env:
           CAPTURE_API_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}
           SIGNING_KEY: ${{ secrets.WRL_STAGING_SIGNING_KEY }}
           CORALOGIX_SEND_KEY: ${{ secrets.WRL_STAGING_CORALOGIX_SEND_KEY }}
+          IP_HASH_SEED: ${{ secrets.WRL_STAGING_IP_HASH_SEED }}
 
   smoke:
     needs: deploy

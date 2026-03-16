@@ -89,9 +89,10 @@ const KEEP_ALIVE_MS = 120000; // 2 minutes
  * @param {string} ip Resolved IP string (informational)
  * @param {string} captureId Capture ID (e.g. cap_abc123...)
  * @param {string} tenantId Tenant identifier
+ * @param {string} [cip] Hashed client IP (undefined when IP_HASH_SEED not configured)
  * @param {Function} [renderer] Injectable rendering function (defaults to defaultRenderer)
  */
-export async function performCapture(env, url, ip, captureId, tenantId, renderer = defaultRenderer) {
+export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer) {
   const start = Date.now();
   try {
     const [renderResult, headerResult] = await Promise.allSettled([
@@ -101,7 +102,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, renderer
 
     if (renderResult.status === 'rejected') {
       const { message, retryable } = categorizeError(renderResult.reason);
-      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable });
+      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable, cip, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
       await failCapture(env.KV, captureId, message, retryable);
       return;
     }
@@ -109,7 +110,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, renderer
     const { screenshot, html } = renderResult.value;
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
-      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId, tenantId });
+      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId, tenantId, cip });
     }
 
     // Store artifacts in R2
@@ -153,7 +154,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, renderer
           await archiveSigningKey(env.KV, keyId, publicKeyBase64);
         } catch (err) {
           // Non-fatal: key may already be archived from a prior capture
-          await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId });
+          await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip });
         }
         waczInfo = {
           key: `captures/${waczHash}.wacz`,
@@ -165,7 +166,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, renderer
     } catch (err) {
       // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
       // Distinguish from "no signing key" path (which returns null, no error)
-      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId });
+      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip });
     }
 
     await completeCapture(env.KV, captureId, artifacts, waczInfo);
@@ -176,14 +177,15 @@ export async function performCapture(env, url, ip, captureId, tenantId, renderer
       durationMs: Date.now() - start,
       waczStatus: waczInfo ? 'ok' : 'skipped',
       bundleSize: waczInfo?.size ?? 0,
+      cip,
     });
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
-    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name });
+    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
     } catch {
-      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId });
+      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, cip });
     }
   }
 }
@@ -398,6 +400,16 @@ function categorizeError(error) {
   // Session pool exhaustion
   if (msg.includes('session pool')) {
     return { message: 'No browser session available; try again shortly', retryable: true };
+  }
+  // Session lifecycle errors (keep_alive expiry, CDP breakdown)
+  if (msg.includes('Session expired') || msg.includes('session has been closed')) {
+    return { message: 'Browser session expired', retryable: true };
+  }
+  if (msg.includes('Protocol error')) {
+    return { message: 'Browser protocol error', retryable: true };
+  }
+  if (msg.includes('Connection refused') || msg.includes('ECONNREFUSED')) {
+    return { message: 'Browser connection refused', retryable: true };
   }
 
   return { message: 'Capture could not be completed', retryable: true };

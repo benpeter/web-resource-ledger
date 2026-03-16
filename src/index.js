@@ -8,6 +8,7 @@ import { getSigningKeys, verifySignature } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { log } from './log.js';
 import { RATE_LIMITS } from './rate-limits.js';
+import { computeCip } from './ip-hash.js';
 
 // tva
 
@@ -119,6 +120,9 @@ function handleHealth() {
 }
 
 async function handleCreateCapture(request, env, ctx) {
+  // Step 0: Compute hashed client IP for log correlation
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+
   // Step 1: Content-Type check
   const contentType = request.headers.get('Content-Type') || '';
   if (!contentType.includes('application/json')) {
@@ -128,7 +132,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 2: Auth check
   const auth = await verifyApiKey(request, env);
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
   }
   const { tenantId } = auth;
@@ -139,7 +143,7 @@ async function handleCreateCapture(request, env, ctx) {
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
@@ -148,7 +152,7 @@ async function handleCreateCapture(request, env, ctx) {
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', cip }) ?? Promise.resolve());
       return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
@@ -172,7 +176,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
   if (!result.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
     return problemResponse(result.status, result.detail);
   }
 
@@ -187,7 +191,7 @@ async function handleCreateCapture(request, env, ctx) {
   }
 
   // Step 9: Trigger background capture
-  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId));
+  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
 
   // Step 10: Build absolute status URL
   const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
@@ -201,10 +205,13 @@ async function handleCreateCapture(request, env, ctx) {
 }
 
 async function handleListCaptures(request, env, ctx) {
+  // Step 0: Compute hashed client IP for log correlation
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+
   // Step 1: Auth check
   const auth = await verifyApiKey(request, env);
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
   }
 
@@ -215,14 +222,14 @@ async function handleListCaptures(request, env, ctx) {
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', cip }) ?? Promise.resolve());
       return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
@@ -257,7 +264,7 @@ async function handleListCaptures(request, env, ctx) {
     result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
   } catch (err) {
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 3, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 3, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
     return problemResponse(500, 'Could not list captures');
   }
 
@@ -292,6 +299,7 @@ async function handleListCaptures(request, env, ctx) {
     status: statusParam || 'all',
     cursor: result.pagination.cursor ? 'present' : 'absent',
     durationMs,
+    cip,
   }) ?? Promise.resolve());
 
   // Step 8: Return response
@@ -405,6 +413,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
 // Caches verified results publicly; non-verified results are not cached.
 async function handleVerifyCapture(request, env, ctx, match) {
   const captureId = match[1];
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
 
   // Step 1: Rate limit check
   // CF-Connecting-IP is always present in production Workers; 'unknown' fallback
@@ -414,7 +423,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
@@ -505,12 +514,13 @@ async function handleVerifyCapture(request, env, ctx, match) {
 }
 
 async function handleGetSigningKey(request, env, ctx) {
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
   if (env.VERIFY_RATE_LIMITER) {
     const { success } = await env.VERIFY_RATE_LIMITER.limit({
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_key' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_key', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
@@ -528,12 +538,13 @@ async function handleGetSigningKey(request, env, ctx) {
 }
 
 async function handleGetSigningKeys(request, env, ctx) {
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
   if (env.VERIFY_RATE_LIMITER) {
     const { success } = await env.VERIFY_RATE_LIMITER.limit({
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
     });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_keys' }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_keys', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }

@@ -37,6 +37,7 @@ binding = "BROWSER"
 
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
+# IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
@@ -46,7 +47,7 @@ APPLICATION_NAME = "wrl"
 
 # --- Staging environment ---
 # Fully isolated: separate Worker, KV, R2, rate limiters.
-# Secrets (CAPTURE_API_KEY, SIGNING_KEY, CORALOGIX_SEND_KEY) are set via:
+# Secrets (CAPTURE_API_KEY, SIGNING_KEY, CORALOGIX_SEND_KEY, IP_HASH_SEED) are set via:
 #   wrangler secret put <NAME> --env staging
 
 [env.staging]
