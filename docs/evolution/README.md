@@ -29,3 +29,4 @@ software development.
 | [0018-staging-and-tos](0018-staging-and-tos/) | Staging environment with automated deploy and legal documents (Issues #39, #37) |
 | [0019-cors-hsts-ratelimit](0019-cors-hsts-ratelimit/) | CORS for capture POST, HSTS preload directive, and X-RateLimit-Limit header (Issues #33, #34, #35) |
 | [0020-hashed-ip-logging](0020-hashed-ip-logging/) | HMAC-SHA256 hashed IP logging and categorizeError fix (Issues #36, #52) |
+| [0021-docs-drift-audit](0021-docs-drift-audit/) | Post-Act 1 documentation drift audit and fix |
