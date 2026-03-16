@@ -69,7 +69,7 @@ Returns metadata and signed artifact URLs (screenshot, html, headers, wacz) plus
 curl https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
-Returns a JSON verification result with three checks: `artifactHashes`, `bundleHash`, and `signature`. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
+Returns a JSON verification result with up to four checks: `artifactHashes`, `bundleHash`, `signature`, and (for new captures) `timestamp`. The timestamp check verifies an RFC 3161 independent timestamp obtained at capture time. Legacy captures return three checks. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
 
 The `verifyUrl` is safe to share publicly. The capture ID grants full access to all artifacts without authentication -- treat it as a secret. Anyone with the ID can view the capture.
 
@@ -284,7 +284,7 @@ WRL was built using [despicable-agents](https://github.com/benpeter/despicable-a
 
 ### Key Rotation
 
-Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData` and in the KV capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
+Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData.signatures` array (v0.2.0) or `signedData` directly (v0.1.0 legacy) and in the KV capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
 
 Rotation procedure:
 
@@ -325,7 +325,7 @@ New captures are signed with the new key. Existing captures are verified against
 }
 ```
 
-Third-party verifiers: match the `keyId` from a WACZ bundle's `signedData` against this list to retrieve the correct public key for signature verification. Rate-limited at the same limit as the singular endpoint.
+Third-party verifiers: match the `keyId` from a WACZ bundle's `signedData` (v0.1.0) or `signedData.signatures` array (v0.2.0) against this list to retrieve the correct public key for signature verification. Rate-limited at the same limit as the singular endpoint.
 
 ### Health Endpoint
 
