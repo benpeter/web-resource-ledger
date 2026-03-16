@@ -27,7 +27,7 @@ import autoconsentScript from './vendor/autoconsent-script.js';
 
 export const AUTOCONSENT_VERSION = '14.59.0';
 
-const CONSENT_TIMEOUT_MS = 8000;
+const CONSENT_TIMEOUT_MS = 2000;
 
 const ALLOWED_MSG_TYPES = new Set([
   'init',
