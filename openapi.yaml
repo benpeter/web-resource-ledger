@@ -346,7 +346,9 @@ components:
             - integer
             - 'null'
           minimum: 0
-          description: Time in ms to capture screenshot(s).
+          description: >
+            Time in ms to capture screenshot(s). Includes before-consent and
+            after-consent screenshots (two non-contiguous intervals summed).
         contentMs:
           type:
             - integer

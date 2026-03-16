@@ -486,6 +486,7 @@ async function defaultRenderer(browserBinding, url) {
 
     // Before-screenshot MUST be taken before injecting autoconsent
     const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
+    const tPreConsent = Date.now();
 
     const consent = await dismissCookieConsent(page);
     const tConsent = Date.now();
@@ -515,8 +516,8 @@ async function defaultRenderer(browserBinding, url) {
           contextSetupMs: tContext - tSession,
           navigationMs: tNav - tContext,
           settleMs: tSettle - tNav,
-          consentMs: tConsent - tSettle,
-          screenshotMs: tScreenshot - tConsent,
+          consentMs: tConsent - tPreConsent,
+          screenshotMs: (tPreConsent - tSettle) + (tScreenshot - tConsent),
           contentMs: tContent - tScreenshot,
         },
       },
