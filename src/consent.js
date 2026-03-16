@@ -155,6 +155,7 @@ async function _dismissWithBinding(page, start) {
   await page.evaluate(inject, [autoconsentScript]);
   for (const frame of page.frames()) {
     if (frame !== page.mainFrame()) {
+      // Cross-origin or detached frames may reject evaluate -- non-fatal
       frame.evaluate(inject, [autoconsentScript]).catch(() => {});
     }
   }
@@ -211,6 +212,7 @@ async function _dismissWithPolling(page, start) {
   await page.evaluate(wrappedScript);
   for (const frame of page.frames()) {
     if (frame !== page.mainFrame()) {
+      // Cross-origin or detached frames may reject evaluate -- non-fatal
       frame.evaluate(wrappedScript).catch(() => {});
     }
   }
@@ -221,6 +223,7 @@ async function _dismissWithPolling(page, start) {
   while (Date.now() < deadline) {
     // Poll all frames -- CMP result may come from an iframe
     for (const frame of page.frames()) {
+      // Detached frames throw on evaluate -- treat as no result
       const result = await frame.evaluate(() => window.__autoconsentResult).catch(() => null);
       if (result) {
         return { ...result, durationMs: Date.now() - start };
@@ -232,6 +235,7 @@ async function _dismissWithPolling(page, start) {
   // Timed out -- check if a CMP was ever detected in any frame
   let cmp = null;
   for (const frame of page.frames()) {
+    // Detached frames throw on evaluate -- treat as no CMP
     const frameCmp = await frame.evaluate(() => window.__autoconsentCmp).catch(() => null);
     if (frameCmp) { cmp = frameCmp; break; }
   }
