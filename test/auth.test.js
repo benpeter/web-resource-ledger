@@ -29,6 +29,24 @@ describe('verifyApiKey -- success', () => {
     expect(result.ok).toBe(true);
     expect(result.response).toBeUndefined();
   });
+
+  it('returns tenantId: "default" on success', async () => {
+    const result = await verifyApiKey(
+      makeRequest(`Bearer ${TEST_KEY}`),
+      makeEnv(),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.tenantId).toBe('default');
+  });
+
+  it('error results do not include tenantId', async () => {
+    const result = await verifyApiKey(
+      makeRequest('Bearer wrong-key'),
+      makeEnv(),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.tenantId).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

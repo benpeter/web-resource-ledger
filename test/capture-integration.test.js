@@ -1,6 +1,6 @@
 import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { completeCapture } from '../src/kv.js';
+import { completeCapture, getCapture } from '../src/kv.js';
 
 const AUTH = 'Bearer test-api-key-for-vitest';
 // Use a direct public IP to avoid DNS resolution in the test environment.
@@ -62,6 +62,15 @@ describe('POST /v1/captures -- happy path', () => {
     const body = await res.json();
     expect(body.statusUrl).toContain(body.id);
     expect(body.statusUrl).toMatch(/^https?:\/\//);
+  });
+
+  it('KV record includes tenantId: "default" after successful POST', async () => {
+    // Use a distinct IP to avoid sharing the rate limiter bucket with other tests
+    const res = await postCapture({ url: VALID_URL }, { 'CF-Connecting-IP': '10.0.0.99' });
+    const { id } = await res.json();
+    const record = await getCapture(env.KV, id);
+    expect(record).not.toBeNull();
+    expect(record.tenantId).toBe('default');
   });
 });
 

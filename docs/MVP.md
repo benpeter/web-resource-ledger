@@ -45,7 +45,7 @@ All endpoints are versioned under `/v1/` to allow non-breaking evolution. An Ope
 
 **API key:** Single static bearer token set as a `wrangler secret`. Protects the capture endpoint (resource-intensive, SSRF-capable). Key rotation is a `wrangler secret update` + `wrangler deploy` (30-second operation).
 
-**Capture ID loss:** There is no list endpoint in the MVP. If the caller loses the capture ID, the capture is permanently inaccessible. For a single-operator deployment, the caller is responsible for retaining IDs. This is a known and accepted limitation.
+**Capture ID loss:** There is no list endpoint in the MVP. If the caller loses the capture ID, the capture is permanently inaccessible. For a single-operator deployment, the caller is responsible for retaining IDs. This is a known and accepted limitation. *(Resolved: R1 added `GET /v1/captures` with pagination and status filter.)*
 
 ---
 
@@ -68,7 +68,7 @@ All endpoints are versioned under `/v1/` to allow non-breaking evolution. An Ope
 | eIDAS / legal admissibility | Depends on TSA (also out). Bundle format and signatures array are designed to accommodate this later. |
 | CI/CD pipeline | Manual `wrangler deploy` for single-developer MVP. Add GitHub Actions when it hurts. |
 | Database | Write-once, read-by-ID pattern. KV for metadata, R2 for bundles. No SQL database needed. |
-| List/search captures | No `GET /captures` endpoint. First addition post-MVP. |
+| List/search captures | No `GET /captures` endpoint. First addition post-MVP. Resolved in R1. |
 | Autoscaling | Cloudflare handles this. No configuration needed. |
 | WORM-certified storage | R2 bucket locks are adequate. S3 Object Lock for regulated customers is post-MVP. |
 

@@ -47,8 +47,8 @@ beforeEach(async () => {
     .reply(200, 'ok', { headers: { 'content-type': 'text/html' } });
 
   // Create a real capture with a signed WACZ
-  await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-  await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+  await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+  await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 });
 
 afterEach(() => {
@@ -189,7 +189,7 @@ describe('GET /v1/verify/{id} -- error cases', () => {
   it('404 for pending capture (no performCapture called)', async () => {
     const pendingId = 'cap_' + '1'.repeat(32);
     await env.KV.delete(`capture:${pendingId}`);
-    await createCapture(env.KV, pendingId, TEST_URL, TEST_IP);
+    await createCapture(env.KV, pendingId, TEST_URL, TEST_IP, 'default');
 
     const res = await SELF.fetch(`https://worker.test/v1/verify/${pendingId}`);
     expect(res.status).toBe(404);
@@ -198,7 +198,7 @@ describe('GET /v1/verify/{id} -- error cases', () => {
   it('404 for capture without WACZ (completeCapture with null wacz)', async () => {
     const noWaczId = 'cap_' + '2'.repeat(32);
     await env.KV.delete(`capture:${noWaczId}`);
-    await createCapture(env.KV, noWaczId, TEST_URL, TEST_IP);
+    await createCapture(env.KV, noWaczId, TEST_URL, TEST_IP, 'default');
     await completeCapture(
       env.KV,
       noWaczId,
@@ -221,7 +221,7 @@ describe('GET /v1/verify/{id} -- error cases', () => {
   it('404 for failed capture', async () => {
     const failedId = 'cap_' + '3'.repeat(32);
     await env.KV.delete(`capture:${failedId}`);
-    await createCapture(env.KV, failedId, TEST_URL, TEST_IP);
+    await createCapture(env.KV, failedId, TEST_URL, TEST_IP, 'default');
 
     // Read it back, mutate status to 'failed', write back
     const record = await env.KV.get(`capture:${failedId}`, 'json');
@@ -325,7 +325,7 @@ describe('GET /v1/captures/{id} -- verifyUrl', () => {
   it('retrieval response omits verifyUrl when no WACZ', async () => {
     const noWaczId = 'cap_' + '5'.repeat(32);
     await env.KV.delete(`capture:${noWaczId}`);
-    await createCapture(env.KV, noWaczId, TEST_URL, TEST_IP);
+    await createCapture(env.KV, noWaczId, TEST_URL, TEST_IP, 'default');
     await completeCapture(
       env.KV,
       noWaczId,

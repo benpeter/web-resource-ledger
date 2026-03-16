@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.1.0
+  version: 0.2.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   license:
     name: Apache 2.0
@@ -57,7 +57,7 @@ components:
     CaptureId:
       type: string
       pattern: '^cap_[a-f0-9]{32}$'
-      description: Unique capture identifier. Also serves as the access secret — store it.
+      description: Unique capture identifier. Also serves as the access secret for per-capture access.
       examples:
         - cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
@@ -93,7 +93,7 @@ components:
           description: Absolute URL to poll for capture status.
         note:
           type: string
-          description: Advisory message reminding callers to store the capture ID.
+          description: Advisory message about related API capabilities.
 
     CaptureStatus:
       type: object
@@ -189,8 +189,8 @@ components:
       type: object
       description: >
         Metadata and artifact links for a completed capture. The capture ID acts
-        as the access secret -- no authentication header is required. Store it;
-        there is no listing endpoint to recover it.
+        as the access secret -- no authentication header is required. Captures are
+        also accessible via GET /v1/captures.
 
         Artifact URLs are served via the API Worker to ensure correct security
         headers (XSS prevention for HTML artifact). URLs do not expire.
@@ -238,6 +238,83 @@ components:
             Present only when `wacz` is present.
           examples:
             - https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+
+    CaptureSummary:
+      type: object
+      description: >
+        Abridged capture record returned by the list endpoint. Fields depend on
+        status. Never includes ip, raw R2 keys (artifacts.* values, wacz.key),
+        or other internal fields.
+
+        Always present: id, status, url, createdAt.
+        Additional fields when status is "complete": completedAt.
+        Additional fields when status is "failed": failedAt, error, retryable.
+        No additional fields when status is "pending".
+
+        Note: only captures created after the list feature was deployed appear
+        in results. Pre-deployment captures are not indexed.
+      required: [id, status, url, createdAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/CaptureId'
+        status:
+          type: string
+          enum: [pending, complete, failed]
+          description: Lifecycle state of the capture.
+        url:
+          type: string
+          format: uri
+          description: The URL that was captured.
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the capture was submitted.
+        completedAt:
+          type: string
+          format: date-time
+          description: Present when status is "complete". ISO 8601 timestamp when capture completed.
+        failedAt:
+          type: string
+          format: date-time
+          description: Present when status is "failed". ISO 8601 timestamp when capture failed.
+        error:
+          type: string
+          description: Present when status is "failed". Human-readable failure reason.
+        retryable:
+          type: boolean
+          description: Present when status is "failed". True if submitting a new capture may succeed.
+
+    Pagination:
+      type: object
+      description: Cursor-based pagination metadata.
+      required: [cursor, hasMore, limit]
+      properties:
+        cursor:
+          type: ["string", "null"]
+          description: >
+            Opaque base64url string to pass as the `cursor` query parameter
+            to retrieve the next page. Null when hasMore is false.
+        hasMore:
+          type: boolean
+          description: True when additional results exist beyond the current page.
+        limit:
+          type: integer
+          description: Effective page size used for this response.
+          minimum: 1
+          maximum: 100
+
+    CaptureListResponse:
+      type: object
+      description: Paginated list of capture summaries.
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          description: Capture summaries for the current page. Empty array when no results; never null.
+          items:
+            $ref: '#/components/schemas/CaptureSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     VerificationCheck:
       type: object
@@ -529,6 +606,98 @@ paths:
                   value: {status: ok}
 
   /v1/captures:
+    get:
+      operationId: listCaptures
+      summary: List captures
+      description: >
+        Returns a paginated list of captures for the authenticated tenant in ascending
+        chronological order (oldest first). Only captures created after the list
+        feature was deployed appear in results -- pre-deployment captures are not
+        indexed and will not appear.
+
+        Pagination is cursor-based. Pass the `cursor` value from the previous
+        response's `pagination.cursor` field to retrieve the next page. An absent or
+        null cursor means there are no further results.
+      tags: [captures]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: >
+            Number of results per page. Default 20. Values above 100 are silently
+            clamped to 100. Values below 1 or non-integers return 400.
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            Opaque pagination cursor from a previous response's
+            `pagination.cursor` field. Omit to start from the beginning.
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, complete, failed]
+          description: >
+            Filter results to captures with this status. Omit to return all statuses.
+      responses:
+        '200':
+          description: Paginated list of capture summaries. Returns empty data array when no captures exist.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Cache-Control:
+              description: Prevents caching of tenant-scoped list responses.
+              schema:
+                type: string
+                enum: ['private, no-store']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureListResponse'
+              examples:
+                empty:
+                  summary: No captures exist yet
+                  value:
+                    data: []
+                    pagination:
+                      cursor: null
+                      hasMore: false
+                      limit: 20
+                firstPage:
+                  summary: First page with more results
+                  value:
+                    data:
+                      - id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                        status: complete
+                        url: https://example.com
+                        createdAt: '2024-01-15T10:30:00.000Z'
+                        completedAt: '2024-01-15T10:30:45.123Z'
+                    pagination:
+                      cursor: eyJrdiI6Im9wYXF1ZS1rdC1jdXJzb3IifQ
+                      hasMore: true
+                      limit: 20
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '429':
+          $ref: '#/components/responses/Problem429'
     post:
       operationId: createCapture
       summary: Submit a URL for capture
@@ -577,7 +746,7 @@ paths:
                   value:
                     id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                     statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
-                    note: No list endpoint is available. Store the capture ID -- it is the only way to access this capture.
+                    note: Use GET /v1/captures to list and search your captures.
         '400':
           $ref: '#/components/responses/Problem400'
         '401':

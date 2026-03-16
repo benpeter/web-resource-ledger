@@ -75,8 +75,8 @@ function mockHeaderFetchError() {
 describe('performCapture -- successful capture', () => {
   it('transitions KV status to complete', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('complete');
@@ -84,8 +84,8 @@ describe('performCapture -- successful capture', () => {
 
   it('writes R2 artifacts: screenshot.png and rendered.html', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const screenshot = await env.BUCKET.get(`captures/${TEST_ID}/screenshot.png`);
     await screenshot?.arrayBuffer(); // consume body to satisfy isolated storage
@@ -97,8 +97,8 @@ describe('performCapture -- successful capture', () => {
 
   it('writes R2 artifact: headers.json when header fetch succeeds', async () => {
     mockHeaderFetch({ headers: { 'content-type': 'text/html', 'x-custom': 'value' } });
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const headers = await env.BUCKET.get(`captures/${TEST_ID}/headers.json`);
     await headers?.text(); // consume body
@@ -107,8 +107,8 @@ describe('performCapture -- successful capture', () => {
 
   it('records artifact paths in KV record', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.artifacts.screenshot).toBe(`captures/${TEST_ID}/screenshot.png`);
@@ -124,8 +124,8 @@ describe('performCapture -- renderer failure: timeout', () => {
 
   it('transitions KV status to failed', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, timeoutRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', timeoutRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
@@ -133,8 +133,8 @@ describe('performCapture -- renderer failure: timeout', () => {
 
   it('sets retryable=true for timeout', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, timeoutRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', timeoutRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.retryable).toBe(true);
@@ -142,8 +142,8 @@ describe('performCapture -- renderer failure: timeout', () => {
 
   it('error message is user-safe (no stack trace)', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, timeoutRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', timeoutRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.error).toBe('Page did not finish loading within 25 seconds');
@@ -159,8 +159,8 @@ describe('performCapture -- renderer failure: subresource limit', () => {
 
   it('transitions KV to failed with retryable=false', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, subresourceLimitRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', subresourceLimitRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
@@ -169,8 +169,8 @@ describe('performCapture -- renderer failure: subresource limit', () => {
 
   it('error message is user-safe', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, subresourceLimitRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', subresourceLimitRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.error).toBe('Page exceeded 200 subresource limit');
@@ -185,8 +185,8 @@ describe('performCapture -- renderer failure: page size limit', () => {
 
   it('transitions KV to failed with retryable=false', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, sizeLimitRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', sizeLimitRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
@@ -195,8 +195,8 @@ describe('performCapture -- renderer failure: page size limit', () => {
 
   it('error message is user-safe', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, sizeLimitRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', sizeLimitRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.error).toBe('Page exceeded 50MB size limit');
@@ -207,8 +207,8 @@ describe('performCapture -- renderer failure: page size limit', () => {
 describe('performCapture -- header fetch fails but render succeeds', () => {
   it('capture completes (headers are optional)', async () => {
     mockHeaderFetchError();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('complete');
@@ -216,8 +216,8 @@ describe('performCapture -- header fetch fails but render succeeds', () => {
 
   it('headers.json R2 artifact is not written when header fetch fails', async () => {
     mockHeaderFetchError();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const headers = await env.BUCKET.get(`captures/${TEST_ID}/headers.json`);
     expect(headers).toBeNull();
@@ -225,8 +225,8 @@ describe('performCapture -- header fetch fails but render succeeds', () => {
 
   it('artifacts record omits headers key', async () => {
     mockHeaderFetchError();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.artifacts.headers).toBeUndefined();
@@ -240,8 +240,8 @@ describe('performCapture -- both renderer and header fetch fail', () => {
 
   it('transitions KV to failed', async () => {
     mockHeaderFetchError();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, failingRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', failingRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
@@ -251,16 +251,16 @@ describe('performCapture -- both renderer and header fetch fail', () => {
 describe('performCapture -- KV always updated (never stuck pending)', () => {
   it('complete on success', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, stubRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', stubRenderer);
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).not.toBe('pending');
   });
 
   it('failed on renderer error', async () => {
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, async () => {
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', async () => {
       throw new Error('unexpected internal error');
     });
     const record = await getCapture(env.KV, TEST_ID);
@@ -269,8 +269,8 @@ describe('performCapture -- KV always updated (never stuck pending)', () => {
 
   it('failed on navigation error', async () => {
     mockHeaderFetchError();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, async () => {
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', async () => {
       throw new Error('net::ERR_CONNECTION_REFUSED');
     });
     const record = await getCapture(env.KV, TEST_ID);
@@ -290,8 +290,8 @@ describe('performCapture -- Playwright-specific errors', () => {
       throw err;
     };
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, playwrightTimeout);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', playwrightTimeout);
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
@@ -303,8 +303,8 @@ describe('performCapture -- Playwright-specific errors', () => {
       throw new Error('page.goto: Navigation failed because page crashed!');
     };
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, crashRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', crashRenderer);
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
@@ -316,8 +316,8 @@ describe('performCapture -- Playwright-specific errors', () => {
       throw new Error('browser has been closed');
     };
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, staleRenderer);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', staleRenderer);
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
@@ -329,8 +329,8 @@ describe('performCapture -- Playwright-specific errors', () => {
       throw new Error('Target closed');
     };
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, targetClosed);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', targetClosed);
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
@@ -342,8 +342,8 @@ describe('performCapture -- Playwright-specific errors', () => {
       throw new Error('No browser session available: session pool is at capacity');
     };
     mockHeaderFetch();
-    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP);
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, poolExhausted);
+    await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', poolExhausted);
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
@@ -381,12 +381,12 @@ describe('performCapture -- concurrent execution', () => {
       .reply(200, 'ok', { headers: { 'content-type': 'text/html' } })
       .times(2);
 
-    await createCapture(env.KV, ID_A, TEST_URL, TEST_IP);
-    await createCapture(env.KV, ID_B, TEST_URL, TEST_IP);
+    await createCapture(env.KV, ID_A, TEST_URL, TEST_IP, 'default');
+    await createCapture(env.KV, ID_B, TEST_URL, TEST_IP, 'default');
 
     await Promise.all([
-      performCapture(env, TEST_URL, TEST_IP, ID_A, stubRenderer),
-      performCapture(env, TEST_URL, TEST_IP, ID_B, stubRenderer),
+      performCapture(env, TEST_URL, TEST_IP, ID_A, 'default', stubRenderer),
+      performCapture(env, TEST_URL, TEST_IP, ID_B, 'default', stubRenderer),
     ]);
 
     const recordA = await getCapture(env.KV, ID_A);
