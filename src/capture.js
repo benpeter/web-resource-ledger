@@ -12,7 +12,7 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. Consent has an 8s hard timeout within the
- *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s + 8s consent + 2s post).
+ *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s load + 3s settle + 8s consent + 2s post ≈ 33s worst-case; in practice load fires in 2-5s).
  *   Partial captures skip consent entirely.
  *
  * Called from ctx.waitUntil() -- must always update KV (never leave pending).
@@ -82,6 +82,7 @@ const MAX_SUBRESOURCES = 200;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_PAGE_HEIGHT = 8000;
 const NAV_TIMEOUT_MS = 20000;
+const SETTLE_DELAY_MS = 3000;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
 const PARTIAL_SCREENSHOT_TIMEOUT_MS = 3000;
@@ -397,10 +398,10 @@ async function defaultRenderer(browserBinding, url) {
       }
     });
 
-    // Navigate with 20s timeout; 8s consent window + 2s post-processing fits the 30s ctx.waitUntil budget
-    // Playwright uses 'networkidle' (not 'networkidle2')
+    // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
+    // Post-load: 3s settle + 8s consent + 2s post-processing fits the 30s ctx.waitUntil budget
     try {
-      await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'networkidle' });
+      await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
     } catch (navError) {
       if (navError.name === 'TimeoutError') {
         // Check if DOM has at least loaded before attempting partial capture
@@ -409,7 +410,7 @@ async function defaultRenderer(browserBinding, url) {
           throw navError;
         }
 
-        // 2000ms budget: renderer has been running ~20.5s; leaves margin for KV/R2 post-work
+        // 2000ms budget: renderer has been running ~20.5s (load timed out); leaves margin for KV/R2 post-work
         const deadline = Date.now() + 2000;
         const remainingMs = () => Math.max(0, deadline - Date.now());
 
@@ -453,6 +454,14 @@ async function defaultRenderer(browserBinding, url) {
 
     if (limitExceeded) throw new Error(limitExceeded);
 
+    // Settle delay: allow async resources (analytics, ads) to finish loading
+    // before taking screenshots. 'load' fires before tracking scripts settle.
+    await new Promise(r => setTimeout(r, SETTLE_DELAY_MS));
+
+    // SECURITY: async response events can push totalBytes past MAX_PAGE_BYTES
+    // during the settle delay. Re-check after settling.
+    if (limitExceeded) throw new Error(limitExceeded);
+
     // Cap screenshot height to prevent memory exhaustion
     const pageHeight = await page.evaluate(() => document.body.scrollHeight);
     if (pageHeight > MAX_PAGE_HEIGHT) {
@@ -479,7 +488,7 @@ async function defaultRenderer(browserBinding, url) {
       html,
       partial: false,
       render: {
-        waitUntilReached: 'networkidle',
+        waitUntilReached: 'load',
         timedOut: false,
         durationMs: Date.now() - renderStart,
       },
@@ -505,11 +514,11 @@ function categorizeError(error) {
   const msg = error?.message ?? '';
 
   if (msg.includes('Deadline exceeded')) {
-    return { message: 'Page did not finish loading within 20 seconds', retryable: true };
+    return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
   }
   // Playwright throws TimeoutError (by name) for navigation and wait timeouts
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
-    return { message: 'Page did not finish loading within 20 seconds', retryable: true };
+    return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
   }
   if (msg.includes(`${MAX_SUBRESOURCES} subresource limit`)) {
     return { message: `Page exceeded ${MAX_SUBRESOURCES} subresource limit`, retryable: false };

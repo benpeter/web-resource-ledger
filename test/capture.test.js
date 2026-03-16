@@ -598,7 +598,7 @@ const enrichedStubRenderer = async () => ({
   html: TEST_HTML,
   partial: false,
   render: {
-    waitUntilReached: 'networkidle',
+    waitUntilReached: 'load',
     timedOut: false,
     durationMs: 3500,
   },
@@ -748,7 +748,7 @@ describe('performCapture -- full capture with render metadata', () => {
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, enrichedStubRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
-    expect(record.render.waitUntilReached).toBe('networkidle');
+    expect(record.render.waitUntilReached).toBe('load');
     expect(record.render.timedOut).toBe(false);
   });
 });
