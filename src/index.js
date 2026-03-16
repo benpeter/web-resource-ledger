@@ -150,7 +150,8 @@ async function handleListCaptures(request, env, ctx) {
     return auth.response;
   }
 
-  // Step 2: Rate limit check (reuse CAPTURE_RATE_LIMITER)
+  // Step 2: Rate limit checks (reuse capture limiters -- list is read-only but
+  // fans out to N+1 KV operations, so both per-IP and global limits apply)
   if (env.CAPTURE_RATE_LIMITER) {
     const { success } = await env.CAPTURE_RATE_LIMITER.limit({
       key: request.headers.get('CF-Connecting-IP') || 'unknown',
@@ -158,6 +159,13 @@ async function handleListCaptures(request, env, ctx) {
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip' }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
+  }
+  if (env.GLOBAL_CAPTURE_LIMITER) {
+    const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit' }) ?? Promise.resolve());
+      return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
 

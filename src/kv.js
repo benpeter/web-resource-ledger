@@ -213,15 +213,12 @@ export async function listCaptures(kv, tenantId, { cursor, limit = 20, status } 
   // Take up to limit items
   const page = filtered.slice(0, limit);
 
-  // Build next cursor:
-  // Emit a cursor when either KV has more pages (list_complete === false)
-  // OR the filtered result had more items than the page size.
-  const hasKvMore = listResult.list_complete === false;
-  const hasFilterMore = filtered.length > limit;
-  const needsCursor = hasKvMore || hasFilterMore;
+  // Build next cursor: only when KV has more pages and provides a cursor.
+  // Short pages from status filtering are normal cursor-based pagination behavior.
+  const hasMore = listResult.list_complete === false;
 
   let cursorStr = null;
-  if (needsCursor && listResult.cursor) {
+  if (hasMore && listResult.cursor) {
     const raw = btoa(JSON.stringify({ kv: listResult.cursor }));
     cursorStr = raw.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   }
