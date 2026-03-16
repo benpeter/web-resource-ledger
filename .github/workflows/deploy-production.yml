@@ -1,0 +1,70 @@
+# Rollback: see OPERATIONS.md
+
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy (tag, branch, or SHA). Defaults to triggering ref. Used for rollbacks.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: ./scripts/smoke-test.sh
+        env:
+          SMOKE_URL: ${{ vars.WRL_STAGING_BASE_URL }}
+          SMOKE_API_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}
+
+  deploy:
+    needs: staging-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - uses: cloudflare/wrangler-action@da0e0edf58b41e3cd8317c1a9dbb2f0cd2791a54 # v3.14.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          secrets: |
+            CAPTURE_API_KEY
+            SIGNING_KEY
+            CORALOGIX_SEND_KEY
+            IP_HASH_SEED
+        env:
+          CAPTURE_API_KEY: ${{ secrets.WRL_PROD_CAPTURE_API_KEY }}
+          SIGNING_KEY: ${{ secrets.WRL_PROD_SIGNING_KEY }}
+          CORALOGIX_SEND_KEY: ${{ secrets.WRL_PROD_CORALOGIX_SEND_KEY }}
+          IP_HASH_SEED: ${{ secrets.WRL_PROD_IP_HASH_SEED }}
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: ./scripts/smoke-test.sh
+        env:
+          SMOKE_URL: ${{ vars.WRL_PROD_BASE_URL }}
+          SMOKE_API_KEY: ${{ secrets.WRL_PROD_CAPTURE_API_KEY }}
+          SMOKE_SKIP_CAPTURE: "1"
