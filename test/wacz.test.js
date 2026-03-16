@@ -8,23 +8,14 @@ import { buildWarc } from '../src/warc.js';
 import { toSurt } from '../src/cdxj.js';
 import { canonicalize } from '../src/canonical-json.js';
 import { unzipSync } from 'fflate';
+import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
 const TEST_ID = 'cap_wacztest1234567890abcdef1234';
-const TEST_URL = 'https://example.com';
-const TEST_IP = '93.184.216.34';
 const TEST_ORIGIN = 'https://example.com';
-
-const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const TEST_HTML = '<html><body>wacz test</body></html>';
-
-const stubRenderer = async () => ({
-  screenshot: PNG_BYTES,
-  html: TEST_HTML,
-});
 
 // ---------------------------------------------------------------------------
 // KV / R2 cleanup
@@ -36,6 +27,7 @@ beforeEach(async () => {
   const prefix = `captures/${TEST_ID}`;
   await Promise.all([
     env.BUCKET.delete(`${prefix}/screenshot.png`),
+    env.BUCKET.delete(`${prefix}/screenshot-before.png`),
     env.BUCKET.delete(`${prefix}/rendered.html`),
     env.BUCKET.delete(`${prefix}/headers.json`),
   ]);
@@ -269,7 +261,7 @@ describe('WACZ -- graceful degradation', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       {}, // env with no SIGNING_KEY
     );
     expect(result).toBeNull();
@@ -323,7 +315,7 @@ describe('WARC structure', () => {
     const { warcBytes } = await buildWarc(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
     );
     const text = new TextDecoder().decode(warcBytes);
     expect(text.startsWith('WARC/1.1\r\n')).toBe(true);

@@ -2,23 +2,14 @@ import { env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture, captureHeaders } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/kv.js';
+import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
 const TEST_ID = 'cap_capture1234567890abcdef123456';
-const TEST_URL = 'https://example.com';
-const TEST_IP = '93.184.216.34';
 const TEST_ORIGIN = 'https://example.com';
-
-const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const TEST_HTML = '<html><body>test</body></html>';
-
-const stubRenderer = async () => ({
-  screenshot: PNG_BYTES,
-  html: TEST_HTML,
-});
 
 // ---------------------------------------------------------------------------
 // KV / R2 cleanup
@@ -30,6 +21,7 @@ beforeEach(async () => {
   const prefix = `captures/${TEST_ID}`;
   await Promise.all([
     env.BUCKET.delete(`${prefix}/screenshot.png`),
+    env.BUCKET.delete(`${prefix}/screenshot-before.png`),
     env.BUCKET.delete(`${prefix}/rendered.html`),
     env.BUCKET.delete(`${prefix}/headers.json`),
   ]);
@@ -146,7 +138,7 @@ describe('performCapture -- renderer failure: timeout', () => {
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, timeoutRenderer);
 
     const record = await getCapture(env.KV, TEST_ID);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
     expect(record.error).not.toContain('at ');
     expect(record.error).not.toContain('Error:');
   });
@@ -295,7 +287,7 @@ describe('performCapture -- Playwright-specific errors', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 
   it('handles page crash as retryable', async () => {
@@ -427,9 +419,11 @@ describe('performCapture -- concurrent execution', () => {
     const prefixB = `captures/${ID_B}`;
     await Promise.all([
       env.BUCKET.delete(`${prefixA}/screenshot.png`),
+      env.BUCKET.delete(`${prefixA}/screenshot-before.png`),
       env.BUCKET.delete(`${prefixA}/rendered.html`),
       env.BUCKET.delete(`${prefixA}/headers.json`),
       env.BUCKET.delete(`${prefixB}/screenshot.png`),
+      env.BUCKET.delete(`${prefixB}/screenshot-before.png`),
       env.BUCKET.delete(`${prefixB}/rendered.html`),
       env.BUCKET.delete(`${prefixB}/headers.json`),
     ]);
@@ -716,7 +710,7 @@ describe('performCapture -- partial capture failure paths', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 
   it('existing timeout (no DOMContentLoaded) still fails', async () => {
@@ -730,7 +724,7 @@ describe('performCapture -- partial capture failure paths', () => {
     const record = await getCapture(env.KV, TEST_ID);
     expect(record.status).toBe('failed');
     expect(record.retryable).toBe(true);
-    expect(record.error).toBe('Page did not finish loading within 25 seconds');
+    expect(record.error).toBe('Page did not finish loading within 20 seconds');
   });
 });
 

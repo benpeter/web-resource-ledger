@@ -1,8 +1,19 @@
 /*
  * capture.js -- Browser rendering capture pipeline
  *
- * Orchestrates headless Chromium capture of a URL: screenshot, rendered HTML,
- * and HTTP headers. Stores artifacts in R2 and updates KV status.
+ * Orchestrates headless Chromium capture of a URL: dual screenshots (before
+ * and after cookie consent dismissal), rendered HTML, and HTTP headers.
+ * Stores artifacts in R2 and updates KV status.
+ *
+ * Cookie consent handling:
+ *   After navigation and the before-screenshot, the renderer injects
+ *   @duckduckgo/autoconsent (server-controlled, not caller-supplied) to
+ *   detect and dismiss cookie consent banners. If a CMP is found and
+ *   dismissed, a second screenshot is taken. Both screenshots and consent
+ *   metadata (captureSettings) are included in the WACZ bundle and covered
+ *   by the Ed25519 signature. Consent has an 8s hard timeout within the
+ *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s + 8s consent + 2s post).
+ *   Partial captures skip consent entirely.
  *
  * Called from ctx.waitUntil() -- must always update KV (never leave pending).
  *
@@ -61,6 +72,7 @@ import { connect, acquire, sessions, limits } from '@cloudflare/playwright';
 import { completeCapture, failCapture, archiveSigningKey } from './kv.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
+import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -69,7 +81,7 @@ import { log } from './log.js';
 const MAX_SUBRESOURCES = 200;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_PAGE_HEIGHT = 8000;
-const NAV_TIMEOUT_MS = 25000;
+const NAV_TIMEOUT_MS = 20000;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
 const PARTIAL_SCREENSHOT_TIMEOUT_MS = 3000;
@@ -109,7 +121,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       return;
     }
 
-    const { screenshot, html, partial, render } = renderResult.value;
+    const { screenshot, html, partial, render, consent, screenshotBefore } = renderResult.value;
     const renderQuality = partial ? 'partial' : 'full';
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
@@ -120,6 +132,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     const prefix = `captures/${captureId}`;
     await Promise.all([
       env.BUCKET.put(`${prefix}/screenshot.png`, screenshot),
+      screenshotBefore ? env.BUCKET.put(`${prefix}/screenshot-before.png`, screenshotBefore) : Promise.resolve(),
       env.BUCKET.put(`${prefix}/rendered.html`, html, {
         httpMetadata: {
           contentType: 'text/plain',
@@ -131,9 +144,22 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
 
     const artifacts = {
       screenshot: `${prefix}/screenshot.png`,
+      ...(screenshotBefore ? { screenshotBefore: `${prefix}/screenshot-before.png` } : {}),
       html: `${prefix}/rendered.html`,
       ...(headers ? { headers: `${prefix}/headers.json` } : {}),
     };
+
+    // Build captureSettings for full (non-partial) captures
+    const captureSettings = consent ? {
+      version: 1,
+      consent: {
+        library: '@duckduckgo/autoconsent',
+        libraryVersion: AUTOCONSENT_VERSION,
+        action: 'optOut',
+        result: consent.status === 'dismissed' ? 'success' : (consent.status === 'none' ? 'notDetected' : 'failed'),
+        ...(consent.cmp ? { cmpDetected: consent.cmp } : {}),
+      },
+    } : null;
 
     // WACZ bundling (optional -- degrades gracefully if signing key is absent)
     // Skipped for partial captures: WACZ requires a complete page load
@@ -141,9 +167,11 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     if (!partial) {
       try {
         const waczArtifacts = {
-          screenshot,
+          screenshotBefore: screenshotBefore || screenshot,
+          screenshotAfter: screenshotBefore ? screenshot : null,
           html,
           headers, // may be null if header fetch failed
+          captureSettings,
         };
         const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
         if (result) {
@@ -176,7 +204,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       }
     }
 
-    await completeCapture(env.KV, captureId, artifacts, waczInfo, renderQuality, render || null);
+    await completeCapture(env.KV, captureId, artifacts, waczInfo, renderQuality, render || null, captureSettings);
 
     if (partial) {
       await log(env, 3, 'capture', {
@@ -200,6 +228,9 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         renderQuality: 'full',
         cip,
         timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
+        consentStatus: consent?.status ?? null,
+        consentCmp: consent?.cmp ?? null,
+        consentDurationMs: consent?.durationMs ?? null,
       });
     }
   } catch (err) {
@@ -297,15 +328,17 @@ async function getOrCreateSession(browserBinding) {
 }
 
 /**
- * Connects to a browser session, navigates to url, takes a screenshot and
- * captures rendered HTML. Enforces subresource count and page size limits.
- * Uses BrowserContext for per-capture isolation.
+ * Connects to a browser session, navigates to url, takes before-screenshot,
+ * attempts cookie consent dismissal via autoconsent, takes after-screenshot
+ * if a CMP was dismissed, and captures rendered HTML. Enforces subresource
+ * count and page size limits. Uses BrowserContext for per-capture isolation.
  *
  * NOT exported -- injected as default renderer via performCapture() parameter.
  *
  * @param {unknown} browserBinding Cloudflare BROWSER binding
  * @param {string} url
- * @returns {Promise<{ screenshot: Uint8Array, html: string }>}
+ * @returns {Promise<{ screenshot: Uint8Array, screenshotBefore: Uint8Array|null,
+ *   html: string, partial: boolean, render: object, consent: object|null }>}
  */
 async function defaultRenderer(browserBinding, url) {
   const renderStart = Date.now();
@@ -364,7 +397,7 @@ async function defaultRenderer(browserBinding, url) {
       }
     });
 
-    // Navigate with 25s timeout (leaves 5s headroom in ctx.waitUntil 30s budget)
+    // Navigate with 20s timeout; 8s consent window + 2s post-processing fits the 30s ctx.waitUntil budget
     // Playwright uses 'networkidle' (not 'networkidle2')
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'networkidle' });
@@ -376,7 +409,7 @@ async function defaultRenderer(browserBinding, url) {
           throw navError;
         }
 
-        // 2000ms budget: renderer has been running ~25.5s; leaves margin for KV/R2 post-work
+        // 2000ms budget: renderer has been running ~20.5s; leaves margin for KV/R2 post-work
         const deadline = Date.now() + 2000;
         const remainingMs = () => Math.max(0, deadline - Date.now());
 
@@ -408,6 +441,8 @@ async function defaultRenderer(browserBinding, url) {
               timedOut: true,
               durationMs: navDurationMs,
             },
+            consent: null,
+            screenshotBefore: null,
           };
         } catch {
           throw new Error('Deadline exceeded before partial capture could complete');
@@ -424,7 +459,19 @@ async function defaultRenderer(browserBinding, url) {
       await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
     }
 
-    const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
+    // Before-screenshot MUST be taken before injecting autoconsent
+    const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
+
+    const consent = await dismissCookieConsent(page);
+
+    // After-screenshot only when consent was successfully dismissed
+    let screenshot;
+    if (consent.status === 'dismissed') {
+      screenshot = await page.screenshot({ fullPage: true, type: 'png' });
+    } else {
+      screenshot = screenshotBefore;
+    }
+
     const html = await page.content();
 
     return {
@@ -436,6 +483,8 @@ async function defaultRenderer(browserBinding, url) {
         timedOut: false,
         durationMs: Date.now() - renderStart,
       },
+      consent,
+      screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,
     };
   } finally {
     // MANDATORY: close context before disconnecting to clear all isolation state
@@ -456,11 +505,11 @@ function categorizeError(error) {
   const msg = error?.message ?? '';
 
   if (msg.includes('Deadline exceeded')) {
-    return { message: 'Page did not finish loading within 25 seconds', retryable: true };
+    return { message: 'Page did not finish loading within 20 seconds', retryable: true };
   }
   // Playwright throws TimeoutError (by name) for navigation and wait timeouts
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
-    return { message: 'Page did not finish loading within 25 seconds', retryable: true };
+    return { message: 'Page did not finish loading within 20 seconds', retryable: true };
   }
   if (msg.includes(`${MAX_SUBRESOURCES} subresource limit`)) {
     return { message: `Page exceeded ${MAX_SUBRESOURCES} subresource limit`, retryable: false };

@@ -4,12 +4,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { getSigningKeys, computeKeyId } from '../src/signing.js';
 import { buildWacz } from '../src/wacz.js';
 import { createCapture, completeCapture, archiveSigningKey, getArchivedSigningKey } from '../src/kv.js';
+import { PNG_BYTES } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const TEST_HTML = '<html><body>key rotation test</body></html>';
 const TEST_URL = 'https://example.com/key-rotation';
 
@@ -121,7 +121,7 @@ describe('buildWacz -- keyId output', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       env,
     );
     expect(result).not.toBeNull();
@@ -142,7 +142,7 @@ describe('Key rotation -- verification', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       env,
     );
 
@@ -177,7 +177,7 @@ describe('Key rotation -- verification', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       env,
     );
 
@@ -210,7 +210,7 @@ describe('Key rotation -- verification', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       archivedEnv,
     );
 
@@ -250,7 +250,7 @@ describe('Key rotation -- verification', () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
-      { screenshot: PNG_BYTES, html: TEST_HTML, headers: null },
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
       archivedEnv,
     );
 
