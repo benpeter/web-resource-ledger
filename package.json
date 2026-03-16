@@ -18,6 +18,7 @@
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.js",
     "lint:api": "redocly lint openapi.yaml",
     "smoke": "./scripts/smoke-test.sh"
   },

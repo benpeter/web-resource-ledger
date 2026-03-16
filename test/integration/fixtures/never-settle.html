@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html><head><title>WRL Integration Test - Never Settle</title></head>
+<body>
+<h1>Never Settle Test Page</h1>
+<p>This page simulates ad-heavy sites with persistent connections.</p>
+<script>
+  // Continuous network activity that prevents 'networkidle' from ever firing.
+  // With 'waitUntil: load', this page captures normally.
+  // With 'waitUntil: networkidle', this would timeout.
+  setInterval(() => fetch('/ping').catch(() => {}), 200);
+</script>
+</body>
+</html>
