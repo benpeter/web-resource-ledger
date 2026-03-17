@@ -36,7 +36,7 @@ Upgrade integrity claims from self-asserted to independently verifiable. Make th
 word "evidence" defensible.
 
 - #41 **R11: RFC 3161 timestamp integration** [L] -- third-party temporal proof; depends on R2
-- #42 **R12: Per-tenant API keys and tenant isolation** [L] -- gated on multi-user decision; depends on R1, R8
+- ~~#42 **R12: Per-tenant API keys and tenant isolation** [L]~~ -- DONE: KV-based key management, admin API, dual-mode legacy fallback, scope enforcement
 - #43 **R13: Audit logging** [S] -- full audit trail; depends on R12
 - ~~#44 **R14: Production CD pipeline** [M]~~ -- DONE: deploy-production.yml, OPERATIONS.md, environment protection
 
@@ -55,14 +55,15 @@ Expand WRL into a platform that other tools and agents build on.
 
 Deferred items with explicit activation triggers. Revisit when condition is met.
 
-### Auth (revisit with multi-user decision)
+### Auth (R12 shipped -- next wave)
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [must:multi-user] API key rotation without downtime | When R12 (per-tenant keys) ships | security-minion, kickoff |
-| [must:multi-user] Tenant isolation / RBAC | Folded into R12 | security-minion, kickoff |
-| [consider] Per-tenant rate limiting | When R12 ships; switch rate limit key from IP to tenantId | edge-minion, capture-endpoint |
+| ~~[must:multi-user] API key rotation without downtime~~ | ~~When R12 (per-tenant keys) ships~~ -- R12 shipped; key rotation now possible via create + revoke flow | security-minion, kickoff |
+| ~~[must:multi-user] Tenant isolation / RBAC~~ | ~~Folded into R12~~ -- DONE: tenantId in KV records, capture list scoped to tenant | security-minion, kickoff |
+| [consider] Per-tenant rate limiting | R12 shipped; switch rate limit key from IP to tenantId when per-tenant quotas needed | edge-minion, capture-endpoint |
 | [consider] OAuth for web UI | When R17 (web UI) is built and needs user auth | security-minion, kickoff |
+| [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
 
 ### Signing and Legal
 
@@ -192,6 +193,7 @@ Completed items removed from active tracking:
 - ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
 - ~~HSTS header~~ -- DONE (static-verification-page)
 - ~~R14: Production CD pipeline~~ -- DONE (cd-pipeline phase): deploy-production.yml, OPERATIONS.md, environment protection with approval gate
+- ~~R12: Per-tenant API keys and tenant isolation~~ -- DONE (Phase 0037): KV-based key lookup with SHA-256 hash, admin API (POST/GET/DELETE /v1/admin/keys), dual-mode legacy fallback, scope enforcement (capture/read/admin), ADMIN_KEY infrastructure secret
 
 ---
 

@@ -20,9 +20,13 @@ The following are considered security issues:
 
 - SSRF bypasses or unintended outbound requests
 - Authentication or API key bypass
+- Admin API key compromise or bypass (obtaining admin-level access to key management without `ADMIN_KEY`)
+- Tenant data isolation escape (one tenant accessing or listing captures belonging to another tenant)
 - Signature verification flaws (e.g., accepting tampered archives as valid)
 - Cross-site scripting (XSS) on the verification page
 - Exposure of signing keys or secrets through any code path
+
+**Known gap (single-tenant deployments):** `GET /v1/captures/{id}` and associated artifact and verify endpoints do not require authentication -- the capture ID acts as the access secret. This is intentional for the current single-tenant design and documented in the source. When a second tenant is onboarded, access control for these endpoints should be revisited. A backlog item tracks this: see [`docs/backlog.md`](docs/backlog.md).
 
 The following are regular bugs, not security issues:
 

@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createCapture, completeCapture, failCapture, getCapture, tenantPrefix, listCaptures } from '../src/kv.js';
+import { createCapture, completeCapture, failCapture, getCapture, tenantPrefix, listCaptures, createApiKeyRecord, getApiKeyRecord, revokeApiKeyRecord, listApiKeyRecords } from '../src/kv.js';
+import { hashApiKey } from '../src/auth.js';
 
 const TEST_ID = 'cap_test1234';
 const TEST_URL = 'https://example.com';
@@ -360,5 +361,174 @@ describe('tenantPrefix', () => {
 
   it('throws on tenantId exceeding 64 characters', () => {
     expect(() => tenantPrefix('a'.repeat(65))).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// API key record CRUD
+// ---------------------------------------------------------------------------
+
+async function makeKeyHash(raw) {
+  return hashApiKey(raw);
+}
+
+const TEST_RAW_KEY = 'wrl_live_' + 'b'.repeat(43);
+
+const BASE_RECORD = {
+  tenantId: 'acme',
+  scopes: ['capture', 'read'],
+  name: 'integration-test-key',
+  createdAt: new Date().toISOString(),
+  createdBy: 'test',
+  revoked: false,
+  revokedAt: null,
+};
+
+async function cleanupApiKeys() {
+  const { keys } = await env.KV.list({ prefix: 'apikey:' });
+  for (const k of keys) await env.KV.delete(k.name);
+}
+
+describe('createApiKeyRecord', () => {
+  beforeEach(cleanupApiKeys);
+  afterEach(cleanupApiKeys);
+
+  it('stores the record under apikey:{sha256hex}', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    const result = await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    expect(result.created).toBe(true);
+    const raw = await env.KV.get(`apikey:${sha256hex}`);
+    expect(raw).not.toBeNull();
+  });
+
+  it('returns { created: true } on success', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    const result = await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    expect(result.created).toBe(true);
+  });
+
+  it('returns { created: false, reason: "hash_collision" } when non-revoked record exists', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    const result = await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    expect(result.created).toBe(false);
+    expect(result.reason).toBe('hash_collision');
+  });
+
+  it('allows overwrite when existing record is revoked', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, { ...BASE_RECORD, revoked: true, revokedAt: new Date().toISOString() });
+    const result = await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    expect(result.created).toBe(true);
+  });
+
+  it('throws on invalid sha256hex', async () => {
+    await expect(createApiKeyRecord(env.KV, 'not-a-hash', BASE_RECORD)).rejects.toThrow();
+  });
+});
+
+describe('getApiKeyRecord', () => {
+  beforeEach(cleanupApiKeys);
+  afterEach(cleanupApiKeys);
+
+  it('returns null for missing key', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    const result = await getApiKeyRecord(env.KV, sha256hex);
+    expect(result).toBeNull();
+  });
+
+  it('returns parsed record for existing key', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    const result = await getApiKeyRecord(env.KV, sha256hex);
+    expect(result).not.toBeNull();
+    expect(result.tenantId).toBe('acme');
+    expect(result.scopes).toContain('capture');
+    expect(result.name).toBe('integration-test-key');
+  });
+
+  it('throws on invalid sha256hex', async () => {
+    await expect(getApiKeyRecord(env.KV, 'bad')).rejects.toThrow();
+  });
+});
+
+describe('revokeApiKeyRecord', () => {
+  beforeEach(cleanupApiKeys);
+  afterEach(cleanupApiKeys);
+
+  it('returns { revoked: false, reason: "not_found" } for unknown key', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    const result = await revokeApiKeyRecord(env.KV, sha256hex);
+    expect(result.revoked).toBe(false);
+    expect(result.reason).toBe('not_found');
+  });
+
+  it('sets revoked: true and revokedAt on the record', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    const result = await revokeApiKeyRecord(env.KV, sha256hex);
+    expect(result.revoked).toBe(true);
+    expect(result.record.revoked).toBe(true);
+    expect(result.record.revokedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('is idempotent -- revoking already-revoked key returns revoked: true', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    await revokeApiKeyRecord(env.KV, sha256hex);
+    const result = await revokeApiKeyRecord(env.KV, sha256hex);
+    expect(result.revoked).toBe(true);
+  });
+
+  it('throws on invalid sha256hex', async () => {
+    await expect(revokeApiKeyRecord(env.KV, 'x')).rejects.toThrow();
+  });
+});
+
+describe('listApiKeyRecords', () => {
+  beforeEach(cleanupApiKeys);
+  afterEach(cleanupApiKeys);
+
+  it('returns empty array when no keys exist', async () => {
+    const result = await listApiKeyRecords(env.KV);
+    expect(result).toEqual([]);
+  });
+
+  it('returns active (non-revoked) records by default', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    const result = await listApiKeyRecords(env.KV);
+    expect(result).toHaveLength(1);
+    expect(result[0].keyHash).toBe(sha256hex);
+  });
+
+  it('excludes revoked records by default', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, { ...BASE_RECORD, revoked: true, revokedAt: new Date().toISOString() });
+    const result = await listApiKeyRecords(env.KV);
+    expect(result).toHaveLength(0);
+  });
+
+  it('includes revoked records when includeRevoked: true', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, { ...BASE_RECORD, revoked: true, revokedAt: new Date().toISOString() });
+    const result = await listApiKeyRecords(env.KV, { includeRevoked: true });
+    expect(result).toHaveLength(1);
+  });
+
+  it('filters by tenantId', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, { ...BASE_RECORD, tenantId: 'tenant-a' });
+    const resultA = await listApiKeyRecords(env.KV, { tenantId: 'tenant-a' });
+    const resultB = await listApiKeyRecords(env.KV, { tenantId: 'tenant-b' });
+    expect(resultA).toHaveLength(1);
+    expect(resultB).toHaveLength(0);
+  });
+
+  it('records include keyHash field', async () => {
+    const sha256hex = await makeKeyHash(TEST_RAW_KEY);
+    await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
+    const result = await listApiKeyRecords(env.KV);
+    expect(result[0].keyHash).toBe(sha256hex);
   });
 });
