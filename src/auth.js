@@ -24,9 +24,7 @@
 
 import { problemResponse } from './responses.js';
 import { log } from './log.js';
-
-/** Regex for valid tenant IDs -- callers may use tenantId in key construction without further sanitization. */
-const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
+import { TENANT_ID_RE } from './kv.js';
 
 /**
  * Hashes a raw API key with SHA-256, returning lowercase hex.

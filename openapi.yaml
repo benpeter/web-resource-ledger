@@ -564,6 +564,9 @@ components:
           description: >
             Non-empty list of scopes to grant. Valid values: capture, read, admin.
             'capture' implies 'read'. 'admin' does NOT imply 'capture' or 'read'.
+            Note: the 'admin' scope is reserved for a future migration from the
+            ADMIN_KEY env var to per-tenant KV-based admin keys. It currently has
+            no runtime effect on access control -- admin endpoints use ADMIN_KEY only.
           items:
             type: string
             enum: [capture, read, admin]

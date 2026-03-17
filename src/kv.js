@@ -36,8 +36,8 @@
 const KEY_PREFIX = 'capture:';
 const PENDING_TTL = 86400; // 24 hours
 
-/** Regex for valid tenant IDs -- mirrors the contract in auth.js */
-const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
+/** Regex for valid tenant IDs -- single source of truth, imported by auth.js and admin.js */
+export const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
 
 /**
  * Returns the KV key prefix for a given tenant.
@@ -203,6 +203,7 @@ export async function listCaptures(kv, tenantId, { cursor, limit = 20, status } 
       if (!decoded || typeof decoded.kv !== 'string') return { error: 'invalid_cursor' };
       kvCursor = decoded.kv;
     } catch {
+      // atob/JSON.parse throw on malformed cursor input -- error indicator is the handling
       return { error: 'invalid_cursor' };
     }
   }

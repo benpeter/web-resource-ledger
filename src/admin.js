@@ -17,10 +17,8 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord } from './kv.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE } from './kv.js';
 import { log } from './log.js';
-
-const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const VALID_SCOPES = ['capture', 'read', 'admin'];
 const ALLOWED_CREATE_FIELDS = new Set(['tenantId', 'scopes', 'name']);
@@ -244,6 +242,11 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
   }
 
   const result = await revokeApiKeyRecord(env.KV, keyHash);
+
+  // Defensive: concurrent DELETE could remove the record between pre-flight read and here
+  if (!result.revoked) {
+    return problemResponse(404, 'API key not found.', ADMIN_CACHE);
+  }
 
   ctx.waitUntil(log(env, 3, 'admin', {
     event: 'admin.key_revoke',
