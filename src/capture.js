@@ -195,7 +195,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
             await archiveSigningKey(env.KV, keyId, publicKeyBase64);
           } catch (err) {
             // Non-fatal: key may already be archived from a prior capture
-            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip });
+            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
           }
           waczInfo = {
             key: `captures/${waczHash}.wacz`,
@@ -208,7 +208,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       } catch (err) {
         // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
         // Distinguish from "no signing key" path (which returns null, no error)
-        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip });
+        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
       }
     }
 

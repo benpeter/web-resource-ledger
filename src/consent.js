@@ -142,6 +142,7 @@ async function _dismissWithBinding(page, start) {
             const result = eval(c);
             return Promise.resolve(result);
           } catch {
+            // eval of autoconsent rule code may throw -- non-fatal, result stays null
             return Promise.resolve(null);
           }
         }, code).then((result) => {
@@ -232,7 +233,7 @@ async function _dismissWithPolling(page, start) {
         if (window.autoconsentReceiveMessage) {
           window.autoconsentReceiveMessage({ type: 'evalResp', id: msg.id, result });
         }
-      } catch(e) {}
+      } catch(e) { /* eval of autoconsent rule code in page context -- non-fatal */ }
     }
   };
 })();

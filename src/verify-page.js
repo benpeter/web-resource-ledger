@@ -307,7 +307,7 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
     try {
       var u = new URL(raw);
       if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
-    } catch (_) {}
+    } catch (_) { /* URL constructor throws on invalid input -- intentional: return null */ }
     return null;
   }
 
