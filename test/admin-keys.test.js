@@ -130,6 +130,21 @@ describe('POST /v1/admin/keys', () => {
     expect(res.status).toBe(415);
   });
 
+  it('returns 400 when unknown fields are present', async () => {
+    const res = await adminPost({
+      tenantId: 'test-unknown',
+      scopes: ['capture'],
+      name: 'test',
+      expiresAt: '2026-12-31',
+      description: 'should not be accepted',
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.detail).toContain('expiresAt');
+    expect(body.detail).toContain('description');
+    expect(body.detail).toContain('Allowed fields');
+  });
+
   it('returns 400 when tenantId is missing', async () => {
     const res = await adminPost({ scopes: ['capture'], name: 'x' });
     expect(res.status).toBe(400);

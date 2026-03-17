@@ -23,6 +23,7 @@ import { log } from './log.js';
 const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
 const NAME_RE = /^[\x20-\x7E]{1,128}$/;
 const VALID_SCOPES = ['capture', 'read', 'admin'];
+const ALLOWED_CREATE_FIELDS = new Set(['tenantId', 'scopes', 'name']);
 
 const ADMIN_CACHE = { 'Cache-Control': 'private, no-store' };
 
@@ -52,6 +53,14 @@ export async function handleAdminCreateKey(request, env, ctx) {
     body = await request.json();
   } catch {
     return problemResponse(400, 'Request body must be valid JSON');
+  }
+
+  // Reject unknown fields
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const unknown = Object.keys(body).filter(k => !ALLOWED_CREATE_FIELDS.has(k));
+    if (unknown.length > 0) {
+      return problemResponse(400, `Unknown field(s): ${unknown.map(f => `'${f}'`).join(', ')}. Allowed fields: tenantId, scopes, name`);
+    }
   }
 
   // Validate tenantId
