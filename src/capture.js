@@ -195,7 +195,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
             await archiveSigningKey(env.KV, keyId, publicKeyBase64);
           } catch (err) {
             // Non-fatal: key may already be archived from a prior capture
-            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip });
+            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
           }
           waczInfo = {
             key: `captures/${waczHash}.wacz`,
@@ -208,7 +208,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       } catch (err) {
         // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
         // Distinguish from "no signing key" path (which returns null, no error)
-        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip });
+        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
       }
     }
 
@@ -258,8 +258,8 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
-    } catch {
-      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, cip });
+    } catch (err) {
+      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
     }
   }
 }
@@ -332,8 +332,9 @@ async function getOrCreateSession(browserBinding) {
     const pick = freeSessions[Math.floor(Math.random() * freeSessions.length)];
     try {
       return await connect(browserBinding, pick.sessionId);
-    } catch {
-      // Another worker claimed the session between list and connect -- fall through
+    } catch (err) {
+      // Expected: another worker claimed session between list and connect -- fall through
+      console.warn('wrl:session_connect_fail', err?.message);
     }
   }
 
@@ -560,8 +561,11 @@ async function defaultRenderer(browserBinding, url) {
             consent: null,
             screenshotBefore: null,
           };
-        } catch {
-          throw new Error('Deadline exceeded before partial capture could complete');
+        } catch (err) {
+          throw new Error(
+            `Partial capture failed: ${err?.message ?? 'unknown'}`,
+            { cause: err },
+          );
         }
       }
       throw navError;
@@ -657,7 +661,9 @@ async function defaultRenderer(browserBinding, url) {
     await Promise.race([
       context.close().then(() => browser.close()),
       new Promise((r) => setTimeout(r, 3000)),
-    ]).catch(() => {});
+    ]).catch((err) => {
+      console.warn('wrl:capture_cleanup_fail', err?.message);
+    });
   }
 }
 

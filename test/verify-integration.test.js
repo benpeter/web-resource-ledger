@@ -87,7 +87,7 @@ describe('GET /v1/verify/{id} -- happy path', () => {
   it('all three core checks pass (v0.2.0 timestamp is skip when no TSA configured)', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
     const body = await res.json();
-    // Core checks must pass; timestamp is 'skip' when TSA_URL is absent in test env
+    // Core checks must pass; timestamp is 'skip' when TSA_URL is not configured in test env
     const byName = Object.fromEntries(body.checks.map(c => [c.name, c]));
     expect(byName.artifactHashes.status).toBe('pass');
     expect(byName.bundleHash.status).toBe('pass');

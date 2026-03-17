@@ -1,6 +1,6 @@
 // tva
 import { env, SELF } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getSigningKeys, computeKeyId } from '../src/signing.js';
 import { buildWacz } from '../src/wacz.js';
 import { createCapture, completeCapture, archiveSigningKey, getArchivedSigningKey } from '../src/kv.js';
@@ -38,6 +38,19 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 // Key ID computation
 // ---------------------------------------------------------------------------
+
+describe('getSigningKeys -- malformed key', () => {
+  it('returns null for malformed SIGNING_KEY', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await getSigningKeys({ SIGNING_KEY: 'not-valid-pkcs8-at-all' });
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+    // Verify the warning does not contain the key value
+    const warnArgs = warnSpy.mock.calls[0];
+    expect(JSON.stringify(warnArgs)).not.toContain('not-valid-pkcs8-at-all');
+    warnSpy.mockRestore();
+  });
+});
 
 describe('computeKeyId', () => {
   it('returns 8 hex chars', async () => {

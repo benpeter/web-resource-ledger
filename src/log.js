@@ -36,6 +36,11 @@ export function log(env, severity, subsystem, data) {
         timestamp: Date.now(),
         text: JSON.stringify(data),
       }]),
-    }).catch(() => {});
-  } catch { return; }
+    }).catch((err) => {
+      console.warn('wrl:log_delivery_fail', { event: data?.event, errorMessage: String(err?.message ?? '').slice(0, 128) });
+    });
+  } catch (err) {
+    console.warn('wrl:log_build_fail', { event: data?.event, errorMessage: String(err?.message ?? '').slice(0, 128) });
+    return;
+  }
 }

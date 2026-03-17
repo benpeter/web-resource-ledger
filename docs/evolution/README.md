@@ -44,3 +44,4 @@ software development.
 | [0033-cmp-navigation](0033-cmp-navigation/) | Fix cross-domain navigation block and multi-frame consent injection (Issue #81) |
 | [0034-integration-tests](0034-integration-tests/) | Integration tests with real browser captures (Issue #69) |
 | [0035-cli-verify-tool](0035-cli-verify-tool/) | Zero-install CLI tool for full cryptographic verification of captures (Issue #78) |
+| [0036-fail-loudly-2](0036-fail-loudly-2/) | Eliminate silent catch blocks — fail loudly on unexpected errors (Issue #70) |

@@ -1,5 +1,5 @@
 import { fetchMock } from 'cloudflare:test';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { log } from '../src/log.js';
 
 // ---------------------------------------------------------------------------
@@ -156,19 +156,27 @@ describe('log -- severity levels propagate correctly', () => {
 // Error handling
 // ---------------------------------------------------------------------------
 
-describe('log -- swallows fetch errors silently', () => {
-  it('resolves without throwing when fetch rejects', async () => {
+describe('log -- warns on fetch errors', () => {
+  it('resolves without throwing and emits wrl:log_delivery_fail when fetch rejects', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
     fetchMock
       .get(MOCK_ORIGIN)
       .intercept({ path: MOCK_PATH, method: 'POST' })
       .replyWithError(new Error('Network error'));
 
     await expect(log(mockEnv, 5, 'capture', { event: 'capture.fail' })).resolves.not.toThrow();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'wrl:log_delivery_fail',
+      expect.objectContaining({ event: 'capture.fail' }),
+    );
+    warnSpy.mockRestore();
   });
 });
 
-describe('log -- handles JSON.stringify errors gracefully', () => {
-  it('returns undefined for circular references without throwing', () => {
+describe('log -- warns on JSON.stringify errors', () => {
+  it('returns undefined for circular references and emits wrl:log_build_fail', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const circular = {};
     circular.self = circular;
 
@@ -177,6 +185,11 @@ describe('log -- handles JSON.stringify errors gracefully', () => {
       result = log(mockEnv, 3, 'test', circular);
     }).not.toThrow();
     expect(result).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      'wrl:log_build_fail',
+      expect.objectContaining({ event: undefined }),
+    );
+    warnSpy.mockRestore();
   });
 });
 
