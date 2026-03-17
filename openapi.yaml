@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.4.0
+  version: 0.5.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
@@ -23,12 +23,25 @@ tags:
     description: WACZ bundle cryptographic verification
   - name: signing
     description: Signing key management
+  - name: admin
+    description: API key management (admin-only)
 
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
+      description: >
+        Per-tenant API key. Obtained via POST /v1/admin/keys or, for legacy
+        deployments, the static CAPTURE_API_KEY secret. Required for capture
+        submission (POST /v1/captures) and capture listing (GET /v1/captures).
+    adminAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Admin infrastructure key. Set via wrangler secret put ADMIN_KEY.
+        Grants access to key management endpoints. Does not grant tenant
+        capture or read access.
 
   headers:
     ReferrerPolicy:
@@ -530,6 +543,175 @@ components:
             $ref: '#/components/schemas/CaptureSummary'
         pagination:
           $ref: '#/components/schemas/Pagination'
+
+    AdminKeyCreateRequest:
+      type: object
+      description: Request body for creating a new API key.
+      required: [tenantId, scopes, name]
+      additionalProperties: false
+      properties:
+        tenantId:
+          type: string
+          pattern: '^[a-z0-9_-]{1,64}$'
+          description: >
+            Tenant this key belongs to. Must match /^[a-z0-9_-]{1,64}$/.
+            Callers may use tenantId as a KV key component without additional sanitization.
+          examples:
+            - default
+            - acme-corp
+        scopes:
+          type: array
+          description: >
+            Non-empty list of scopes to grant. Valid values: capture, read, admin.
+            'capture' implies 'read'. 'admin' does NOT imply 'capture' or 'read'.
+            Note: the 'admin' scope is reserved for a future migration from the
+            ADMIN_KEY env var to per-tenant KV-based admin keys. It currently has
+            no runtime effect on access control -- admin endpoints use ADMIN_KEY only.
+          items:
+            type: string
+            enum: [capture, read, admin]
+          minItems: 1
+          examples:
+            - [capture]
+            - [capture, read]
+        name:
+          type: string
+          description: >
+            Human-readable label for the key. 1-128 characters using letters,
+            digits, spaces, and _ . : - characters.
+          minLength: 1
+          maxLength: 128
+          examples:
+            - ci-pipeline
+            - my-integration-key
+
+    AdminKeyCreated:
+      type: object
+      description: >
+        Response body when a new API key is created. The raw key is returned
+        exactly once and cannot be retrieved again.
+      required: [key, keyHash, tenantId, scopes, name, createdAt, warning]
+      properties:
+        key:
+          type: string
+          description: >
+            Raw API key prefixed with "wrl_live_". Store this value now --
+            it cannot be retrieved after this response.
+          examples:
+            - 'wrl_live_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij'
+        keyHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 hex digest of the raw key. Used as the KV record key and for revocation.
+          examples:
+            - 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+        tenantId:
+          type: string
+          description: Tenant this key belongs to.
+          examples:
+            - default
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Scopes granted to this key.
+          examples:
+            - [capture]
+        name:
+          type: string
+          description: Human-readable label for the key.
+          examples:
+            - ci-pipeline
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the key was created.
+          examples:
+            - '2026-03-17T12:00:00.000Z'
+        warning:
+          type: string
+          description: Always "Store this key now. It cannot be retrieved after this response."
+          const: 'Store this key now. It cannot be retrieved after this response.'
+
+    AdminKeySummary:
+      type: object
+      description: >
+        API key summary returned by GET /v1/admin/keys. Never includes the raw key.
+        Revoked keys include revoked=true and revokedAt fields.
+      required: [keyHash, tenantId, scopes, name, createdAt, createdBy]
+      properties:
+        keyHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 hex digest of the raw key. Used as the identifier for revocation.
+          examples:
+            - 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+        tenantId:
+          type: string
+          description: Tenant this key belongs to.
+          examples:
+            - default
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Scopes granted to this key.
+          examples:
+            - [capture]
+        name:
+          type: string
+          description: Human-readable label for the key.
+          examples:
+            - ci-pipeline
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the key was created.
+        createdBy:
+          type: string
+          description: Who created the key. Currently always "admin".
+          examples:
+            - admin
+        revoked:
+          type: boolean
+          description: Present and true when the key has been revoked.
+        revokedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the key was revoked. Present only when revoked is true.
+
+    AdminKeyRevoked:
+      type: object
+      description: Response body when a key is revoked (or was already revoked -- idempotent).
+      required: [keyHash, tenantId, scopes, name, createdAt, revoked, revokedAt]
+      properties:
+        keyHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 hex digest of the raw key.
+        tenantId:
+          type: string
+          description: Tenant this key belonged to.
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Scopes the key had.
+        name:
+          type: string
+          description: Human-readable label for the key.
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the key was created.
+        revoked:
+          type: boolean
+          const: true
+          description: Always true in this response.
+        revokedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the key was revoked.
 
     VerificationCheck:
       type: object
@@ -1857,3 +2039,475 @@ paths:
           $ref: '#/components/responses/Problem429'
         '503':
           $ref: '#/components/responses/Problem503'
+
+  /v1/admin/keys:
+    post:
+      operationId: adminCreateKey
+      summary: Create a new API key
+      description: >
+        Creates a new per-tenant API key and returns the raw key exactly once.
+        Store the returned key immediately -- it cannot be retrieved after this response.
+
+        Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
+
+        ```bash
+        curl -X POST https://wrl.example.com/v1/admin/keys \
+          -H "Authorization: Bearer $ADMIN_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"tenantId": "default", "scopes": ["capture"], "name": "ci-pipeline"}' | jq .
+        ```
+
+        Save the key:
+        ```bash
+        curl ... | jq -r .key > /tmp/wrl-key-default.txt
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminKeyCreateRequest'
+            examples:
+              captureKey:
+                summary: Create a capture key for the default tenant
+                value:
+                  tenantId: default
+                  scopes: [capture]
+                  name: ci-pipeline
+              readOnlyKey:
+                summary: Create a read-only key
+                value:
+                  tenantId: default
+                  scopes: [read]
+                  name: dashboard-reader
+      responses:
+        '201':
+          description: >
+            Key created. The raw key is returned exactly once.
+            Store it immediately.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Cache-Control:
+              description: Prevents caching of sensitive key material.
+              schema:
+                type: string
+                enum: ['private, no-store']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminKeyCreated'
+              examples:
+                created:
+                  summary: Key created successfully
+                  value:
+                    key: 'wrl_live_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij'
+                    keyHash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                    tenantId: default
+                    scopes: [capture]
+                    name: ci-pipeline
+                    createdAt: '2026-03-17T12:00:00.000Z'
+                    warning: 'Store this key now. It cannot be retrieved after this response.'
+        '400':
+          description: >
+            Bad request -- missing or invalid fields. Field validation messages
+            identify the specific problem.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                missingTenantId:
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "Field 'tenantId' is required"}
+                invalidTenantId:
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "Field 'tenantId' must match /^[a-z0-9_-]{1,64}$/"}
+                invalidScope:
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "Field 'scopes' contains invalid value 'write'; must be one of: capture, read, admin"}
+                missingName:
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "Field 'name' is required"}
+        '401':
+          description: Unauthorized -- missing or invalid admin key.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            WWW-Authenticate:
+              description: Authentication challenge.
+              schema:
+                type: string
+                enum: [Bearer]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                invalid:
+                  value: {type: about:blank, status: 401, title: Unauthorized, detail: Invalid admin key}
+        '415':
+          description: Unsupported Media Type -- Content-Type is not application/json.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                wrongContentType:
+                  value: {type: about:blank, status: 415, title: Unsupported Media Type, detail: Content-Type must be application/json}
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          description: Service Unavailable -- ADMIN_KEY is not configured.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                notConfigured:
+                  value: {type: about:blank, status: 503, title: Service Unavailable, detail: Admin API is not configured}
+    get:
+      operationId: adminListKeys
+      summary: List API keys
+      description: >
+        Returns all API keys, optionally filtered by tenant. Revoked keys are
+        excluded by default. Raw key values are never included.
+
+        Rate limited to 5 requests per 60 seconds per IP.
+
+        ```bash
+        curl https://wrl.example.com/v1/admin/keys \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+
+        # Filter by tenant
+        curl "https://wrl.example.com/v1/admin/keys?tenant=default" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+
+        # Include revoked keys
+        curl "https://wrl.example.com/v1/admin/keys?include=revoked" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenant
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter results to keys belonging to this tenant ID.
+          examples:
+            default:
+              value: default
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [revoked]
+          description: >
+            Pass "revoked" to include revoked keys in the response.
+            Omit to return only active keys.
+      responses:
+        '200':
+          description: List of API key summaries. Raw key values are never included.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Cache-Control:
+              description: Prevents caching of sensitive key listings.
+              schema:
+                type: string
+                enum: ['private, no-store']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    description: API key summaries. Empty array when no keys exist.
+                    items:
+                      $ref: '#/components/schemas/AdminKeySummary'
+              examples:
+                activeKeys:
+                  summary: List of active keys
+                  value:
+                    data:
+                      - keyHash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                        tenantId: default
+                        scopes: [capture]
+                        name: ci-pipeline
+                        createdAt: '2026-03-17T12:00:00.000Z'
+                        createdBy: admin
+                withRevoked:
+                  summary: Keys including revoked entries
+                  value:
+                    data:
+                      - keyHash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                        tenantId: default
+                        scopes: [capture]
+                        name: ci-pipeline
+                        createdAt: '2026-03-17T12:00:00.000Z'
+                        createdBy: admin
+                      - keyHash: 'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7'
+                        tenantId: default
+                        scopes: [capture]
+                        name: old-key
+                        createdAt: '2026-01-01T00:00:00.000Z'
+                        createdBy: admin
+                        revoked: true
+                        revokedAt: '2026-02-01T00:00:00.000Z'
+                empty:
+                  summary: No keys exist
+                  value:
+                    data: []
+        '401':
+          description: Unauthorized -- missing or invalid admin key.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            WWW-Authenticate:
+              description: Authentication challenge.
+              schema:
+                type: string
+                enum: [Bearer]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                invalid:
+                  value: {type: about:blank, status: 401, title: Unauthorized, detail: Invalid admin key}
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          description: Service Unavailable -- ADMIN_KEY is not configured.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                notConfigured:
+                  value: {type: about:blank, status: 503, title: Service Unavailable, detail: Admin API is not configured}
+
+  /v1/admin/keys/{keyHash}:
+    delete:
+      operationId: adminRevokeKey
+      summary: Revoke an API key
+      description: >
+        Marks an API key as revoked. The key is immediately recorded as revoked in KV.
+        Revocation takes effect within 60 seconds due to distributed edge caching.
+
+        This operation is idempotent -- revoking an already-revoked key returns 200
+        with the existing revocation record.
+
+        Rate limited to 5 requests per 60 seconds per IP.
+
+        ```bash
+        curl -X DELETE "https://wrl.example.com/v1/admin/keys/$KEY_HASH" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: keyHash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f0-9]{64}$'
+          description: SHA-256 hex digest of the key to revoke (64 hex chars).
+          examples:
+            default:
+              value: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+      responses:
+        '200':
+          description: Key revoked (or was already revoked -- operation is idempotent).
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Cache-Control:
+              description: Prevents caching of revocation responses.
+              schema:
+                type: string
+                enum: ['private, no-store']
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminKeyRevoked'
+              examples:
+                revoked:
+                  summary: Key successfully revoked
+                  value:
+                    keyHash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                    tenantId: default
+                    scopes: [capture]
+                    name: ci-pipeline
+                    createdAt: '2026-03-17T12:00:00.000Z'
+                    revoked: true
+                    revokedAt: '2026-03-17T15:00:00.000Z'
+        '401':
+          description: Unauthorized -- missing or invalid admin key.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            WWW-Authenticate:
+              description: Authentication challenge.
+              schema:
+                type: string
+                enum: [Bearer]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                invalid:
+                  value: {type: about:blank, status: 401, title: Unauthorized, detail: Invalid admin key}
+        '404':
+          description: Key not found.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Cache-Control:
+              description: Prevents caching of not-found responses.
+              schema:
+                type: string
+                enum: ['private, no-store']
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                notFound:
+                  value: {type: about:blank, status: 404, title: Not Found, detail: API key not found.}
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          description: Service Unavailable -- ADMIN_KEY is not configured.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                notConfigured:
+                  value: {type: about:blank, status: 503, title: Service Unavailable, detail: Admin API is not configured}

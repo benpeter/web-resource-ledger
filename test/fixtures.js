@@ -2,6 +2,32 @@
 // Shared test fixtures for WRL capture tests.
 // Import from here instead of duplicating across test files.
 
+import { hashApiKey } from '../src/auth.js';
+
+export const TEST_ADMIN_KEY = 'test-admin-key-for-vitest';
+export const TEST_TENANT_KEY = 'wrl_live_' + 'a'.repeat(43);
+
+/**
+ * Seed a KV-backed API key record for use in tests.
+ * Returns the keyHash so callers can reference it.
+ */
+export async function seedApiKey(kv, rawKey, {
+  tenantId = 'default',
+  scopes = ['capture', 'read'],
+  name = 'test-key',
+  revoked = false,
+  revokedAt = null,
+} = {}) {
+  const keyHash = await hashApiKey(rawKey);
+  await kv.put(`apikey:${keyHash}`, JSON.stringify({
+    tenantId, scopes, name,
+    createdAt: new Date().toISOString(),
+    createdBy: 'test',
+    revoked, revokedAt,
+  }));
+  return keyHash;
+}
+
 // ---------------------------------------------------------------------------
 // Shared byte and HTML constants
 // ---------------------------------------------------------------------------

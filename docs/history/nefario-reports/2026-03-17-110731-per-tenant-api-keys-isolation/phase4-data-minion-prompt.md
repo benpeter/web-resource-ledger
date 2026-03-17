@@ -1,0 +1,1 @@
+Task 2: KV data layer. See synthesis phase3-synthesis.md Task 2 section for full prompt. Agent: data-minion. Model: sonnet. Mode: bypassPermissions.

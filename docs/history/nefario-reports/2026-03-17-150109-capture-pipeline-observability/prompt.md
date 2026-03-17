@@ -1,0 +1,1 @@
+Document the decision to NOT thread keyName/authMethod through performCapture() signature. Log auth details at handler level only. Capture pipeline logs tenantId for tenant-level traceability; key-level traceability via captureId correlation.

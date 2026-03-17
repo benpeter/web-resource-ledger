@@ -24,8 +24,10 @@ A single API call produces:
 Requires a running WRL instance. See [Setup](#setup) below.
 
 ```bash
-export WRL_API_KEY=your_capture_api_key
+export WRL_API_KEY=your_tenant_api_key
 ```
+
+Tenant keys are created via the admin API (see [step 8a](#8a-configure-admin-key-required-for-per-tenant-key-management)). For deployments using the legacy static key, `WRL_API_KEY` is your `CAPTURE_API_KEY` value.
 
 Replace `wrl.example.com` with your deployment URL, or `localhost:8787` for local dev.
 
@@ -145,9 +147,9 @@ wrangler r2 bucket create wrl-captures
 wrangler r2 bucket create wrl-captures-preview
 ```
 
-### 4. Configure capture API key
+### 4. Configure capture API key (legacy fallback)
 
-`CAPTURE_API_KEY` is the static bearer token used to submit captures. It is required -- the capture endpoint returns 401 without it.
+`CAPTURE_API_KEY` is a static bearer token that acts as a fallback when no KV-based tenant key is found. For new deployments, consider setting up the admin API (step 8a) and creating tenant keys instead. For existing deployments, this key continues to work during migration.
 
 In the usage examples above, this is `$WRL_API_KEY`.
 
@@ -247,6 +249,41 @@ CORS_ORIGINS = "https://app.example.com,https://www.example.com"
 
 If omitted, cross-origin requests from browsers are blocked. Server-to-server requests are unaffected.
 
+### 8a. Configure admin key (required for per-tenant key management)
+
+`ADMIN_KEY` is the bearer token for the admin API (`/v1/admin/keys`). It grants the ability to create, list, and revoke per-tenant API keys. It does **not** grant capture or read access.
+
+Generate a key:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the production secret:
+
+```bash
+wrangler secret put ADMIN_KEY
+```
+
+For local dev, add to `.dev.vars`:
+
+```
+ADMIN_KEY=<hex string from the command above>
+```
+
+Once deployed, create your first tenant key:
+
+```bash
+curl -X POST <YOUR_PRODUCTION_URL>/v1/admin/keys \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId": "default", "scopes": ["capture"], "name": "default-key"}' | jq .
+```
+
+Use the returned `key` value as `$WRL_API_KEY` going forward. See [OPERATIONS.md](OPERATIONS.md#multi-tenant-key-migration) for the full migration runbook.
+
+**Security:** Never commit this value to version control. `.dev.vars` is already in `.gitignore`.
+
 ### 9. Deploy
 
 ```bash
@@ -304,7 +341,7 @@ npm run smoke
 WRL follows a three-act development plan:
 
 1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
-2. **Evidence-Grade** -- RFC 3161 timestamps, per-tenant keys, audit logging. Makes "evidence" independently verifiable.
+2. **Evidence-Grade** (in progress) -- RFC 3161 timestamps, per-tenant keys (complete), audit logging. Makes "evidence" independently verifiable.
 3. **Infrastructure** -- MCP server, web UI, batch capture. Expands WRL into a platform other tools build on.
 
 See [`docs/backlog.md`](docs/backlog.md) for the full roadmap and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.

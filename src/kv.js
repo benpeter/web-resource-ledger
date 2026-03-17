@@ -24,13 +24,20 @@
  *   { ...pending, status: 'failed', failedAt, error, retryable }  -- failed
  *
  * Tests: test/kv.test.js
+ *
+ * KV key prefix registry -- all prefixes must be unique and documented here.
+ * Adding a new prefix? Check for overlaps with existing prefixes.
+ *   capture:{captureId}                        -- primary capture records
+ *   tenant:{tenantId}:ts:{ISO}:{captureId}     -- tenant listing index
+ *   signing-key:{keyId}                        -- archived signing keys
+ *   apikey:{sha256hex}                         -- API key records (64 hex chars)
  */ // tva
 
 const KEY_PREFIX = 'capture:';
 const PENDING_TTL = 86400; // 24 hours
 
-/** Regex for valid tenant IDs -- mirrors the contract in auth.js */
-const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
+/** Regex for valid tenant IDs -- single source of truth, imported by auth.js and admin.js */
+export const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
 
 /**
  * Returns the KV key prefix for a given tenant.
@@ -196,6 +203,7 @@ export async function listCaptures(kv, tenantId, { cursor, limit = 20, status } 
       if (!decoded || typeof decoded.kv !== 'string') return { error: 'invalid_cursor' };
       kvCursor = decoded.kv;
     } catch {
+      // atob/JSON.parse throw on malformed cursor input -- error indicator is the handling
       return { error: 'invalid_cursor' };
     }
   }
@@ -296,4 +304,101 @@ export async function listArchivedSigningKeys(kv) {
     }),
   );
   return keys.filter(k => k !== null);
+}
+
+// ---------------------------------------------------------------------------
+// API key records
+// ---------------------------------------------------------------------------
+
+const APIKEY_PREFIX = 'apikey:';
+const SHA256HEX_RE = /^[a-f0-9]{64}$/;
+
+/**
+ * Write a new API key record. Guards against hash collisions with existing
+ * non-revoked keys.
+ *
+ * @param {KVNamespace} kv
+ * @param {string} sha256hex  64 lowercase hex chars -- SHA-256 of the raw key
+ * @param {object} record  Full key record (tenantId, scopes, name, createdAt, createdBy, revoked, revokedAt)
+ * @returns {Promise<{ created: true } | { created: false, reason: 'hash_collision' }>}
+ */
+export async function createApiKeyRecord(kv, sha256hex, record) {
+  if (!SHA256HEX_RE.test(sha256hex)) {
+    throw new Error(`Invalid sha256hex: expected 64 lowercase hex chars, got "${sha256hex}"`);
+  }
+  const existing = await kv.get(`${APIKEY_PREFIX}${sha256hex}`, 'json');
+  if (existing && !existing.revoked) {
+    return { created: false, reason: 'hash_collision' };
+  }
+  await kv.put(`${APIKEY_PREFIX}${sha256hex}`, JSON.stringify(record));
+  return { created: true };
+}
+
+/**
+ * Read an API key record by its SHA-256 hex fingerprint.
+ *
+ * @param {KVNamespace} kv
+ * @param {string} sha256hex  64 lowercase hex chars
+ * @returns {Promise<object|null>}
+ */
+export async function getApiKeyRecord(kv, sha256hex) {
+  if (!SHA256HEX_RE.test(sha256hex)) {
+    throw new Error(`Invalid sha256hex: expected 64 lowercase hex chars, got "${sha256hex}"`);
+  }
+  return kv.get(`${APIKEY_PREFIX}${sha256hex}`, 'json');
+}
+
+/**
+ * Revoke an API key record. Idempotent -- already-revoked keys return success.
+ *
+ * @param {KVNamespace} kv
+ * @param {string} sha256hex  64 lowercase hex chars
+ * @returns {Promise<
+ *   { revoked: false, reason: 'not_found' } |
+ *   { revoked: true, record: object }
+ * >}
+ */
+export async function revokeApiKeyRecord(kv, sha256hex) {
+  if (!SHA256HEX_RE.test(sha256hex)) {
+    throw new Error(`Invalid sha256hex: expected 64 lowercase hex chars, got "${sha256hex}"`);
+  }
+  const existing = await kv.get(`${APIKEY_PREFIX}${sha256hex}`, 'json');
+  if (!existing) {
+    return { revoked: false, reason: 'not_found' };
+  }
+  if (existing.revoked) {
+    return { revoked: true, record: existing };
+  }
+  const updated = { ...existing, revoked: true, revokedAt: new Date().toISOString() };
+  await kv.put(`${APIKEY_PREFIX}${sha256hex}`, JSON.stringify(updated));
+  return { revoked: true, record: updated };
+}
+
+/**
+ * List API key records. Fetches all keys under `apikey:` prefix in parallel,
+ * then applies tenant and revocation filters in memory.
+ *
+ * @param {KVNamespace} kv
+ * @param {{ tenantId?: string, includeRevoked?: boolean }} [opts]
+ * @returns {Promise<Array<{ keyHash: string, tenantId: string, scopes: string[], name: string, createdAt: string, createdBy: string, revoked: boolean, revokedAt: string|null }>>}
+ */
+export async function listApiKeyRecords(kv, { tenantId, includeRevoked = false } = {}) {
+  const listResult = await kv.list({ prefix: APIKEY_PREFIX });
+  const records = await Promise.all(
+    listResult.keys.map(async (k) => {
+      const keyHash = k.name.slice(APIKEY_PREFIX.length);
+      const record = await kv.get(k.name, 'json');
+      return record ? { keyHash, ...record } : null;
+    }),
+  );
+
+  let filtered = records.filter(r => r !== null);
+  if (tenantId !== undefined) {
+    filtered = filtered.filter(r => r.tenantId === tenantId);
+  }
+  if (!includeRevoked) {
+    filtered = filtered.filter(r => !r.revoked);
+  }
+
+  return filtered.sort((a, b) => a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0);
 }
