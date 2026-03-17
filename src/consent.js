@@ -1,8 +1,10 @@
 /*
  * consent.js -- Cookie consent dismissal via DuckDuckGo autoconsent
  *
- * Injects the vendored autoconsent script after page navigation and
- * before the after-consent screenshot. Communicates via the
+ * Injects the vendored autoconsent script into all frames (main + child
+ * iframes) after page navigation and before the after-consent screenshot.
+ * Multi-frame injection is required because some CMPs (Sourcepoint, etc.)
+ * run detection inside cross-origin iframes. Communicates via the
  * autoconsentSendMessage / autoconsentReceiveMessage channel.
  *
  * Returns a consistent result shape regardless of outcome:
@@ -28,6 +30,7 @@ import autoconsentScript from './vendor/autoconsent-script.js';
 export const AUTOCONSENT_VERSION = '14.59.0';
 
 const CONSENT_TIMEOUT_MS = 2000;
+const MAX_INJECTED_FRAMES = 50;
 
 const ALLOWED_MSG_TYPES = new Set([
   'init',
@@ -82,14 +85,18 @@ async function _dismissWithBinding(page, start) {
 
   let detectedCmp = null;
 
-  await page.exposeBinding('autoconsentSendMessage', (_source, msg) => {
+  await page.exposeBinding('autoconsentSendMessage', (source, msg) => {
     if (!msg || !ALLOWED_MSG_TYPES.has(msg.type)) {
       return;
     }
 
+    // Route responses back to the frame that sent the message (may be an
+    // iframe for CMP providers like Sourcepoint that run inside iframes).
+    const frame = source.frame;
+
     switch (msg.type) {
       case 'init':
-        page.evaluate((cfg) => {
+        frame.evaluate((cfg) => {
           if (window.autoconsentReceiveMessage) {
             window.autoconsentReceiveMessage({ type: 'initResp', config: cfg });
           }
@@ -120,7 +127,7 @@ async function _dismissWithBinding(page, start) {
 
       case 'eval': {
         const code = typeof msg.code === 'string' ? msg.code.slice(0, 2048) : '';
-        page.evaluate((c) => {
+        frame.evaluate((c) => {
           try {
             // eslint-disable-next-line no-eval
             const result = eval(c);
@@ -129,7 +136,7 @@ async function _dismissWithBinding(page, start) {
             return Promise.resolve(null);
           }
         }, code).then((result) => {
-          page.evaluate(({ id, res }) => {
+          frame.evaluate(({ id, res }) => {
             if (window.autoconsentReceiveMessage) {
               window.autoconsentReceiveMessage({ type: 'evalResp', id, result: res });
             }
@@ -144,20 +151,40 @@ async function _dismissWithBinding(page, start) {
     }
   });
 
-  await page.evaluate(
-    ([script]) => {
-      const fn = new Function(script);
-      fn();
-    },
-    [autoconsentScript],
-  );
+  // Inject autoconsent into main frame and all child frames (CMP iframes).
+  // Late-loading iframes (e.g. OneTrust) are caught by the framenavigated listener.
+  const inject = ([script]) => { const fn = new Function(script); fn(); };
+  const injectedFrames = new Set();
 
-  const timeoutPromise = new Promise((resolve) =>
-    setTimeout(() => resolve({ status: detectedCmp ? 'timeout' : 'none', cmp: detectedCmp }), CONSENT_TIMEOUT_MS)
-  );
+  function injectIntoFrame(frame) {
+    if (frame === page.mainFrame()) return;
+    if (injectedFrames.has(frame)) return;
+    if (injectedFrames.size >= MAX_INJECTED_FRAMES) return;
+    const url = frame.url();
+    if (!url || url === 'about:blank' || url.startsWith('javascript:')) return;
+    injectedFrames.add(frame);
+    // Cross-origin or detached frames may reject evaluate -- non-fatal
+    frame.evaluate(inject, [autoconsentScript]).catch(() => {});
+  }
 
-  const outcome = await Promise.race([resultPromise, timeoutPromise]);
-  return { ...outcome, durationMs: Date.now() - start };
+  // Register listener for late-loading CMP iframes before the initial loop
+  page.on('framenavigated', injectIntoFrame);
+
+  try {
+    await page.evaluate(inject, [autoconsentScript]);
+    for (const frame of page.frames()) {
+      injectIntoFrame(frame);
+    }
+
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve({ status: detectedCmp ? 'timeout' : 'none', cmp: detectedCmp }), CONSENT_TIMEOUT_MS)
+    );
+
+    const outcome = await Promise.race([resultPromise, timeoutPromise]);
+    return { ...outcome, durationMs: Date.now() - start };
+  } finally {
+    page.off('framenavigated', injectIntoFrame);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -200,20 +227,53 @@ async function _dismissWithPolling(page, start) {
 })();
 `;
 
-  await page.evaluate(wrappedScript);
+  // Inject into main frame and all child frames (CMP iframes).
+  // Late-loading iframes caught by the framenavigated listener.
+  const injectedFrames = new Set();
 
-  const deadline = Date.now() + CONSENT_TIMEOUT_MS;
-  const pollIntervalMs = 200;
-
-  while (Date.now() < deadline) {
-    const result = await page.evaluate(() => window.__autoconsentResult).catch(() => null);
-    if (result) {
-      return { ...result, durationMs: Date.now() - start };
-    }
-    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  function injectIntoFrame(frame) {
+    if (frame === page.mainFrame()) return;
+    if (injectedFrames.has(frame)) return;
+    if (injectedFrames.size >= MAX_INJECTED_FRAMES) return;
+    const url = frame.url();
+    if (!url || url === 'about:blank' || url.startsWith('javascript:')) return;
+    injectedFrames.add(frame);
+    // Cross-origin or detached frames may reject evaluate -- non-fatal
+    frame.evaluate(wrappedScript).catch(() => {});
   }
 
-  // Timed out -- check if a CMP was ever detected
-  const cmp = await page.evaluate(() => window.__autoconsentCmp).catch(() => null);
-  return { status: cmp ? 'timeout' : 'none', cmp, durationMs: Date.now() - start };
+  page.on('framenavigated', injectIntoFrame);
+
+  try {
+    await page.evaluate(wrappedScript);
+    for (const frame of page.frames()) {
+      injectIntoFrame(frame);
+    }
+
+    const deadline = Date.now() + CONSENT_TIMEOUT_MS;
+    const pollIntervalMs = 200;
+
+    while (Date.now() < deadline) {
+      // Poll all frames -- CMP result may come from an iframe
+      for (const frame of page.frames()) {
+        // Detached frames throw on evaluate -- treat as no result
+        const result = await frame.evaluate(() => window.__autoconsentResult).catch(() => null);
+        if (result) {
+          return { ...result, durationMs: Date.now() - start };
+        }
+      }
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+    }
+
+    // Timed out -- check if a CMP was ever detected in any frame
+    let cmp = null;
+    for (const frame of page.frames()) {
+      // Detached frames throw on evaluate -- treat as no CMP
+      const frameCmp = await frame.evaluate(() => window.__autoconsentCmp).catch(() => null);
+      if (frameCmp) { cmp = frameCmp; break; }
+    }
+    return { status: cmp ? 'timeout' : 'none', cmp, durationMs: Date.now() - start };
+  } finally {
+    page.off('framenavigated', injectIntoFrame);
+  }
 }
