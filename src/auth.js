@@ -163,7 +163,7 @@ export async function verifyApiKey(request, env) {
         ok: true,
         tenantId: record.tenantId,
         scopes,
-        keyName: record.keyName ?? keyHash.slice(0, 8),
+        keyName: record.name ?? keyHash.slice(0, 8),
         authMethod: 'kv',
         keyHash,
       };

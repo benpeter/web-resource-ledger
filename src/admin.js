@@ -155,7 +155,8 @@ export async function handleAdminCreateKey(request, env, ctx, match) {
   try {
     const existing = await env.KV.get(`tenant-keys:${tenantId}`, 'json');
     if (Array.isArray(existing)) tenantKeys = existing;
-  } catch {
+  } catch (err) {
+    console.warn('KV read failed for tenant-keys index:', err.message);
     // Start fresh if read fails -- key will still be written
   }
   tenantKeys.push(keyHash);
@@ -241,7 +242,8 @@ export async function handleAdminListKeys(request, env, ctx, match) {
   try {
     const existing = await env.KV.get(`tenant-keys:${tenantId}`, 'json');
     if (Array.isArray(existing)) hashes = existing;
-  } catch {
+  } catch (err) {
+    console.warn('KV read failed for tenant-keys index:', err.message);
     // Return empty list on read error
   }
 
@@ -253,7 +255,8 @@ export async function handleAdminListKeys(request, env, ctx, match) {
       if (record !== null) {
         entries.push({ keyHash: hash, ...record });
       }
-    } catch {
+    } catch (err) {
+      console.warn('KV read failed for key record:', err.message);
       // Skip records that fail to read
     }
   }
@@ -354,7 +357,8 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     try {
       const existing = await env.KV.get(`tenant-keys:${record.tenantId}`, 'json');
       if (Array.isArray(existing)) hashes = existing;
-    } catch {
+    } catch (err) {
+      console.warn('KV read failed for tenant-keys index during last-admin guard:', err.message);
       // Proceed -- guard is best-effort if index is unreadable
     }
 
@@ -366,7 +370,8 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
         if (r && !r.revoked && r.scopes && r.scopes.includes('admin')) {
           activeAdminCount++;
         }
-      } catch {
+      } catch (err) {
+        console.warn('KV read failed for key record during last-admin guard:', err.message);
         // Skip unreadable records
       }
     }
