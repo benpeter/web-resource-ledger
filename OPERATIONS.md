@@ -18,18 +18,43 @@ curl <YOUR_PRODUCTION_URL>/health
 
 **Coralogix:** Filter by `applicationName:wrl` (production) or `applicationName:wrl-staging`.
 
-**GitHub Actions:** https://github.com/benpeter/web-resource-ledger/actions/workflows/deploy-production.yml
+**GitHub Actions:**
+- Production: https://github.com/benpeter/web-resource-ledger/actions/workflows/deploy-production.yml
+- Staging: https://github.com/benpeter/web-resource-ledger/actions/workflows/deploy-staging.yml
+
+---
+
+## Deploy to Staging
+
+Every push to `main` automatically runs three jobs in sequence in `deploy-staging.yml`: test, deploy, and smoke. All three must pass.
+
+After a successful staging deploy, the production pipeline triggers automatically via `workflow_run`. See [Deploy to Production](#deploy-to-production).
+
+**Manual trigger (GitHub UI):**
+1. Go to Actions > Deploy to Staging > Run workflow
+2. Select the branch (no other inputs -- always deploys HEAD of the selected branch)
+3. Click Run workflow
+
+This deploys HEAD of the selected branch to staging and, on completion, also triggers the production pipeline.
+
+**Manual trigger (CLI):**
+```bash
+wrangler deploy --env staging
+```
+
+This deploys directly to staging only. It does NOT trigger the production pipeline.
 
 ---
 
 ## Deploy to Production
 
-Every push to `main` triggers the pipeline automatically:
-1. `staging-smoke` -- confirms staging is healthy
-2. `deploy` -- deploys to production (requires environment approval if configured)
-3. `smoke` -- verifies production health (read-only, skips capture round-trip)
+The production pipeline triggers automatically after `deploy-staging.yml` completes successfully -- NOT on push to `main`. The pipeline runs two jobs:
+1. `deploy` -- deploys to production (requires environment approval if configured)
+2. `smoke` -- verifies production health (read-only, skips capture round-trip)
 
-**Manual trigger (normal):**
+The `staging-smoke` job is skipped for automatic triggers because staging already passed its own smoke test as part of `deploy-staging.yml`.
+
+**Manual trigger (rollback):**
 1. Go to Actions > Deploy to Production > Run workflow
 2. Leave "Git ref" blank to deploy HEAD
 3. Click Run workflow
@@ -52,13 +77,14 @@ Every push to `main` triggers the pipeline automatically:
    ```
 2. Go to Actions > Deploy to Production > Run workflow
 3. Paste the SHA into the "Git ref" field
-4. Click Run workflow -- the pipeline runs staging-smoke, deploys the old SHA, runs smoke
+4. Click Run workflow -- the pipeline runs `staging-smoke` (tests whatever is currently on staging, not the rollback SHA), deploys the old SHA to production, then runs production smoke
+
+**Warning:** This path bypasses the staging-first guarantee -- it deploys directly to production without first deploying to staging.
 
 **Warning:** Secrets are NOT rolled back with code. If secrets changed after the good commit,
 re-set the old values manually with `wrangler secret put`.
 
-**Warning:** The rollback is temporary. The next push to `main` re-deploys whatever is on
-`main` at that point. To make the rollback permanent, merge a revert commit to `main` first:
+**Warning:** The rollback is temporary. The next push to `main` triggers the full staging->production chain and re-deploys whatever is on `main` at that point. To make the rollback permanent, merge a revert commit to `main` first:
 ```bash
 git revert <bad-commit-sha>
 git push origin main
@@ -177,7 +203,6 @@ The `production` GitHub environment maps to the top-level wrangler.toml config (
 |------|-------|
 | `WRL_STAGING_BASE_URL` | `<YOUR_STAGING_URL>` |
 
-**Protection rules:** Do NOT add required reviewer -- staging must deploy without approval
-(the production pipeline's `staging-smoke` job polls staging before every prod deploy).
+**Protection rules:** Do NOT add required reviewer -- staging must deploy without approval. The production pipeline triggers automatically after staging completes (`workflow_run`). Adding a reviewer gate to staging blocks the entire deploy chain.
 
 See README steps 4-7 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.
