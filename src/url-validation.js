@@ -132,8 +132,8 @@ export function parseIPv4(hostname) {
     if (/^\d+\.\d+\.\d+\.\d+$/.test(normalized)) {
       return normalized;
     }
-  } catch {
-    // Not parseable as a URL host
+  } catch (_urlErr) {
+    // Not parseable as a URL host -- return null below
   }
   return null;
 }
@@ -217,7 +217,8 @@ function parseIPv6ToBigInt(addr) {
       result = (result << 16n) | BigInt(parseInt(g, 16));
     }
     return result;
-  } catch {
+  } catch (_parseErr) {
+    // Malformed IPv6 address -- return null (caller treats as non-IP hostname)
     return null;
   }
 }
@@ -330,7 +331,7 @@ export async function validateUrl(rawUrl, { resolve4, resolve6 } = defaultResolv
   let parsed;
   try {
     parsed = new URL(rawUrl);
-  } catch {
+  } catch (_urlErr) {
     // SECURITY: Do not reflect rawUrl in the error message (CWE-209)
     return { ok: false, status: 400, detail: 'URL is not valid' };
   }

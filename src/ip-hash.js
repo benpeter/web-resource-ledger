@@ -56,7 +56,8 @@ export async function computeCip(env, ip) {
     const hashBuf = await crypto.subtle.sign('HMAC', _cachedKey, encoder.encode(String(ip)));
     const hex = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
     return hex.slice(0, 16);
-  } catch {
+  } catch (_hmacErr) {
+    // HMAC key import or sign failure -- degrade to no CIP (privacy feature, not critical)
     return undefined;
   }
 }

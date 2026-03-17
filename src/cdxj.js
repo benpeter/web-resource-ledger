@@ -72,8 +72,8 @@ export function toSurt(url) {
     const surtHost = parts.join(','); // e.g. com,example,www
     const pathAndQuery = parsed.pathname + (parsed.search || '') + (parsed.hash || '');
     return `${surtHost})${pathAndQuery}`;
-  } catch {
-    // Fallback: return URL as-is if parsing fails
+  } catch (_urlParseErr) {
+    // URL parse failure (malformed input from WARC record) -- return as-is
     return url;
   }
 }

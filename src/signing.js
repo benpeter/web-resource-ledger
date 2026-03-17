@@ -80,8 +80,8 @@ export async function getSigningKeys(env) {
     _cachedKeyId = keyId;
 
     return { privateKey, publicKeyBytes, keyId };
-  } catch {
-    console.warn('Signing key validation failed');
+  } catch (err) {
+    console.warn('Signing key validation failed:', err?.message);
     return null;
   }
 }

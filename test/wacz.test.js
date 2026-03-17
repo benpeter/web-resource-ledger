@@ -267,7 +267,7 @@ describe('WACZ -- graceful degradation', () => {
     expect(result).toBeNull();
   });
 
-  it('timestampStatus is absent when env has no TSA_URL', async () => {
+  it('timestampStatus is skipped when env has no TSA_URL', async () => {
     const result = await buildWacz(
       TEST_URL,
       new Date().toISOString(),
@@ -275,7 +275,7 @@ describe('WACZ -- graceful degradation', () => {
       { SIGNING_KEY: env.SIGNING_KEY },
     );
     expect(result).not.toBeNull();
-    expect(result.timestampStatus).toBe('absent');
+    expect(result.timestampStatus).toBe('skipped');
   });
 
   it('timestampStatus is error when TSA returns HTTP 500', async () => {

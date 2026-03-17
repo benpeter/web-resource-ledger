@@ -195,7 +195,8 @@ export async function listCaptures(kv, tenantId, { cursor, limit = 20, status } 
       const decoded = JSON.parse(atob(padded));
       if (!decoded || typeof decoded.kv !== 'string') return { error: 'invalid_cursor' };
       kvCursor = decoded.kv;
-    } catch {
+    } catch (_cursorErr) {
+      // Base64/JSON decode failure on opaque cursor -- client-facing validation
       return { error: 'invalid_cursor' };
     }
   }

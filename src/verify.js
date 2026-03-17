@@ -60,7 +60,8 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
   let files;
   try {
     files = unzipSync(waczBytes);
-  } catch {
+  } catch (_zipErr) {
+    // fflate throws on malformed ZIP input -- structured failure, not silent swallow
     return {
       verified: false,
       checks: [
@@ -101,7 +102,8 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
   try {
     datapackage = JSON.parse(new TextDecoder().decode(dpRaw));
     digest      = JSON.parse(new TextDecoder().decode(digestRaw));
-  } catch {
+  } catch (_jsonErr) {
+    // JSON.parse failure on manifest files -- structured failure, not silent swallow
     return {
       verified: false,
       checks: [
@@ -206,7 +208,8 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
         } else {
           checks.push({ name: 'timestamp', status: 'fail', detail: 'Independent timestamp verification failed' });
         }
-      } catch {
+      } catch (_tsErr) {
+        // DER parsing or validation failed -- report as structured check failure
         checks.push({ name: 'timestamp', status: 'fail', detail: 'Independent timestamp verification failed' });
       }
     }

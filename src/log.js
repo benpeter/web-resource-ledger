@@ -36,6 +36,6 @@ export function log(env, severity, subsystem, data) {
         timestamp: Date.now(),
         text: JSON.stringify(data),
       }]),
-    }).catch(() => {});
-  } catch { return; }
+    }).catch(() => {}); // Logging failure is terminal -- nowhere to log it
+  } catch (_logErr) { return; } // JSON serialization or fetch setup failed -- no safe recourse
 }

@@ -258,7 +258,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
-    } catch {
+    } catch (_kvErr) {
       await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, cip });
     }
   }
@@ -332,7 +332,7 @@ async function getOrCreateSession(browserBinding) {
     const pick = freeSessions[Math.floor(Math.random() * freeSessions.length)];
     try {
       return await connect(browserBinding, pick.sessionId);
-    } catch {
+    } catch (_sessionRaceErr) {
       // Another worker claimed the session between list and connect -- fall through
     }
   }
@@ -461,8 +461,8 @@ async function defaultRenderer(browserBinding, url) {
         if (page) {
           try {
             isMainFrame = route.request().frame() === page.mainFrame();
-          } catch (err) {
-            // frame() throws for detached frames during lifecycle transitions
+          } catch (_detachedFrameErr) {
+            // frame() throws for detached frames during lifecycle transitions -- non-fatal
           }
         }
         if (isMainFrame) {
@@ -560,7 +560,7 @@ async function defaultRenderer(browserBinding, url) {
             consent: null,
             screenshotBefore: null,
           };
-        } catch {
+        } catch (_deadlineErr) {
           throw new Error('Deadline exceeded before partial capture could complete');
         }
       }
@@ -654,6 +654,8 @@ async function defaultRenderer(browserBinding, url) {
     // MANDATORY: close context before disconnecting to clear all isolation state.
     // Timeout cleanup to prevent hanging on unresponsive browser sessions
     // (e.g., Akamai stalling with 0 bytes) from eating the ctx.waitUntil budget.
+    // Cleanup errors are non-fatal: capture result is already determined.
+    // Timeout prevents hanging on unresponsive browser sessions.
     await Promise.race([
       context.close().then(() => browser.close()),
       new Promise((r) => setTimeout(r, 3000)),

@@ -159,5 +159,5 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 11: Compute SHA-256 of the final WACZ bytes for content-addressed R2 key
   const waczHash = await sha256(waczBytes);
 
-  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'absent') };
+  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'skipped') };
 }

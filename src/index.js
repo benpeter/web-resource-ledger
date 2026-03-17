@@ -159,7 +159,8 @@ async function handleCreateCapture(request, env, ctx) {
   let body;
   try {
     body = await request.json();
-  } catch {
+  } catch (_jsonErr) {
+    // Input validation boundary: malformed JSON from client
     return problemResponse(400, 'Request body must be valid JSON');
   }
 
@@ -184,7 +185,8 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 8: Write pending record to KV (synchronously before returning 202)
   try {
     await createCapture(env.KV, captureId, result.url, result.ip, tenantId);
-  } catch {
+  } catch (err) {
+    ctx.waitUntil(log(env, 5, 'capture', { event: 'capture.kv_create_fail', tenantId, errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip }) ?? Promise.resolve());
     return problemResponse(500, 'Could not create capture record');
   }
 

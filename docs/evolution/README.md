@@ -43,3 +43,4 @@ software development.
 | [0032-optimize-capture-timeline](0032-optimize-capture-timeline/) | Adaptive settle, consent timeout 2s, graceful consent failure (Issue #79) |
 | [0033-cmp-navigation](0033-cmp-navigation/) | Fix cross-domain navigation block and multi-frame consent injection (Issue #81) |
 | [0034-integration-tests](0034-integration-tests/) | Integration tests with real browser captures (Issue #69) |
+| [0035-fail-loudly](0035-fail-loudly/) | Eliminate silent catch blocks -- fail loudly on unexpected errors (Issue #70) |
