@@ -285,9 +285,10 @@ function buildTimeStampReq(hashBytes, nonceBytes) {
 
   const nonce = encodeUnsignedInteger(nonceBytes);
 
-  // certReq [0] IMPLICIT BOOLEAN DEFAULT FALSE
-  // RFC 3161 s2.4.1: implicit tag replaces BOOLEAN (0x01) with [0] PRIMITIVE (0x80)
-  const certReq = writeTLV(0x80, new Uint8Array([0xff]));
+  // certReq BOOLEAN DEFAULT FALSE
+  // Plain BOOLEAN (tag 0x01), value TRUE (0xff). Asks the TSA to include
+  // its signing certificate in the response, enabling offline chain validation.
+  const certReq = writeTLV(0x01, new Uint8Array([0xff]));
 
   return writeTLV(0x30, concat(version, msgImprint, nonce, certReq));
 }

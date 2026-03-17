@@ -21,10 +21,9 @@
  *     6. Save as test/fixtures/digicert-tsa-token.der
  *
  *   NOTE: The production DigiCert TSA token does NOT embed the signer certificate
- *   in the token body. Chain verification requires the intermediate certificate
- *   to be fetched online. For this reason, the `valid: true` test with the bundled
- *   DigiCert root is skipped -- the chain terminates at an intermediate CA that
- *   is not in the bundle. Tests with `valid: false` are fully exercised.
+ *   in the token body. The bundled certs directory includes the root, intermediate,
+ *   and leaf certificates from DigiCert's TSA chain, enabling full offline chain
+ *   verification.
  *
  * PKIjs ISSUE #332 -- CRITICAL:
  *   Without the explicit guard in cms-verify.js, pkijs.SignedData.verify()
@@ -57,32 +56,30 @@ const BUNDLED_ROOTS = loadTrustedRoots();
 // Tests with real fixture -- negative cases (chain not present in token body)
 // ---------------------------------------------------------------------------
 
-describe('verifyCmsChain -- real DigiCert token, chain not present', () => {
-  it('returns valid: false with bundled DigiCert root (no intermediate in token)', async () => {
-    // The TSA token does not embed the intermediate certificate.
-    // Chain verification fails because the signer cert cannot be found
-    // to build a path to the root.
+describe('verifyCmsChain -- real DigiCert token', () => {
+  it('returns valid: true with bundled DigiCert chain (root + intermediate + leaf)', async () => {
+    // The bundled certs include the leaf signer cert, intermediate CA, and root CA.
+    // The TSA token does not embed certificates, but the bundled chain provides
+    // them for offline verification.
     const result = await verifyCmsChain(REAL_TOKEN_BASE64, BUNDLED_ROOTS, REAL_GEN_TIME);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.detail, 'detail should explain the failure');
+    assert.strictEqual(result.valid, true);
+    assert.ok(result.signerInfo, 'signerInfo should be populated');
+    assert.ok(result.signerInfo.commonName.includes('DigiCert'), 'signer should be DigiCert');
   });
 
-  it('returns valid: false with empty trust roots -- PKIjs #332 guard', async () => {
-    // CRITICAL: This test exercises the explicit guard added for PKIjs issue #332.
-    // Without the guard, pkijs may return signatureVerified: true with empty
-    // trustedCerts, allowing chain validation to be trivially bypassed.
+  it('returns valid: false with empty trust roots', async () => {
+    // CRITICAL: No trusted roots = no chain validation possible.
     const result = await verifyCmsChain(REAL_TOKEN_BASE64, [], REAL_GEN_TIME);
     assert.strictEqual(result.valid, false);
     assert.match(result.detail, /trusted root/i);
     assert.strictEqual(result.signerInfo, null);
   });
 
-  it('returns valid: false with only the bundled DigiCert root (intermediate not in token)', async () => {
-    // The DigiCert TSA token does not embed the intermediate certificate that
-    // bridges to the G4 root. Providing only the G4 root is insufficient to
-    // build a valid chain -- this tests the "wrong cert" scenario without needing
-    // a separately-generated PEM. (bundled root parses fine; chain still fails.)
-    const result = await verifyCmsChain(REAL_TOKEN_BASE64, BUNDLED_ROOTS, REAL_GEN_TIME);
+  it('returns valid: false with only the root cert (no leaf to verify signature)', async () => {
+    // Only the root CA is provided. Without the leaf cert in the bundle,
+    // the signer cannot be found.
+    const rootOnly = BUNDLED_ROOTS.filter(pem => pem.includes('Trusted Root G4'));
+    const result = await verifyCmsChain(REAL_TOKEN_BASE64, rootOnly, REAL_GEN_TIME);
     assert.strictEqual(result.valid, false);
     assert.ok(result.detail, 'failure detail should explain the failure');
   });

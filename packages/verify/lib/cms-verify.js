@@ -3,11 +3,16 @@
  *
  * Performs steps 1-4 of RFC 3161 §2.4.2 verification:
  *   1. Parse the CMS ContentInfo envelope
- *   2. Verify the CMS cryptographic signature
- *   3. Validate the TSA certificate chain to a trusted root
+ *   2. Verify the CMS cryptographic signature (node:crypto createVerify)
+ *   3. Validate the TSA certificate chain (node:crypto X509Certificate)
  *   4. Validate certificate properties (EKU, validity period)
  *
  * Step 5 (messageImprint) is handled separately by rfc3161.js/verifyTimestamp().
+ *
+ * Uses PKIjs for CMS structure parsing only. All cryptographic operations
+ * use node:crypto -- PKIjs SignedData.verify() has known issues with
+ * RFC 3161 TSTInfo content types (requires detached data, signature
+ * verification unreliable).
  *
  * NOTE: CRL/OCSP revocation checking is intentionally omitted -- this module
  * is designed for offline use where network access is unavailable. Operators
@@ -16,27 +21,23 @@
 
 import * as asn1js from 'asn1js';
 import * as pkijs from 'pkijs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { X509Certificate, createVerify } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
-// PKIjs crypto engine -- globalThis.crypto is available in Node.js 20+
+// PKIjs crypto engine -- needed for schema parsing only
 // ---------------------------------------------------------------------------
 
-const crypto = globalThis.crypto;
-const _engine = new pkijs.CryptoEngine({ name: 'NodeJS', crypto });
+const _engine = new pkijs.CryptoEngine({ name: 'NodeJS', crypto: globalThis.crypto });
 pkijs.setEngine('NodeJS', _engine);
 
 // ---------------------------------------------------------------------------
 // OIDs
 // ---------------------------------------------------------------------------
 
-/** Extended key usage OID for time stamping (RFC 3161) */
 const OID_ID_KP_TIMESTAMPING = '1.3.6.1.5.5.7.3.8';
-
-/** Extended key usage extension OID */
-const OID_EXTENDED_KEY_USAGE = '2.5.29.37';
 
 // ---------------------------------------------------------------------------
 // Trusted root loading
@@ -53,82 +54,93 @@ const CERTS_DIR = join(__dirname, '..', 'certs', 'trusted-roots');
  * @returns {string[]}  Array of PEM strings
  */
 export function loadTrustedRoots(extraPaths = []) {
-  const pems = [
-    readFileSync(join(CERTS_DIR, 'DigiCertTrustedRootG4.pem'), 'utf8'),
-    ...extraPaths.map(p => readFileSync(p, 'utf8')),
-  ];
-  return pems;
+  const bundled = readdirSync(CERTS_DIR)
+    .filter(f => f.endsWith('.pem'))
+    .map(f => readFileSync(join(CERTS_DIR, f), 'utf8'));
+  return [...bundled, ...extraPaths.map(p => readFileSync(p, 'utf8'))];
 }
 
 // ---------------------------------------------------------------------------
-// PEM helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Converts a PEM-encoded certificate to a PKIjs Certificate object.
- *
+ * Converts a PEM string to a node:crypto X509Certificate.
  * @param {string} pem
- * @returns {pkijs.Certificate}
+ * @returns {X509Certificate}
  */
-function pemToCertificate(pem) {
-  const b64 = pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s/g, '');
-  const der = Buffer.from(b64, 'base64');
-  const asn1 = asn1js.fromBER(new Uint8Array(der).buffer);
-  if (asn1.offset === -1) throw new Error('Failed to parse PEM certificate');
-  return new pkijs.Certificate({ schema: asn1.result });
+function pemToX509(pem) {
+  return new X509Certificate(pem);
 }
 
 /**
- * Extracts the Common Name and Issuer DN string from a PKIjs Certificate.
- *
+ * Converts a PKIjs Certificate to a node:crypto X509Certificate.
  * @param {pkijs.Certificate} cert
+ * @returns {X509Certificate}
+ */
+function pkijsToX509(cert) {
+  const der = Buffer.from(cert.toSchema().toBER());
+  return new X509Certificate(der);
+}
+
+/**
+ * Extracts CN and issuer info from an X509Certificate.
+ * @param {X509Certificate} x509
  * @returns {{ commonName: string, issuer: string, validFrom: string, validTo: string }}
  */
-function extractSignerInfo(cert) {
-  let commonName = '';
-  for (const typeAndValue of cert.subject.typesAndValues) {
-    // OID 2.5.4.3 = commonName
-    if (typeAndValue.type === '2.5.4.3') {
-      commonName = typeAndValue.value.valueBlock.value ?? '';
-      break;
-    }
-  }
-
-  const issuerParts = cert.issuer.typesAndValues.map(tv => {
-    const value = tv.value.valueBlock.value ?? '';
-    return `${tv.type}=${value}`;
-  });
+function extractSignerInfo(x509) {
+  // Extract CN from subject
+  const cnMatch = x509.subject.match(/CN=([^\n]+)/);
+  const commonName = cnMatch ? cnMatch[1] : '';
 
   return {
     commonName,
-    issuer: issuerParts.join(', '),
-    validFrom: cert.notBefore.value.toISOString(),
-    validTo:   cert.notAfter.value.toISOString(),
+    issuer: x509.issuer.replace(/\n/g, ', '),
+    validFrom: new Date(x509.validFrom).toISOString(),
+    validTo: new Date(x509.validTo).toISOString(),
   };
 }
 
-// ---------------------------------------------------------------------------
-// EKU validation
-// ---------------------------------------------------------------------------
-
 /**
- * Returns true if the certificate contains the id-kp-timeStamping EKU.
- *
- * PKIjs ExtKeyUsage.keyPurposes is an array of OID dot-notation strings
- * (e.g. "1.3.6.1.5.5.7.3.8") after fromSchema() parsing.
- *
- * @param {pkijs.Certificate} cert
+ * Checks if an X509Certificate has the id-kp-timeStamping EKU.
+ * @param {X509Certificate} x509
  * @returns {boolean}
  */
-function hasTimestampingEku(cert) {
-  if (!cert.extensions) return false;
-  for (const ext of cert.extensions) {
-    if (ext.extnID !== OID_EXTENDED_KEY_USAGE) continue;
-    const eku = ext.parsedValue;
-    if (!eku || !Array.isArray(eku.keyPurposes)) return false;
-    return eku.keyPurposes.includes(OID_ID_KP_TIMESTAMPING);
+function hasTimestampingEku(x509) {
+  // node:crypto X509Certificate exposes EKU OIDs via keyUsage (array of OID strings)
+  const ku = x509.keyUsage;
+  if (!Array.isArray(ku)) return false;
+  return ku.includes(OID_ID_KP_TIMESTAMPING);
+}
+
+/**
+ * Builds a certificate chain from a leaf cert to a trusted root.
+ * Returns the chain (leaf -> intermediate(s) -> root) or null if no chain found.
+ *
+ * @param {X509Certificate} leaf
+ * @param {X509Certificate[]} pool  All available certs (bundled roots + intermediates)
+ * @returns {X509Certificate[] | null}
+ */
+function buildChain(leaf, pool) {
+  const chain = [leaf];
+  let current = leaf;
+  const maxDepth = 10;
+
+  for (let i = 0; i < maxDepth; i++) {
+    // Self-signed = root reached
+    if (current.checkIssued(current)) return chain;
+
+    // Find the issuer in the pool
+    const issuer = pool.find(c => {
+      try { return current.checkIssued(c); }
+      catch { return false; }
+    });
+    if (!issuer) return null;
+
+    chain.push(issuer);
+    current = issuer;
   }
-  return false;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +152,7 @@ function hasTimestampingEku(cert) {
  * timestamp token.
  *
  * @param {string} tokenBase64       Base64-encoded DER timestamp token
- * @param {string[]} trustedRootPems Array of PEM-encoded trusted root certificates
+ * @param {string[]} trustedRootPems Array of PEM-encoded trusted root/intermediate certificates
  * @param {string} [genTime]         ISO 8601 genTime from the timestamp (for cert validity check)
  * @returns {Promise<{
  *   valid: boolean,
@@ -149,8 +161,12 @@ function hasTimestampingEku(cert) {
  * }>}
  */
 export async function verifyCmsChain(tokenBase64, trustedRootPems, genTime) {
+  if (!trustedRootPems || trustedRootPems.length === 0) {
+    return { valid: false, detail: 'No trusted root certificates provided', signerInfo: null };
+  }
+
   // -------------------------------------------------------------------------
-  // Step 1: Parse the CMS ContentInfo envelope
+  // Step 1: Parse the CMS ContentInfo envelope with PKIjs
   // -------------------------------------------------------------------------
   let signedData;
   try {
@@ -166,77 +182,100 @@ export async function verifyCmsChain(tokenBase64, trustedRootPems, genTime) {
   }
 
   // -------------------------------------------------------------------------
-  // Step 2 & 3: Verify CMS signature + certificate chain via PKIjs
+  // Collect all available certificates: embedded in CMS + bundled
+  // -------------------------------------------------------------------------
+  const bundledX509 = trustedRootPems.map(pemToX509);
+
+  // Convert any CMS-embedded certs to X509Certificate
+  const embeddedX509 = (signedData.certificates || []).map(c => {
+    try { return pkijsToX509(c); }
+    catch { return null; }
+  }).filter(Boolean);
+
+  const allCerts = [...embeddedX509, ...bundledX509];
+
+  // -------------------------------------------------------------------------
+  // Find the signer certificate
+  // -------------------------------------------------------------------------
+  const signerInfo = signedData.signerInfos?.[0];
+  if (!signerInfo) {
+    return { valid: false, detail: 'No SignerInfo in CMS token', signerInfo: null };
+  }
+
+  // Match by issuer+serial (IssuerAndSerialNumber)
+  const sid = signerInfo.sid;
+  const signerSerial = Buffer.from(sid.serialNumber.valueBlock.valueHexView).toString('hex');
+
+  const signerX509 = allCerts.find(c => c.serialNumber.toLowerCase() === signerSerial);
+  if (!signerX509) {
+    return { valid: false, detail: 'Signer certificate not found in token or trusted store', signerInfo: null };
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 2: Verify the CMS cryptographic signature using node:crypto
   //
-  // We pass checkChain: true and trustedCerts from the caller.
-  // passedWhenNotRevValues: true is required for offline use (no CRL/OCSP).
+  // In CMS, when signedAttrs are present, the signature is over the DER
+  // encoding of the signedAttrs with the IMPLICIT [0] tag replaced by
+  // the universal SET OF tag (0x31).
   // -------------------------------------------------------------------------
-  const trustedCerts = trustedRootPems.map(pemToCertificate);
-  const checkDate = genTime ? new Date(genTime) : new Date();
-
-  let verifyResult;
   try {
-    verifyResult = await signedData.verify(
-      {
-        signer: 0,
-        checkChain: true,
-        trustedCerts,
-        checkDate,
-        passedWhenNotRevValues: true,
-        extendedMode: true,
-      },
-      _engine,
-    );
-  } catch (err) {
-    // PKIjs throws SignedDataVerifyError on failure; treat as verification failure
-    const msg = err?.message ?? String(err);
+    const signedAttrsDer = Buffer.from(signerInfo.signedAttrs.toSchema().toBER());
+    // Replace the IMPLICIT [0] tag (0xA0) with SET OF (0x31) for verification
+    signedAttrsDer[0] = 0x31;
 
-    // Distinguish chain failure from signature failure by error message content
-    if (
-      msg.includes('certificate') ||
-      msg.includes('chain') ||
-      msg.includes('trust') ||
-      msg.includes('issuer') ||
-      (typeof err?.code === 'number' && err.code === 5)
-    ) {
-      return { valid: false, detail: 'Certificate chain does not terminate at a trusted root', signerInfo: null };
+    const signature = Buffer.from(signerInfo.signature.valueBlock.valueHexView);
+
+    // Determine hash algorithm from digestAlgorithm
+    const digestAlgOid = signerInfo.digestAlgorithm.algorithmId;
+    const hashMap = {
+      '2.16.840.1.101.3.4.2.1': 'SHA256',
+      '2.16.840.1.101.3.4.2.2': 'SHA384',
+      '2.16.840.1.101.3.4.2.3': 'SHA512',
+      '1.3.14.3.2.26': 'SHA1',
+    };
+    const hashAlg = hashMap[digestAlgOid] || 'SHA256';
+
+    const verifier = createVerify(hashAlg);
+    verifier.update(signedAttrsDer);
+    const sigValid = verifier.verify(signerX509.publicKey, signature);
+
+    if (!sigValid) {
+      return { valid: false, detail: 'CMS signature verification failed', signerInfo: null };
     }
-    return { valid: false, detail: 'CMS signature verification failed', signerInfo: null };
-  }
-
-  // extendedMode returns an object; check signatureVerified
-  if (!verifyResult || !verifyResult.signatureVerified) {
-    return { valid: false, detail: 'CMS signature verification failed', signerInfo: null };
+  } catch (err) {
+    return { valid: false, detail: `CMS signature verification error: ${err.message}`, signerInfo: null };
   }
 
   // -------------------------------------------------------------------------
-  // Belt-and-suspenders: if trustedCerts is empty, PKIjs may still return true
-  // (see PKIjs issue #332). Guard explicitly.
+  // Step 3: Validate the certificate chain to a trusted root
+  //
+  // Uses node:crypto X509Certificate.checkIssued() to walk the chain.
   // -------------------------------------------------------------------------
-  if (trustedRootPems.length === 0) {
+  const chain = buildChain(signerX509, allCerts);
+  if (!chain) {
     return { valid: false, detail: 'Certificate chain does not terminate at a trusted root', signerInfo: null };
   }
 
-  // -------------------------------------------------------------------------
-  // Extract signer certificate
-  // -------------------------------------------------------------------------
-  const signerCert = verifyResult.signerCertificate;
-  if (!signerCert) {
-    return { valid: false, detail: 'CMS signature verification failed', signerInfo: null };
+  // The last cert in the chain must be self-signed (root) AND in our trusted set
+  const root = chain[chain.length - 1];
+  const isTrusted = bundledX509.some(tc => tc.fingerprint256 === root.fingerprint256);
+  if (!isTrusted) {
+    return { valid: false, detail: 'Certificate chain does not terminate at a trusted root', signerInfo: null };
   }
 
   // -------------------------------------------------------------------------
   // Step 4a: Extended Key Usage -- signer cert MUST have id-kp-timeStamping
   // -------------------------------------------------------------------------
-  if (!hasTimestampingEku(signerCert)) {
+  if (!hasTimestampingEku(signerX509)) {
     return { valid: false, detail: 'Signer certificate missing id-kp-timeStamping EKU', signerInfo: null };
   }
 
   // -------------------------------------------------------------------------
   // Step 4b: Validity period -- signer cert must have been valid at genTime
   // -------------------------------------------------------------------------
-  const notBefore = signerCert.notBefore.value;
-  const notAfter  = signerCert.notAfter.value;
+  const checkDate = genTime ? new Date(genTime) : new Date();
+  const notBefore = new Date(signerX509.validFrom);
+  const notAfter = new Date(signerX509.validTo);
   if (checkDate < notBefore || checkDate > notAfter) {
     return { valid: false, detail: 'Signer certificate was not valid at timestamp time', signerInfo: null };
   }
@@ -244,6 +283,6 @@ export async function verifyCmsChain(tokenBase64, trustedRootPems, genTime) {
   return {
     valid: true,
     detail: null,
-    signerInfo: extractSignerInfo(signerCert),
+    signerInfo: extractSignerInfo(signerX509),
   };
 }
