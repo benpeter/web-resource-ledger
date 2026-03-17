@@ -56,7 +56,8 @@ export async function computeCip(env, ip) {
     const hashBuf = await crypto.subtle.sign('HMAC', _cachedKey, encoder.encode(String(ip)));
     const hex = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
     return hex.slice(0, 16);
-  } catch {
+  } catch (err) {
+    console.warn('wrl:cip_hash_fail', err?.message);
     return undefined;
   }
 }

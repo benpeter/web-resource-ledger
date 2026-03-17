@@ -68,8 +68,16 @@ export async function dismissCookieConsent(page) {
     } else {
       return await _dismissWithPolling(page, start);
     }
-  } catch {
-    return { status: 'failed', cmp: null, durationMs: Date.now() - start };
+  } catch (err) {
+    return {
+      status: 'failed',
+      cmp: null,
+      durationMs: Date.now() - start,
+      _error: {
+        name: err?.constructor?.name ?? 'Unknown',
+        message: String(err?.message ?? '').slice(0, 256),
+      },
+    };
   }
 }
 
@@ -96,6 +104,7 @@ async function _dismissWithBinding(page, start) {
 
     switch (msg.type) {
       case 'init':
+        // Cross-origin or detached frames may reject evaluate -- non-fatal
         frame.evaluate((cfg) => {
           if (window.autoconsentReceiveMessage) {
             window.autoconsentReceiveMessage({ type: 'initResp', config: cfg });
@@ -140,7 +149,9 @@ async function _dismissWithBinding(page, start) {
             if (window.autoconsentReceiveMessage) {
               window.autoconsentReceiveMessage({ type: 'evalResp', id, result: res });
             }
+          // Cross-origin or detached frames may reject evaluate -- non-fatal
           }, { id: msg.id, res: result }).catch(() => {});
+        // Cross-origin or detached frames may reject evaluate -- non-fatal
         }).catch(() => {});
         break;
       }

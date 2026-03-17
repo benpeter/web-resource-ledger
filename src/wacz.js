@@ -42,7 +42,7 @@ const enc = new TextEncoder();
  * @param {{ SIGNING_KEY?: string }} env
  * @returns {Promise<{ waczBytes: Uint8Array, waczHash: string, bundleHash: string,
  *                     publicKeyBase64: string, keyId: string,
- *                     timestampStatus: 'present'|'absent'|'error' } | null>}
+ *                     timestampStatus: 'present'|'skipped'|'error' } | null>}
  */
 export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 1: Get signing keys -- graceful degradation if not configured
@@ -159,5 +159,5 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 11: Compute SHA-256 of the final WACZ bytes for content-addressed R2 key
   const waczHash = await sha256(waczBytes);
 
-  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'absent') };
+  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'skipped') };
 }

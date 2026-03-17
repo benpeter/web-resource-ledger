@@ -184,7 +184,14 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 8: Write pending record to KV (synchronously before returning 202)
   try {
     await createCapture(env.KV, captureId, result.url, result.ip, tenantId);
-  } catch {
+  } catch (err) {
+    ctx.waitUntil(log(env, 5, 'capture', {
+      event: 'capture.kv_create_fail',
+      captureId,
+      tenantId,
+      cip,
+      errorMessage: String(err?.message ?? '').slice(0, 256),
+    }) ?? Promise.resolve());
     return problemResponse(500, 'Could not create capture record');
   }
 
@@ -260,7 +267,7 @@ async function handleListCaptures(request, env, ctx) {
     result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
   } catch (err) {
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 3, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
     return problemResponse(500, 'Could not list captures');
   }
 
@@ -466,6 +473,12 @@ async function handleVerifyCapture(request, env, ctx, match) {
     if (keys) publicKeyBytes = keys.publicKeyBytes;
   }
   if (!publicKeyBytes) {
+    ctx.waitUntil(log(env, 5, 'security', {
+      event: 'signing.key_unavailable',
+      reason: env.SIGNING_KEY ? 'key_invalid' : 'key_absent',
+      captureId,
+      cip,
+    }) ?? Promise.resolve());
     return problemResponse(503, 'Verification service is not configured');
   }
 
@@ -543,7 +556,14 @@ async function handleGetSigningKey(request, env, ctx) {
   }
 
   const keys = await getSigningKeys(env);
-  if (!keys) return problemResponse(503, 'Signing is not configured');
+  if (!keys) {
+    ctx.waitUntil(log(env, 5, 'security', {
+      event: 'signing.key_unavailable',
+      reason: env.SIGNING_KEY ? 'key_invalid' : 'key_absent',
+      cip,
+    }) ?? Promise.resolve());
+    return problemResponse(503, 'Signing is not configured');
+  }
 
   // Use Array.from to avoid spread operator RangeError on large arrays
   const publicKeyBase64 = btoa(Array.from(keys.publicKeyBytes.slice()).map(b => String.fromCharCode(b)).join(''));

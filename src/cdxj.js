@@ -72,8 +72,10 @@ export function toSurt(url) {
     const surtHost = parts.join(','); // e.g. com,example,www
     const pathAndQuery = parsed.pathname + (parsed.search || '') + (parsed.hash || '');
     return `${surtHost})${pathAndQuery}`;
-  } catch {
-    // Fallback: return URL as-is if parsing fails
+  } catch (err) {
+    // Log scheme and length only -- URL may contain attacker-controlled subresource paths
+    const scheme = typeof url === 'string' ? url.split(':')[0] : 'unknown';
+    console.warn('wrl:cdxj_surt_parse_fail', { scheme, length: url?.length });
     return url;
   }
 }
