@@ -1,15 +1,8 @@
 /**
- * cli-args.test.js -- Argument parsing tests for parseArgs (via run())
+ * cli-args.test.js -- Argument parsing and CLI behavior tests
  *
- * cli.js does not export parseArgs, so we test it indirectly by observing
- * the behavior of run() or by reflectively checking the parse results
- * through controlled inputs.
- *
- * Strategy: Most argument parsing tests call parseArgs by extracting it
- * from the module via a thin wrapper. Since cli.js doesn't export parseArgs,
- * we replicate its behavior in a local helper that mirrors the real code,
- * and then separately test run() for exit-code and error-message behavior
- * using subprocess spawning.
+ * parseArgs is imported directly from cli.js for unit tests.
+ * CLI behavior (exit codes, error messages) is tested via subprocess spawning.
  */
 
 import { describe, it } from 'node:test';
@@ -17,6 +10,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { parseArgs } from '../lib/cli.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'wrl-verify.js');
@@ -33,64 +27,7 @@ function runCli(...args) {
 }
 
 // ---------------------------------------------------------------------------
-// Replicated argument parser for unit testing parse logic in isolation
-// ---------------------------------------------------------------------------
-// This mirrors parseArgs() from cli.js so that we can unit-test it without
-// spawning a subprocess for every case. If cli.js parseArgs changes, update here.
-
-function parseArgs(argv) {
-  const opts = {
-    target:        null,
-    origin:        null,
-    key:           null,
-    keyFile:       null,
-    trustEmbedded: false,
-    trustRoots:    [],
-    json:          false,
-    noColor:       false,
-    help:          false,
-    version:       false,
-  };
-
-  let i = 0;
-  while (i < argv.length) {
-    const arg = argv[i];
-
-    if (arg === '-h' || arg === '--help') { opts.help = true; i++; continue; }
-    if (arg === '--version')              { opts.version = true; i++; continue; }
-    if (arg === '--trust-embedded')       { opts.trustEmbedded = true; i++; continue; }
-    if (arg === '--json')                 { opts.json = true; i++; continue; }
-    if (arg === '--no-color')             { opts.noColor = true; i++; continue; }
-
-    if (arg === '--origin') {
-      if (i + 1 >= argv.length) throw new Error('--origin requires a value');
-      opts.origin = argv[++i]; i++; continue;
-    }
-    if (arg === '--key') {
-      if (i + 1 >= argv.length) throw new Error('--key requires a value');
-      opts.key = argv[++i]; i++; continue;
-    }
-    if (arg === '--key-file') {
-      if (i + 1 >= argv.length) throw new Error('--key-file requires a value');
-      opts.keyFile = argv[++i]; i++; continue;
-    }
-    if (arg === '--trust-root') {
-      if (i + 1 >= argv.length) throw new Error('--trust-root requires a value');
-      opts.trustRoots.push(argv[++i]); i++; continue;
-    }
-
-    if (arg.startsWith('-')) throw new Error(`Unknown flag: ${arg}`);
-
-    if (opts.target === null) { opts.target = arg; }
-    else { throw new Error(`Unexpected argument: ${arg}`); }
-    i++;
-  }
-
-  return opts;
-}
-
-// ---------------------------------------------------------------------------
-// Argument parsing unit tests (via local mirror)
+// Argument parsing unit tests (using exported parseArgs from cli.js)
 // ---------------------------------------------------------------------------
 
 describe('parseArgs -- boolean flags', () => {

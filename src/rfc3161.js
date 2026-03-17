@@ -263,7 +263,7 @@ export function verifyTimestamp(tokenBase64, expectedBundleHash) {
  *     OCTET STRING <32 bytes>          -- hashedMessage
  *   }
  *   INTEGER <16 bytes>                 -- nonce (with sign-extension if needed)
- *   [0] BOOLEAN TRUE                   -- certReq (implicit, tag 0x80)
+ *   BOOLEAN TRUE                        -- certReq (tag 0x01)
  * }
  *
  * @param {Uint8Array} hashBytes  32-byte SHA-256 hash of the bundle

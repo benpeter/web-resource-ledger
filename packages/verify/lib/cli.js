@@ -90,7 +90,7 @@ TRUST MODEL
  * }}
  * @throws {Error} on unknown or malformed flags
  */
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const opts = {
     target:        null,
     origin:        null,
