@@ -17,7 +17,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord } from './kv.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord } from './kv.js';
 import { log } from './log.js';
 
 const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
@@ -180,32 +180,70 @@ export async function handleAdminListKeys(request, env, ctx) {
 export async function handleAdminRevokeKey(request, env, ctx, match) {
   const keyHash = match[1];
 
-  const result = await revokeApiKeyRecord(env.KV, keyHash);
+  // TODO: Self-revocation guard (#42). When admin auth moves from ADMIN_KEY
+  // (env var) to KV-stored admin-scoped keys, prevent a caller from revoking
+  // their own keyHash. Requires the auth result to include the caller's
+  // keyHash, which it currently does not (ADMIN_KEY has no hash).
 
-  if (!result.revoked) {
+  // Pre-flight read
+  const record = await getApiKeyRecord(env.KV, keyHash);
+
+  if (!record) {
     ctx.waitUntil(log(env, 4, 'admin', {
       event: 'admin.key_revoke_fail',
       keyHashPrefix: keyHash.slice(0, 8),
-      reason: result.reason,
+      reason: 'not_found',
     }) ?? Promise.resolve());
     return problemResponse(404, 'API key not found.', ADMIN_CACHE);
   }
 
-  // Detect idempotency: revokeApiKeyRecord only writes a new revokedAt when actually
-  // revoking. On the already-revoked path it returns the existing record unchanged.
-  // Heuristic: if revokedAt is more than 5 seconds before now, this was a pre-existing
-  // revocation (idempotent call). Not security-critical -- this is logging metadata only.
-  const revokedMs = result.record.revokedAt ? new Date(result.record.revokedAt).getTime() : 0;
-  const logIdempotent = revokedMs > 0 && (Date.now() - revokedMs) > 5000;
+  // Idempotent: already revoked -- return 200 without writing again
+  if (record.revoked === true) {
+    ctx.waitUntil(log(env, 3, 'admin', {
+      event: 'admin.key_revoke',
+      keyHashPrefix: keyHash.slice(0, 8),
+      tenantId: record.tenantId,
+      idempotent: true,
+    }) ?? Promise.resolve());
+    return jsonResponse({
+      keyHash,
+      tenantId: record.tenantId,
+      scopes: record.scopes,
+      name: record.name,
+      createdAt: record.createdAt,
+      revoked: true,
+      revokedAt: record.revokedAt,
+    }, 200, ADMIN_CACHE);
+  }
+
+  // Last-admin-key guard: only applies when the target key carries the 'admin' scope
+  if (record.scopes.includes('admin')) {
+    // KNOWN LIMITATION: This check is not atomic with the subsequent
+    // revocation. Concurrent requests may both pass the check. Acceptable
+    // because ADMIN_KEY (env var) prevents lockout. Revisit when admin
+    // auth moves to per-tenant KV keys.
+    const activeKeys = await listApiKeyRecords(env.KV, { tenantId: record.tenantId, includeRevoked: false });
+    const otherAdminCount = activeKeys.filter(r => r.scopes.includes('admin') && r.keyHash !== keyHash).length;
+    if (otherAdminCount === 0) {
+      ctx.waitUntil(log(env, 3, 'admin', {
+        event: 'admin.key_revoke_blocked',
+        keyHashPrefix: keyHash.slice(0, 8),
+        tenantId: record.tenantId,
+      }) ?? Promise.resolve());
+      return problemResponse(409, `Cannot revoke the last admin-scoped key for tenant '${record.tenantId}'. Create a replacement key first.`, ADMIN_CACHE);
+    }
+  }
+
+  const result = await revokeApiKeyRecord(env.KV, keyHash);
 
   ctx.waitUntil(log(env, 3, 'admin', {
     event: 'admin.key_revoke',
     keyHashPrefix: keyHash.slice(0, 8),
     tenantId: result.record.tenantId,
-    idempotent: logIdempotent,
+    idempotent: false,
   }) ?? Promise.resolve());
 
-  const responseBody = {
+  return jsonResponse({
     keyHash,
     tenantId: result.record.tenantId,
     scopes: result.record.scopes,
@@ -213,7 +251,5 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     createdAt: result.record.createdAt,
     revoked: true,
     revokedAt: result.record.revokedAt,
-  };
-
-  return jsonResponse(responseBody, 200, ADMIN_CACHE);
+  }, 200, ADMIN_CACHE);
 }

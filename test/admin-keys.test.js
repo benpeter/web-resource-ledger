@@ -328,6 +328,113 @@ describe('DELETE /v1/admin/keys/{keyHash}', () => {
     const res = await adminDelete(keyHash);
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
   });
+
+  // -------------------------------------------------------------------------
+  // Last-admin-key guard
+  // -------------------------------------------------------------------------
+
+  describe('Last-admin-key guard', () => {
+    let guardPost, guardDelete;
+    beforeEach(() => {
+      const ip = nextIp();
+      guardPost = makeAdminPost(ip);
+      guardDelete = makeAdminDelete(ip);
+      return cleanupApiKeys();
+    });
+    afterEach(cleanupApiKeys);
+
+    it('409 when revoking the only admin-scoped key', async () => {
+      const createRes = await guardPost({ tenantId: 'tenant-guard', scopes: ['admin'], name: 'sole admin' });
+      expect(createRes.status).toBe(201);
+      const { keyHash } = await createRes.json();
+
+      const deleteRes = await guardDelete(keyHash);
+      expect(deleteRes.status).toBe(409);
+
+      // Key must still be active
+      const getIp = nextIp();
+      const listRes = await SELF.fetch('https://worker.test/v1/admin/keys?tenant=tenant-guard&include=revoked', {
+        headers: { Authorization: ADMIN_AUTH, 'CF-Connecting-IP': getIp },
+      });
+      const body = await listRes.json();
+      const key = body.data.find(k => k.keyHash === keyHash);
+      expect(key).toBeDefined();
+      expect(key.revoked).toBeFalsy();
+    });
+
+    it('200 when another admin key exists', async () => {
+      const r1 = await guardPost({ tenantId: 'tenant-guard2', scopes: ['admin'], name: 'admin-1' });
+      const r2 = await guardPost({ tenantId: 'tenant-guard2', scopes: ['admin'], name: 'admin-2' });
+      expect(r1.status).toBe(201);
+      expect(r2.status).toBe(201);
+      const { keyHash: kh1 } = await r1.json();
+
+      const deleteRes = await guardDelete(kh1);
+      expect(deleteRes.status).toBe(200);
+    });
+
+    it('200 for non-admin key even if only key', async () => {
+      const createRes = await guardPost({ tenantId: 'tenant-guard3', scopes: ['capture'], name: 'capture-only' });
+      expect(createRes.status).toBe(201);
+      const { keyHash } = await createRes.json();
+
+      const deleteRes = await guardDelete(keyHash);
+      expect(deleteRes.status).toBe(200);
+    });
+
+    it('idempotent re-delete of revoked admin key returns 200', async () => {
+      const r1 = await guardPost({ tenantId: 'tenant-guard4', scopes: ['admin'], name: 'admin-a' });
+      const r2 = await guardPost({ tenantId: 'tenant-guard4', scopes: ['admin'], name: 'admin-b' });
+      expect(r1.status).toBe(201);
+      expect(r2.status).toBe(201);
+      const { keyHash: kh1 } = await r1.json();
+
+      // First delete succeeds
+      const del1 = await guardDelete(kh1);
+      expect(del1.status).toBe(200);
+
+      // Second delete on already-revoked key -- guard must be skipped, return 200
+      const del2 = await guardDelete(kh1);
+      expect(del2.status).toBe(200);
+    });
+
+    it('409 is tenant-scoped -- another tenant admin key does not count', async () => {
+      // tenant-a has one admin key
+      const ipA = nextIp();
+      const postA = makeAdminPost(ipA);
+      const deleteA = makeAdminDelete(ipA);
+      const rA = await postA({ tenantId: 'tenant-a-guard', scopes: ['admin'], name: 'a-admin' });
+      expect(rA.status).toBe(201);
+      const { keyHash: khA } = await rA.json();
+
+      // tenant-b also has an admin key (should NOT save tenant-a)
+      const ipB = nextIp();
+      const postB = makeAdminPost(ipB);
+      await postB({ tenantId: 'tenant-b-guard', scopes: ['admin'], name: 'b-admin' });
+
+      // Deleting tenant-a's sole admin key must still 409
+      const deleteRes = await deleteA(khA);
+      expect(deleteRes.status).toBe(409);
+    });
+
+    it('409 response follows RFC 9457', async () => {
+      const createRes = await guardPost({ tenantId: 'tenant-guard5', scopes: ['admin'], name: 'only-admin' });
+      expect(createRes.status).toBe(201);
+      const { keyHash } = await createRes.json();
+
+      const deleteRes = await guardDelete(keyHash);
+      expect(deleteRes.status).toBe(409);
+      expect(deleteRes.headers.get('Content-Type')).toContain('application/problem+json');
+
+      const body = await deleteRes.json();
+      expect(body.type).toBe('about:blank');
+      expect(body.status).toBe(409);
+      expect(typeof body.title).toBe('string');
+      expect(body.title.length).toBeGreaterThan(0);
+      expect(typeof body.detail).toBe('string');
+      expect(body.detail).toContain('tenant-guard5');
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
