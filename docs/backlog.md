@@ -37,7 +37,7 @@ word "evidence" defensible.
 
 - #41 **R11: RFC 3161 timestamp integration** [L] -- third-party temporal proof; depends on R2
 - #42 **R12: Per-tenant API keys and tenant isolation** [L] -- gated on multi-user decision; depends on R1, R8
-- #43 **R13: Audit logging** [S] -- full audit trail; depends on R12
+- ~~#43 **R13: Audit logging** [S]~~ -- DONE: dedicated `audit` subsystem with structured events on all authenticated requests; keyId fingerprinting; SSRF audit trail; ships ahead of R12 with static keyId
 - ~~#44 **R14: Production CD pipeline** [M]~~ -- DONE: deploy-production.yml, OPERATIONS.md, environment protection
 
 ## Act 3: Infrastructure (longer-horizon)
@@ -118,6 +118,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Cross-document anchor link lint in CI | When cross-document link rot is observed | software-docs-minion, 0026-secrets-env-docs-onboarding |
 | [consider] Session pre-warming via cron | When Coralogix shows cold-start latency is measurable | iac-minion |
 | [consider] Coralogix alerting rules | When operational load justifies alerting | observability-minion, mvo-coralogix |
+| [consider] validateUrl() machine-readable reason codes | When url-validation.js is next modified; replaces SSRF reason string-sniffing | code-review, margo, Phase 0038 |
 | [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
 | [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
@@ -189,8 +190,9 @@ Completed items removed from active tracking:
 - ~~Cross-domain navigation blocking~~ -- DONE (playwright-migration)
 - ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint)
 - ~~R6: Hashed IP logging~~ -- DONE (hashed-ip-logging phase): HMAC-SHA256 `cip` field, daily key rotation, graceful degradation
-- ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
+- ~~Security event logging~~ -- DONE (mvo-coralogix + R13 audit logging): auth failures, SSRF blocks, rate limit hits, and full audit trail on authenticated requests
 - ~~HSTS header~~ -- DONE (static-verification-page)
+- ~~R13: Audit logging~~ -- DONE (Phase 0038): dedicated `audit` subsystem, keyId fingerprinting, SSRF/KV-error audit events, INVARIANT fix
 - ~~R14: Production CD pipeline~~ -- DONE (cd-pipeline phase): deploy-production.yml, OPERATIONS.md, environment protection with approval gate
 
 ---
