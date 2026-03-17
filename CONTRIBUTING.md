@@ -38,16 +38,19 @@ The README covers the Cloudflare setup in detail.
 
 ## Staging & Deployment
 
-Merging to `main` automatically runs three jobs in sequence:
-**CI tests** -> **staging deploy** -> **smoke tests** (`deploy-staging.yml`).
-All three must pass; a failed smoke test blocks the deployment from being
-considered complete.
+Merging to `main` triggers the full two-stage pipeline:
 
-**Deploy to staging manually:**
+**CI tests** -> **staging deploy** -> **staging smoke** (`deploy-staging.yml`) -> **production deploy** -> **production smoke** (`deploy-production.yml`)
+
+All staging jobs must pass before the production workflow triggers. A failed staging smoke test blocks the production deploy.
+
+Using the GitHub Actions UI (Actions > Deploy to Staging > Run workflow) also triggers both stages on completion. Using the CLI deploys to staging only:
 
 ```bash
 wrangler deploy --env staging
 ```
+
+This does NOT trigger the production pipeline.
 
 **Set staging secrets** (one-time, or when rotating):
 
