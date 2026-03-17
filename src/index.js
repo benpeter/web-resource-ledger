@@ -132,10 +132,10 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 2: Auth check
   const auth = await verifyApiKey(request, env);
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, outcome: 'denied', cip }) ?? Promise.resolve());
     return auth.response;
   }
-  const { tenantId } = auth;
+  const { tenantId, keyId } = auth;
 
   // Step 3: Rate limit check
   if (env.CAPTURE_RATE_LIMITER) {
@@ -174,7 +174,26 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
   if (!result.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
+    const ssrfReason = result.detail.includes('scheme')
+      ? 'url_scheme_not_allowed'
+      : result.detail.includes('private')
+        ? 'private_ip_blocked'
+        : result.detail.includes('credentials')
+          ? 'credentials_not_allowed'
+          : result.detail.includes('resolve')
+            ? 'dns_resolution_failed'
+            : 'ssrf_blocked_other';
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, keyId, reason: ssrfReason, outcome: 'denied', cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'audit', {
+      event: 'audit.capture.create',
+      tenantId,
+      keyId,
+      action: 'create',
+      resource: 'capture',
+      resourceId: null,
+      outcome: 'denied',
+      cip,
+    }) ?? Promise.resolve());
     return problemResponse(result.status, result.detail);
   }
 
@@ -192,6 +211,16 @@ async function handleCreateCapture(request, env, ctx) {
       cip,
       errorMessage: String(err?.message ?? '').slice(0, 256),
     }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'audit', {
+      event: 'audit.capture.create',
+      tenantId,
+      keyId,
+      action: 'create',
+      resource: 'capture',
+      resourceId: null,
+      outcome: 'error',
+      cip,
+    }) ?? Promise.resolve());
     return problemResponse(500, 'Could not create capture record');
   }
 
@@ -202,6 +231,16 @@ async function handleCreateCapture(request, env, ctx) {
   const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
 
   // Step 11: Return 202
+  ctx.waitUntil(log(env, 3, 'audit', {
+    event: 'audit.capture.create',
+    tenantId,
+    keyId,
+    action: 'create',
+    resource: 'capture',
+    resourceId: captureId,
+    outcome: 'success',
+    cip,
+  }) ?? Promise.resolve());
   return jsonResponse({
     id: captureId,
     statusUrl,
@@ -216,9 +255,10 @@ async function handleListCaptures(request, env, ctx) {
   // Step 1: Auth check
   const auth = await verifyApiKey(request, env);
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, outcome: 'denied', cip }) ?? Promise.resolve());
     return auth.response;
   }
+  const { tenantId, keyId } = auth;
 
   // Step 2: Rate limit checks (reuse capture limiters -- list is read-only but
   // fans out to N+1 KV operations, so both per-IP and global limits apply)
@@ -264,10 +304,20 @@ async function handleListCaptures(request, env, ctx) {
   // Step 5: List captures
   let result;
   try {
-    result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
+    result = await listCaptures(env.KV, tenantId, { cursor, limit, status: statusParam });
   } catch (err) {
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId, keyId, errorClass: err.constructor.name, durationMs, outcome: 'error', cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'audit', {
+      event: 'audit.capture.list',
+      tenantId,
+      keyId,
+      action: 'list',
+      resource: 'capture',
+      resourceId: null,
+      outcome: 'error',
+      cip,
+    }) ?? Promise.resolve());
     return problemResponse(500, 'Could not list captures');
   }
 
@@ -298,11 +348,21 @@ async function handleListCaptures(request, env, ctx) {
   const durationMs = Date.now() - start;
   ctx.waitUntil(log(env, 6, 'list', {
     event: 'list.success',
-    tenantId: auth.tenantId,
+    tenantId,
     resultCount: data.length,
     status: statusParam || 'all',
     cursor: result.pagination.cursor ? 'present' : 'absent',
     durationMs,
+    cip,
+  }) ?? Promise.resolve());
+  ctx.waitUntil(log(env, 3, 'audit', {
+    event: 'audit.capture.list',
+    tenantId,
+    keyId,
+    action: 'list',
+    resource: 'capture',
+    resourceId: null,
+    outcome: 'success',
     cip,
   }) ?? Promise.resolve());
 

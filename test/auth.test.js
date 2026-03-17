@@ -39,13 +39,32 @@ describe('verifyApiKey -- success', () => {
     expect(result.tenantId).toBe('default');
   });
 
-  it('error results do not include tenantId', async () => {
+  it('returns keyId as 8 hex chars on success', async () => {
+    const result = await verifyApiKey(
+      makeRequest(`Bearer ${TEST_KEY}`),
+      makeEnv(),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.keyId).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('keyId is deterministic for the same key', async () => {
+    const req = () => makeRequest(`Bearer ${TEST_KEY}`);
+    const r1 = await verifyApiKey(req(), makeEnv());
+    const r2 = await verifyApiKey(req(), makeEnv());
+    expect(r1.ok).toBe(true);
+    expect(r2.ok).toBe(true);
+    expect(r1.keyId).toBe(r2.keyId);
+  });
+
+  it('error results do not include tenantId or keyId', async () => {
     const result = await verifyApiKey(
       makeRequest('Bearer wrong-key'),
       makeEnv(),
     );
     expect(result.ok).toBe(false);
     expect(result.tenantId).toBeUndefined();
+    expect(result.keyId).toBeUndefined();
   });
 });
 

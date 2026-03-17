@@ -46,3 +46,4 @@ software development.
 | [0035-cli-verify-tool](0035-cli-verify-tool/) | Zero-install CLI tool for full cryptographic verification of captures (Issue #78) |
 | [0036-fail-loudly-2](0036-fail-loudly-2/) | Eliminate silent catch blocks — fail loudly on unexpected errors (Issue #70) |
 | [0037-staging-deploy-race-condition](0037-staging-deploy-race-condition/) | Fix staging-production deploy race condition with workflow_run trigger (Issue #86) |
+| [0038-audit-logging](0038-audit-logging/) | Audit logging for authenticated API requests (Issue #43) |

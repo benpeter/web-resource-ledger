@@ -24,14 +24,16 @@ const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
  * the CAPTURE_API_KEY environment binding.
  *
  * Returns a discriminated result object; NEVER throws for auth failures.
- * Error results do NOT include tenantId -- a failed auth reveals nothing
+ * Error results do NOT include tenantId or keyId -- a failed auth reveals nothing
  * about tenant structure.
  *
  * @param {Request} request
  * @param {{ CAPTURE_API_KEY?: string }} env
- * @returns {Promise<{ ok: true, tenantId: string } | { ok: false, response: Response }>}
+ * @returns {Promise<{ ok: true, tenantId: string, keyId: string } | { ok: false, response: Response }>}
  *   On success, tenantId matches /^[a-z0-9_-]{1,64}$/ -- callers may use it
  *   in key construction without further sanitization.
+ *   keyId is a logging label only -- do not use for access control. It is an
+ *   8-hex-char SHA-256 prefix with no meaningful second-preimage resistance.
  */
 export async function verifyApiKey(request, env) {
   // Step 1: Misconfiguration guard
@@ -91,5 +93,14 @@ export async function verifyApiKey(request, env) {
   if (!TENANT_ID_RE.test(tenantId)) {
     return { ok: false, response: problemResponse(500, 'Tenant configuration error') };
   }
-  return { ok: true, tenantId };
+
+  // Compute keyId: first 8 hex chars of SHA-256(CAPTURE_API_KEY).
+  // This is a logging label only -- 32 bits of a 256-bit hash, not a verifiable identity.
+  const hashBuf = await crypto.subtle.digest('SHA-256', enc.encode(env.CAPTURE_API_KEY));
+  const keyId = Array.from(new Uint8Array(hashBuf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 8);
+
+  return { ok: true, tenantId, keyId };
 }
