@@ -1,0 +1,1 @@
+Add strict field validation to POST /v1/admin/keys in admin.js. After parsing the JSON body, check that all top-level keys are in the allowed set {tenantId, scopes, name}. If any unknown field is present, return 400 with detail "Unknown field '{fieldName}'. Allowed fields: tenantId, scopes, name". Add a test case in test/admin-keys.test.js.
