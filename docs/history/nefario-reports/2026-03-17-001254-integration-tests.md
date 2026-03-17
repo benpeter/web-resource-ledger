@@ -7,7 +7,7 @@ mode: execution
 task-count: 2
 gate-count: 0
 agents: test-minion, iac-minion
-evolution: 0032-integration-tests
+evolution: 0034-integration-tests
 ---
 
 ## Summary

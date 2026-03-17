@@ -47,7 +47,7 @@ No conflicts. The task was well-scoped and the two specialists operated in non-o
 - **Compaction skipped**: Context remained within bounds throughout.
 - **Phase 3.5 skipped**: Architecture review auto-approved.
 - **Total specialists**: 2 (test-minion, iac-minion)
-- **Evolution log**: `docs/evolution/0032-integration-tests/`
+- **Evolution log**: `docs/evolution/0034-integration-tests/`
 
 ## Where to read more
 
