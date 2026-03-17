@@ -10,11 +10,12 @@ A `test:integration` script that exercises the real capture pipeline — headles
 |------|-------|---------|
 | `vitest.integration.config.js` | 37 | Separate vitest config: 60s timeout, globalSetup, browserRendering binding |
 | `test/integration/global-setup.js` | 72 | Node.js HTTP server serving fixtures on port 0 (127.0.0.1) |
-| `test/integration/capture-pipeline.test.js` | 175 | 7 core integration tests (baseline, TSA, never-settle, consent, timing) |
+| `test/integration/capture-pipeline.test.js` | 216 | 9 core integration tests (baseline, TSA, never-settle, consent, iframe, timing) |
 | `test/integration/advisory.test.js` | 51 | Real-URL test against example.com (allowed-to-fail) |
 | `test/integration/fixtures/fast.html` | 4 | Simple static page — baseline sanity |
 | `test/integration/fixtures/never-settle.html` | 13 | Continuous fetch polling — catches #67-class bugs |
 | `test/integration/fixtures/cookie-banner.html` | 7 | Clean page — validates consent injection runs without errors |
+| `test/integration/fixtures/with-iframe.html` | 8 | Page with same-origin iframe — exercises PR #82 multi-frame code paths |
 | `vitest.config.js` (modified) | +1 | `exclude: ['test/integration/**']` to prevent unit test pickup |
 | `package.json` (modified) | +1 | `"test:integration"` script |
 | `.github/workflows/ci.yml` (modified) | +28 | Parallel `test-integration` job, `continue-on-error: true` |
@@ -35,7 +36,7 @@ A `test:integration` script that exercises the real capture pipeline — headles
 
 ### Test results (local)
 
-- **Core tests**: 7/7 passed (~87s total, ~12s per test)
+- **Core tests**: 9/9 passed (~110s total, ~12s per test)
 - **Advisory test**: 1/1 passed (~12s, example.com captured with WACZ + timestamp)
 - **Unit tests**: 503/503 passed (~6s, no regression)
 

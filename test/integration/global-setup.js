@@ -32,6 +32,7 @@ export async function setup({ provide }) {
       '/fast.html': 'fast.html',
       '/never-settle.html': 'never-settle.html',
       '/cookie-banner.html': 'cookie-banner.html',
+      '/with-iframe.html': 'with-iframe.html',
     };
 
     const filename = fixtureMap[url.pathname];

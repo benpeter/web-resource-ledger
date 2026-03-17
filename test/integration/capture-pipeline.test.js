@@ -168,6 +168,49 @@ describe('integration: cookie-banner page -- consent injection', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Iframe page: multi-frame consent injection (PR #82 follow-up)
+// ---------------------------------------------------------------------------
+
+describe('integration: page with iframe -- multi-frame consent injection', () => {
+  const captureId = 'cap_inttest00000000000000000000a6';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('captures a page containing an iframe with full quality', async () => {
+    // Exercises the route handler's main-frame-only cross-domain blocking
+    // and consent.js multi-frame autoconsent injection (PR #82 code paths).
+    const port = inject('testServerPort');
+    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', 'default');
+    await performCapture(env, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.KV, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('full');
+  });
+
+  it('captures rendered HTML that includes iframe content', async () => {
+    // Validates the iframe actually loaded (not blocked by route handler).
+    // The rendered HTML should contain both the main page marker and the
+    // iframe element. The iframe's inner content (fast.html) won't appear
+    // in page.content() (same-origin iframes have separate DOMs), but the
+    // iframe element itself proves the route handler didn't block it.
+    const port = inject('testServerPort');
+    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', 'default');
+    await performCapture(env, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.KV, captureId);
+    const htmlObj = await env.BUCKET.get(record.artifacts.html);
+    const html = await htmlObj.text();
+    expect(html).toContain('main-frame-loaded');
+    expect(html).toContain('<iframe');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Timeout budget: stage timings present and within 30s budget
 // ---------------------------------------------------------------------------
 
