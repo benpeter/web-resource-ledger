@@ -1,0 +1,219 @@
+/*
+ * admin.js -- Admin API endpoint handlers for API key management
+ *
+ * Endpoints:
+ *   POST   /v1/admin/keys          -- create new API key
+ *   GET    /v1/admin/keys          -- list API keys
+ *   DELETE /v1/admin/keys/:keyHash -- revoke API key
+ *
+ * Auth: all routes use verifyAdminKey (infrastructure secret), NOT verifyApiKey.
+ * Rate limit: ADMIN_RATE_LIMITER, 5 req/60s per IP.
+ *
+ * Security invariants:
+ *   - Raw key is NEVER logged; only returned in the 201 response body.
+ *   - keyHash in path is validated by route regex before reaching handler.
+ *   - All responses set Cache-Control: private, no-store.
+ */ // tva
+
+import { jsonResponse, problemResponse } from './responses.js';
+import { hashApiKey } from './auth.js';
+import { createApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord } from './kv.js';
+import { log } from './log.js';
+
+const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
+const NAME_RE = /^[\x20-\x7E]{1,128}$/;
+const VALID_SCOPES = ['capture', 'read', 'admin'];
+
+const ADMIN_CACHE = { 'Cache-Control': 'private, no-store' };
+
+/**
+ * Encode a Uint8Array to base64url without padding.
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+function toBase64url(bytes) {
+  const b64 = btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
+ * POST /v1/admin/keys -- create a new API key
+ */
+export async function handleAdminCreateKey(request, env, ctx) {
+  // Content-Type check
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+
+  // Parse body
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+
+  // Validate tenantId
+  if (!body || !Object.prototype.hasOwnProperty.call(body, 'tenantId')) {
+    return problemResponse(400, "Field 'tenantId' is required");
+  }
+  if (typeof body.tenantId !== 'string') {
+    return problemResponse(400, "Field 'tenantId' must be a string");
+  }
+  if (!TENANT_ID_RE.test(body.tenantId)) {
+    return problemResponse(400, "Field 'tenantId' must match /^[a-z0-9_-]{1,64}$/");
+  }
+
+  // Validate scopes
+  if (!Object.prototype.hasOwnProperty.call(body, 'scopes')) {
+    return problemResponse(400, "Field 'scopes' is required");
+  }
+  if (!Array.isArray(body.scopes) || body.scopes.length === 0) {
+    return problemResponse(400, "Field 'scopes' must be a non-empty array");
+  }
+  for (const scope of body.scopes) {
+    if (!VALID_SCOPES.includes(scope)) {
+      return problemResponse(400, `Field 'scopes' contains invalid value '${scope}'; must be one of: capture, read, admin`);
+    }
+  }
+
+  // Validate name
+  if (!Object.prototype.hasOwnProperty.call(body, 'name')) {
+    return problemResponse(400, "Field 'name' is required");
+  }
+  if (typeof body.name !== 'string') {
+    return problemResponse(400, "Field 'name' must be a string");
+  }
+  if (!NAME_RE.test(body.name)) {
+    return problemResponse(400, "Field 'name' must be 1-128 printable ASCII characters");
+  }
+
+  // Generate key
+  const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+  const rawKey = 'wrl_live_' + toBase64url(randomBytes);
+
+  // Hash key
+  const keyHash = await hashApiKey(rawKey);
+
+  // Build record
+  const createdAt = new Date().toISOString();
+  const record = {
+    tenantId: body.tenantId,
+    scopes: body.scopes,
+    name: body.name,
+    createdAt,
+    createdBy: 'admin',
+    revoked: false,
+    revokedAt: null,
+  };
+
+  // Store in KV
+  const result = await createApiKeyRecord(env.KV, keyHash, record);
+  if (!result.created) {
+    // Hash collision is astronomically rare; treat as internal error
+    ctx.waitUntil(log(env, 5, 'admin', { event: 'admin.key_create_fail', reason: result.reason }) ?? Promise.resolve());
+    return problemResponse(500, 'Key generation failed. Please retry.');
+  }
+
+  // Log (never log rawKey)
+  ctx.waitUntil(log(env, 3, 'admin', {
+    event: 'admin.key_create',
+    keyHashPrefix: keyHash.slice(0, 8),
+    tenantId: body.tenantId,
+    scopes: body.scopes,
+    name: body.name,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({
+    key: rawKey,
+    keyHash,
+    tenantId: body.tenantId,
+    scopes: body.scopes,
+    name: body.name,
+    createdAt,
+    warning: 'Store this key now. It cannot be retrieved after this response.',
+  }, 201, ADMIN_CACHE);
+}
+
+/**
+ * GET /v1/admin/keys -- list API keys
+ */
+export async function handleAdminListKeys(request, env, ctx) {
+  const params = new URL(request.url).searchParams;
+  const tenantFilter = params.get('tenant') || undefined;
+  const includeRevoked = params.get('include') === 'revoked';
+
+  const records = await listApiKeyRecords(env.KV, { tenantId: tenantFilter, includeRevoked });
+
+  // Project to API response shape
+  const data = records.map(r => {
+    const entry = {
+      keyHash: r.keyHash,
+      tenantId: r.tenantId,
+      scopes: r.scopes,
+      name: r.name,
+      createdAt: r.createdAt,
+      createdBy: r.createdBy,
+    };
+    if (r.revoked) {
+      entry.revoked = true;
+      entry.revokedAt = r.revokedAt;
+    }
+    return entry;
+  });
+
+  ctx.waitUntil(log(env, 6, 'admin', {
+    event: 'admin.key_list',
+    count: data.length,
+    tenantFilter: tenantFilter || null,
+    includeRevoked,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({ data }, 200, ADMIN_CACHE);
+}
+
+/**
+ * DELETE /v1/admin/keys/:keyHash -- revoke API key
+ * match[1] is the keyHash captured by the route regex (64 hex chars)
+ */
+export async function handleAdminRevokeKey(request, env, ctx, match) {
+  const keyHash = match[1];
+
+  const result = await revokeApiKeyRecord(env.KV, keyHash);
+
+  if (!result.revoked) {
+    ctx.waitUntil(log(env, 4, 'admin', {
+      event: 'admin.key_revoke_fail',
+      keyHashPrefix: keyHash.slice(0, 8),
+      reason: result.reason,
+    }) ?? Promise.resolve());
+    return problemResponse(404, 'API key not found.', ADMIN_CACHE);
+  }
+
+  // Detect idempotency: revokeApiKeyRecord only writes a new revokedAt when actually
+  // revoking. On the already-revoked path it returns the existing record unchanged.
+  // Heuristic: if revokedAt is more than 5 seconds before now, this was a pre-existing
+  // revocation (idempotent call). Not security-critical -- this is logging metadata only.
+  const revokedMs = result.record.revokedAt ? new Date(result.record.revokedAt).getTime() : 0;
+  const logIdempotent = revokedMs > 0 && (Date.now() - revokedMs) > 5000;
+
+  ctx.waitUntil(log(env, 3, 'admin', {
+    event: 'admin.key_revoke',
+    keyHashPrefix: keyHash.slice(0, 8),
+    tenantId: result.record.tenantId,
+    idempotent: logIdempotent,
+  }) ?? Promise.resolve());
+
+  const responseBody = {
+    keyHash,
+    tenantId: result.record.tenantId,
+    scopes: result.record.scopes,
+    name: result.record.name,
+    createdAt: result.record.createdAt,
+    revoked: true,
+    revokedAt: result.record.revokedAt,
+  };
+
+  return jsonResponse(responseBody, 200, ADMIN_CACHE);
+}

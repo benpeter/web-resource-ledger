@@ -4,4 +4,5 @@
 export const RATE_LIMITS = {
   capture: { limit: 10, period: 60 },
   verify:  { limit: 60, period: 60 },
+  admin:   { limit: 5,  period: 60 },
 };

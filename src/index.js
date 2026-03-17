@@ -1,5 +1,5 @@
 import { problemResponse, jsonResponse } from './responses.js';
-import { verifyApiKey } from './auth.js';
+import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
 import { createCapture, getCapture, listCaptures, getArchivedSigningKey, listArchivedSigningKeys } from './kv.js';
 import { performCapture } from './capture.js';
@@ -9,6 +9,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { log } from './log.js';
 import { RATE_LIMITS } from './rate-limits.js';
 import { computeCip } from './ip-hash.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey } from './admin.js';
 
 // tva
 
@@ -16,15 +17,18 @@ import { computeCip } from './ip-hash.js';
 // Order matters: most specific pattern first.
 // Add new routes as one-line tuples.
 const routes = [
-  ['GET',  /^\/health$/, handleHealth],
-  ['POST', /^\/v1\/captures$/, handleCreateCapture],
-  ['GET',  /^\/v1\/captures$/, handleListCaptures],
-  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
-  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
-  ['GET',  /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
-  ['GET',  /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
-  ['GET',  /^\/\.well-known\/signing-key$/, handleGetSigningKey],
-  ['GET',  /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
+  ['GET',    /^\/health$/, handleHealth],
+  ['POST',   /^\/v1\/captures$/, handleCreateCapture],
+  ['GET',    /^\/v1\/captures$/, handleListCaptures],
+  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
+  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
+  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
+  ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
+  ['GET',    /^\/\.well-known\/signing-key$/, handleGetSigningKey],
+  ['GET',    /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
+  ['POST',   /^\/v1\/admin\/keys$/, handleAdminCreateKey],
+  ['GET',    /^\/v1\/admin\/keys$/, handleAdminListKeys],
+  ['DELETE', /^\/v1\/admin\/keys\/([a-f0-9]{64})$/, handleAdminRevokeKey],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -38,6 +42,7 @@ function getAllowedOrigin(request, env) {
 }
 
 function getRateLimitGroup(method, pathname) {
+  if (pathname.startsWith('/v1/admin/')) return 'admin';
   if (pathname === '/v1/captures') return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
   return null;
@@ -66,21 +71,48 @@ export default {
       }
       response = new Response(null, { status: 204, headers });
     } else {
-      let matched = false;
-      for (const [method, pattern, handler] of routes) {
-        if (request.method !== method) continue;
-        const match = pathname.match(pattern);
-        if (match) {
-          response = await handler(request, env, ctx, match);
-          matched = true;
-          break;
+      const isAdminRoute = pathname.startsWith('/v1/admin/');
+
+      // Admin rate limit: check BEFORE auth (per spec)
+      if (isAdminRoute) {
+        const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+        if (env.ADMIN_RATE_LIMITER) {
+          const { success } = await env.ADMIN_RATE_LIMITER.limit({ key: clientIp });
+          if (!success) {
+            const cip = await computeCip(env, clientIp);
+            ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'admin_per_ip', cip }) ?? Promise.resolve());
+            response = problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+          }
+        }
+
+        // Admin auth: only if rate limit passed
+        if (!response) {
+          const auth = await verifyAdminKey(request, env);
+          if (!auth.ok) {
+            const cip = await computeCip(env, clientIp);
+            ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, cip }) ?? Promise.resolve());
+            response = auth.response;
+          }
         }
       }
 
-      if (!matched) {
-        // SECURITY: Use static message -- never reflect request.method or url.pathname
-        // into error responses (CWE-209 information disclosure)
-        response = problemResponse(404, 'The requested resource does not exist.');
+      if (!response) {
+        let matched = false;
+        for (const [method, pattern, handler] of routes) {
+          if (request.method !== method) continue;
+          const match = pathname.match(pattern);
+          if (match) {
+            response = await handler(request, env, ctx, match);
+            matched = true;
+            break;
+          }
+        }
+
+        if (!matched) {
+          // SECURITY: Use static message -- never reflect request.method or url.pathname
+          // into error responses (CWE-209 information disclosure)
+          response = problemResponse(404, 'The requested resource does not exist.');
+        }
       }
     }
 
@@ -130,18 +162,18 @@ async function handleCreateCapture(request, env, ctx) {
   }
 
   // Step 2: Auth check
-  const auth = await verifyApiKey(request, env);
+  const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, cip }) ?? Promise.resolve());
     return auth.response;
   }
-  const { tenantId } = auth;
+  const { tenantId, keyName, authMethod } = auth;
 
   // Step 3: Rate limit check
   if (env.CAPTURE_RATE_LIMITER) {
     const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName, authMethod, cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
@@ -150,7 +182,7 @@ async function handleCreateCapture(request, env, ctx) {
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, authMethod, cip }) ?? Promise.resolve());
       return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
@@ -174,7 +206,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
   if (!result.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, keyName, authMethod, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
     return problemResponse(result.status, result.detail);
   }
 
@@ -189,6 +221,8 @@ async function handleCreateCapture(request, env, ctx) {
       event: 'capture.kv_create_fail',
       captureId,
       tenantId,
+      keyName,
+      authMethod,
       cip,
       errorMessage: String(err?.message ?? '').slice(0, 256),
     }) ?? Promise.resolve());
@@ -214,25 +248,26 @@ async function handleListCaptures(request, env, ctx) {
   const cip = await computeCip(env, clientIp);
 
   // Step 1: Auth check
-  const auth = await verifyApiKey(request, env);
+  const auth = await verifyApiKey(request, env, { requiredScope: 'read' });
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, cip }) ?? Promise.resolve());
     return auth.response;
   }
+  const { keyName, authMethod } = auth;
 
   // Step 2: Rate limit checks (reuse capture limiters -- list is read-only but
   // fans out to N+1 KV operations, so both per-IP and global limits apply)
   if (env.CAPTURE_RATE_LIMITER) {
     const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId: auth.tenantId, keyName, authMethod, cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId: auth.tenantId, keyName, authMethod, cip }) ?? Promise.resolve());
       return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
@@ -267,7 +302,7 @@ async function handleListCaptures(request, env, ctx) {
     result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
   } catch (err) {
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId: auth.tenantId, keyName, authMethod, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
     return problemResponse(500, 'Could not list captures');
   }
 
@@ -299,6 +334,8 @@ async function handleListCaptures(request, env, ctx) {
   ctx.waitUntil(log(env, 6, 'list', {
     event: 'list.success',
     tenantId: auth.tenantId,
+    keyName,
+    authMethod,
     resultCount: data.length,
     status: statusParam || 'all',
     cursor: result.pagination.cursor ? 'present' : 'absent',
