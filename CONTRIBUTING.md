@@ -72,13 +72,23 @@ Ed25519 key, and a capture round-trip completes (or at least enters the queue).
 
 ## Running Tests
 
+Two test suites, separate concerns:
+
+```bash
+npm test                    # Unit tests (~6s, mocked browser)
+npm run test:integration    # Integration tests (~90s, real Chromium)
+```
+
+**Unit tests** (`npm test`) use mocked renderers and `fetchMock` -- fast, no network, no browser. **Integration tests** (`npm run test:integration`) exercise the real capture pipeline through headless Chromium: browser rendering, WACZ bundling, TSA timestamping. The first run downloads Chromium automatically via miniflare.
+
 A few gotchas worth knowing before you write tests:
 
 - Tests run in `@cloudflare/vitest-pool-workers`, not plain Node.js. Some Node APIs are unavailable.
 - Import `SELF`, `env`, and `fetchMock` from `cloudflare:test`, not from `vitest`.
 - `isolatedStorage: false` is deliberate -- do explicit `beforeEach` cleanup instead of relying on automatic resets.
 - Test signing keys are auto-generated at load time; no key setup is needed.
-- Tests that make outbound HTTP calls require `fetchMock`. Use `activateFetchMock()` in `beforeEach` and `deactivate()` in `afterEach`. A `fetchMock` left active after a test will cause failures in unrelated tests -- this is a 20+ minute debugging trap if you don't know to look for it.
+- **Unit tests only:** Tests that make outbound HTTP calls require `fetchMock`. Use `activateFetchMock()` in `beforeEach` and `deactivate()` in `afterEach`. A `fetchMock` left active after a test will cause failures in unrelated tests -- this is a 20+ minute debugging trap if you don't know to look for it.
+- **Integration tests only:** Each test pre-acquires a browser session via `acquire()` in `beforeEach`. This is required because miniflare's browser binding doesn't implement `limits()`.
 
 ## Design Philosophy
 

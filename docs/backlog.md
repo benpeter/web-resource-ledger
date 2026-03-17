@@ -120,6 +120,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
 | [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
 | [consider] Cloudflare Containers | When Browser Rendering limits exhausted AND Queues insufficient; monitor for GA | iac-minion, kickoff |
+| [consider] CI Chromium binary caching for integration tests | After first CI run reveals the cache path | iac-minion, 0034-integration-tests |
+| [consider] Promote integration tests to required CI check | After 2-4 weeks of stable green runs | test-minion, 0034-integration-tests |
 | [consider] Deploy version check in smoke test | When a deploy silently fails to update the Worker | test-minion, cd-pipeline |
 | [consider] Smoke test response time assertion | When Coralogix/RUM shows latency regression | test-minion, cd-pipeline |
 | [consider] Automatic rollback on smoke failure | When deploy frequency >1/day or team size >1 | iac-minion, cd-pipeline |
