@@ -21,7 +21,7 @@ import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRec
 import { log } from './log.js';
 
 const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
-const NAME_RE = /^[\x20-\x7E]{1,128}$/;
+const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const VALID_SCOPES = ['capture', 'read', 'admin'];
 const ALLOWED_CREATE_FIELDS = new Set(['tenantId', 'scopes', 'name']);
 
@@ -95,7 +95,7 @@ export async function handleAdminCreateKey(request, env, ctx) {
     return problemResponse(400, "Field 'name' must be a string");
   }
   if (!NAME_RE.test(body.name)) {
-    return problemResponse(400, "Field 'name' must be 1-128 printable ASCII characters");
+    return problemResponse(400, "Field 'name' must be 1-128 characters using letters, digits, spaces, and _ . : -");
   }
 
   // Generate key

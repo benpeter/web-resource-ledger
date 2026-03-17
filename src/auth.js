@@ -149,7 +149,7 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
   if (env.KV) {
     let record;
     try {
-      record = await env.KV.get(`apikey:${sha256hex}`, { type: 'json' });
+      record = await env.KV.get(`apikey:${sha256hex}`, 'json');
     } catch (err) {
       // KV I/O failure: fail loudly, do NOT fall through to legacy
       console.error('wrl:auth:kv_error', { errorMessage: String(err?.message ?? '').slice(0, 128) });
@@ -213,12 +213,22 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
   if (env.CAPTURE_API_KEY) {
     const match = await timingSafeEqual(token, env.CAPTURE_API_KEY);
     if (match) {
+      const legacyScopes = ['capture', 'read'];
+      // Scope check: legacy key only grants capture + read, never admin
+      if (!hasScope(legacyScopes, requiredScope)) {
+        return {
+          ok: false,
+          response: problemResponse(403, `API key does not grant '${requiredScope}' scope`),
+          reason: 'legacy_scope_insufficient',
+          keyHashPrefix: sha256hex.slice(0, 8),
+        };
+      }
       // Fire-and-forget warning: legacy auth is a migration signal
       log(env, 4, 'security', { event: 'security.legacy_auth_used', keyHashPrefix: sha256hex.slice(0, 8) });
       return {
         ok: true,
         tenantId: 'default',
-        scopes: ['capture', 'read'],
+        scopes: legacyScopes,
         keyName: null,
         authMethod: 'legacy',
       };

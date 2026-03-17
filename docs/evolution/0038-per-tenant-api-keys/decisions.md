@@ -51,3 +51,15 @@ ux-strategy-minion flagged that enforcing unique key names per tenant creates fr
 ### 8. Effective scopes returned as-requested, not expanded
 
 api-design-minion and devx-minion disagreed on whether `POST /v1/admin/keys` with `scopes: ["capture"]` should return `scopes: ["capture"]` or `scopes: ["capture", "read"]`. Resolved: return as-requested. The `capture implies read` rule is enforced at runtime by `hasScope()`, not materialized in storage. This keeps the contract simple and avoids confusion about whether the operator requested `read` or it was implied.
+
+### 9. Double KV read on revoke path (accepted)
+
+`handleAdminRevokeKey` does three KV reads: (1) `getApiKeyRecord` pre-flight, (2) `listApiKeyRecords` for the last-admin-key guard, (3) `revokeApiKeyRecord` reads the same record again internally. The third read is redundant since the handler already confirmed the record exists and isn't revoked. Accepted because: the admin endpoint has a 5 req/60s rate limit, one extra KV read is negligible at that traffic. If revoke latency matters later, `revokeApiKeyRecord` could accept an optional pre-fetched record.
+
+### 10. NAME_RE tightened from printable ASCII to safe subset
+
+Changed `NAME_RE` from `^[\x20-\x7E]{1,128}$` (all printable ASCII) to `^[a-zA-Z0-9 _.:-]{1,128}$`. The original regex accepted `<`, `>`, `"`, `'`, `\`, `(`, `)` and other characters that are surprising in structured log queries (Coralogix) or when pasted into shell commands. Since names appear in JSON responses (safely serialized) and JSON logs (also safe), this wasn't a vulnerability -- but the broader set was unnecessary. The restricted set covers all practical key naming patterns (`prod-capture`, `staging:readonly`, `ben.peter-admin`). Security-minion confirmed `/` and `@` are not needed (`:` covers hierarchy, `tenantId` covers identity).
+
+### 11. Legacy auth scope check added
+
+`verifyApiKey()` checked `requiredScope` for KV keys but not for the legacy `CAPTURE_API_KEY` fallback path. If a future endpoint called `verifyApiKey(req, env, { requiredScope: 'admin' })`, the legacy key would have returned `ok: true` despite not having admin scope. Today this wasn't exploitable (admin endpoints use `verifyAdminKey()`), but it violated the function's JSDoc contract. Fixed: `hasScope(legacyScopes, requiredScope)` check before returning success. Uses a distinct `reason: 'legacy_scope_insufficient'` for observability but the same 403 message as KV keys (no auth-path differentiation in HTTP responses).

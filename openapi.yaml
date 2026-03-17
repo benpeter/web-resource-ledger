@@ -548,6 +548,7 @@ components:
       type: object
       description: Request body for creating a new API key.
       required: [tenantId, scopes, name]
+      additionalProperties: false
       properties:
         tenantId:
           type: string
@@ -573,7 +574,8 @@ components:
         name:
           type: string
           description: >
-            Human-readable label for the key. 1-128 printable ASCII characters.
+            Human-readable label for the key. 1-128 characters using letters,
+            digits, spaces, and _ . : - characters.
           minLength: 1
           maxLength: 128
           examples:

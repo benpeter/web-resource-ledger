@@ -240,10 +240,10 @@ async function handleCreateCapture(request, env, ctx) {
     cip,
   }) ?? Promise.resolve());
 
-  // Step 10: Trigger background capture
+  // Step 10a: Trigger background capture
   ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
 
-  // Step 10: Build absolute status URL
+  // Step 10b: Build absolute status URL
   const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
 
   // Step 11: Return 202

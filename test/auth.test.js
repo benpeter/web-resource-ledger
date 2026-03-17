@@ -123,13 +123,20 @@ describe('verifyApiKey -- dual-mode legacy fallback', () => {
   });
 
   it('legacy auth does not include admin in scopes', async () => {
-    // Legacy path returns hardcoded scopes ['capture','read'] -- no 'admin'
-    // Note: verifyApiKey does NOT enforce requiredScope on the legacy path;
-    // scope enforcement is done at the handler level. This test verifies
-    // the returned scopes do not include 'admin'.
     const result = await verifyApiKey(makeRequest('Bearer test-api-key-for-vitest'), env);
     expect(result.ok).toBe(true);
     expect(result.scopes).not.toContain('admin');
+  });
+
+  it('legacy auth returns 403 when requiredScope is admin', async () => {
+    const result = await verifyApiKey(
+      makeRequest('Bearer test-api-key-for-vitest'),
+      env,
+      { requiredScope: 'admin' },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.response.status).toBe(403);
+    expect(result.reason).toBe('legacy_scope_insufficient');
   });
 
   it('revoked key does NOT fall through to legacy even if token matches CAPTURE_API_KEY', async () => {
