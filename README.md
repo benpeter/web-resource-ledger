@@ -23,6 +23,8 @@ A single API call produces:
 
 Requires a running WRL instance. See [Setup](#setup) below.
 
+WRL supports multi-tenant deployments via the admin API. Use `POST /v1/admin/keys` to provision per-tenant API keys with specific scopes (`capture`, `read`). Each tenant receives an isolated key; captures are attributed to the provisioning tenant. See [OPERATIONS.md](OPERATIONS.md#per-tenant-api-key-migration-r12) for the provisioning workflow.
+
 ```bash
 export WRL_API_KEY=your_capture_api_key
 ```
@@ -171,7 +173,31 @@ CAPTURE_API_KEY=<hex string from the command above>
 
 **Security:** Never commit this value to version control. `.dev.vars` is already in `.gitignore`.
 
-### 5. Configure signing key
+### 5. Configure admin key
+
+`ADMIN_KEY` authenticates calls to the admin API (`/v1/admin/keys`), which is used to provision and revoke per-tenant API keys. It is required to use the multi-tenant key management features added in R12.
+
+Generate a key:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the production secret:
+
+```bash
+wrangler secret put ADMIN_KEY
+```
+
+For local dev, add to `.dev.vars`:
+
+```
+ADMIN_KEY=<hex string from the command above>
+```
+
+**Security:** Never commit this value to version control. `.dev.vars` is already in `.gitignore`.
+
+### 6. Configure signing key
 
 WRL signs WACZ bundles with Ed25519. The signing key is optional -- if `SIGNING_KEY` is not set, captures complete successfully but without WACZ bundles (screenshot, HTML, and headers are still stored).
 
@@ -198,7 +224,7 @@ SIGNING_KEY=<base64 string from the script>
 
 **Security:** Never commit the private key to version control. `.dev.vars` is already in `.gitignore`.
 
-### 6. Configure IP hash seed (recommended)
+### 7. Configure IP hash seed (recommended)
 
 `IP_HASH_SEED` is an HMAC seed used to hash IP addresses before they appear in logs. Without it, log entries have no IP correlation for abuse analysis.
 
@@ -220,7 +246,7 @@ For local dev, add to `.dev.vars`:
 IP_HASH_SEED=<hex string from the command above>
 ```
 
-### 7. Configure Coralogix log ingestion (required for production observability)
+### 8. Configure Coralogix log ingestion (required for production observability)
 
 `CORALOGIX_SEND_KEY` is the API key for structured log ingestion to Coralogix. Without it, the Worker runs normally but logs go to console only -- no structured log ingestion occurs. For fork developers who do not use Coralogix, this key is effectively optional.
 
@@ -234,7 +260,7 @@ wrangler secret put CORALOGIX_SEND_KEY
 
 For local dev, structured logs are emitted to the console. No key is needed for `wrangler dev`.
 
-### 8. Configure CORS origins (optional)
+### 9. Configure CORS origins (optional)
 
 `CORS_ORIGINS` is a comma-separated list of allowed origins for CORS preflight responses. Only needed if browser-based clients will call the API directly.
 
@@ -247,13 +273,13 @@ CORS_ORIGINS = "https://app.example.com,https://www.example.com"
 
 If omitted, cross-origin requests from browsers are blocked. Server-to-server requests are unaffected.
 
-### 9. Deploy
+### 10. Deploy
 
 ```bash
 wrangler deploy
 ```
 
-Steps 1-9 are one-time setup. After initial deployment, the CD pipeline handles staging and production deploys automatically on every push to `main`. For the full deploy flow, environment configuration, rollback procedures, and how secrets map across Worker runtime, GitHub CI, and local development, see [OPERATIONS.md](OPERATIONS.md).
+Steps 1-10 are one-time setup. After initial deployment, the CD pipeline handles staging and production deploys automatically on every push to `main`. For the full deploy flow, environment configuration, rollback procedures, and how secrets map across Worker runtime, GitHub CI, and local development, see [OPERATIONS.md](OPERATIONS.md).
 
 ## Development
 
@@ -304,7 +330,7 @@ npm run smoke
 WRL follows a three-act development plan:
 
 1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
-2. **Evidence-Grade** -- RFC 3161 timestamps, per-tenant keys, audit logging. Makes "evidence" independently verifiable.
+2. **Evidence-Grade** -- RFC 3161 timestamps (complete), per-tenant keys (complete), audit logging. Makes "evidence" independently verifiable.
 3. **Infrastructure** -- MCP server, web UI, batch capture. Expands WRL into a platform other tools build on.
 
 See [`docs/backlog.md`](docs/backlog.md) for the full roadmap and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.

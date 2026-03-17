@@ -22,6 +22,7 @@ export default defineWorkersConfig({
           browserRendering: { binding: 'BROWSER' },
           bindings: {
             CAPTURE_API_KEY: 'test-api-key-for-vitest',
+            ADMIN_KEY: 'test-admin-key-for-vitest',
             SIGNING_KEY: testSigningKey,
             TEST_ARCHIVED_KEY: testArchivedKey,
             CORS_ORIGINS: 'https://allowed.example.com,https://other-allowed.example.com',

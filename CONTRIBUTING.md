@@ -23,6 +23,7 @@ Running the actual capture pipeline requires:
 # Required
 SIGNING_KEY=<your Ed25519 private key>
 CAPTURE_API_KEY=<a secret API key you choose>
+ADMIN_KEY=<any random string, used to authenticate admin API calls>
 IP_HASH_SEED=<any random string, used for privacy-safe IP hashing>
 
 # Optional -- structured log ingestion; omit to log to console only
@@ -54,6 +55,7 @@ wrangler deploy --env staging
 ```bash
 wrangler secret put SIGNING_KEY --env staging
 wrangler secret put CAPTURE_API_KEY --env staging
+wrangler secret put ADMIN_KEY --env staging
 wrangler secret put IP_HASH_SEED --env staging
 wrangler secret put CORALOGIX_SEND_KEY --env staging
 ```

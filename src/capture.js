@@ -106,11 +106,12 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
  * @param {string} captureId Capture ID (e.g. cap_abc123...)
  * @param {string} tenantId Tenant identifier
  * @param {string} [cip] Hashed client IP (undefined when IP_HASH_SEED not configured)
+ * @param {string} [keyName] API key name for observability
  * @param {Function} [renderer] Injectable rendering function (defaults to defaultRenderer)
  */
-export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer) {
+export async function performCapture(env, url, ip, captureId, tenantId, cip, keyName, renderer = defaultRenderer) {
   const start = Date.now();
-  await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip });
+  await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, keyName, url, cip });
   try {
     const RENDER_DEADLINE_MS = 27000; // Hard cap: leaves ~3s for KV/log in catch-all
     const renderWithDeadline = Promise.race([
@@ -124,7 +125,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
 
     if (renderResult.status === 'rejected') {
       const { message, retryable } = categorizeError(renderResult.reason);
-      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable, cip, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
+      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, keyName, stage: 'browser_render', errorCategory: message, retryable, cip, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
       await failCapture(env.KV, captureId, message, retryable);
       return;
     }
@@ -133,7 +134,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     const renderQuality = partial ? 'partial' : 'full';
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
-      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId, tenantId, cip });
+      await log(env, 4, 'capture', { event: 'capture.header_fail', captureId, tenantId, keyName, cip });
     }
 
     // Store artifacts in R2
@@ -195,7 +196,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
             await archiveSigningKey(env.KV, keyId, publicKeyBase64);
           } catch (err) {
             // Non-fatal: key may already be archived from a prior capture
-            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
+            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, keyName, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
           }
           waczInfo = {
             key: `captures/${waczHash}.wacz`,
@@ -208,7 +209,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       } catch (err) {
         // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
         // Distinguish from "no signing key" path (which returns null, no error)
-        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
+        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, keyName, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
       }
     }
 
@@ -219,6 +220,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         event: 'capture.partial',
         captureId,
         tenantId,
+        keyName,
         cip,
         renderQuality,
         durationMs: Date.now() - start,
@@ -231,6 +233,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         event: 'capture.success',
         captureId,
         tenantId,
+        keyName,
         durationMs: Date.now() - start,
         waczStatus: waczInfo ? 'ok' : 'skipped',
         bundleSize: waczInfo?.size ?? 0,
@@ -247,7 +250,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       if (consent?._error) {
         await log(env, 4, 'capture', {
           event: 'capture.consent_error',
-          captureId, tenantId, cip,
+          captureId, tenantId, keyName, cip,
           errorClass: consent._error.name,
           errorMessage: consent._error.message,
         });
@@ -255,11 +258,11 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     }
   } catch (err) {
     // Catch-all: ensure KV is updated even on unexpected errors
-    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
+    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, keyName, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
     try {
       await failCapture(env.KV, captureId, 'Capture could not be completed', true);
     } catch (err) {
-      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, keyName, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
     }
   }
 }

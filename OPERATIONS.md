@@ -95,6 +95,7 @@ wrangler secret put CAPTURE_API_KEY
 wrangler secret put SIGNING_KEY
 wrangler secret put CORALOGIX_SEND_KEY
 wrangler secret put IP_HASH_SEED
+wrangler secret put ADMIN_KEY
 wrangler deploy
 ```
 
@@ -102,6 +103,63 @@ Run smoke test manually after:
 ```bash
 SMOKE_URL=<YOUR_PRODUCTION_URL> SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scripts/smoke-test.sh
 ```
+
+---
+
+## Per-Tenant API Key Migration (R12)
+
+### Overview
+
+R12 replaces the single shared `CAPTURE_API_KEY` with per-tenant API keys stored in KV. A dual-mode fallback ensures backward compatibility: the worker accepts both the legacy `CAPTURE_API_KEY` and new KV-based tenant keys simultaneously. No downtime or pipeline changes are required.
+
+### Pre-merge
+
+Nothing required. The dual-mode fallback makes the deploy safe with no configuration changes.
+
+### Post-deploy: Set ADMIN_KEY
+
+`ADMIN_KEY` authenticates calls to the admin API (`/v1/admin/keys`). Generate and set it for both environments:
+
+```bash
+openssl rand -hex 32
+wrangler secret put ADMIN_KEY
+wrangler secret put ADMIN_KEY --env staging
+```
+
+### Post-deploy: Provision first tenant key
+
+Once `ADMIN_KEY` is set, provision the initial tenant key:
+
+```bash
+curl -X POST https://wrl.benpeter.workers.dev/v1/admin/keys \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId": "default", "name": "primary", "scopes": ["capture", "read"]}'
+```
+
+### Verification
+
+1. Test a capture request using the new tenant key returned above
+2. List keys: `GET /v1/admin/keys` with `Authorization: Bearer $ADMIN_KEY`
+3. Confirm captures are attributed to the correct tenant in Coralogix logs
+
+### Update GitHub environment secrets
+
+Update the following GitHub environment secrets to use a new tenant key instead of the old shared key:
+
+- `WRL_PROD_CAPTURE_API_KEY` -- update to a tenant key provisioned for production
+- `WRL_STAGING_CAPTURE_API_KEY` -- update to a tenant key provisioned for staging
+
+### CAPTURE_API_KEY removal (when safe)
+
+Remove the legacy `CAPTURE_API_KEY` secret only after:
+
+1. All callers have been migrated to tenant keys
+2. Coralogix logs confirm zero fallback traffic (no requests using the legacy key)
+
+### Rollback
+
+Revert the deploy commit. KV tenant keys are harmless orphans -- they do not affect old code. `ADMIN_KEY` is ignored by the reverted code.
 
 ---
 
@@ -117,7 +175,7 @@ WRL uses three distinct secret surfaces for different purposes. Knowing which su
 
 > **The CD pipeline deploys code only.** Worker runtime secrets (`CAPTURE_API_KEY`, `SIGNING_KEY`, etc.) must be set once via `wrangler secret put` and persist across all subsequent deploys. You do not need to re-set secrets after each deploy.
 
-See README steps 4-7 for secret generation commands and initial setup.
+See README steps 4-8 for secret generation commands and initial setup.
 
 ### Cloudflare API Token Permissions
 
@@ -143,9 +201,10 @@ Scope the token to the specific account that owns the WRL Workers. Do not use th
 |------|-------------|
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token -- see [permissions above](#cloudflare-api-token-permissions) |
 | `WRL_PROD_CAPTURE_API_KEY` | See [README step 4](README.md#4-configure-capture-api-key) |
-| `WRL_PROD_SIGNING_KEY` | See [README step 5](README.md#5-configure-signing-key) |
-| `WRL_PROD_IP_HASH_SEED` | See [README step 6](README.md#6-configure-ip-hash-seed-recommended) |
-| `WRL_PROD_CORALOGIX_SEND_KEY` | See [README step 7](README.md#7-configure-coralogix-log-ingestion-required-for-production-observability) |
+| `WRL_PROD_SIGNING_KEY` | See [README step 6](README.md#6-configure-signing-key) |
+| `WRL_PROD_IP_HASH_SEED` | See [README step 7](README.md#7-configure-ip-hash-seed-recommended) |
+| `WRL_PROD_CORALOGIX_SEND_KEY` | See [README step 8](README.md#8-configure-coralogix-log-ingestion-required-for-production-observability) |
+| `WRL_PROD_ADMIN_KEY` | See [README step 5](README.md#5-configure-admin-key) |
 
 **Variables:**
 
@@ -155,7 +214,7 @@ Scope the token to the specific account that owns the WRL Workers. Do not use th
 
 **Protection rules:** Add required reviewer to gate production deploys.
 
-See README steps 4-7 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.
+See README steps 4-8 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.
 
 The `production` GitHub environment maps to the top-level wrangler.toml config (`wrangler deploy`). The `staging` environment maps to `[env.staging]` (`wrangler deploy --env staging`).
 
@@ -167,9 +226,10 @@ The `production` GitHub environment maps to the top-level wrangler.toml config (
 |------|-------------|
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token -- see [permissions above](#cloudflare-api-token-permissions) |
 | `WRL_STAGING_CAPTURE_API_KEY` | See [README step 4](README.md#4-configure-capture-api-key) |
-| `WRL_STAGING_SIGNING_KEY` | See [README step 5](README.md#5-configure-signing-key) |
-| `WRL_STAGING_IP_HASH_SEED` | See [README step 6](README.md#6-configure-ip-hash-seed-recommended) |
-| `WRL_STAGING_CORALOGIX_SEND_KEY` | See [README step 7](README.md#7-configure-coralogix-log-ingestion-required-for-production-observability) |
+| `WRL_STAGING_SIGNING_KEY` | See [README step 6](README.md#6-configure-signing-key) |
+| `WRL_STAGING_IP_HASH_SEED` | See [README step 7](README.md#7-configure-ip-hash-seed-recommended) |
+| `WRL_STAGING_CORALOGIX_SEND_KEY` | See [README step 8](README.md#8-configure-coralogix-log-ingestion-required-for-production-observability) |
+| `WRL_STAGING_ADMIN_KEY` | See [README step 5](README.md#5-configure-admin-key) |
 
 **Variables:**
 
@@ -180,4 +240,4 @@ The `production` GitHub environment maps to the top-level wrangler.toml config (
 **Protection rules:** Do NOT add required reviewer -- staging must deploy without approval
 (the production pipeline's `staging-smoke` job polls staging before every prod deploy).
 
-See README steps 4-7 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.
+See README steps 4-8 for generation commands. Worker secrets must be set separately via `wrangler secret put` -- the CD pipeline deploys code only.

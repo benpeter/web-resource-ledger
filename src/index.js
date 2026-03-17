@@ -1,5 +1,6 @@
 import { problemResponse, jsonResponse } from './responses.js';
-import { verifyApiKey } from './auth.js';
+import { verifyApiKey, requireScope } from './auth.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey } from './admin.js';
 import { validateUrl } from './url-validation.js';
 import { createCapture, getCapture, listCaptures, getArchivedSigningKey, listArchivedSigningKeys } from './kv.js';
 import { performCapture } from './capture.js';
@@ -25,6 +26,9 @@ const routes = [
   ['GET',  /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',  /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',  /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
+  ['POST',   /^\/v1\/admin\/keys$/, handleAdminCreateKey],
+  ['GET',    /^\/v1\/admin\/keys$/, handleAdminListKeys],
+  ['DELETE', /^\/v1\/admin\/keys\/([a-f0-9]{64})$/, handleAdminRevokeKey],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -38,6 +42,7 @@ function getAllowedOrigin(request, env) {
 }
 
 function getRateLimitGroup(method, pathname) {
+  if (pathname.startsWith('/v1/admin/')) return 'admin';
   if (pathname === '/v1/captures') return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
   return null;
@@ -132,16 +137,32 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 2: Auth check
   const auth = await verifyApiKey(request, env);
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, ...(auth.keyName ? { keyName: auth.keyName } : {}), cip }) ?? Promise.resolve());
     return auth.response;
   }
   const { tenantId } = auth;
+
+  // Step 2b: Scope check (before rate limit -- a 403 must not consume a rate limit token)
+  const denied = requireScope(auth, 'capture');
+  if (denied) {
+    ctx.waitUntil(log(env, 5, 'security', {
+      event: 'security.auth_fail',
+      status: 403,
+      reason: 'scope_violation',
+      requiredScope: 'capture',
+      grantedScopes: auth.scopes,
+      tenantId: auth.tenantId,
+      keyName: auth.keyName,
+      cip,
+    }) ?? Promise.resolve());
+    return denied;
+  }
 
   // Step 3: Rate limit check
   if (env.CAPTURE_RATE_LIMITER) {
     const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName: auth.keyName, cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
@@ -150,7 +171,7 @@ async function handleCreateCapture(request, env, ctx) {
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName: auth.keyName, cip }) ?? Promise.resolve());
       return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
@@ -174,7 +195,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
   if (!result.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, keyName: auth.keyName, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
     return problemResponse(result.status, result.detail);
   }
 
@@ -189,6 +210,7 @@ async function handleCreateCapture(request, env, ctx) {
       event: 'capture.kv_create_fail',
       captureId,
       tenantId,
+      keyName: auth.keyName,
       cip,
       errorMessage: String(err?.message ?? '').slice(0, 256),
     }) ?? Promise.resolve());
@@ -196,7 +218,7 @@ async function handleCreateCapture(request, env, ctx) {
   }
 
   // Step 9: Trigger background capture
-  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
+  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip, auth.keyName));
 
   // Step 10: Build absolute status URL
   const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
@@ -216,8 +238,24 @@ async function handleListCaptures(request, env, ctx) {
   // Step 1: Auth check
   const auth = await verifyApiKey(request, env);
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, ...(auth.keyName ? { keyName: auth.keyName } : {}), cip }) ?? Promise.resolve());
     return auth.response;
+  }
+
+  // Step 1b: Scope check (before rate limit -- a 403 must not consume a rate limit token)
+  const denied = requireScope(auth, 'read');
+  if (denied) {
+    ctx.waitUntil(log(env, 5, 'security', {
+      event: 'security.auth_fail',
+      status: 403,
+      reason: 'scope_violation',
+      requiredScope: 'read',
+      grantedScopes: auth.scopes,
+      tenantId: auth.tenantId,
+      keyName: auth.keyName,
+      cip,
+    }) ?? Promise.resolve());
+    return denied;
   }
 
   // Step 2: Rate limit checks (reuse capture limiters -- list is read-only but
@@ -225,14 +263,14 @@ async function handleListCaptures(request, env, ctx) {
   if (env.CAPTURE_RATE_LIMITER) {
     const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId: auth.tenantId, keyName: auth.keyName, cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
     if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId: auth.tenantId, keyName: auth.keyName, cip }) ?? Promise.resolve());
       return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
     }
   }
@@ -267,7 +305,7 @@ async function handleListCaptures(request, env, ctx) {
     result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
   } catch (err) {
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId: auth.tenantId, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'list', { event: 'list.error', tenantId: auth.tenantId, keyName: auth.keyName, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
     return problemResponse(500, 'Could not list captures');
   }
 
@@ -299,6 +337,7 @@ async function handleListCaptures(request, env, ctx) {
   ctx.waitUntil(log(env, 6, 'list', {
     event: 'list.success',
     tenantId: auth.tenantId,
+    keyName: auth.keyName,
     resultCount: data.length,
     status: statusParam || 'all',
     cursor: result.pagination.cursor ? 'present' : 'absent',

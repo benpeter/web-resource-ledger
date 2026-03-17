@@ -32,6 +32,12 @@ type = "ratelimit"
 namespace_id = "1003"
 simple = { limit = 200, period = 60 }
 
+[[unsafe.bindings]]
+name = "ADMIN_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1004"
+simple = { limit = 5, period = 60 }
+
 [browser]
 binding = "BROWSER"
 
@@ -48,7 +54,7 @@ TSA_URL = "http://timestamp.digicert.com"
 
 # --- Staging environment ---
 # Fully isolated: separate Worker, KV, R2, rate limiters.
-# Secrets (CAPTURE_API_KEY, SIGNING_KEY, CORALOGIX_SEND_KEY, IP_HASH_SEED) are set via:
+# Secrets (CAPTURE_API_KEY, ADMIN_KEY, SIGNING_KEY, CORALOGIX_SEND_KEY, IP_HASH_SEED) are set via:
 #   wrangler secret put <NAME> --env staging
 
 [env.staging]
@@ -79,6 +85,12 @@ name = "GLOBAL_CAPTURE_LIMITER"
 type = "ratelimit"
 namespace_id = "2003"
 simple = { limit = 200, period = 60 }
+
+[[env.staging.unsafe.bindings]]
+name = "ADMIN_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "2004"
+simple = { limit = 5, period = 60 }
 
 [env.staging.browser]
 binding = "BROWSER"
