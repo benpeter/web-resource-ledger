@@ -12,7 +12,17 @@
  * fixed-length hex string that cannot contain injection payloads.
  * Truncated framework error messages (e.g., Playwright) are acceptable
  * when the framework does not echo user-supplied content into its error
- * strings. Callers are responsible for ensuring this contract.
+ * strings. Validated and re-serialized URLs (post-validateUrl) are acceptable
+ * as they are scheme-restricted and constructor-normalized. Fields validated
+ * at creation time against restrictive regexes (tenantId via TENANT_ID_RE,
+ * keyName via NAME_RE) are acceptable as their character sets are bounded
+ * and injection-safe. Callers are responsible for ensuring this contract.
+ *
+ * NEVER LOG: raw API keys (tokens), raw ADMIN_KEY, raw IP addresses
+ * (use computeCip), Authorization header values, full keyHash (use
+ * keyHashPrefix: hash.slice(0, 8)), request/response objects, or
+ * unvalidated request body content. Always destructure and pick
+ * specific fields -- never pass auth result objects directly.
  *
  * @param {object} env Worker env bindings
  * @param {number} severity Coralogix severity: 3=info, 4=warn, 5=error

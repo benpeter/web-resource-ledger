@@ -2,7 +2,7 @@
  * auth.js -- API key authentication for the Web Resource Ledger Worker
  *
  * Trust boundary: the Authorization header is untrusted caller input.
- * Successful tenant auth returns { ok: true, tenantId, scopes, keyName, authMethod };
+ * Successful tenant auth returns { ok: true, tenantId, scopes, keyName, keyHashPrefix, authMethod };
  * successful admin auth returns { ok: true, authMethod: 'admin_key' }.
  * Failed requests return { ok: false, response, reason, ... } with a ready-to-send
  * Response object and a machine-readable reason code.
@@ -119,7 +119,7 @@ async function timingSafeEqual(a, b) {
  * @param {{ KV?: KVNamespace, CAPTURE_API_KEY?: string }} env
  * @param {{ requiredScope?: string }} [options]
  * @returns {Promise<
- *   { ok: true, tenantId: string, scopes: string[], keyName: string|null, authMethod: string }
+ *   { ok: true, tenantId: string, scopes: string[], keyName: string|null, keyHashPrefix: string, authMethod: string }
  *   | { ok: false, response: Response, reason: string, keyName?: string, keyHashPrefix?: string, tenantId?: string }
  * >}
  */
@@ -201,6 +201,7 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
         tenantId: record.tenantId,
         scopes: record.scopes,
         keyName: record.name,
+        keyHashPrefix: sha256hex.slice(0, 8),
         authMethod: 'kv',
       };
     }
@@ -228,6 +229,7 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
         tenantId: 'default',
         scopes: legacyScopes,
         keyName: null,
+        keyHashPrefix: sha256hex.slice(0, 8),
         authMethod: 'legacy',
       };
     }
