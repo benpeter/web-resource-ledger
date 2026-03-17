@@ -74,6 +74,16 @@ Returns a JSON verification result with up to four checks: `artifactHashes`, `bu
 
 The `verifyUrl` is safe to share publicly. The capture ID grants full access to all artifacts without authentication -- treat it as a secret. Anyone with the ID can view the capture.
 
+#### Offline verification
+
+For independent, offline verification -- including full CMS/PKCS#7 certificate chain validation -- use the CLI tool:
+
+```bash
+npx @w-r-l/verify capture.wacz --origin https://wrl.example.com
+```
+
+See [`packages/verify/`](packages/verify/) for details.
+
 #### Finding and sharing captures
 
 **Finding captures:** `GET /v1/captures` lists your captures (requires your API key). Use it to browse and recover capture IDs. **Sharing captures:** The capture ID in any URL works without authentication. Share verification URLs freely.

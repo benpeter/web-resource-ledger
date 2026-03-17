@@ -12,7 +12,7 @@ const testArchivedKey = _testArchivedKey.export({ type: 'pkcs8', format: 'der' }
 
 export default defineWorkersConfig({
   test: {
-    exclude: ['test/integration/**', 'node_modules/**'],
+    exclude: ['test/integration/**', 'packages/**', 'node_modules/**'],
     poolOptions: {
       workers: {
         wrangler: {

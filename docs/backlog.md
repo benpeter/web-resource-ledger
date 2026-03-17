@@ -72,6 +72,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] WACZ-Auth full spec compliance | When a production toolchain consumes WACZ-Auth signatures | gru, kickoff |
 | [consider] Multiple TSAs for redundancy | 6+ months after R11 ships; based on observed TSA reliability | gru, kickoff |
 | [consider] HSM-backed key storage | When FIPS 140-2 Level 3 explicitly required or multi-tenant key management at scale | security-minion, kickoff |
+| [consider] CRL/OCSP revocation checking in CLI verify | When a TSA certificate revocation incident occurs or compliance requires it; offline requirement conflicts | security-minion, 0034-cli-verify-tool |
+| [should] Publish @w-r-l/verify to npm | When CLI tool is stable and tested in production; npm org @w-r-l registered | devx-minion, 0034-cli-verify-tool |
 
 ### Capture Fidelity
 

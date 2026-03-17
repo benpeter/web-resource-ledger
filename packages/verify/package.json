@@ -1,0 +1,47 @@
+{
+  "name": "@w-r-l/verify",
+  "version": "0.1.0",
+  "description": "Verify cryptographic integrity of WRL WACZ web capture bundles",
+  "license": "Apache-2.0",
+  "author": "Ben Peter <bp@ben-peter.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benpeter/web-resource-ledger.git",
+    "directory": "packages/verify"
+  },
+  "homepage": "https://github.com/benpeter/web-resource-ledger/tree/main/packages/verify#readme",
+  "bugs": "https://github.com/benpeter/web-resource-ledger/issues",
+  "keywords": [
+    "wacz",
+    "web-archive",
+    "verification",
+    "cryptographic",
+    "ed25519",
+    "wrl",
+    "digital-evidence",
+    "integrity"
+  ],
+  "type": "module",
+  "scripts": {
+    "test": "node --test 'test/**/*.test.js'"
+  },
+  "bin": {
+    "wrl-verify": "./bin/wrl-verify.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "certs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "pkijs": "3.3.3",
+    "asn1js": "3.0.5",
+    "pvutils": "1.1.3"
+  }
+}

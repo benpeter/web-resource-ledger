@@ -1,0 +1,2 @@
+bundle_hash=sha256:9c194b19dc9481e1ed6f8c0c74b2594673d287ab3325be9d867add7c33998f38
+tsa=http://timestamp.digicert.com

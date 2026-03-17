@@ -1,23 +1,8 @@
-/*
- * rfc3161.js -- RFC 3161 timestamp module
- *
- * Minimal DER encoder/decoder for RFC 3161 TimeStampReq/TimeStampResp.
- * Purpose-built for the WRL signing pipeline -- not a general-purpose ASN.1 library.
- *
- * Capture-time: builds TimeStampReq, POSTs to TSA, validates response
- * (status, nonce, messageImprint). Stores raw token for third-party verification.
- *
- * Verification-time: extracts TSTInfo from stored token, verifies
- * messageImprint matches bundleHash. Full CMS certificate chain validation
- * is deferred (not feasible in Cloudflare Workers).
- *
- * @security: Certificate chain validation is deferred. See docs/backlog.md.
- *
- * Tests: test/rfc3161.test.js
- */ // tva
+// Vendored from src/rfc3161.js -- verifyTimestamp, extractTSTInfo, parseTSTInfo,
+// parseGeneralizedTime, and DER primitives only. Capture-time code excluded.
+// Origin: https://github.com/benpeter/web-resource-ledger/blob/main/src/rfc3161.js
 
-const TSA_TIMEOUT_MS = 3000;
-const MAX_RESPONSE_BYTES = 65536; // 64 KB
+import { timingSafeEqual } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // OID value bytes (pre-encoded, without tag/length wrapper)
@@ -150,82 +135,13 @@ function concat(...arrays) {
 }
 
 // ---------------------------------------------------------------------------
-// DER building blocks for TimeStampReq
-// ---------------------------------------------------------------------------
-
-/**
- * Encodes a DER INTEGER from raw big-endian unsigned bytes.
- * Adds a leading 0x00 sign-extension byte when the high bit of the first byte
- * is set, preventing the value from being interpreted as negative (~50% of
- * random nonces require this).
- * @param {Uint8Array} bytes
- * @returns {Uint8Array}
- */
-function encodeUnsignedInteger(bytes) {
-  const content = (bytes[0] & 0x80)
-    ? concat(new Uint8Array([0x00]), bytes)
-    : bytes;
-  return writeTLV(0x02, content);
-}
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * Requests a RFC 3161 timestamp from a TSA.
- *
- * Builds a TimeStampReq, POSTs it, then validates the response:
- *   (a) PKIStatus is 0 (granted)
- *   (b) nonce in TSTInfo matches the sent nonce
- *   (c) messageImprint hash in TSTInfo matches bundleHash
- *
- * On success returns { token, genTime, tsa }; throws on any failure.
- *
- * @param {string} tsaUrl       TSA HTTP endpoint
- * @param {string} bundleHash   Hash string "sha256:<64 hex chars>"
- * @param {number} [timeoutMs]  Request timeout in milliseconds
- * @returns {Promise<{ token: string, genTime: string, tsa: string }>}
- * @throws On network error, timeout, parse error, or validation failure
- */
-export async function requestTimestamp(tsaUrl, bundleHash, timeoutMs = TSA_TIMEOUT_MS) {
-  if (!bundleHash.startsWith('sha256:')) throw new Error('bundleHash must start with "sha256:"');
-  const hexHash = bundleHash.slice(7);
-  if (hexHash.length !== 64) throw new Error('bundleHash SHA-256 hex must be 64 characters');
-
-  const hashBytes = new Uint8Array(32);
-  for (let i = 0; i < 32; i++) {
-    hashBytes[i] = parseInt(hexHash.slice(i * 2, i * 2 + 2), 16);
-  }
-
-  // 128-bit nonce -- crypto.getRandomValues is available in Cloudflare Workers
-  const nonceBytes = new Uint8Array(16);
-  crypto.getRandomValues(nonceBytes);
-
-  const reqDer = buildTimeStampReq(hashBytes, nonceBytes);
-
-  const resp = await fetch(tsaUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/timestamp-query' },
-    body: reqDer,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!resp.ok) throw new Error(`TSA returned HTTP ${resp.status}`);
-
-  const arrayBuf = await resp.arrayBuffer();
-  if (arrayBuf.byteLength > MAX_RESPONSE_BYTES) {
-    throw new Error(
-      `TSA response too large: ${arrayBuf.byteLength} bytes (max ${MAX_RESPONSE_BYTES})`
-    );
-  }
-
-  return parseAndValidate(new Uint8Array(arrayBuf), nonceBytes, bundleHash, tsaUrl);
-}
-
-/**
  * Verifies a stored RFC 3161 timestamp token against a bundle hash.
  * Does NOT verify the TSA's cryptographic signature (deferred --
- * X.509 chain validation is not feasible in Cloudflare Workers).
+ * X.509 chain validation is handled by cms-verify.js in the CLI).
  *
  * @param {string} tokenBase64        Base64-encoded raw DER TimeStampToken
  * @param {string} expectedBundleHash Hash string "sha256:<64 hex chars>"
@@ -233,147 +149,22 @@ export async function requestTimestamp(tsaUrl, bundleHash, timeoutMs = TSA_TIMEO
  */
 export function verifyTimestamp(tokenBase64, expectedBundleHash) {
   try {
-    const tokenDer = Uint8Array.from(atob(tokenBase64), c => c.charCodeAt(0));
+    const tokenDer = Buffer.from(tokenBase64, 'base64');
     const { messageImprintHex, genTime } = extractTSTInfo(tokenDer, 0);
 
     if (!expectedBundleHash.startsWith('sha256:')) {
       return { valid: false, reason: 'expectedBundleHash must start with "sha256:"' };
     }
     const expectedHex = expectedBundleHash.slice(7);
-    if (messageImprintHex !== expectedHex) {
+    const expectedBuf = Buffer.from(expectedHex, 'hex');
+    const actualBuf   = Buffer.from(messageImprintHex, 'hex');
+    if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
       return { valid: false, reason: 'messageImprint hash does not match expectedBundleHash' };
     }
     return { valid: true, genTime };
   } catch (err) {
     return { valid: false, reason: err.message };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Internal: TimeStampReq builder
-// ---------------------------------------------------------------------------
-
-/**
- * Builds a DER-encoded TimeStampReq.
- *
- * SEQUENCE {
- *   INTEGER 1                          -- version
- *   SEQUENCE {                         -- MessageImprint
- *     SEQUENCE { OID SHA-256, NULL }   -- AlgorithmIdentifier
- *     OCTET STRING <32 bytes>          -- hashedMessage
- *   }
- *   INTEGER <16 bytes>                 -- nonce (with sign-extension if needed)
- *   BOOLEAN TRUE                        -- certReq (tag 0x01)
- * }
- *
- * @param {Uint8Array} hashBytes  32-byte SHA-256 hash of the bundle
- * @param {Uint8Array} nonceBytes 16-byte random nonce
- * @returns {Uint8Array}
- */
-function buildTimeStampReq(hashBytes, nonceBytes) {
-  const version = writeTLV(0x02, new Uint8Array([0x01]));
-
-  const algId = writeTLV(0x30, concat(
-    writeTLV(0x06, OID_SHA256),
-    writeTLV(0x05, new Uint8Array(0)), // NULL parameters
-  ));
-
-  const msgImprint = writeTLV(0x30, concat(
-    algId,
-    writeTLV(0x04, hashBytes),
-  ));
-
-  const nonce = encodeUnsignedInteger(nonceBytes);
-
-  // certReq BOOLEAN DEFAULT FALSE
-  // Plain BOOLEAN (tag 0x01), value TRUE (0xff). Asks the TSA to include
-  // its signing certificate in the response, enabling offline chain validation.
-  const certReq = writeTLV(0x01, new Uint8Array([0xff]));
-
-  return writeTLV(0x30, concat(version, msgImprint, nonce, certReq));
-}
-
-// ---------------------------------------------------------------------------
-// Internal: TimeStampResp parser and validator
-// ---------------------------------------------------------------------------
-
-/**
- * Parses a TimeStampResp DER buffer and validates status, nonce, and messageImprint.
- * Returns the token, genTime, and tsa on success; throws on any failure.
- *
- * TimeStampResp SEQUENCE:
- *   child 0: PKIStatusInfo SEQUENCE
- *     child 0: status INTEGER  (0 = granted)
- *   child 1: TimeStampToken (ContentInfo) SEQUENCE
- *
- * @param {Uint8Array} der
- * @param {Uint8Array} sentNonceBytes  16-byte nonce sent in the request
- * @param {string}     bundleHash      "sha256:<hex>"
- * @param {string}     tsaUrl
- * @returns {{ token: string, genTime: string, tsa: string }}
- */
-function parseAndValidate(der, sentNonceBytes, bundleHash, tsaUrl) {
-  // Outer TimeStampResp SEQUENCE
-  const outerTlv = readTLV(der, 0);
-  if (outerTlv.tag !== 0x30) throw new Error('DER: TimeStampResp must be SEQUENCE');
-
-  const outerValueStart = outerTlv.end - outerTlv.length;
-  const outerValueEnd   = outerTlv.end;
-
-  // child 0: PKIStatusInfo SEQUENCE
-  const pkiInfo = childAt(der, outerValueStart, outerValueEnd, 0);
-  if (pkiInfo.tag !== 0x30) throw new Error('DER: PKIStatusInfo must be SEQUENCE');
-
-  const pkiValueStart = pkiInfo.end - pkiInfo.length;
-  const pkiValueEnd   = pkiInfo.end;
-
-  // child 0 of PKIStatusInfo: status INTEGER
-  const statusTlv = childAt(der, pkiValueStart, pkiValueEnd, 0);
-  if (statusTlv.tag !== 0x02) throw new Error('DER: PKIStatus must be INTEGER');
-  // Read status as big-endian integer (values 0-5 per RFC 3161, always single-byte in practice)
-  let status = 0;
-  for (const b of statusTlv.value) status = (status << 8) | b;
-  if (status !== 0) throw new Error(`TSA rejected request with PKIStatus ${status}`);
-
-  // child 1: TimeStampToken (ContentInfo SEQUENCE)
-  const tokenTlv = childAt(der, outerValueStart, outerValueEnd, 1);
-  if (tokenTlv.tag !== 0x30) throw new Error('DER: TimeStampToken must be SEQUENCE');
-
-  // Compute tag-byte offset of tokenTlv in der
-  const tokenTagOffset = tokenTlv.end - tokenTlv.length - writeLength(tokenTlv.length).length - 1;
-
-  // Extract TSTInfo fields from the token
-  const { messageImprintHex, genTime, nonceHex } = extractTSTInfo(der, tokenTagOffset);
-
-  // Validate nonce
-  // The TSA DER-encodes the nonce as an INTEGER; if the high bit of the first
-  // byte was set, a leading 0x00 sign-extension byte was added, producing 17
-  // value bytes instead of 16. Strip it before comparing.
-  if (nonceHex !== null) {
-    const sentHex = [...sentNonceBytes].map(b => b.toString(16).padStart(2, '0')).join('');
-    let respHex = nonceHex;
-    if (respHex.length === 34 && respHex.startsWith('00')) {
-      respHex = respHex.slice(2); // strip DER sign-extension byte
-    }
-    if (respHex !== sentHex) {
-      throw new Error('Nonce mismatch: TSA response nonce does not match request nonce');
-    }
-  }
-
-  // Validate messageImprint
-  const expectedImprint = bundleHash.slice(7);
-  if (messageImprintHex !== expectedImprint) {
-    throw new Error('messageImprint mismatch: TSA hash does not match submitted hash');
-  }
-
-  // Capture raw token DER bytes for storage (base64-encoded)
-  // Use a loop instead of spread to avoid RangeError on large responses
-  const tokenBytes = der.subarray(tokenTagOffset, tokenTlv.end);
-  let binary = '';
-  for (let i = 0; i < tokenBytes.length; i++) binary += String.fromCharCode(tokenBytes[i]);
-  const token = btoa(binary);
-
-  return { token, genTime, tsa: tsaUrl };
 }
 
 /**
@@ -402,7 +193,7 @@ function parseAndValidate(der, sentNonceBytes, bundleHash, tsaUrl) {
  * @param {number} tagOffset  Byte offset of the ContentInfo tag byte
  * @returns {{ messageImprintHex: string, genTime: string, nonceHex: string|null }}
  */
-function extractTSTInfo(buf, tagOffset) {
+export function extractTSTInfo(buf, tagOffset) {
   // ContentInfo SEQUENCE
   const contentInfo = readTLV(buf, tagOffset);
   if (contentInfo.tag !== 0x30) throw new Error('DER: ContentInfo must be SEQUENCE');
@@ -467,7 +258,7 @@ function extractTSTInfo(buf, tagOffset) {
  * @param {Uint8Array} buf  Buffer containing TSTInfo SEQUENCE at offset 0
  * @returns {{ messageImprintHex: string, genTime: string, nonceHex: string|null }}
  */
-function parseTSTInfo(buf) {
+export function parseTSTInfo(buf) {
   const tstInfo = readTLV(buf, 0);
   if (tstInfo.tag !== 0x30) throw new Error('DER: TSTInfo must be SEQUENCE');
 
@@ -531,7 +322,7 @@ function parseTSTInfo(buf) {
  * @param {string} gt
  * @returns {string}
  */
-function parseGeneralizedTime(gt) {
+export function parseGeneralizedTime(gt) {
   if (!gt.endsWith('Z')) throw new Error('GeneralizedTime must be UTC (trailing Z required)');
   const s = gt.slice(0, -1);
   const year   = s.slice(0, 4);
