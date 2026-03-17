@@ -19,7 +19,7 @@
 
 import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach, inject } from 'vitest';
-import { acquire } from '@cloudflare/playwright';
+import { acquire, connect } from '@cloudflare/playwright';
 import { performCapture } from '../../src/capture.js';
 import { createCapture, getCapture } from '../../src/kv.js';
 
@@ -28,12 +28,21 @@ import { createCapture, getCapture } from '../../src/kv.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Pre-acquires a browser session so defaultRenderer's getOrCreateSession()
- * finds a free session via sessions() instead of calling limits().
- * miniflare's browser binding doesn't implement limits().
+ * Pre-acquires a browser session and warms it up with a connect/disconnect
+ * cycle. This serves two purposes:
+ *   1. Places a free session in the pool so defaultRenderer's
+ *      getOrCreateSession() finds it via sessions() instead of calling
+ *      limits() (which miniflare doesn't implement).
+ *   2. Ensures the browser process is fully ready before the test runs.
+ *      Without the warm-up, the first test can race against browser startup
+ *      and fail with a 27s timeout.
  */
 async function ensureBrowserSession() {
-  await acquire(env.BROWSER, { keep_alive: 120000 });
+  const session = await acquire(env.BROWSER, { keep_alive: 120000 });
+  // Warm-up: connect then disconnect to confirm the browser is ready.
+  // After disconnect, the session remains free in the pool (keep_alive).
+  const browser = await connect(env.BROWSER, session.sessionId);
+  await browser.close();
 }
 
 // ---------------------------------------------------------------------------

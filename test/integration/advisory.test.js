@@ -12,7 +12,7 @@
 
 import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { acquire } from '@cloudflare/playwright';
+import { acquire, connect } from '@cloudflare/playwright';
 import { performCapture } from '../../src/capture.js';
 import { createCapture, getCapture } from '../../src/kv.js';
 
@@ -31,7 +31,9 @@ async function cleanupCapture(id) {
 
 describe('real URL capture (advisory)', () => {
   beforeEach(async () => {
-    await acquire(env.BROWSER, { keep_alive: 120000 });
+    const session = await acquire(env.BROWSER, { keep_alive: 120000 });
+    const browser = await connect(env.BROWSER, session.sessionId);
+    await browser.close();
     await cleanupCapture(captureId);
   });
   afterEach(async () => { await cleanupCapture(captureId); });
