@@ -117,11 +117,16 @@ function hasTimestampingEku(x509) {
  * Builds a certificate chain from a leaf cert to a trusted root.
  * Returns the chain (leaf -> intermediate(s) -> root) or null if no chain found.
  *
+ * Handles cross-signed roots: a cert is considered a trust anchor if it
+ * matches a trusted cert by subject (same key, same identity) even if
+ * the embedded version is cross-signed by a different root.
+ *
  * @param {X509Certificate} leaf
- * @param {X509Certificate[]} pool  All available certs (bundled roots + intermediates)
+ * @param {X509Certificate[]} pool     All available certs (embedded + bundled)
+ * @param {X509Certificate[]} trusted  Bundled trusted certs
  * @returns {X509Certificate[] | null}
  */
-function buildChain(leaf, pool) {
+function buildChain(leaf, pool, trusted) {
   const chain = [leaf];
   let current = leaf;
   const maxDepth = 10;
@@ -129,6 +134,13 @@ function buildChain(leaf, pool) {
   for (let i = 0; i < maxDepth; i++) {
     // Self-signed = root reached
     if (current.checkIssued(current)) return chain;
+
+    // Check if current cert is a trusted cert (by subject key match).
+    // Handles cross-signed roots where the embedded cert is signed by
+    // a different CA but represents the same identity/key as our
+    // bundled self-signed root.
+    const isTrusted = trusted.some(tc => tc.publicKey.equals(current.publicKey));
+    if (isTrusted) return chain;
 
     // Find the issuer in the pool
     const issuer = pool.find(c => {
@@ -251,14 +263,15 @@ export async function verifyCmsChain(tokenBase64, trustedRootPems, genTime) {
   //
   // Uses node:crypto X509Certificate.checkIssued() to walk the chain.
   // -------------------------------------------------------------------------
-  const chain = buildChain(signerX509, allCerts);
+  const chain = buildChain(signerX509, allCerts, bundledX509);
   if (!chain) {
     return { valid: false, detail: 'Certificate chain does not terminate at a trusted root', signerInfo: null };
   }
 
-  // The last cert in the chain must be self-signed (root) AND in our trusted set
+  // The last cert in the chain must be in our trusted set (by public key match,
+  // handles cross-signed roots with different fingerprints but same key)
   const root = chain[chain.length - 1];
-  const isTrusted = bundledX509.some(tc => tc.fingerprint256 === root.fingerprint256);
+  const isTrusted = bundledX509.some(tc => tc.publicKey.equals(root.publicKey));
   if (!isTrusted) {
     return { valid: false, detail: 'Certificate chain does not terminate at a trusted root', signerInfo: null };
   }
