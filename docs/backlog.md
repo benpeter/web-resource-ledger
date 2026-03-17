@@ -37,7 +37,7 @@ word "evidence" defensible.
 
 - #41 **R11: RFC 3161 timestamp integration** [L] -- third-party temporal proof; depends on R2
 - ~~#42 **R12: Per-tenant API keys and tenant isolation** [L]~~ -- DONE: KV-based key management, admin API, dual-mode legacy fallback, scope enforcement
-- #43 **R13: Audit logging** [S] -- full audit trail; depends on R12
+- ~~#43 **R13: Audit logging** [S]~~ -- DONE: structured audit fields on all authenticated request and admin key lifecycle events
 - ~~#44 **R14: Production CD pipeline** [M]~~ -- DONE: deploy-production.yml, OPERATIONS.md, environment protection
 
 ## Act 3: Infrastructure (longer-horizon)

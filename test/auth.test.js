@@ -35,6 +35,13 @@ describe('verifyApiKey -- KV-based key lookup', () => {
     expect(result.authMethod).toBe('kv');
   });
 
+  it('success return includes keyHashPrefix as 8-char hex string', async () => {
+    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture'] });
+    const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
+    expect(result.ok).toBe(true);
+    expect(result.keyHashPrefix).toMatch(/^[a-f0-9]{8}$/);
+  });
+
   it('returns correct tenantId from KV record', async () => {
     await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'tenant-xyz' });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
@@ -114,6 +121,12 @@ describe('verifyApiKey -- dual-mode legacy fallback', () => {
     const result = await verifyApiKey(makeRequest('Bearer test-api-key-for-vitest'), env);
     expect(result.ok).toBe(true);
     expect(result.tenantId).toBe('default');
+  });
+
+  it('legacy auth success includes keyHashPrefix as 8-char hex string', async () => {
+    const result = await verifyApiKey(makeRequest('Bearer test-api-key-for-vitest'), env);
+    expect(result.ok).toBe(true);
+    expect(result.keyHashPrefix).toMatch(/^[a-f0-9]{8}$/);
   });
 
   it('legacy auth returns scopes: ["capture","read"]', async () => {

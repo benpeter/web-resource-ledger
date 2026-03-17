@@ -18,6 +18,8 @@ curl <YOUR_PRODUCTION_URL>/health
 
 **Coralogix:** Filter by `applicationName:wrl` (production) or `applicationName:wrl-staging`.
 
+**Audit log schema:** See [docs/audit-log-schema.md](docs/audit-log-schema.md) for event names, fields, and Coralogix queries.
+
 **GitHub Actions:**
 - Production: https://github.com/benpeter/web-resource-ledger/actions/workflows/deploy-production.yml
 - Staging: https://github.com/benpeter/web-resource-ledger/actions/workflows/deploy-staging.yml

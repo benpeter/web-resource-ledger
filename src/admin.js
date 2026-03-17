@@ -13,12 +13,14 @@
  *   - Raw key is NEVER logged; only returned in the 201 response body.
  *   - keyHash in path is validated by route regex before reaching handler.
  *   - All responses set Cache-Control: private, no-store.
+ *   - keyName is INVARIANT-safe: validated by NAME_RE at key creation.
  */ // tva
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
 import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE } from './kv.js';
 import { log } from './log.js';
+import { computeCip } from './ip-hash.js';
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const VALID_SCOPES = ['capture', 'read', 'admin'];
 const ALLOWED_CREATE_FIELDS = new Set(['tenantId', 'scopes', 'name']);
@@ -39,6 +41,9 @@ function toBase64url(bytes) {
  * POST /v1/admin/keys -- create a new API key
  */
 export async function handleAdminCreateKey(request, env, ctx) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
   // Content-Type check
   const contentType = request.headers.get('Content-Type') || '';
   if (!contentType.includes('application/json')) {
@@ -119,7 +124,7 @@ export async function handleAdminCreateKey(request, env, ctx) {
   const result = await createApiKeyRecord(env.KV, keyHash, record);
   if (!result.created) {
     // Hash collision is astronomically rare; treat as internal error
-    ctx.waitUntil(log(env, 5, 'admin', { event: 'admin.key_create_fail', reason: result.reason }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'admin', { event: 'admin.key_create_fail', reason: result.reason, authMethod: 'admin_key', responseStatus: 500, cip }) ?? Promise.resolve());
     return problemResponse(500, 'Key generation failed. Please retry.');
   }
 
@@ -130,6 +135,9 @@ export async function handleAdminCreateKey(request, env, ctx) {
     tenantId: body.tenantId,
     scopes: body.scopes,
     name: body.name,
+    authMethod: 'admin_key',
+    responseStatus: 201,
+    cip,
   }) ?? Promise.resolve());
 
   return jsonResponse({
@@ -147,6 +155,9 @@ export async function handleAdminCreateKey(request, env, ctx) {
  * GET /v1/admin/keys -- list API keys
  */
 export async function handleAdminListKeys(request, env, ctx) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
   const params = new URL(request.url).searchParams;
   const tenantFilter = params.get('tenant') || undefined;
   const includeRevoked = params.get('include') === 'revoked';
@@ -170,11 +181,17 @@ export async function handleAdminListKeys(request, env, ctx) {
     return entry;
   });
 
-  ctx.waitUntil(log(env, 6, 'admin', {
+  // INVARIANT: tenantFilter is raw query input -- validate before logging
+  const safeTenantFilter = (tenantFilter && TENANT_ID_RE.test(tenantFilter)) ? tenantFilter : null;
+
+  ctx.waitUntil(log(env, 3, 'admin', {
     event: 'admin.key_list',
     count: data.length,
-    tenantFilter: tenantFilter || null,
+    tenantFilter: safeTenantFilter,
     includeRevoked,
+    authMethod: 'admin_key',
+    responseStatus: 200,
+    cip,
   }) ?? Promise.resolve());
 
   return jsonResponse({ data }, 200, ADMIN_CACHE);
@@ -185,6 +202,9 @@ export async function handleAdminListKeys(request, env, ctx) {
  * match[1] is the keyHash captured by the route regex (64 hex chars)
  */
 export async function handleAdminRevokeKey(request, env, ctx, match) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
   const keyHash = match[1];
 
   // TODO: Self-revocation guard (#42). When admin auth moves from ADMIN_KEY
@@ -199,7 +219,11 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     ctx.waitUntil(log(env, 4, 'admin', {
       event: 'admin.key_revoke_fail',
       keyHashPrefix: keyHash.slice(0, 8),
+      tenantId: null,
       reason: 'not_found',
+      authMethod: 'admin_key',
+      responseStatus: 404,
+      cip,
     }) ?? Promise.resolve());
     return problemResponse(404, 'API key not found.', ADMIN_CACHE);
   }
@@ -210,7 +234,12 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
       event: 'admin.key_revoke',
       keyHashPrefix: keyHash.slice(0, 8),
       tenantId: record.tenantId,
+      keyName: record.name,
+      scopes: record.scopes,
       idempotent: true,
+      authMethod: 'admin_key',
+      responseStatus: 200,
+      cip,
     }) ?? Promise.resolve());
     return jsonResponse({
       keyHash,
@@ -236,6 +265,10 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
         event: 'admin.key_revoke_blocked',
         keyHashPrefix: keyHash.slice(0, 8),
         tenantId: record.tenantId,
+        keyName: record.name,
+        authMethod: 'admin_key',
+        responseStatus: 409,
+        cip,
       }) ?? Promise.resolve());
       return problemResponse(409, `Cannot revoke the last admin-scoped key for tenant '${record.tenantId}'. Create a replacement key first.`, ADMIN_CACHE);
     }
@@ -252,7 +285,12 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     event: 'admin.key_revoke',
     keyHashPrefix: keyHash.slice(0, 8),
     tenantId: result.record.tenantId,
+    keyName: result.record.name,
+    scopes: result.record.scopes,
     idempotent: false,
+    authMethod: 'admin_key',
+    responseStatus: 200,
+    cip,
   }) ?? Promise.resolve());
 
   return jsonResponse({

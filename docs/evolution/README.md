@@ -47,3 +47,4 @@ software development.
 | [0036-fail-loudly-2](0036-fail-loudly-2/) | Eliminate silent catch blocks — fail loudly on unexpected errors (Issue #70) |
 | [0037-staging-deploy-race-condition](0037-staging-deploy-race-condition/) | Fix staging-production deploy race condition with workflow_run trigger (Issue #86) |
 | [0038-per-tenant-api-keys](0038-per-tenant-api-keys/) | Per-tenant API keys with KV-based lookup, admin API, scope enforcement, dual-mode legacy fallback |
+| [0039-audit-logging](0039-audit-logging/) | Audit logging for authenticated requests -- full tenant activity trail |
