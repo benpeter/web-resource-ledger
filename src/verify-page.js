@@ -216,6 +216,52 @@ summary:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border-
   color: #1a1a1a;
 }
 
+/* Verify independently */
+.cli-block {
+  position: relative;
+  margin-top: 1rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 0.75rem 2.75rem 0.75rem 0.75rem;
+}
+
+.cli-block code {
+  font-family: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: #1a1a1a;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.cli-desc {
+  font-size: 0.8rem;
+  color: #6d6d6d;
+  margin-top: 0.75rem;
+  line-height: 1.5;
+}
+
+.cli-copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #6d6d6d;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.cli-copy-btn:hover { background: rgba(0,0,0,0.06); }
+.cli-copy-btn:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border-radius: 2px; }
+.cli-copy-btn.copied { color: #2e7d32; }
+
 /* Error state */
 .error-state { padding: 1.5rem 2rem; }
 .error-msg { font-size: 0.95rem; color: #b71c1c; margin-bottom: 0.75rem; }
@@ -286,6 +332,8 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
   var SVG_CHECK = '<svg class="check-icon pass" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
   var SVG_X     = '<svg class="check-icon fail" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>';
   var SVG_DASH  = '<svg class="check-icon skip" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>';
+  var SVG_CLIPBOARD = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z"/></svg>';
+  var SVG_CHECK_SM = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clip-rule="evenodd"/></svg>';
 
   var CHECK_LABELS = {
     artifactHashes:  'File integrity',
@@ -452,6 +500,18 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
         '</div>' +
         '</details>';
     }
+
+    // Verify independently (shown for both verified and failed, not error state)
+    html += '<details><summary>Verify independently</summary>' +
+      '<p class="cli-desc">Run the verification yourself, including full timestamp certificate chain validation. Requires Node.js 20+.</p>' +
+      '<div class="cli-block">' +
+        '<code id="cli-command"></code>' +
+        '<button type="button" class="cli-copy-btn" id="cli-copy-btn" aria-label="Copy command to clipboard">' +
+          SVG_CLIPBOARD +
+        '</button>' +
+        '<span class="sr-only" id="cli-copy-status" aria-live="polite" role="status"></span>' +
+      '</div>' +
+      '</details>';
 
     return { html: html, checks: checks };
   }
@@ -639,6 +699,53 @@ footer a:focus-visible { outline: 2px solid #1a1a1a; outline-offset: 2px; border
     if (tsaTimeEl && signing.timestamp && signing.timestamp.genTime) {
       tsaTimeEl.textContent = fmtDate(signing.timestamp.genTime);
     }
+
+    // Verify independently -- populate command and wire copy button
+    var cliCommand = 'npx @w-r-l/verify ' + origin + '/v1/captures/' + captureId;
+    var cliCommandEl = document.getElementById('cli-command');
+    if (cliCommandEl) cliCommandEl.textContent = cliCommand;
+
+    var copyBtn = document.getElementById('cli-copy-btn');
+    if (copyBtn) {
+      var copyResetTimer = null;
+      var statusResetTimer = null;
+      copyBtn.addEventListener('click', function () {
+        var statusEl = document.getElementById('cli-copy-status');
+        if (copyResetTimer) { clearTimeout(copyResetTimer); copyResetTimer = null; }
+        if (statusResetTimer) { clearTimeout(statusResetTimer); statusResetTimer = null; }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(cliCommand).then(function () {
+            copyBtn.innerHTML = SVG_CHECK_SM;
+            copyBtn.classList.add('copied');
+            if (statusEl) statusEl.textContent = 'Command copied to clipboard';
+            copyResetTimer = setTimeout(function () {
+              copyBtn.innerHTML = SVG_CLIPBOARD;
+              copyBtn.classList.remove('copied');
+              copyResetTimer = null;
+            }, 2000);
+            statusResetTimer = setTimeout(function () {
+              if (statusEl) statusEl.textContent = '';
+              statusResetTimer = null;
+            }, 3000);
+          }).catch(function () {
+            selectFallback(cliCommandEl, statusEl);
+          });
+        } else {
+          selectFallback(cliCommandEl, statusEl);
+        }
+      });
+    }
+  }
+
+  function selectFallback(codeEl, statusEl) {
+    if (codeEl) {
+      var range = document.createRange();
+      range.selectNodeContents(codeEl);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    if (statusEl) statusEl.textContent = 'Could not copy. Select and copy manually.';
   }
 
   function showError() {
