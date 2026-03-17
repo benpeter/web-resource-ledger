@@ -229,7 +229,18 @@ async function handleCreateCapture(request, env, ctx) {
     return problemResponse(500, 'Could not create capture record');
   }
 
-  // Step 9: Trigger background capture
+  // Step 9: Log capture dispatch (bridge event: ties captureId to keyName for correlation)
+  ctx.waitUntil(log(env, 3, 'capture', {
+    event: 'capture.queued',
+    captureId,
+    tenantId,
+    keyName,
+    authMethod,
+    url: result.url,
+    cip,
+  }) ?? Promise.resolve());
+
+  // Step 10: Trigger background capture
   ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
 
   // Step 10: Build absolute status URL

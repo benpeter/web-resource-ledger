@@ -25,6 +25,17 @@ The synthesis included cursor-based pagination matching `GET /v1/captures`. Marg
 
 The synthesis had `keyName`/`authMethod` threaded through `performCapture()`'s function signature. Margo flagged this as coupling auth concerns to the capture pipeline. Changed to logging auth details in `src/index.js` handlers where auth succeeds, keeping `src/capture.js` focused on capture logic.
 
+**Revisited post-implementation** (nefario orchestration, 2026-03-17). The question was whether operators need `keyName` on every `capture.start`/`capture.success`/`capture.fail` event, or whether handler-level logging is sufficient.
+
+Three options evaluated:
+- **Thread keyName through performCapture()**: Adds 2 parameters (keyName, authMethod) to a 7-parameter function, both used only for log decoration. Couples auth context to a browser orchestration function that doesn't act on auth data. Rejected: wrong layer of ownership.
+- **Log only at handler level, correlate via captureId**: All pipeline events carry `captureId`. A handler-level `capture.queued` event ties `captureId` to `keyName`. Operators join on `captureId` in Coralogix. One extra query step vs. direct filter. Chosen.
+- **Structured logging context (e.g., AsyncLocalStorage)**: Would propagate context without signature changes, but Cloudflare Workers don't support AsyncLocalStorage. Not available.
+
+Both observability-minion and margo independently recommended the handler-level approach. Observability-minion identified one gap: the success path had no bridge log event tying `captureId` to `keyName`. A `capture.queued` event was added at the `ctx.waitUntil(performCapture(...))` call site to close this gap.
+
+**Correlation model**: `handleCreateCapture` emits `capture.queued` with `{captureId, keyName, authMethod, tenantId, url, cip}`. All pipeline events carry `captureId` + `tenantId`. Coralogix query: `captureId:"abc" | event:"capture.queued"` gives the key. No pipeline code changes needed.
+
 ### 5. Supplement `status` field on auth failures, don't replace
 
 Observability-minion's Phase 3.5 review caught that replacing the `status` field with `reason` on `security.auth_fail` events would break existing Coralogix queries. Changed to supplementing: both `status` (HTTP numeric) and `reason` (semantic string) are present.
