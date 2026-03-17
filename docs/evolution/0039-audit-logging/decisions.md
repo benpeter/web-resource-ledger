@@ -42,6 +42,16 @@ complexity.
 **Rationale**: Severity 6 events may be filtered by Coralogix TCO policies,
 silently removing admin key enumeration from the audit trail.
 
+## capture.list stays at severity 6
+
+**Chosen**: Keep at severity 6 (verbose).
+
+**Rationale**: Listing captures is a read-only operation that does not change
+state. Per observability-minion: unlike admin key listing (which signals
+potential abuse), capture listing is routine operational data. If compliance
+requirements later mandate logging every authenticated data access, this can
+be promoted to severity 3.
+
 ## keyHashPrefix (8 chars) is safe to log
 
 SHA-256 prefix provides 2^32 uniqueness for correlation without enabling

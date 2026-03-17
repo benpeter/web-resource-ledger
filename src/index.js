@@ -90,7 +90,7 @@ export default {
           const auth = await verifyAdminKey(request, env);
           if (!auth.ok) {
             const cip = await computeCip(env, clientIp);
-            ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
+            ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
             response = auth.response;
           }
         }
@@ -164,7 +164,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 2: Auth check
   const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
   }
   const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
@@ -265,7 +265,7 @@ async function handleListCaptures(request, env, ctx) {
   // Step 1: Auth check
   const auth = await verifyApiKey(request, env, { requiredScope: 'read' });
   if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', status: auth.response.status, reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
   }
   const { keyName, keyHashPrefix, authMethod } = auth;
@@ -346,7 +346,7 @@ async function handleListCaptures(request, env, ctx) {
 
   // Step 7: Log success
   const durationMs = Date.now() - start;
-  ctx.waitUntil(log(env, 3, 'capture', {
+  ctx.waitUntil(log(env, 6, 'capture', {
     event: 'capture.list',
     tenantId: auth.tenantId,
     keyName,

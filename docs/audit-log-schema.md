@@ -25,7 +25,7 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `capture.partial` | capture | 3 (info) | Capture completed with degraded artifacts |
 | `capture.fail` | capture | 5 (error) | Capture failed |
 | `capture.stage.fail` | capture | 5 (error) | Individual capture stage failed |
-| `capture.list` | capture | 3 (info) | List captures request completed |
+| `capture.list` | capture | 6 (verbose) | List captures request completed |
 | `capture.list_fail` | capture | 5 (error) | List captures KV error |
 | `capture.kv_create_fail` | capture | 5 (error) | Failed to create capture record |
 | `capture.kv_fail` | capture | 5 (error) | KV error during capture finalization |
