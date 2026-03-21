@@ -10,6 +10,7 @@ import { log } from './log.js';
 import { RATE_LIMITS } from './rate-limits.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey } from './admin.js';
+import { handleMcp } from './mcp.js';
 
 // tva
 
@@ -56,8 +57,26 @@ export default {
 
     let response;
 
+    // MCP endpoint -- handle before regex router
+    // MCP transport handles POST internally; OPTIONS for CORS preflight
+    if (pathname === '/mcp') {
+      if (request.method === 'OPTIONS') {
+        response = new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '7200',
+          },
+        });
+      } else {
+        response = await handleMcp(request, env, ctx);
+      }
+    }
+
     // CORS preflight for POST /v1/captures
-    if (request.method === 'OPTIONS' && pathname === '/v1/captures') {
+    if (!response && request.method === 'OPTIONS' && pathname === '/v1/captures') {
       const allowedOrigin = getAllowedOrigin(request, env);
       const headers = {
         'Access-Control-Max-Age': '7200',
@@ -70,7 +89,9 @@ export default {
         headers['Vary'] = 'Origin';
       }
       response = new Response(null, { status: 204, headers });
-    } else {
+    }
+
+    if (!response) {
       const isAdminRoute = pathname.startsWith('/v1/admin/');
 
       // Admin rate limit: check BEFORE auth (per spec)
@@ -123,6 +144,12 @@ export default {
         response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
         response.headers.set('Vary', 'Origin');
       }
+    }
+
+    // CORS response headers for MCP endpoint
+    if (pathname === '/mcp' && response && request.method !== 'OPTIONS') {
+      response = new Response(response.body, response);
+      response.headers.set('Access-Control-Allow-Origin', '*');
     }
 
     // X-RateLimit-Limit: report per-IP ceiling on rate-limited endpoints
