@@ -1,0 +1,340 @@
+{
+  "phases": [
+    {
+      "phase": "0039",
+      "item": "R15",
+      "issue": 45,
+      "title": "MCP server for web evidence",
+      "act": 3,
+      "budget_usd": 80,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0040",
+      "item": "R18",
+      "issue": 48,
+      "title": "Batch capture endpoint",
+      "act": 3,
+      "budget_usd": 60,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0041",
+      "item": "R16",
+      "issue": 46,
+      "title": "Queue migration for capture processing",
+      "act": 3,
+      "budget_usd": 80,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0042",
+      "item": "R21",
+      "issue": 94,
+      "title": "Per-tenant rate limiting",
+      "act": 3,
+      "budget_usd": 50,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0043",
+      "item": "R22",
+      "issue": 95,
+      "title": "Coralogix alerting rules",
+      "act": 3,
+      "budget_usd": 30,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0044",
+      "item": "R30",
+      "issue": 96,
+      "title": "D1 migration for metadata",
+      "act": 3,
+      "budget_usd": 100,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0045",
+      "item": "BRAND",
+      "issue": 97,
+      "title": "Brand identity and design system",
+      "act": 3,
+      "budget_usd": 60,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0046",
+      "item": "R17",
+      "issue": 47,
+      "title": "Web UI for capture submission",
+      "act": 3,
+      "budget_usd": 100,
+      "depends_on": [
+        "0044"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0047",
+      "item": "R20",
+      "issue": 98,
+      "title": "npm publish CI automation",
+      "act": 3,
+      "budget_usd": 30,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0048",
+      "item": "R19",
+      "issue": 99,
+      "title": "Documentation site",
+      "act": 3,
+      "budget_usd": 80,
+      "depends_on": [
+        "0039",
+        "0040"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0049",
+      "item": "R23",
+      "issue": 100,
+      "title": "Landing page",
+      "act": 4,
+      "budget_usd": 50,
+      "depends_on": [
+        "0045",
+        "0046"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0050",
+      "item": "R25",
+      "issue": 101,
+      "title": "Usage metering",
+      "act": 4,
+      "budget_usd": 60,
+      "depends_on": [
+        "0044"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0051",
+      "item": "R27",
+      "issue": 102,
+      "title": "Webhooks / outbound callbacks",
+      "act": 4,
+      "budget_usd": 60,
+      "depends_on": [
+        "0044"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0052",
+      "item": "R24",
+      "issue": 103,
+      "title": "Self-serve signup (OAuth)",
+      "act": 4,
+      "budget_usd": 120,
+      "depends_on": [
+        "0046",
+        "0042"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0053",
+      "item": "R26",
+      "issue": 104,
+      "title": "Tenant quotas",
+      "act": 4,
+      "budget_usd": 60,
+      "depends_on": [
+        "0050",
+        "0042"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0054",
+      "item": "E2E",
+      "issue": 105,
+      "title": "E2E test suite (Playwright)",
+      "act": 4,
+      "budget_usd": 60,
+      "depends_on": [
+        "0052"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0055",
+      "item": "R29",
+      "issue": 106,
+      "title": "Stripe billing integration",
+      "act": 5,
+      "budget_usd": 100,
+      "depends_on": [
+        "0052",
+        "0053"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0056",
+      "item": "R28",
+      "issue": 107,
+      "title": "Scheduled captures (cron)",
+      "act": 5,
+      "budget_usd": 80,
+      "depends_on": [
+        "0052",
+        "0053"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0057",
+      "item": "R31",
+      "issue": 108,
+      "title": "Usage-based billing pipeline",
+      "act": 5,
+      "budget_usd": 60,
+      "depends_on": [
+        "0050",
+        "0055"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0058",
+      "item": "R32",
+      "issue": 109,
+      "title": "Content security scanning",
+      "act": 5,
+      "budget_usd": 60,
+      "depends_on": [
+        "0056"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0059",
+      "item": "R33",
+      "issue": 110,
+      "title": "Capture auth gate for multi-tenant",
+      "act": 5,
+      "budget_usd": 60,
+      "depends_on": [
+        "0052",
+        "0044"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0060",
+      "item": "R36",
+      "issue": 111,
+      "title": "Email notifications",
+      "act": 5,
+      "budget_usd": 60,
+      "depends_on": [
+        "0052",
+        "0053",
+        "0056"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0061",
+      "item": "SEVDESK",
+      "issue": 112,
+      "title": "SevDesk/lexoffice integration",
+      "act": "5b",
+      "budget_usd": 60,
+      "depends_on": [
+        "0055"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0062",
+      "item": "R34",
+      "issue": 113,
+      "title": "API versioning and stability commitment",
+      "act": 6,
+      "budget_usd": 40,
+      "depends_on": [
+        "0039",
+        "0040",
+        "0051",
+        "0059"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0063",
+      "item": "R35",
+      "issue": 114,
+      "title": "MCP directory listings and ecosystem",
+      "act": 6,
+      "budget_usd": 40,
+      "depends_on": [
+        "0039",
+        "0047",
+        "0048"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0064",
+      "item": "R37",
+      "issue": 115,
+      "title": "Change detection and diffing",
+      "act": 6,
+      "budget_usd": 80,
+      "depends_on": [
+        "0056",
+        "0044"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0065",
+      "item": "R38",
+      "issue": 116,
+      "title": "CDN for verification traffic",
+      "act": 6,
+      "budget_usd": 40,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0066",
+      "item": "R39",
+      "issue": 117,
+      "title": "SOC 2 and compliance documentation",
+      "act": 6,
+      "budget_usd": 60,
+      "depends_on": [
+        "0052",
+        "0058",
+        "0059"
+      ],
+      "act_last": true
+    }
+  ]
+}
