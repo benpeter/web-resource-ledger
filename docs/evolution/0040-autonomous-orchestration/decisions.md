@@ -25,14 +25,14 @@
 - User pointed out: no users exist, so migration is cheap now and
   grows more expensive with every KV-based feature added.
 - Zero-downtime dual-write unnecessary -- clean migration.
-- Moved to Phase 0044 (Act 3), before Web UI.
+- Moved to Phase 0047 (Act 3), before Web UI.
 
 ## R16 Queue migration included (not conditional)
 
 - Backlog had it as "data-driven: when timeouts >5%".
 - User noted test load won't trigger the condition, but queues are
   architecturally correct and simpler to add now.
-- Included in manifest as Phase 0041.
+- Included in manifest as Phase 0044.
 
 ## Lucy at gates (not auto-approve)
 

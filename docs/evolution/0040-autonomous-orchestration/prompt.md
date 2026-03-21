@@ -14,7 +14,7 @@ human interaction beyond initial setup and act-boundary checkpoints.
 
 **Scope**:
 - In: Orchestrator infrastructure, issue specs, manifest, session prompt, notifications, verification logic
-- Out: Actual feature implementation (that's phases 0040-0066 driven by the orchestrator)
+- Out: Actual feature implementation (that's phases 0042-0069 driven by the orchestrator)
 
 **Context**: This is the meta-phase -- building the machine that builds the product.
 28 phases across Acts 3-6 will take WRL from a working API to a complete SaaS with
