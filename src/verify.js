@@ -29,8 +29,9 @@
 import { unzipSync } from 'fflate';
 import { canonicalize } from './canonical-json.js';
 import { sha256 } from './warc.js';
-import { verifySignature } from './signing.js';
+import { verifySignature, getSigningKeys } from './signing.js';
 import { verifyTimestamp } from './rfc3161.js';
+import { getCapture, getArchivedSigningKey } from './kv.js';
 
 const enc = new TextEncoder();
 
@@ -238,4 +239,68 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Shared verification orchestration
+// ---------------------------------------------------------------------------
+
+/**
+ * Core verification orchestration: KV lookup → key resolution → R2 fetch → WACZ verify.
+ * Shared between REST handler and MCP tool handler.
+ *
+ * @param {{ KV: KVNamespace, BUCKET: R2Bucket, SIGNING_KEY: string }} deps
+ * @param {string} captureId
+ * @returns {Promise<
+ *   { ok: true, record: object, result: object } |
+ *   { ok: false, reason: 'not_found' | 'key_unavailable' | 'r2_missing' | 'too_large', detail?: string }
+ * >}
+ */
+export async function performVerification(deps, captureId) {
+  const { KV, BUCKET, SIGNING_KEY } = deps;
+
+  // Step 1: KV lookup (fast-fail before expensive R2 fetch)
+  const record = await getCapture(KV, captureId);
+  if (!record || record.status !== 'complete' || !record.wacz) {
+    return { ok: false, reason: 'not_found' };
+  }
+
+  // Step 2: Resolve public key for verification
+  // SECURITY: keyId is read from the KV record (server-controlled), NEVER from the
+  // WACZ's signedData. The WACZ-embedded keyId is for offline/third-party verifiers
+  // only and must not influence server-side key selection.
+  // Priority: KV record keyId → archived key → current key (legacy fallback)
+  let publicKeyBytes = null;
+  if (record.wacz.keyId) {
+    const archived = await getArchivedSigningKey(KV, record.wacz.keyId);
+    if (archived) {
+      publicKeyBytes = Uint8Array.from(atob(archived.publicKey), c => c.charCodeAt(0));
+    }
+  }
+  if (!publicKeyBytes) {
+    // Fallback: current signing key (covers legacy captures before key versioning)
+    const keys = await getSigningKeys({ SIGNING_KEY });
+    if (keys) publicKeyBytes = keys.publicKeyBytes;
+  }
+  if (!publicKeyBytes) {
+    return { ok: false, reason: 'key_unavailable', detail: SIGNING_KEY ? 'key_invalid' : 'key_absent' };
+  }
+
+  // Step 3: R2 fetch
+  const obj = await BUCKET.get(record.wacz.key);
+  if (obj === null) {
+    return { ok: false, reason: 'r2_missing', record };
+  }
+
+  // Step 4: Size guard -- MUST happen before arrayBuffer() to gate memory allocation
+  const MAX_WACZ_BYTES = 104857600; // 100 MB
+  if (obj.size > MAX_WACZ_BYTES) {
+    return { ok: false, reason: 'too_large' };
+  }
+
+  // Step 5: Verify
+  const waczBytes = new Uint8Array(await obj.arrayBuffer());
+  const result = await verifyWacz(waczBytes, publicKeyBytes);
+
+  return { ok: true, record, result };
 }

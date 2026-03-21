@@ -1,10 +1,10 @@
 import { problemResponse, jsonResponse } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, listCaptures, getArchivedSigningKey, listArchivedSigningKeys } from './kv.js';
+import { createCapture, getCapture, listCaptures, listArchivedSigningKeys } from './kv.js';
 import { performCapture } from './capture.js';
-import { verifyWacz } from './verify.js';
-import { getSigningKeys, verifySignature } from './signing.js';
+import { performVerification } from './verify.js';
+import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { log } from './log.js';
 import { RATE_LIMITS } from './rate-limits.js';
@@ -502,66 +502,44 @@ async function handleVerifyCapture(request, env, ctx, match) {
     }
   }
 
-  // Step 2: KV lookup (fast-fail before expensive R2 fetch)
-  const record = await getCapture(env.KV, captureId);
-  if (!record || record.status !== 'complete' || !record.wacz) {
-    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
-  }
+  // Steps 2-6: Delegate to shared orchestrator (KV lookup, key resolution, R2, verify)
+  const verification = await performVerification({ KV: env.KV, BUCKET: env.BUCKET, SIGNING_KEY: env.SIGNING_KEY }, captureId);
 
-  // Step 3: Resolve public key for verification
-  // SECURITY: keyId is read from the KV record (server-controlled), NEVER from the
-  // WACZ's signedData. The WACZ-embedded keyId is for offline/third-party verifiers
-  // only and must not influence server-side key selection.
-  // Priority: KV record keyId → archived key → current key (legacy fallback)
-  let publicKeyBytes = null;
-  if (record.wacz.keyId) {
-    // Server-controlled: keyId stored at signing time
-    const archived = await getArchivedSigningKey(env.KV, record.wacz.keyId);
-    if (archived) {
-      publicKeyBytes = Uint8Array.from(atob(archived.publicKey), c => c.charCodeAt(0));
+  if (!verification.ok) {
+    if (verification.reason === 'not_found') {
+      return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
     }
-  }
-  if (!publicKeyBytes) {
-    // Fallback: current signing key (covers legacy captures before key versioning)
-    const keys = await getSigningKeys(env);
-    if (keys) publicKeyBytes = keys.publicKeyBytes;
-  }
-  if (!publicKeyBytes) {
-    ctx.waitUntil(log(env, 5, 'security', {
-      event: 'signing.key_unavailable',
-      reason: env.SIGNING_KEY ? 'key_invalid' : 'key_absent',
-      captureId,
-      cip,
-    }) ?? Promise.resolve());
-    return problemResponse(503, 'Verification service is not configured');
-  }
-
-  // Step 4: R2 fetch
-  const obj = await env.BUCKET.get(record.wacz.key);
-  if (obj === null) {
-    // Data loss: WACZ key recorded in KV but object missing from R2.
-    // Return a verification result (not 500) -- this is an observable fact.
-    return jsonResponse({
-      verified: false,
-      capture: { id: record.captureId, createdAt: record.createdAt, completedAt: record.completedAt, renderQuality: record.renderQuality ?? 'full' },
-      signing: null,
-      checks: [
-        { name: 'artifactHashes', status: 'fail', detail: 'WACZ bundle not found in storage' },
-        { name: 'bundleHash',     status: 'fail', detail: 'WACZ bundle not found in storage' },
-        { name: 'signature',      status: 'fail', detail: 'WACZ bundle not found in storage' },
-      ],
-    }, 200, { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+    if (verification.reason === 'key_unavailable') {
+      ctx.waitUntil(log(env, 5, 'security', {
+        event: 'signing.key_unavailable',
+        reason: verification.detail,
+        captureId,
+        cip,
+      }) ?? Promise.resolve());
+      return problemResponse(503, 'Verification service is not configured');
+    }
+    if (verification.reason === 'r2_missing') {
+      // Data loss: WACZ key recorded in KV but object missing from R2.
+      // Return a verification result (not 500) -- this is an observable fact.
+      const { record } = verification;
+      return jsonResponse({
+        verified: false,
+        capture: { id: record.captureId, createdAt: record.createdAt, completedAt: record.completedAt, renderQuality: record.renderQuality ?? 'full' },
+        signing: null,
+        checks: [
+          { name: 'artifactHashes', status: 'fail', detail: 'WACZ bundle not found in storage' },
+          { name: 'bundleHash',     status: 'fail', detail: 'WACZ bundle not found in storage' },
+          { name: 'signature',      status: 'fail', detail: 'WACZ bundle not found in storage' },
+        ],
+      }, 200, { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+    }
+    if (verification.reason === 'too_large') {
+      return problemResponse(422, 'WACZ bundle exceeds maximum verifiable size');
+    }
+    return problemResponse(500, 'Verification error');
   }
 
-  // Step 5: Size guard -- MUST happen before arrayBuffer() to gate memory allocation
-  const MAX_WACZ_BYTES = 104857600; // 100 MB
-  if (obj.size > MAX_WACZ_BYTES) {
-    return problemResponse(422, 'WACZ bundle exceeds maximum verifiable size');
-  }
-
-  // Step 6: Verify
-  const waczBytes = new Uint8Array(await obj.arrayBuffer());
-  const result = await verifyWacz(waczBytes, publicKeyBytes);
+  const { record, result } = verification;
 
   // Step 7: Build response body
   const body = {
