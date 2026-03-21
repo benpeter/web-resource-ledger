@@ -51,12 +51,19 @@ focus on: unnecessary abstractions, over-engineered solutions, dependency
 bloat, premature optimization. Margo should NOT argue against features
 that are in the active roadmap or issue description.
 
-### Evolution Log
+### Evolution Log (MANDATORY -- do not skip)
 
 Create the evolution log directory as the FIRST action:
   docs/evolution/NNNN-short-name/prompt.md
-Fill in decisions.md during execution. Write outcome.md at the end.
-Write process.md after PR creation.
+
+ALL FOUR files are required. The PR MUST NOT be created until all exist:
+  1. prompt.md -- created FIRST, before any code work
+  2. decisions.md -- filled in DURING execution as decisions happen
+  3. outcome.md -- written AFTER code is complete, before PR
+  4. process.md -- written AFTER PR creation, documents how agents worked
+
+This is a hard gate: if process.md is missing when the session ends,
+the phase is incomplete. The orchestrator will verify these files exist.
 
 ### Product Management
 

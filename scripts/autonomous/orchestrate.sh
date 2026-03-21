@@ -157,6 +157,24 @@ ${ISSUE_CONTEXT:-No issue body available. Refer to the issue title and manifest 
 
   log_info "PR #${PR_NUMBER} created"
 
+  # Verify evolution log completeness
+  EVO_DIR=$(find docs/evolution -maxdepth 1 -name "${PHASE}-*" -type d 2>/dev/null | head -1)
+  if [[ -z "$EVO_DIR" ]]; then
+    log_warn "Phase $PHASE: no evolution log directory found"
+  else
+    MISSING_DOCS=()
+    for doc in prompt.md decisions.md outcome.md process.md; do
+      if [[ ! -f "$EVO_DIR/$doc" ]]; then
+        MISSING_DOCS+=("$doc")
+      fi
+    done
+    if [[ ${#MISSING_DOCS[@]} -gt 0 ]]; then
+      log_error "Phase $PHASE: missing evolution log files: ${MISSING_DOCS[*]}"
+      notify_error "$PHASE" "Evolution log incomplete: missing ${MISSING_DOCS[*]} in $EVO_DIR"
+      # Don't block -- but make it visible
+    fi
+  fi
+
   # Verify and merge
   if verify_and_merge "$PR_NUMBER" "$PHASE" "false"; then
     set_phase_status "$PHASE" "success"
