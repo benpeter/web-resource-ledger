@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.benpeter/web-resource-ledger",
+  "title": "Web Resource Ledger",
+  "description": "Capture web pages as tamper-evident evidence with Ed25519 signatures and RFC 3161 timestamps. Four tools: capture_url, get_capture, list_captures, verify_capture.",
+  "version": "0.1.0",
+  "websiteUrl": "https://github.com/benpeter/web-resource-ledger",
+  "repository": {
+    "url": "https://github.com/benpeter/web-resource-ledger",
+    "source": "github",
+    "id": "benpeter/web-resource-ledger"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://wrl.benpeter.workers.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:WRL_API_KEY}"
+      }
+    }
+  ]
+}

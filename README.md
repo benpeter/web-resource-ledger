@@ -292,6 +292,12 @@ wrangler deploy
 
 Steps 1-9 are one-time setup. After initial deployment, the CD pipeline handles staging and production deploys automatically on every push to `main`. For the full deploy flow, environment configuration, rollback procedures, and how secrets map across Worker runtime, GitHub CI, and local development, see [OPERATIONS.md](OPERATIONS.md).
 
+## MCP Server
+
+WRL exposes all four core operations — capture, retrieve, list, and verify — as MCP tools. Any MCP-compatible agent or IDE can capture web pages and verify evidence without writing HTTP client code.
+
+See [`docs/mcp.md`](docs/mcp.md) for setup instructions (Claude Code, Cursor, Windsurf, and generic clients), tool reference, and a step-by-step capture-and-verify walkthrough.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, test conventions, and contribution guidelines.
