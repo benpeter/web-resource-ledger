@@ -18,6 +18,8 @@ curl <YOUR_PRODUCTION_URL>/health
 
 **Coralogix:** Filter by `applicationName:wrl` (production) or `applicationName:wrl-staging`.
 
+**Alert rules:** See [docs/operations/alerts.md](docs/operations/alerts.md) for alert definitions, thresholds, and provisioning.
+
 **Audit log schema:** See [docs/audit-log-schema.md](docs/audit-log-schema.md) for event names, fields, and Coralogix queries.
 
 **GitHub Actions:**
