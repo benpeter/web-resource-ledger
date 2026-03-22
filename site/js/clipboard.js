@@ -13,7 +13,7 @@ if (navigator.clipboard) {
         btn.textContent = 'Copied';
         btn.setAttribute('aria-label', 'Copied to clipboard');
         setTimeout(function () { btn.textContent = 'Copy'; btn.setAttribute('aria-label', 'Copy code to clipboard'); }, 2000);
-      });
+      }).catch(function () { /* clipboard write failed — degrade silently */ });
     });
   });
 }

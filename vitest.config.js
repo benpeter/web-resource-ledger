@@ -19,7 +19,7 @@ const TEST_MIGRATIONS = await readD1Migrations(path.join(__dirname, 'migrations'
 export default defineWorkersConfig({
   test: {
     setupFiles: ['./test/apply-migrations.js'],
-    exclude: ['test/integration/**', 'packages/**', 'node_modules/**'],
+    exclude: ['test/integration/**', 'packages/**', 'node_modules/**', 'site/**'],
     poolOptions: {
       workers: {
         wrangler: {
