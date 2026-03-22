@@ -38,6 +38,7 @@ export const DESIGN_SYSTEM_CSS = `
   --color-warning-text: #7a5800;
   --color-info: #1565c0;
   --color-info-bg: #e3f2fd;
+  --color-info-text: #0d47a1;
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -104,7 +105,7 @@ export const DESIGN_SYSTEM_CSS = `
 .alert--success { border-color: var(--color-success); background: var(--color-success-bg); color: var(--color-success-text); }
 .alert--error   { border-color: var(--color-error);   background: var(--color-error-bg);   color: var(--color-error-text); }
 .alert--warning { border-color: var(--color-warning); background: var(--color-warning-bg); color: var(--color-warning-text); }
-.alert--info    { border-color: var(--color-info);    background: var(--color-info-bg);    color: var(--color-text); }
+.alert--info    { border-color: var(--color-info);    background: var(--color-info-bg);    color: var(--color-info-text); }
 
 /* Badges */
 .badge {
@@ -207,6 +208,6 @@ export const DESIGN_SYSTEM_CSS = `
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner { animation: none; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; }
 }
 `;

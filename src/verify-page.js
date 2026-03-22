@@ -162,18 +162,6 @@ h2 {
 .check-desc { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
 .check-detail { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1); font-style: italic; }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0,0,0,0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
 /* Screenshot */
 .screenshot-img {
   display: block;
