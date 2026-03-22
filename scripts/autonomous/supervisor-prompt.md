@@ -73,6 +73,25 @@ call. Kill stuck processes, clean up worktrees, provision infrastructure,
 fix code, resolve conflicts, merge PRs. The operator only needs to be
 involved for decisions, not for execution.
 
+## Monitoring GitHub Actions and repo health
+
+After each phase completes (whether the orchestrator handles it or you
+merge manually), **check GitHub before moving on**:
+
+1. **CI status**: `gh pr checks <N>` — if CI failed, read `gh run view <id> --log-failed`,
+   fix the code, push, and wait for green before merging
+2. **Secret scanning**: `gh api repos/benpeter/web-resource-ledger/secret-scanning/alerts --jq '.[] | select(.state=="open")'`
+   — if any alerts are open, investigate immediately. Replace exposed values
+   with clearly-fake placeholders (all-zeros), dismiss false positives, and
+   rotate any real secrets
+3. **Deploy workflows**: after merge, verify both staging and production
+   deploys succeed. Check `gh run list --workflow deploy-staging.yml --limit 1`
+   and `gh run list --workflow deploy-production.yml --limit 1`
+4. **Dependabot / code scanning**: check for any new alerts that could
+   block future phases
+
+Do NOT proceed to the next phase if any of these are red. Fix first.
+
 ## Interacting with the operator
 
 **During a phase** (orchestrator is running a claude session):

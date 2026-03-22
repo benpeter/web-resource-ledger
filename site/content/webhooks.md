@@ -36,7 +36,7 @@ curl -X POST https://wrl.example.com/v1/webhooks \
   "url": "https://hooks.example.com/wrl-events",
   "events": ["capture.complete", "capture.failed"],
   "name": "ci-notifier",
-  "secret": "whsec_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+  "secret": "whsec_0000000000000000000000000000000000000000000000000000000000000000",
   "createdAt": "2026-03-22T12:00:00.000Z",
   "warning": "Store this secret now. It cannot be retrieved after this response."
 }
