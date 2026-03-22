@@ -33,6 +33,8 @@ source "$SCRIPT_DIR/lib/wait-for-signal.sh"
 source "$SCRIPT_DIR/lib/cleanup-worktrees.sh"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/lib/fix-deploy.sh"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/lib/self-heal.sh"
 
 # Initialize logging
 LOG_DIR=$(init_logging)
@@ -150,122 +152,166 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
     continue
   fi
 
-  # --- Run phase ---
+  # --- Run phase (with self-healing retry loop) ---
 
-  echo ""
-  echo "=========================================="
-  log_info "Phase $((i+1))/$PHASE_COUNT: $PHASE - $TITLE (Act $ACT)"
-  log_info "Budget: \$$BUDGET | Issue: ${ISSUE:-TBD}"
-  echo "=========================================="
+  ATTEMPT=0
+  SELF_HEAL_SUFFIX=""
+  SELF_HEAL_BUDGET_MULTIPLIER=""
 
-  # Ensure main is up-to-date
-  git checkout main --quiet 2>/dev/null || true
-  git pull --quiet --rebase 2>/dev/null || true
+  while [[ $ATTEMPT -lt $MAX_PHASE_ATTEMPTS ]]; do
+    ATTEMPT=$((ATTEMPT + 1))
 
-  # Notify start
-  notify_started "$PHASE" "$TITLE"
+    echo ""
+    echo "=========================================="
+    log_info "Phase $((i+1))/$PHASE_COUNT: $PHASE - $TITLE (Act $ACT) [attempt $ATTEMPT/$MAX_PHASE_ATTEMPTS]"
+    log_info "Budget: \$$BUDGET | Issue: ${ISSUE:-TBD}"
+    echo "=========================================="
 
-  # Build session prompt
-  ISSUE_CONTEXT=""
-  if [[ -n "$ISSUE" ]] && [[ "$ISSUE" != "null" ]]; then
-    ISSUE_CONTEXT=$(gh issue view "$ISSUE" --json body --jq '.body' 2>/dev/null || echo "")
-  fi
+    # Ensure main is up-to-date
+    git checkout main --quiet 2>/dev/null || true
+    git pull --quiet --rebase 2>/dev/null || true
 
-  # Inject phase number into prompt template
-  PROMPT_WITH_PHASE="${PROMPT_BASE//\{\{PHASE\}\}/$PHASE}"
+    # Notify start (only on first attempt)
+    if [[ $ATTEMPT -eq 1 ]]; then
+      notify_started "$PHASE" "$TITLE"
+    fi
 
-  SESSION_PROMPT="${PROMPT_WITH_PHASE}
+    # Build session prompt
+    ISSUE_CONTEXT=""
+    if [[ -n "$ISSUE" ]] && [[ "$ISSUE" != "null" ]]; then
+      ISSUE_CONTEXT=$(gh issue view "$ISSUE" --json body --jq '.body' 2>/dev/null || echo "")
+    fi
+
+    # Inject phase number into prompt template
+    PROMPT_WITH_PHASE="${PROMPT_BASE//\{\{PHASE\}\}/$PHASE}"
+
+    SESSION_PROMPT="${PROMPT_WITH_PHASE}
 
 ### Issue Context
 
 ${ISSUE_CONTEXT:-No issue body available. Refer to the issue title and manifest for scope.}
-"
+${SELF_HEAL_SUFFIX}"
 
-  # Run claude session
-  PHASE_OUTPUT="${LOG_DIR}/phase-${PHASE}.json"
-  PHASE_LOG="${LOG_DIR}/phase-${PHASE}.log"
-  set_phase_status "$PHASE" "in_progress"
-
-  log_info "Starting claude session..."
-  if claude \
-    --print \
-    --dangerously-skip-permissions \
-    --worktree \
-    --model "$CLAUDE_MODEL" \
-    --max-budget-usd "$BUDGET" \
-    --output-format json \
-    --append-system-prompt "$SESSION_PROMPT" \
-    -p "/nefario #${ISSUE:-$TITLE}" \
-    > "$PHASE_OUTPUT" 2>"$PHASE_LOG"; then
-
-    log_info "Claude session completed"
-  else
-    EXIT_CODE=$?
-    log_error "Claude session exited with code $EXIT_CODE"
-
-    # Check for autonomous error signal
-    if grep -q "AUTONOMOUS_ERROR:" "$PHASE_OUTPUT" 2>/dev/null; then
-      ERROR_MSG=$(grep "AUTONOMOUS_ERROR:" "$PHASE_OUTPUT" | head -1)
-      log_error "Autonomous error: $ERROR_MSG"
+    # Calculate budget (apply multiplier from self-heal if set)
+    EFFECTIVE_BUDGET="$BUDGET"
+    if [[ -n "$SELF_HEAL_BUDGET_MULTIPLIER" ]]; then
+      EFFECTIVE_BUDGET=$(echo "$BUDGET * $SELF_HEAL_BUDGET_MULTIPLIER" | bc | cut -d. -f1)
+      log_info "Budget adjusted to \$$EFFECTIVE_BUDGET (${SELF_HEAL_BUDGET_MULTIPLIER}x)"
     fi
 
-    set_phase_status "$PHASE" "failed_session"
-    notify_error "$PHASE" "Session exited with code $EXIT_CODE. Check ${PHASE_LOG}"
-    # Fall through to pacing -- do NOT skip with continue
-  fi
+    # Run claude session
+    PHASE_OUTPUT="${LOG_DIR}/phase-${PHASE}.json"
+    PHASE_LOG="${LOG_DIR}/phase-${PHASE}.log"
+    set_phase_status "$PHASE" "in_progress"
 
-  # --- Post-session verification (only if session succeeded) ---
+    log_info "Starting claude session..."
+    if claude \
+      --print \
+      --dangerously-skip-permissions \
+      --worktree \
+      --model "$CLAUDE_MODEL" \
+      --max-budget-usd "$EFFECTIVE_BUDGET" \
+      --output-format json \
+      --append-system-prompt "$SESSION_PROMPT" \
+      -p "/nefario #${ISSUE:-$TITLE}" \
+      > "$PHASE_OUTPUT" 2>"$PHASE_LOG"; then
 
-  # Extract PR number (skip verification if session failed)
-  PR_NUMBER=""
-  if [[ "$(get_phase_status "$PHASE")" != "failed_session" ]]; then
-    PR_NUMBER=$(extract_pr_number "$PHASE_OUTPUT" 2>/dev/null || true)
-
-    if [[ -z "$PR_NUMBER" ]]; then
-      log_error "No PR found for phase $PHASE"
-      set_phase_status "$PHASE" "failed_no_pr"
-      notify_error "$PHASE" "No PR created. Check ${PHASE_LOG}"
-      # Fall through to pacing
-    fi
-  fi
-
-  # Verify and merge (only if we have a PR)
-  if [[ -n "$PR_NUMBER" ]]; then
-    log_info "PR #${PR_NUMBER} created"
-
-    if verify_and_merge "$PR_NUMBER" "$PHASE" "false"; then
-      set_phase_status "$PHASE" "success"
-      log_info "Phase $PHASE complete!"
-      notify_phase_complete "$PHASE" "$TITLE" "$PR_NUMBER"
-
-      # Verify evolution log completeness (check after merge, when files are on main)
-      git pull --quiet --rebase 2>/dev/null || true
-      EVO_DIR=$(find docs/evolution -maxdepth 1 -name "${PHASE}-*" -type d 2>/dev/null | head -1)
-      if [[ -z "$EVO_DIR" ]]; then
-        log_warn "Phase $PHASE: no evolution log directory found"
-      else
-        MISSING_DOCS=()
-        for doc in prompt.md decisions.md outcome.md process.md; do
-          if [[ ! -f "$EVO_DIR/$doc" ]]; then
-            MISSING_DOCS+=("$doc")
-          fi
-        done
-        if [[ ${#MISSING_DOCS[@]} -gt 0 ]]; then
-          log_warn "Phase $PHASE: missing evolution log files: ${MISSING_DOCS[*]}"
-        fi
-      fi
+      log_info "Claude session completed"
     else
-      VERIFY_EXIT=$?
-      case $VERIFY_EXIT in
-        1) set_phase_status "$PHASE" "failed_ci" ;;
-        2) set_phase_status "$PHASE" "failed_merge" ;;
-        3) set_phase_status "$PHASE" "failed_deploy" ;;
-        *) set_phase_status "$PHASE" "failed_verify" ;;
-      esac
-      notify_error "$PHASE" "Verification failed (exit $VERIFY_EXIT). PR #${PR_NUMBER}"
-      # Fall through to pacing
+      EXIT_CODE=$?
+      log_error "Claude session exited with code $EXIT_CODE"
+
+      # Check for autonomous error signal
+      if grep -q "AUTONOMOUS_ERROR:" "$PHASE_OUTPUT" 2>/dev/null; then
+        ERROR_MSG=$(grep "AUTONOMOUS_ERROR:" "$PHASE_OUTPUT" | head -1)
+        log_error "Autonomous error: $ERROR_MSG"
+      fi
+
+      set_phase_status "$PHASE" "failed_session"
     fi
-  fi
+
+    # --- Post-session verification (only if session succeeded) ---
+
+    # Extract PR number (skip verification if session failed)
+    PR_NUMBER=""
+    if [[ "$(get_phase_status "$PHASE")" != "failed_session" ]]; then
+      PR_NUMBER=$(extract_pr_number "$PHASE_OUTPUT" 2>/dev/null || true)
+
+      if [[ -z "$PR_NUMBER" ]]; then
+        log_error "No PR found for phase $PHASE"
+        set_phase_status "$PHASE" "failed_no_pr"
+      fi
+    fi
+
+    # Verify and merge (only if we have a PR)
+    if [[ -n "$PR_NUMBER" ]]; then
+      log_info "PR #${PR_NUMBER} created"
+
+      if verify_and_merge "$PR_NUMBER" "$PHASE" "false"; then
+        set_phase_status "$PHASE" "success"
+        log_info "Phase $PHASE complete!"
+        notify_phase_complete "$PHASE" "$TITLE" "$PR_NUMBER"
+
+        # Verify evolution log completeness (check after merge, when files are on main)
+        git pull --quiet --rebase 2>/dev/null || true
+        EVO_DIR=$(find docs/evolution -maxdepth 1 -name "${PHASE}-*" -type d 2>/dev/null | head -1)
+        if [[ -z "$EVO_DIR" ]]; then
+          log_warn "Phase $PHASE: no evolution log directory found"
+        else
+          MISSING_DOCS=()
+          for doc in prompt.md decisions.md outcome.md process.md; do
+            if [[ ! -f "$EVO_DIR/$doc" ]]; then
+              MISSING_DOCS+=("$doc")
+            fi
+          done
+          if [[ ${#MISSING_DOCS[@]} -gt 0 ]]; then
+            log_warn "Phase $PHASE: missing evolution log files: ${MISSING_DOCS[*]}"
+          fi
+        fi
+
+        break  # Success — exit retry loop
+      else
+        VERIFY_EXIT=$?
+        case $VERIFY_EXIT in
+          1) set_phase_status "$PHASE" "failed_ci" ;;
+          2) set_phase_status "$PHASE" "failed_merge" ;;
+          3) set_phase_status "$PHASE" "failed_deploy" ;;
+          *) set_phase_status "$PHASE" "failed_verify" ;;
+        esac
+      fi
+    fi
+
+    # --- Self-healing: diagnose and retry if possible ---
+
+    if [[ "$(get_phase_status "$PHASE")" == "success" ]]; then
+      break  # Already handled above, but safety net
+    fi
+
+    if [[ $ATTEMPT -ge $MAX_PHASE_ATTEMPTS ]]; then
+      log_error "Phase $PHASE: all $MAX_PHASE_ATTEMPTS attempts exhausted"
+      notify_error "$PHASE" "Failed after $MAX_PHASE_ATTEMPTS attempts. Last status: $(get_phase_status "$PHASE")"
+      break
+    fi
+
+    # Diagnose the failure
+    DIAGNOSIS=$(diagnose_failure "$PHASE" || true)
+    log_info "Self-heal diagnosis: $DIAGNOSIS"
+
+    # Try to apply a fix
+    SELF_HEAL_SUFFIX=""
+    SELF_HEAL_BUDGET_MULTIPLIER=""
+    if apply_fix "$DIAGNOSIS" "$PHASE" "$ATTEMPT"; then
+      log_info "Self-heal: fix applied, retrying in 60s..."
+      reset_for_retry "$PHASE" "$ATTEMPT"
+      notify "Self-healing retry" "Phase $PHASE attempt $((ATTEMPT+1))/$MAX_PHASE_ATTEMPTS. Diagnosis: $DIAGNOSIS" "default" "wrench"
+      sleep 60
+    else
+      log_error "Phase $PHASE: no self-heal fix available for '$DIAGNOSIS'"
+      notify_error "$PHASE" "Failed (${DIAGNOSIS}), no auto-fix. Status: $(get_phase_status "$PHASE")"
+      break
+    fi
+
+  done  # retry loop
 
   # --- Cleanup and pacing (always runs) ---
 

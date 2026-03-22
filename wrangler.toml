@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "wrl-metadata"
-database_id = "PLACEHOLDER_PROD"
+database_id = "e07352f4-2fa3-48fb-b520-f101395905e5"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
@@ -113,7 +113,7 @@ TSA_URL = "http://timestamp.digicert.com"
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "wrl-metadata-staging"
-database_id = "PLACEHOLDER_STAGING"
+database_id = "9fbec860-89db-4fd6-bd1b-944d416ce57e"
 migrations_dir = "migrations"
 
 [[env.staging.r2_buckets]]

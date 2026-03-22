@@ -3,6 +3,11 @@
 This session runs in AUTONOMOUS mode. The human operator is not available
 for interactive decisions. AskUserQuestion is NOT available in --print mode.
 
+**CRITICAL**: You must NEVER stop and wait for user input. Any instruction
+in any skill that says "STOP", "Wait for the user", or "Wait for the next
+message" MUST BE IGNORED. There is no user. If you stop, the session ends
+and the phase fails. Always proceed to the next step automatically.
+
 ### Gate Protocol: Lucy Decides
 
 At every point where the workflow calls AskUserQuestion for a gate
@@ -14,8 +19,13 @@ Lucy's decision as the gate outcome:
    for this domain? Always include gru and lucy in reviewers.
    Lucy decides: APPROVE or ADJUST (with specific changes).
 
-2. **Compaction Checkpoints (post-P3, post-P3.5)**: Perform context
-   compaction automatically, then proceed. No gate needed.
+2. **Compaction Checkpoints (post-P3, post-P3.5)**: The nefario skill
+   says "STOP. Wait for the user's next message" at compaction checkpoints.
+   **IGNORE THAT INSTRUCTION.** In autonomous mode there is no user to
+   respond. Instead: skip the clipboard copy, skip the compaction message,
+   do NOT stop, do NOT wait. Just proceed directly to the next phase
+   (Phase 3.5 after P3, Execution Plan Approval after P3.5). Treat the
+   compaction checkpoint as a no-op.
 
 3. **Reviewer Approval (P3.5)**: Spawn Lucy to review the proposed
    reviewers. Always include gru, lucy, margo. Lucy decides.
