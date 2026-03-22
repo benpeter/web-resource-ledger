@@ -63,28 +63,26 @@ async function handleCaptureMessage(msg, env, ctx) {
     typeof captureId === 'string' && /^cap_[a-f0-9]{32}$/.test(captureId) &&
     typeof url === 'string' && url.length > 0;
 
-  if (valid) {
-    // Also run SSRF check on the URL from the queue message
-    const urlCheck = await validateUrl(url);
-    if (!urlCheck.ok) {
-      ctx.waitUntil(log(env, 5, 'capture', {
-        event: 'capture.invalid_message',
-        captureId,
-        tenantId,
-        reason: 'url_validation_failed',
-        detail: urlCheck.detail,
-      }) ?? Promise.resolve());
-      msg.ack();
-      return;
-    }
-  }
-
   if (!valid) {
     ctx.waitUntil(log(env, 5, 'capture', {
       event: 'capture.invalid_message',
       captureId: captureId ?? null,
       tenantId: tenantId ?? null,
       reason: 'invalid_message_structure',
+    }) ?? Promise.resolve());
+    msg.ack();
+    return;
+  }
+
+  // SSRF check on the URL from the queue message
+  const urlCheck = await validateUrl(url);
+  if (!urlCheck.ok) {
+    ctx.waitUntil(log(env, 5, 'capture', {
+      event: 'capture.invalid_message',
+      captureId,
+      tenantId,
+      reason: 'url_validation_failed',
+      detail: urlCheck.detail,
     }) ?? Promise.resolve());
     msg.ack();
     return;
@@ -113,6 +111,7 @@ async function handleCaptureMessage(msg, env, ctx) {
     result = await performCapture(env, url, ip, captureId, tenantId, cip, undefined, msg.attempts);
   } catch (err) {
     // Catastrophic error (OOM, binding failure, etc.)
+    // max_retries=3 in wrangler.toml → up to 4 deliveries (attempts 1-4)
     if (msg.attempts >= 4) {
       try {
         await failCapture(env.KV, captureId, 'Capture permanently failed after catastrophic error', false);
@@ -608,6 +607,7 @@ async function handleBatchCapture(request, env, ctx) {
         count: queueMessages.length,
         errorMessage: String(err?.message ?? '').slice(0, 256),
       }) ?? Promise.resolve());
+      return problemResponse(500, 'Could not dispatch captures');
     }
   }
 

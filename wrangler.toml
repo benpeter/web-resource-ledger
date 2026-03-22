@@ -41,9 +41,9 @@ simple = { limit = 5, period = 60 }
 [browser]
 binding = "BROWSER"
 
-# CPU time limit: 60 s covers the full browser-capture pipeline including
-# heavy pages.  Default (30 s for paid plans) is too tight for worst-case
-# captures.
+# CPU time limit (not wall clock): 60 s of CPU execution covers the capture
+# pipeline including WACZ bundling.  Wall clock is bounded by RENDER_DEADLINE_MS
+# (600 s) in capture.js.  Default (30 s for paid plans) is too tight.
 [limits]
 cpu_ms = 60000
 
