@@ -32,22 +32,70 @@ When the orchestrator pauses on a failure, you must:
 
 1. **Read the logs** — `scripts/autonomous/logs/current/orchestrator.log`
    and the phase JSON output (`phase-NNNN.json`)
-2. **Diagnose the root cause** — common failures:
-   - **No PR created**: session stopped at compaction checkpoint or gate
-     (check `result` field in JSON for "compaction" or "wait for user")
-   - **CI failed**: read `gh run view <id> --log-failed`, fix the code on
-     the PR branch, push, wait for CI to pass
-   - **Deploy failed**: missing Cloudflare resources (D1, queues) — create
-     them with wrangler, update wrangler.toml if needed
-   - **Merge conflicts**: resolve on the PR branch, push
-   - **CI never triggered**: close/reopen PR or push empty commit
-   - **Session crashed**: transient error, just retry
+2. **Diagnose the root cause** — see Diagnostic Playbook below
 3. **Fix it** — edit files, commit, push, provision resources, merge PRs,
    whatever is needed
 4. **Mark the phase as success** — `echo "success" > scripts/autonomous/logs/current/phase-NNNN.status`
 5. **Clean up** — remove orphan worktrees (`git worktree remove ... --force`)
 6. **Resume** — `touch ~/wrl-go` (the orchestrator verifies the phase is
    success before continuing; if not, it exits)
+
+## Diagnostic Playbook
+
+Check `scripts/autonomous/logs/current/phase-NNNN.json` and the status file.
+The status tells you the failure category; the JSON tells you why.
+
+### `failed_session` — Claude session exited non-zero
+
+Check the phase JSON for these patterns:
+
+| What to check | How | Diagnosis |
+|---------------|-----|-----------|
+| Compaction block | `grep -i 'compaction.*clipboard\|wait.*user\|Phase [0-9].* complete\. Compaction' phase-NNNN.json` | Session stopped at nefario compaction checkpoint. Reinforce session prompt and retry. |
+| Permission denials | `jq '.permission_denials \| length' phase-NNNN.json` — if >5 | Session tried AskUserQuestion repeatedly. Lucy gate protocol not working. |
+| Budget exceeded | `jq '.stop_reason' phase-NNNN.json` = `"budget_exceeded"` | Increase budget in manifest.json (50% bump) and retry. |
+| Too short (<5 turns) | `jq '.num_turns' phase-NNNN.json` < 5 | Likely transient. Just retry. |
+| Planning only | Many turns but no PR, `failed_no_pr` | Session did planning but never executed. Retry with reinforcement. |
+
+### `failed_ci` — Tests failed after PR creation
+
+1. `gh pr checks <N>` to see which check failed
+2. `gh run view <id> --log-failed` to read the error
+3. Fix the code on the PR branch, push, wait for green
+4. Common CI issues:
+   - **wrangler.test.toml stale**: if wrangler.toml was modified, regenerate
+     wrangler.test.toml (copy without `[[queues.consumers]]` sections)
+   - **Rate limit values changed**: wrangler.test.toml may have old values
+   - **New binding not in test config**: add it to wrangler.test.toml
+
+### `failed_merge` — PR couldn't be merged
+
+1. Check for merge conflicts: `gh pr view <N> --json mergeable`
+2. If conflicts: checkout the PR branch, rebase onto main, force-push
+3. If CI never triggered: close and reopen the PR, or push an empty commit
+
+### `failed_deploy` — Deploy failed after merge
+
+1. Check `gh run list --workflow deploy-staging.yml --limit 1`
+2. `gh run view <id> --log-failed` to read the wrangler error
+3. Common deploy failures:
+   - **Missing queue/KV**: `unset CLOUDFLARE_API_TOKEN && npx wrangler queues create <name>`
+   - **Missing D1 database**: create with wrangler, then run migrations:
+     `unset CLOUDFLARE_API_TOKEN && npx wrangler d1 create <name>`
+     `unset CLOUDFLARE_API_TOKEN && npx wrangler d1 migrations apply <name> --remote`
+   - **Placeholder D1 ID in wrangler.toml**: replace with real ID from create output,
+     commit and push to main
+4. After fixing, re-trigger deploy or wait for next push
+
+### Claude CLI rate limits
+
+Three distinct failure modes — handle differently:
+
+| Mode | Signal | Action |
+|------|--------|--------|
+| HTTP 429 (rate limit) | Exit code, "rate limit" in stderr | Wait 5 min, retry (max 3) |
+| Daily spend limit | "daily spend limit" in output | Pause gracefully, notify operator |
+| Session budget cap | `stop_reason: "budget_exceeded"` | Bump budget in manifest, retry |
 
 ### If you CANNOT fix it
 

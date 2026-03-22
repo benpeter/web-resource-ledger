@@ -169,6 +169,18 @@
       "act_last": false
     },
     {
+      "phase": "0070",
+      "item": "LEGAL",
+      "issue": 131,
+      "title": "Stripe-required legal pages",
+      "act": 4,
+      "budget_usd": 40,
+      "depends_on": [
+        "0052"
+      ],
+      "act_last": false
+    },
+    {
       "phase": "0057",
       "item": "E2E",
       "issue": 105,
@@ -189,7 +201,8 @@
       "budget_usd": 100,
       "depends_on": [
         "0055",
-        "0056"
+        "0056",
+        "0070"
       ],
       "act_last": false
     },

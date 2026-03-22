@@ -19,7 +19,7 @@ try_fix_deploy() {
 
   # Pattern: Queue "X" does not exist
   local missing_queues
-  missing_queues=$(echo "$failed_log" | grep -oP 'Queue "\K[^"]+(?=" does not exist)' || true)
+  missing_queues=$(echo "$failed_log" | sed -n 's/.*Queue "\([^"]*\)" does not exist.*/\1/p' || true)
   for queue in $missing_queues; do
     log_info "Provisioning missing queue: $queue"
     if (unset CLOUDFLARE_API_TOKEN && npx wrangler queues create "$queue" 2>&1); then
@@ -32,11 +32,21 @@ try_fix_deploy() {
 
   # Pattern: D1 database "X" does not exist
   local missing_d1
-  missing_d1=$(echo "$failed_log" | grep -oP 'D1 database "\K[^"]+(?=" does not exist)' || true)
+  missing_d1=$(echo "$failed_log" | sed -n 's/.*D1 database "\([^"]*\)" does not exist.*/\1/p' || true)
   for db in $missing_d1; do
     log_info "Provisioning missing D1 database: $db"
     if (unset CLOUDFLARE_API_TOKEN && npx wrangler d1 create "$db" 2>&1); then
       log_info "D1 database $db created"
+      # Run migrations if they exist
+      local repo_dir
+      repo_dir=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+      local migrations_dir="$repo_dir/migrations"
+      if [[ -d "$migrations_dir" ]] && ls "$migrations_dir"/*.sql &>/dev/null; then
+        log_info "Running D1 migrations for $db..."
+        (unset CLOUDFLARE_API_TOKEN && npx wrangler d1 migrations apply "$db" --remote 2>&1) || {
+          log_warn "D1 migrations failed for $db (may need manual intervention)"
+        }
+      fi
       fixed=true
     else
       log_error "Failed to create D1 database $db"
@@ -63,7 +73,7 @@ try_fix_deploy() {
         local create_output
         create_output=$(unset CLOUDFLARE_API_TOKEN && npx wrangler d1 create "$db_name" 2>&1 || true)
         local new_id
-        new_id=$(echo "$create_output" | grep -oP 'database_id = "\K[^"]+' || true)
+        new_id=$(echo "$create_output" | sed -n 's/.*database_id = "\([^"]*\)".*/\1/p' | head -1 || true)
         if [[ -n "$new_id" ]]; then
           log_info "D1 database $db_name created with ID $new_id"
           # Find the placeholder line that corresponds to this database_name
@@ -92,7 +102,7 @@ try_fix_deploy() {
 
   # Pattern: KV namespace "X" does not exist
   local missing_kv
-  missing_kv=$(echo "$failed_log" | grep -oP 'KV namespace "\K[^"]+(?=" does not exist)' || true)
+  missing_kv=$(echo "$failed_log" | sed -n 's/.*KV namespace "\([^"]*\)" does not exist.*/\1/p' || true)
   for ns in $missing_kv; do
     log_info "Provisioning missing KV namespace: $ns"
     if (unset CLOUDFLARE_API_TOKEN && npx wrangler kv namespace create "$ns" 2>&1); then

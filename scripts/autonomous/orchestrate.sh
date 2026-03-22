@@ -158,8 +158,15 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
   log_info "Budget: \$$BUDGET | Issue: ${ISSUE:-TBD}"
   echo "=========================================="
 
-  # Ensure main is up-to-date
-  git checkout main --quiet 2>/dev/null || true
+  # Ensure main is up-to-date (stash if dirty to avoid silent checkout failure)
+  if ! git diff --quiet HEAD 2>/dev/null; then
+    log_warn "Dirty working tree detected -- stashing before checkout"
+    git stash push -m "orchestrator-auto-stash-phase-${PHASE}" --quiet
+  fi
+  git checkout main --quiet 2>/dev/null || {
+    log_error "Failed to checkout main"
+    exit 1
+  }
   git pull --quiet --rebase 2>/dev/null || true
 
   # Notify start
