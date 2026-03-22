@@ -141,7 +141,7 @@ export async function handleCreateWebhook(request, env, ctx, _match) {
   const webhookId = 'whk_' + crypto.randomUUID().replace(/-/g, '');
   const secretBytes = crypto.getRandomValues(new Uint8Array(32));
   const secretHex = Array.from(secretBytes, b => b.toString(16).padStart(2, '0')).join('');
-  const secret = 'whsec_' + secretHex;
+  const secret = 'wrlsec_' + secretHex;
 
   const record = await createWebhook(env.DB, {
     id: webhookId,

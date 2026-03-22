@@ -5,7 +5,7 @@
  *   signed_payload = "${unix_timestamp}.${raw_json_body}"
  *   signature = HMAC-SHA256(key_bytes, signed_payload)
  *
- * The webhook secret stored in D1 is prefixed with "whsec_" followed by
+ * The webhook secret stored in D1 is prefixed with "wrlsec_" followed by
  * 64 lowercase hex characters (32 raw bytes). The prefix is stripped and
  * the hex is decoded to raw bytes before use as the HMAC key.
  *
@@ -22,11 +22,11 @@ export const TIMESTAMP_HEADER = 'X-WRL-Timestamp';
 /**
  * Sign a webhook payload with HMAC-SHA256.
  *
- * The secret must be in "whsec_<64 hex chars>" format. The hex portion is
+ * The secret must be in "wrlsec_<64 hex chars>" format. The hex portion is
  * decoded to raw bytes before use as the HMAC key -- do NOT pass the hex
  * string directly as a UTF-8 key (that would be different bytes).
  *
- * @param {string} secret     The stored webhook secret ("whsec_" + 64 hex chars)
+ * @param {string} secret     The stored webhook secret ("wrlsec_" + 64 hex chars)
  * @param {number} timestamp  Unix timestamp in seconds
  * @param {string} body       The exact JSON string to sign -- do NOT re-serialize
  * @returns {Promise<string>} Lowercase hex signature
@@ -34,7 +34,7 @@ export const TIMESTAMP_HEADER = 'X-WRL-Timestamp';
 export async function signWebhookPayload(secret, timestamp, body) {
   // Strip the prefix and decode hex to raw bytes for the HMAC key.
   // Using raw bytes (not the hex string) ensures the key space is 2^256.
-  const hexKey = secret.startsWith('whsec_') ? secret.slice(6) : secret;
+  const hexKey = secret.startsWith('wrlsec_') ? secret.slice(7) : secret;
   const keyBytes = hexToBytes(hexKey);
 
   const cryptoKey = await crypto.subtle.importKey(

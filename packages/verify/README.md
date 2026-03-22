@@ -3,7 +3,7 @@
 Verify the cryptographic integrity of [WRL](https://github.com/benpeter/web-resource-ledger) WACZ capture bundles -- offline, zero-install.
 
 ```bash
-npx @w-r-l/verify capture.wacz --origin https://wrl.example.com
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
 ```
 
 ## What it checks
@@ -23,7 +23,7 @@ Exit code `0` means all applicable checks passed. Exit code `1` means one or mor
 ### Remote capture (automatic key resolution)
 
 ```bash
-npx @w-r-l/verify https://wrl.example.com/v1/captures/cap_abc123def456...
+npx @w-r-l/verify https://api.webresourceledger.com/v1/captures/cap_abc123def456...
 ```
 
 The signing key is fetched automatically from the server.
@@ -32,7 +32,7 @@ The signing key is fetched automatically from the server.
 
 ```bash
 # Fetch the key from the operator
-npx @w-r-l/verify capture.wacz --origin https://wrl.example.com
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
 
 # Or provide the key directly
 npx @w-r-l/verify capture.wacz --key <base64-encoded-public-key>
@@ -54,7 +54,7 @@ Uses the key embedded in the WACZ. This proves the archive is internally consist
 ### JSON output
 
 ```bash
-npx @w-r-l/verify capture.wacz --origin https://wrl.example.com --json
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --json
 ```
 
 Outputs a single JSON object to stdout. All human messages go to stderr in JSON mode.
@@ -79,7 +79,7 @@ Outputs a single JSON object to stdout. All human messages go to stderr in JSON 
   "keyResolution": {
     "keyId": "a1b2c3d4",
     "source": "origin",
-    "origin": "https://wrl.example.com",
+    "origin": "https://api.webresourceledger.com",
     "endpoint": "/.well-known/signing-keys"
   },
   "source": "capture.wacz",
@@ -96,7 +96,7 @@ On errors, `verified` is `null` (not `false`) and an `error` field is present:
 ### Additional trusted roots
 
 ```bash
-npx @w-r-l/verify capture.wacz --origin https://wrl.example.com --trust-root /path/to/extra-root.pem
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --trust-root /path/to/extra-root.pem
 ```
 
 The tool bundles the DigiCert Trusted Root G4 certificate. Use `--trust-root` to add PEM certificates for other timestamp authorities. Can be specified multiple times.

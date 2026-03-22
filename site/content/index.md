@@ -20,7 +20,7 @@ This guide walks you from your first API call to a verified capture in under fiv
 Submit a URL to capture. WRL queues the job and returns a capture ID immediately.
 
 ```bash
-curl -X POST https://wrl.example.com/v1/captures \
+curl -X POST https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
@@ -29,7 +29,7 @@ curl -X POST https://wrl.example.com/v1/captures \
 ```json
 {
   "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-  "statusUrl": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status",
+  "statusUrl": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status",
   "note": "Use GET /v1/captures to list and search your captures."
 }
 ```
@@ -43,7 +43,7 @@ The capture runs in the background. WRL takes a screenshot, saves the rendered H
 Wait a few seconds, then fetch the capture record using the ID.
 
 ```bash
-curl https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
 When the capture is complete, the response includes all artifact links and a verification URL.
@@ -57,16 +57,16 @@ When the capture is complete, the response includes all artifact links and a ver
   "completedAt": "2026-03-22T10:30:12.481Z",
   "renderQuality": "full",
   "artifacts": {
-    "screenshot": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot",
-    "html": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html",
-    "headers": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers"
+    "screenshot": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot",
+    "html": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html",
+    "headers": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers"
   },
   "wacz": {
-    "url": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz",
+    "url": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz",
     "bundleHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "size": 2847362
   },
-  "verifyUrl": "https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+  "verifyUrl": "https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
 }
 ```
 
@@ -83,7 +83,7 @@ The `@w-r-l/verify` CLI performs offline cryptographic verification against the 
 Pass the capture URL directly -- the CLI fetches the WACZ bundle and resolves the signing key automatically.
 
 ```bash
-npx @w-r-l/verify https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+npx @w-r-l/verify https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
 When all checks pass, the output looks like this:

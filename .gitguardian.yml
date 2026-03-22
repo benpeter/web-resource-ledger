@@ -1,0 +1,11 @@
+version: 2
+secret:
+  ignored_matches:
+    - name: "Docs example webhook secret (all-zeros)"
+      match: "wrlsec_0000000000000000000000000000000000000000000000000000000000000000"
+    - name: "Test fixture webhook secret (repeated b)"
+      match: "wrlsec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    - name: "Test fixture webhook secret (repeated a)"
+      match: "wrlsec_abababababababababababababababababababababababababababababababab"
+    - name: "Test fixture webhook secret (repeated c)"
+      match: "wrlsec_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"

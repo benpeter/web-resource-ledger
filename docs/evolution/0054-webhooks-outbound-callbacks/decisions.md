@@ -2,7 +2,7 @@
 
 ## Secret Storage: Plaintext vs AES-GCM Encryption
 
-**Chosen**: Plaintext `whsec_` secrets in D1
+**Chosen**: Plaintext `wrlsec_` secrets in D1
 **Over**: AES-GCM encryption at rest (api-design-minion recommended)
 **Why**: D1 is only accessible from the bound Worker -- no external SQL
 access, no shared database credentials. Encryption would require key

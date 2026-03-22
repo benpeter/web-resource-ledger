@@ -7,8 +7,8 @@ import { describe, it, expect } from 'vitest';
 import { signWebhookPayload } from '../src/webhook-signing.js';
 
 // Fixed inputs for deterministic tests.
-// Secret is whsec_ + 64 hex chars (32 bytes); body is a minimal JSON string.
-const FIXED_SECRET = 'whsec_' + 'ab'.repeat(32);
+// Secret is wrlsec_ + 64 hex chars (32 bytes); body is a minimal JSON string.
+const FIXED_SECRET = 'wrlsec_' + 'ab'.repeat(32);
 const FIXED_TIMESTAMP = 1700000000;
 const FIXED_BODY = '{"id":"evt_test","type":"ping","data":{}}';
 
@@ -53,7 +53,7 @@ describe('signWebhookPayload -- sensitivity to inputs', () => {
   });
 
   it('different secrets produce different signatures', async () => {
-    const otherSecret = 'whsec_' + 'cd'.repeat(32);
+    const otherSecret = 'wrlsec_' + 'cd'.repeat(32);
     const sig1 = await signWebhookPayload(FIXED_SECRET, FIXED_TIMESTAMP, FIXED_BODY);
     const sig2 = await signWebhookPayload(otherSecret, FIXED_TIMESTAMP, FIXED_BODY);
     expect(sig1).not.toBe(sig2);
@@ -61,13 +61,13 @@ describe('signWebhookPayload -- sensitivity to inputs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// whsec_ prefix handling
+// wrlsec_ prefix handling
 // ---------------------------------------------------------------------------
 
-describe('signWebhookPayload -- whsec_ prefix stripping', () => {
-  it('produces the same signature with and without whsec_ prefix when hex key is the same', async () => {
+describe('signWebhookPayload -- wrlsec_ prefix stripping', () => {
+  it('produces the same signature with and without wrlsec_ prefix when hex key is the same', async () => {
     const hexOnly = 'ab'.repeat(32); // bare 64 hex chars, no prefix
-    const withPrefix = 'whsec_' + hexOnly;
+    const withPrefix = 'wrlsec_' + hexOnly;
 
     const sigWithPrefix = await signWebhookPayload(withPrefix, FIXED_TIMESTAMP, FIXED_BODY);
     const sigWithoutPrefix = await signWebhookPayload(hexOnly, FIXED_TIMESTAMP, FIXED_BODY);

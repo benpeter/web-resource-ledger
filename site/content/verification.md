@@ -17,13 +17,13 @@ The `@w-r-l/verify` CLI runs entirely on your machine. It fetches the WACZ bundl
 Pass the capture URL directly:
 
 ```bash
-npx @w-r-l/verify https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+npx @w-r-l/verify https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
 Or download the WACZ file first and verify it locally:
 
 ```bash
-npx @w-r-l/verify capture.wacz --origin https://wrl.example.com
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
 ```
 
 Requires Node.js 20 or later. No installation needed -- `npx` fetches the package on demand.
@@ -54,7 +54,7 @@ For machine-readable output, add `--json`. For full CLI options, see the [verify
 The `GET /v1/verify/{id}` endpoint runs the same checks on the server and returns JSON. No authentication required.
 
 ```bash
-curl https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
 ```json

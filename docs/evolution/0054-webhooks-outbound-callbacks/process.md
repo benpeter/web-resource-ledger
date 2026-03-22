@@ -30,7 +30,7 @@ Lucy approved the team via autonomous gate. No adjustments needed.
 All 7 specialists ran in parallel. Key contributions:
 
 **api-design-minion** proposed POST/GET/DELETE plus a /ping endpoint, `whk_`
-ID format, `whsec_` secrets with show-once semantics, and recommended AES-GCM
+ID format, `wrlsec_` secrets with show-once semantics, and recommended AES-GCM
 encryption for secrets at rest.
 
 **security-minion** pushed back on encryption: D1's access model (only the bound
@@ -135,7 +135,7 @@ Three parallel reviewers:
 All three agreed on the JSON.parse fix. Applied 3 changes:
 1. Extract `eventId` as top-level queue message field
 2. Delete `classifyPingError`, import `classifyDeliveryError`
-3. Use `slice(6)` instead of `replace('whsec_', '')` for prefix stripping
+3. Use `slice(7)` instead of `replace('wrlsec_', '')` for prefix stripping
 
 ## Phase 6: Test Execution
 

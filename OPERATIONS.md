@@ -4,8 +4,8 @@
 
 | Environment | URL | Worker Name |
 |-------------|-----|-------------|
-| Production  | `<YOUR_PRODUCTION_URL>` | `wrl` |
-| Staging     | `<YOUR_STAGING_URL>` | `wrl-staging` |
+| Production  | `https://api.webresourceledger.com` | `wrl` |
+| Staging     | `https://staging.webresourceledger.com` | `wrl-staging` |
 
 ---
 
@@ -13,7 +13,7 @@
 
 **Health check:**
 ```bash
-curl <YOUR_PRODUCTION_URL>/health
+curl https://api.webresourceledger.com/health
 ```
 
 **Coralogix:** Filter by `applicationName:wrl` (production) or `applicationName:wrl-staging`.
@@ -110,7 +110,7 @@ wrangler rollback
 
 This bypasses environment protection rules and smoke tests. Verify manually after:
 ```bash
-curl <YOUR_PRODUCTION_URL>/health
+curl https://api.webresourceledger.com/health
 ```
 
 ---
@@ -131,7 +131,7 @@ wrangler deploy
 
 Run smoke test manually after:
 ```bash
-SMOKE_URL=<YOUR_PRODUCTION_URL> SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scripts/smoke-test.sh
+SMOKE_URL=https://api.webresourceledger.com SMOKE_API_KEY=<key> SMOKE_SKIP_CAPTURE=1 ./scripts/smoke-test.sh
 ```
 
 ---
@@ -174,7 +174,7 @@ The new auth logic uses dual-mode fallback: it tries KV lookup first, and falls 
 
 **Verify the deploy:**
 ```bash
-curl <YOUR_PRODUCTION_URL>/health
+curl https://api.webresourceledger.com/health
 ```
 
 **Rollback:** Revert the PR and redeploy.
@@ -191,7 +191,7 @@ wrangler secret put ADMIN_KEY --env staging
 
 **Create the first tenant key on staging:**
 ```bash
-curl -X POST <YOUR_STAGING_URL>/v1/admin/keys \
+curl -X POST https://staging.webresourceledger.com/v1/admin/keys \
   -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"tenantId": "default", "scopes": ["capture"], "name": "default-key"}' | jq .
@@ -204,18 +204,18 @@ curl ... | jq -r .key > /tmp/wrl-key-default.txt
 
 **Verify the new key works on staging:**
 ```bash
-curl -X POST <YOUR_STAGING_URL>/v1/captures \
+curl -X POST https://staging.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer $(cat /tmp/wrl-key-default.txt)" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
 
-curl <YOUR_STAGING_URL>/v1/captures \
+curl https://staging.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer $(cat /tmp/wrl-key-default.txt)" | jq .
 ```
 
 **List keys to confirm:**
 ```bash
-curl <YOUR_STAGING_URL>/v1/admin/keys \
+curl https://staging.webresourceledger.com/v1/admin/keys \
   -H "Authorization: Bearer $ADMIN_KEY" | jq .
 ```
 
@@ -224,7 +224,7 @@ curl <YOUR_STAGING_URL>/v1/admin/keys \
 wrangler secret put ADMIN_KEY
 # Enter the same or a different strong random value for production
 
-curl -X POST <YOUR_PRODUCTION_URL>/v1/admin/keys \
+curl -X POST https://api.webresourceledger.com/v1/admin/keys \
   -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"tenantId": "default", "scopes": ["capture"], "name": "default-key"}' | jq .
@@ -285,7 +285,7 @@ Scope the token to the specific account that owns the WRL Workers. Do not use th
 
 | Name | Value |
 |------|-------|
-| `WRL_PROD_BASE_URL` | `<YOUR_PRODUCTION_URL>` |
+| `WRL_PROD_BASE_URL` | `https://api.webresourceledger.com` |
 
 **Protection rules:** Add required reviewer to gate production deploys.
 
@@ -310,7 +310,7 @@ The `production` GitHub environment maps to the top-level wrangler.toml config (
 
 | Name | Value |
 |------|-------|
-| `WRL_STAGING_BASE_URL` | `<YOUR_STAGING_URL>` |
+| `WRL_STAGING_BASE_URL` | `https://staging.webresourceledger.com` |
 
 **Protection rules:** Do NOT add required reviewer -- staging must deploy without approval. The production pipeline triggers automatically after staging completes (`workflow_run`). Adding a reviewer gate to staging blocks the entire deploy chain.
 

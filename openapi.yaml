@@ -9,10 +9,12 @@ info:
     identifier: Apache-2.0
 
 servers:
-  - url: https://wrl.benpeter.workers.dev
+  - url: https://api.webresourceledger.com
     description: Production
-  - url: https://wrl-staging.benpeter.workers.dev
+  - url: https://staging.webresourceledger.com
     description: Staging
+  - url: https://wrl.benpeter.workers.dev
+    description: Production (legacy Workers subdomain)
 
 tags:
   - name: health
@@ -296,7 +298,7 @@ components:
             this is the post-dismissal screenshot. Served via the API Worker with
             Content-Type: image/png and Content-Disposition: attachment.
           examples:
-            - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
         screenshotBefore:
           type: string
           format: uri
@@ -305,7 +307,7 @@ components:
             and successfully dismissed. Corresponds to the page state before the CMP
             was closed. Served as image/png with Content-Disposition: attachment.
           examples:
-            - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot-before
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot-before
         html:
           type: string
           format: uri
@@ -314,7 +316,7 @@ components:
             with Content-Disposition: attachment -- NOT as text/html -- to
             prevent stored XSS.
           examples:
-            - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
         headers:
           type: string
           format: uri
@@ -323,7 +325,7 @@ components:
             Set-Cookie values are redacted to [redacted]. Absent if the header
             fetch failed or timed out.
           examples:
-            - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
 
     WaczInfo:
       type: object
@@ -340,7 +342,7 @@ components:
             URL to the signed WACZ bundle. Served via the API Worker with
             Content-Type: application/wacz+zip and Content-Disposition: attachment.
           examples:
-            - https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz
         bundleHash:
           type: string
           pattern: '^sha256:[a-f0-9]{64}$'
@@ -543,7 +545,7 @@ components:
             Present only when `wacz` is present. Omitted when the capture has no WACZ
             bundle (e.g., partial captures from navigation timeouts).
           examples:
-            - https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+            - https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
         captureSettings:
           $ref: '#/components/schemas/CaptureSettings'
           description: >
@@ -845,13 +847,13 @@ components:
         secret:
           type: string
           description: >
-            Webhook signing secret. Prefixed with "whsec_" followed by 64
+            Webhook signing secret. Prefixed with "wrlsec_" followed by 64
             hex characters (32 bytes, hex-encoded). Use this to verify the
             HMAC-SHA256 signature on incoming webhook requests. Store this
             value now -- it cannot be retrieved after this response.
-          pattern: '^whsec_[a-f0-9]{64}$'
+          pattern: '^wrlsec_[a-f0-9]{64}$'
           examples:
-            - 'whsec_0000000000000000000000000000000000000000000000000000000000000000'
+            - 'wrlsec_0000000000000000000000000000000000000000000000000000000000000000'
         createdAt:
           type: string
           format: date-time
@@ -1694,7 +1696,7 @@ paths:
                 accepted:
                   value:
                     id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
-                    statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+                    statusUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
                     note: Use GET /v1/captures to list and search your captures.
         '400':
           description: Bad request — missing or malformed body, missing `url` field, invalid URL scheme.
@@ -1972,11 +1974,11 @@ paths:
                       - status: 202
                         url: https://example.com
                         id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
-                        statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+                        statusUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
                       - status: 202
                         url: https://example.org/page
                         id: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
-                        statusUrl: https://wrl.example.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status
+                        statusUrl: https://api.webresourceledger.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status
                     summary:
                       total: 2
                       accepted: 2
@@ -1988,7 +1990,7 @@ paths:
                       - status: 202
                         url: https://example.com
                         id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
-                        statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+                        statusUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
                       - status: 422
                         url: https://10.0.0.1
                         error:
@@ -2182,7 +2184,7 @@ paths:
                   value:
                     id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                     status: complete
-                    captureUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    captureUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                 failed:
                   summary: Capture failed with a retryable error
                   value:
@@ -2249,14 +2251,14 @@ paths:
                     completedAt: '2024-01-15T10:30:45.123Z'
                     renderQuality: full
                     artifacts:
-                      screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-                      html: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-                      headers: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+                      screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+                      html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+                      headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
                     wacz:
-                      url: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz
+                      url: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz
                       bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                       size: 204800
-                    verifyUrl: https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    verifyUrl: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                 withoutWacz:
                   summary: Completed capture without WACZ bundle
                   value:
@@ -2267,9 +2269,9 @@ paths:
                     completedAt: '2024-01-15T10:30:45.123Z'
                     renderQuality: full
                     artifacts:
-                      screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-                      html: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-                      headers: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+                      screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+                      html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+                      headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
                 partialCapture:
                   summary: Partial capture after navigation timeout
                   value:
@@ -2284,9 +2286,9 @@ paths:
                       timedOut: true
                       durationMs: 20012
                     artifacts:
-                      screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-                      html: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-                      headers: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+                      screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+                      html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+                      headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
         '404':
           $ref: '#/components/responses/Problem404'
 
@@ -2699,7 +2701,7 @@ paths:
         Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
 
         ```bash
-        curl -X POST https://wrl.example.com/v1/admin/keys \
+        curl -X POST https://api.webresourceledger.com/v1/admin/keys \
           -H "Authorization: Bearer $ADMIN_KEY" \
           -H "Content-Type: application/json" \
           -d '{"tenantId": "default", "scopes": ["capture"], "name": "ci-pipeline"}' | jq .
@@ -2874,15 +2876,15 @@ paths:
         Rate limited to 5 requests per 60 seconds per IP.
 
         ```bash
-        curl https://wrl.example.com/v1/admin/keys \
+        curl https://api.webresourceledger.com/v1/admin/keys \
           -H "Authorization: Bearer $ADMIN_KEY" | jq .
 
         # Filter by tenant
-        curl "https://wrl.example.com/v1/admin/keys?tenant=default" \
+        curl "https://api.webresourceledger.com/v1/admin/keys?tenant=default" \
           -H "Authorization: Bearer $ADMIN_KEY" | jq .
 
         # Include revoked keys
-        curl "https://wrl.example.com/v1/admin/keys?include=revoked" \
+        curl "https://api.webresourceledger.com/v1/admin/keys?include=revoked" \
           -H "Authorization: Bearer $ADMIN_KEY" | jq .
         ```
       tags: [admin]
@@ -3034,7 +3036,7 @@ paths:
         Rate limited to 5 requests per 60 seconds per IP.
 
         ```bash
-        curl -X DELETE "https://wrl.example.com/v1/admin/keys/$KEY_HASH" \
+        curl -X DELETE "https://api.webresourceledger.com/v1/admin/keys/$KEY_HASH" \
           -H "Authorization: Bearer $ADMIN_KEY" | jq .
         ```
       tags: [admin]
@@ -3217,7 +3219,7 @@ paths:
                     url: https://hooks.example.com/wrl-events
                     events: [capture.complete, capture.failed]
                     name: ci-notifier
-                    secret: 'whsec_0000000000000000000000000000000000000000000000000000000000000000'
+                    secret: 'wrlsec_0000000000000000000000000000000000000000000000000000000000000000'
                     createdAt: '2026-03-22T12:00:00.000Z'
                     warning: 'Store this secret now. It cannot be retrieved after this response.'
         '400':
@@ -3430,11 +3432,11 @@ paths:
 
         ```bash
         # Current period usage
-        curl "https://wrl.example.com/v1/admin/usage?tenant=default" \
+        curl "https://api.webresourceledger.com/v1/admin/usage?tenant=default" \
           -H "Authorization: Bearer $ADMIN_KEY" | jq .
 
         # Specific period
-        curl "https://wrl.example.com/v1/admin/usage?tenant=default&period=2026-03" \
+        curl "https://api.webresourceledger.com/v1/admin/usage?tenant=default&period=2026-03" \
           -H "Authorization: Bearer $ADMIN_KEY" | jq .
         ```
       tags: [admin]

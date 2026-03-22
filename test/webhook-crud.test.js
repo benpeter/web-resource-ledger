@@ -98,12 +98,12 @@ describe('POST /v1/webhooks', () => {
   });
   afterEach(() => cleanDb(env.DB));
 
-  it('returns 201 with whk_ prefixed id and whsec_ prefixed secret', async () => {
+  it('returns 201 with whk_ prefixed id and wrlsec_ prefixed secret', async () => {
     const res = await post(VALID_CREATE_BODY);
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.id).toMatch(/^whk_[a-f0-9]{32}$/);
-    expect(body.secret).toMatch(/^whsec_[a-f0-9]{64}$/);
+    expect(body.secret).toMatch(/^wrlsec_[a-f0-9]{64}$/);
   });
 
   it('returns warning text in 201 response', async () => {

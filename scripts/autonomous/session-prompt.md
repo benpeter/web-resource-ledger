@@ -87,6 +87,23 @@ docs/product-management/:
 - Competitive positioning notes
 - UX decisions that affect the product story
 
+### Infrastructure Provisioning (MANDATORY)
+
+If your changes add new infrastructure bindings or external resource
+references — Cloudflare queues, D1 databases, KV namespaces, DNS records,
+third-party services, or any other external resources — you MUST provision
+them with the appropriate CLI tools before the session ends. Do not leave
+placeholder IDs or unprovisioned resources in config files.
+
+Examples:
+- Adding a queue binding to wrangler.toml → `wrangler queues create <name>`
+- Adding a D1 binding → `wrangler d1 create <name>`, then put the real ID in wrangler.toml
+- Adding a KV namespace → `wrangler kv namespace create <name>`
+- Adding a custom domain route → verify the zone is active, deploy to provision DNS
+
+This applies to ALL environments (production and staging). If you add a
+binding to both environments, provision the resource for both.
+
 ### Error Signaling
 
 If an unrecoverable error occurs, output a line starting with

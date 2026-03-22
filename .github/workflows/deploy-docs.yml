@@ -41,7 +41,7 @@ jobs:
       - name: Check internal links
         run: |
           broken=$(find site/_output -name '*.html' \
-            -exec grep -oP 'href="(/[^"]*)"' {} \; \
+            -exec grep -ohP 'href="\K/[^"]*' {} \; \
             | sort -u \
             | while read -r link; do
                 path="site/_output${link%/}/index.html"

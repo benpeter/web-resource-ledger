@@ -17,7 +17,7 @@ The MCP server uses Streamable HTTP transport. Configure your client once, then 
 ```bash
 claude mcp add wrl --transport http \
   --header "Authorization: Bearer YOUR_API_KEY" \
-  https://wrl.example.com/mcp
+  https://api.webresourceledger.com/mcp
 ```
 
 Replace `YOUR_API_KEY` with a key that has at least `read` scope. Add `capture` scope if your agent needs to submit new captures.
@@ -30,7 +30,7 @@ Add to `.cursor/mcp.json` in your project directory for project-level access, or
 {
   "mcpServers": {
     "wrl": {
-      "url": "https://wrl.example.com/mcp",
+      "url": "https://api.webresourceledger.com/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       }
@@ -47,7 +47,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`. Windsurf uses `serverUrl` instead 
 {
   "mcpServers": {
     "wrl": {
-      "serverUrl": "https://wrl.example.com/mcp",
+      "serverUrl": "https://api.webresourceledger.com/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       }
@@ -60,7 +60,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`. Windsurf uses `serverUrl` instead 
 
 Configure your client with:
 
-- **Endpoint:** `https://wrl.example.com/mcp`
+- **Endpoint:** `https://api.webresourceledger.com/mcp`
 - **Transport:** Streamable HTTP (POST)
 - **Authorization:** `Bearer YOUR_API_KEY` header on every request
 
@@ -85,7 +85,7 @@ Capture submitted for: https://example.com
 Capture ID: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
 Use get_capture to check status. Captures typically complete in 5-15 seconds.
-Status URL: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+Status URL: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
 ```
 
 ---
@@ -110,12 +110,12 @@ Completed: 2026-03-22T10:30:12.481Z
 Render quality: full
 
 Artifacts:
-  Screenshot: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-  HTML:       https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-  Headers:    https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
-  WACZ bundle: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
+  Screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+  HTML:       https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+  Headers:    https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+  WACZ bundle: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
 
-Verify integrity: https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+Verify integrity: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
   Or use the verify_capture tool with this capture ID.
 ```
 

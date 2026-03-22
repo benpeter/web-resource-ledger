@@ -31,12 +31,12 @@ export WRL_API_KEY=your_tenant_api_key
 
 Tenant keys are created via the admin API (see [step 8a](#8a-configure-admin-key-required-for-per-tenant-key-management)). For deployments using the legacy static key, `WRL_API_KEY` is your `CAPTURE_API_KEY` value.
 
-Replace `wrl.example.com` with your deployment URL, or `localhost:8787` for local dev.
+The examples below use `api.webresourceledger.com`. Replace with `localhost:8787` for local dev or your own deployment URL if self-hosting.
 
 #### Step 1: Submit a capture
 
 ```bash
-curl -X POST https://wrl.example.com/v1/captures \
+curl -X POST https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer $WRL_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
@@ -45,7 +45,7 @@ curl -X POST https://wrl.example.com/v1/captures \
 ```json
 {
   "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-  "statusUrl": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status",
+  "statusUrl": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status",
   "note": "Use GET /v1/captures to list and search your captures."
 }
 ```
@@ -55,7 +55,7 @@ Your captures are always accessible. Use `GET /v1/captures` to list them, or sav
 #### Step 2: Poll for completion
 
 ```bash
-curl https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
 ```
 
 No auth required -- the capture ID acts as the access secret. Poll until `status` is `complete` or `failed`. The response includes a `captureUrl` when complete.
@@ -63,7 +63,7 @@ No auth required -- the capture ID acts as the access secret. Poll until `status
 #### Step 3: Retrieve artifacts
 
 ```bash
-curl https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
 Returns metadata and signed artifact URLs (screenshot, html, headers, wacz) plus a `verifyUrl`.
@@ -71,7 +71,7 @@ Returns metadata and signed artifact URLs (screenshot, html, headers, wacz) plus
 #### Step 4: Verify the bundle
 
 ```bash
-curl https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
 Returns a JSON verification result with up to four checks: `artifactHashes`, `bundleHash`, `signature`, and (for new captures) `timestamp`. The timestamp check verifies an RFC 3161 independent timestamp obtained at capture time. Legacy captures return three checks. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
@@ -83,7 +83,7 @@ The `verifyUrl` is safe to share publicly. The capture ID grants full access to 
 For independent, offline verification -- including full CMS/PKCS#7 certificate chain validation -- use the CLI tool:
 
 ```bash
-npx @w-r-l/verify capture.wacz --origin https://wrl.example.com
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
 ```
 
 See [`packages/verify/`](packages/verify/) for details.
@@ -93,7 +93,7 @@ See [`packages/verify/`](packages/verify/) for details.
 **Finding captures:** `GET /v1/captures` lists your captures (requires your API key). Use it to browse and recover capture IDs. **Sharing captures:** The capture ID in any URL works without authentication. Share verification URLs freely.
 
 ```bash
-curl https://wrl.example.com/v1/captures \
+curl https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer $WRL_API_KEY"
 ```
 
@@ -292,7 +292,7 @@ ADMIN_KEY=<hex string from the command above>
 Once deployed, create your first tenant key:
 
 ```bash
-curl -X POST <YOUR_PRODUCTION_URL>/v1/admin/keys \
+curl -X POST https://api.webresourceledger.com/v1/admin/keys \
   -H "Authorization: Bearer $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"tenantId": "default", "scopes": ["capture"], "name": "default-key"}' | jq .

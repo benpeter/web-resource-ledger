@@ -13,7 +13,7 @@ Every WRL request that creates or reads captures requires a bearer token. This g
 Set your API key as a bearer token in the `Authorization` header on every request.
 
 ```bash
-curl https://wrl.example.com/v1/captures \
+curl https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -63,7 +63,7 @@ If you operate a WRL deployment, you manage API keys through the admin API. Admi
 ### Create a key
 
 ```bash
-curl -X POST https://wrl.example.com/v1/admin/keys \
+curl -X POST https://api.webresourceledger.com/v1/admin/keys \
   -H "Authorization: Bearer YOUR_ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -98,7 +98,7 @@ Request fields:
 ### List keys
 
 ```bash
-curl https://wrl.example.com/v1/admin/keys \
+curl https://api.webresourceledger.com/v1/admin/keys \
   -H "Authorization: Bearer YOUR_ADMIN_KEY"
 ```
 
@@ -125,7 +125,7 @@ Pass the `keyHash` from the creation response (or the list endpoint) to revoke a
 
 ```bash
 curl -X DELETE \
-  https://wrl.example.com/v1/admin/keys/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
+  https://api.webresourceledger.com/v1/admin/keys/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
   -H "Authorization: Bearer YOUR_ADMIN_KEY"
 ```
 
@@ -150,7 +150,7 @@ This order ensures access is never interrupted. The brief window where both keys
 Early WRL deployments used a single static bearer token called `CAPTURE_API_KEY`. This key is set directly by the operator during deployment and applies to all requests.
 
 ```bash
-curl -X POST https://wrl.example.com/v1/captures \
+curl -X POST https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer YOUR_CAPTURE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'

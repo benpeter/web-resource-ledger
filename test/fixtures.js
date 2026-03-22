@@ -7,7 +7,7 @@ import { hashApiKey } from '../src/auth.js';
 export const TEST_ADMIN_KEY = 'test-admin-key-for-vitest';
 export const TEST_TENANT_KEY = 'wrl_live_' + 'a'.repeat(43);
 export const TEST_WEBHOOK_URL = 'https://hooks.example.com/webhook';
-export const TEST_WEBHOOK_SECRET = 'whsec_' + 'b'.repeat(64);
+export const TEST_WEBHOOK_SECRET = 'wrlsec_' + 'b'.repeat(64);
 
 /**
  * Seed a D1-backed API key record for use in tests.

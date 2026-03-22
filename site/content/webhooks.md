@@ -20,7 +20,7 @@ WRL can push event notifications to your HTTPS endpoint whenever a capture compl
 Send a `POST /v1/webhooks` request with your endpoint URL, the event types you want to receive, and a name.
 
 ```bash
-curl -X POST https://wrl.example.com/v1/webhooks \
+curl -X POST https://api.webresourceledger.com/v1/webhooks \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -36,7 +36,7 @@ curl -X POST https://wrl.example.com/v1/webhooks \
   "url": "https://hooks.example.com/wrl-events",
   "events": ["capture.complete", "capture.failed"],
   "name": "ci-notifier",
-  "secret": "whsec_0000000000000000000000000000000000000000000000000000000000000000",
+  "secret": "wrlsec_0000000000000000000000000000000000000000000000000000000000000000",
   "createdAt": "2026-03-22T12:00:00.000Z",
   "warning": "Store this secret now. It cannot be retrieved after this response."
 }
@@ -70,11 +70,11 @@ Fired when a capture finishes successfully with all artifacts available.
     "completedAt": "2026-03-22T12:05:00.312Z",
     "renderQuality": "full",
     "artifacts": {
-      "screenshot": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot",
-      "html": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html",
-      "headers": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers"
+      "screenshot": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot",
+      "html": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html",
+      "headers": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers"
     },
-    "verifyUrl": "https://wrl.example.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+    "verifyUrl": "https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
   }
 }
 ```
@@ -124,7 +124,7 @@ signed_payload = "{timestamp}.{raw_request_body}"
 signature = HMAC-SHA256(hex_decoded_secret, signed_payload)
 ```
 
-The `secret` from registration is `whsec_` followed by 64 hex characters representing 32 raw bytes. You must hex-decode the portion after `whsec_` to get the binary HMAC key.
+The `secret` from registration is `wrlsec_` followed by 64 hex characters representing 32 raw bytes. You must hex-decode the portion after `wrlsec_` to get the binary HMAC key.
 
 ### Node.js
 
@@ -147,8 +147,8 @@ function verifyWebhookSignature(req, secret) {
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - parseInt(timestamp, 10)) > 300) return false;
 
-  // Hex-decode the secret (strip whsec_ prefix)
-  const keyBytes = Buffer.from(secret.replace('whsec_', ''), 'hex');
+  // Hex-decode the secret (strip wrlsec_ prefix)
+  const keyBytes = Buffer.from(secret.replace('wrlsec_', ''), 'hex');
 
   // Reconstruct signed payload
   const rawBody = req.body; // must be the raw Buffer, not parsed JSON
@@ -195,8 +195,8 @@ def verify_webhook_signature(headers, raw_body: bytes, secret: str) -> bool:
     if abs(now - int(timestamp)) > 300:
         return False
 
-    # Hex-decode the secret (strip whsec_ prefix)
-    key_bytes = bytes.fromhex(secret.replace('whsec_', ''))
+    # Hex-decode the secret (strip wrlsec_ prefix)
+    key_bytes = bytes.fromhex(secret.replace('wrlsec_', ''))
 
     # Reconstruct signed payload
     signed_payload = f'{timestamp}.'.encode() + raw_body
@@ -238,7 +238,7 @@ After all retries are exhausted, the event is moved to the dead-letter queue and
 Use the ping endpoint to verify your endpoint is reachable before relying on live events.
 
 ```bash
-curl -X POST https://wrl.example.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/ping \
+curl -X POST https://api.webresourceledger.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/ping \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -259,7 +259,7 @@ The ping sends a synthetic event with `type: "ping"` signed with your webhook se
 ### List
 
 ```bash
-curl https://wrl.example.com/v1/webhooks \
+curl https://api.webresourceledger.com/v1/webhooks \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -286,7 +286,7 @@ All registered webhooks have `active: true`. There is no way to pause a webhook 
 
 ```bash
 curl -X DELETE \
-  https://wrl.example.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
+  https://api.webresourceledger.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -319,7 +319,7 @@ The brief gap between creating the new webhook and deleting the old one is safe 
 
 Check that you are passing the raw request body to the HMAC function before any JSON parsing. Parsing and re-serializing JSON changes whitespace, which invalidates the signature.
 
-Also confirm you are hex-decoding the secret. The `whsec_` prefix encodes 32 bytes as 64 hex characters. If you pass the raw `whsec_...` string as the HMAC key, the key length is wrong and the signature will never match.
+Also confirm you are hex-decoding the secret. The `wrlsec_` prefix encodes 32 bytes as 64 hex characters. If you pass the raw `wrlsec_...` string as the HMAC key, the key length is wrong and the signature will never match.
 
 **Events stopped arriving after a few failed attempts.**
 

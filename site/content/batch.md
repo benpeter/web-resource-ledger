@@ -21,7 +21,7 @@ The batch endpoint lets you submit up to 100 URLs in a single request. WRL proce
 Send a `POST /v1/captures/batch` request with an array of URL objects.
 
 ```bash
-curl -X POST https://wrl.example.com/v1/captures/batch \
+curl -X POST https://api.webresourceledger.com/v1/captures/batch \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -41,13 +41,13 @@ The response is `207 Multi-Status`. Each item in `items` corresponds to the URL 
       "status": 202,
       "url": "https://example.com",
       "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-      "statusUrl": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status"
+      "statusUrl": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status"
     },
     {
       "status": 202,
       "url": "https://example.org/about",
       "id": "cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
-      "statusUrl": "https://wrl.example.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status"
+      "statusUrl": "https://api.webresourceledger.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status"
     }
   ],
   "summary": {
@@ -65,14 +65,14 @@ Items with `"status": 202` have been accepted. Collect their `id` values -- you 
 Wait a few seconds, then check each accepted capture individually using its ID.
 
 ```bash
-curl https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
 ```
 
 ```json
 {
   "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
   "status": "complete",
-  "captureUrl": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+  "captureUrl": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
 }
 ```
 
@@ -89,7 +89,7 @@ Captures typically complete in 5--15 seconds. For the full set of status values 
 Some URLs in a batch may fail even when others are accepted. A per-item failure does not affect the rest of the batch.
 
 ```bash
-curl -X POST https://wrl.example.com/v1/captures/batch \
+curl -X POST https://api.webresourceledger.com/v1/captures/batch \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -108,7 +108,7 @@ curl -X POST https://wrl.example.com/v1/captures/batch \
       "status": 202,
       "url": "https://example.com",
       "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-      "statusUrl": "https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status"
+      "statusUrl": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status"
     },
     {
       "status": 422,
@@ -124,7 +124,7 @@ curl -X POST https://wrl.example.com/v1/captures/batch \
       "status": 202,
       "url": "https://example.org/about",
       "id": "cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
-      "statusUrl": "https://wrl.example.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status"
+      "statusUrl": "https://api.webresourceledger.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status"
     }
   ],
   "summary": {
