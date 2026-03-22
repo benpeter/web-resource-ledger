@@ -63,7 +63,7 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      // Step 2: Rate limit check (per-IP then global) -- before DNS resolution
+      // Step 2: Rate limit check (per-tenant then global) -- before DNS resolution
       // MCP requests don't carry CF-Connecting-IP; use tenantId as rate limit key
       const rateLimitKey = auth.tenantId;
       if (env.CAPTURE_RATE_LIMITER) {
@@ -71,7 +71,7 @@ function createMcpServer(env, ctx, auth, origin) {
         if (!success) {
           ctx.waitUntil(log(env, 4, 'security', {
             event: 'security.rate_limit',
-            limiter: 'capture_per_ip',
+            limiter: 'capture_per_tenant',
             tenantId: auth.tenantId,
             keyName: auth.keyName,
             keyHashPrefix: auth.keyHashPrefix,
