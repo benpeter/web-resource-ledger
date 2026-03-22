@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { verifyApiKey, verifyAdminKey, hashApiKey } from '../src/auth.js';
-import { TEST_ADMIN_KEY, TEST_TENANT_KEY, seedApiKey } from './fixtures.js';
+import { TEST_ADMIN_KEY, TEST_TENANT_KEY, seedApiKey, cleanDb } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,20 +14,19 @@ function makeRequest(authHeader, url = 'https://worker.test/v1/captures') {
 }
 
 async function cleanupApiKeys() {
-  const { keys } = await env.KV.list({ prefix: 'apikey:' });
-  for (const k of keys) await env.KV.delete(k.name);
+  await cleanDb(env.DB);
 }
 
 // ---------------------------------------------------------------------------
 // Block 1: verifyApiKey -- KV-based key lookup
 // ---------------------------------------------------------------------------
 
-describe('verifyApiKey -- KV-based key lookup', () => {
+describe('verifyApiKey -- DB-based key lookup', () => {
   beforeEach(cleanupApiKeys);
   afterEach(cleanupApiKeys);
 
-  it('returns { ok: true } for a valid KV key', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture', 'read'] });
+  it('returns { ok: true } for a valid DB key', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture', 'read'] });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
     expect(result.ok).toBe(true);
     expect(result.tenantId).toBe('acme');
@@ -36,29 +35,29 @@ describe('verifyApiKey -- KV-based key lookup', () => {
   });
 
   it('success return includes keyHashPrefix as 8-char hex string', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture'] });
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture'] });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
     expect(result.ok).toBe(true);
     expect(result.keyHashPrefix).toMatch(/^[a-f0-9]{8}$/);
   });
 
-  it('returns correct tenantId from KV record', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'tenant-xyz' });
+  it('returns correct tenantId from DB record', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'tenant-xyz' });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
     expect(result.ok).toBe(true);
     expect(result.tenantId).toBe('tenant-xyz');
   });
 
-  it('returns 401 for unknown KV key (no legacy fallback when CAPTURE_API_KEY is not this key)', async () => {
-    // Key is seeded under a different raw key; using TEST_TENANT_KEY which is not in KV
+  it('returns 401 for unknown DB key (no legacy fallback when CAPTURE_API_KEY is not this key)', async () => {
+    // Key is seeded under a different raw key; using TEST_TENANT_KEY which is not in DB
     const result = await verifyApiKey(makeRequest(`Bearer wrl_live_${'z'.repeat(43)}`), env);
     expect(result.ok).toBe(false);
     expect(result.response.status).toBe(401);
     expect(result.reason).toBe('key_not_found');
   });
 
-  it('returns 401 for revoked KV key', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, {
+  it('returns 401 for revoked DB key', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY, {
       tenantId: 'acme',
       revoked: true,
       revokedAt: new Date().toISOString(),
@@ -70,7 +69,7 @@ describe('verifyApiKey -- KV-based key lookup', () => {
   });
 
   it('returns 403 when key does not grant required scope', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['read'] });
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['read'] });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env, { requiredScope: 'capture' });
     expect(result.ok).toBe(false);
     expect(result.response.status).toBe(403);
@@ -78,24 +77,35 @@ describe('verifyApiKey -- KV-based key lookup', () => {
   });
 
   it('capture scope implies read -- read-only check passes with capture key', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture'] });
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'acme', scopes: ['capture'] });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env, { requiredScope: 'read' });
     expect(result.ok).toBe(true);
   });
 
-  it('validates tenantId format -- 500 when KV record has invalid tenantId', async () => {
+  it('validates tenantId format -- 500 when DB record has invalid tenantId', async () => {
+    // Insert a record directly with an invalid tenantId bypassing seedApiKey
+    // (must first create a tenant row with valid ID, then update to invalid is not possible via SQLite CHECK)
+    // Instead, simulate a DB error path by testing the auth module's error handling.
+    // The CHECK constraint on tenants.id prevents inserting invalid tenantIds into D1.
+    // This test verifies that auth returns 500 on unexpected DB error by mocking DB.
     const keyHash = await hashApiKey(TEST_TENANT_KEY);
-    // Manually write a record with an invalid tenantId bypassing seedApiKey
-    await env.KV.put(`apikey:${keyHash}`, JSON.stringify({
-      tenantId: 'INVALID TENANT!',
-      scopes: ['capture'],
-      name: 'bad-record',
-      createdAt: new Date().toISOString(),
-      createdBy: 'test',
-      revoked: false,
-      revokedAt: null,
-    }));
-    const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
+    const faultyDB = {
+      prepare: () => ({
+        bind: () => ({
+          first: async () => ({
+            tenant_id: 'INVALID TENANT!',
+            scopes: JSON.stringify(['capture']),
+            name: 'bad',
+            created_at: new Date().toISOString(),
+            created_by: 'test',
+            revoked: 0,
+            revoked_at: null,
+          }),
+        }),
+      }),
+    };
+    const faultyEnv = { ...env, DB: faultyDB };
+    const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), faultyEnv);
     expect(result.ok).toBe(false);
     expect(result.response.status).toBe(500);
     expect(result.reason).toBe('kv_error');
@@ -110,8 +120,8 @@ describe('verifyApiKey -- dual-mode legacy fallback', () => {
   beforeEach(cleanupApiKeys);
   afterEach(cleanupApiKeys);
 
-  it('legacy key works on KV miss', async () => {
-    // CAPTURE_API_KEY is set in env; key is NOT in KV
+  it('legacy key works on DB miss', async () => {
+    // CAPTURE_API_KEY is set in env; key is NOT in DB
     const result = await verifyApiKey(makeRequest('Bearer test-api-key-for-vitest'), env);
     expect(result.ok).toBe(true);
     expect(result.authMethod).toBe('legacy');
@@ -153,8 +163,8 @@ describe('verifyApiKey -- dual-mode legacy fallback', () => {
   });
 
   it('revoked key does NOT fall through to legacy even if token matches CAPTURE_API_KEY', async () => {
-    // Seed the legacy key value as a revoked KV record
-    await seedApiKey(env.KV, 'test-api-key-for-vitest', {
+    // Seed the legacy key value as a revoked DB record
+    await seedApiKey(env.DB, 'test-api-key-for-vitest', {
       tenantId: 'default',
       revoked: true,
       revokedAt: new Date().toISOString(),
@@ -165,8 +175,8 @@ describe('verifyApiKey -- dual-mode legacy fallback', () => {
     expect(result.response.status).toBe(401);
   });
 
-  it('KV hit returns authMethod: "kv"', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme' });
+  it('DB hit returns authMethod: "kv"', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'acme' });
     const result = await verifyApiKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
     expect(result.ok).toBe(true);
     expect(result.authMethod).toBe('kv');
@@ -205,13 +215,12 @@ describe('verifyAdminKey -- admin infrastructure credential', () => {
     expect(result.response.status).toBe(401);
   });
 
-  it('KV tenant key does not work for admin endpoints', async () => {
-    await seedApiKey(env.KV, TEST_TENANT_KEY, { tenantId: 'acme' });
+  it('DB tenant key does not work for admin endpoints', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: 'acme' });
     const result = await verifyAdminKey(makeRequest(`Bearer ${TEST_TENANT_KEY}`), env);
     expect(result.ok).toBe(false);
     expect(result.response.status).toBe(401);
-    const { keys } = await env.KV.list({ prefix: 'apikey:' });
-    for (const k of keys) await env.KV.delete(k.name);
+    await cleanDb(env.DB);
   });
 });
 
@@ -254,7 +263,7 @@ describe('verifyApiKey -- existing behavior (preserved)', () => {
   });
 
   it('503 response has RFC 9457 shape when misconfigured', async () => {
-    const result = await verifyApiKey(makeRequest('Bearer some-key'), { CAPTURE_API_KEY: undefined, KV: undefined });
+    const result = await verifyApiKey(makeRequest('Bearer some-key'), { CAPTURE_API_KEY: undefined, DB: undefined });
     expect(result.ok).toBe(false);
     const body = await result.response.json();
     expect(body.type).toBe('about:blank');
@@ -271,7 +280,7 @@ describe('verifyApiKey -- existing behavior (preserved)', () => {
     expect(body).not.toContain(sentKey);
   });
 
-  it('returns 503 when neither KV nor CAPTURE_API_KEY is present', async () => {
+  it('returns 503 when neither DB nor CAPTURE_API_KEY is present', async () => {
     const result = await verifyApiKey(makeRequest('Bearer some-key'), {});
     expect(result.ok).toBe(false);
     expect(result.response.status).toBe(503);
@@ -283,13 +292,17 @@ describe('verifyApiKey -- existing behavior (preserved)', () => {
 // Security: KV error must NOT fall through to legacy
 // ---------------------------------------------------------------------------
 
-describe('verifyApiKey -- KV error path (security)', () => {
-  it('KV I/O error returns 500 and does not fall through to legacy', async () => {
-    // Use a spy to simulate KV failure
-    const faultyKV = {
-      get: vi.fn().mockRejectedValue(new Error('simulated KV outage')),
+describe('verifyApiKey -- DB error path (security)', () => {
+  it('DB I/O error returns 500 and does not fall through to legacy', async () => {
+    // Use a mock to simulate DB failure
+    const faultyDB = {
+      prepare: () => ({
+        bind: () => ({
+          first: vi.fn().mockRejectedValue(new Error('simulated DB outage')),
+        }),
+      }),
     };
-    const faultyEnv = { KV: faultyKV, CAPTURE_API_KEY: 'test-api-key-for-vitest' };
+    const faultyEnv = { DB: faultyDB, CAPTURE_API_KEY: 'test-api-key-for-vitest' };
     const result = await verifyApiKey(makeRequest('Bearer test-api-key-for-vitest'), faultyEnv);
     expect(result.ok).toBe(false);
     expect(result.response.status).toBe(500);

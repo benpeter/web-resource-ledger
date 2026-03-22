@@ -28,7 +28,7 @@ import {
 } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../src/index.js';
-import { createCapture, getCapture, completeCapture, failCapture } from '../src/kv.js';
+import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,12 +63,11 @@ async function runConsumer(queueName, messages) {
 }
 
 // ---------------------------------------------------------------------------
-// KV cleanup between tests -- wipe captures
+// D1 cleanup between tests -- wipe captures
 // ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  const { keys } = await env.KV.list({ prefix: 'capture:' });
-  for (const k of keys) await env.KV.delete(k.name);
+  await env.DB.prepare('DELETE FROM captures').run();
 });
 
 // ---------------------------------------------------------------------------
@@ -144,8 +143,8 @@ describe('queue consumer -- invalid tenantId', () => {
 describe('queue consumer -- idempotency: complete record', () => {
   it('acks message when KV record is already complete', async () => {
     const captureId = makeId();
-    await createCapture(env.KV, captureId, 'https://example.com/', '93.184.216.34', 'default');
-    await completeCapture(env.KV, captureId, {
+    await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
+    await completeCapture(env.DB, captureId, {
       screenshot: `captures/${captureId}/screenshot.png`,
       html: `captures/${captureId}/rendered.html`,
     });
@@ -156,7 +155,7 @@ describe('queue consumer -- idempotency: complete record', () => {
     expect(result.retryMessages.some(m => m.msgId === msg.id)).toBe(false);
 
     // KV record should remain complete (not re-processed)
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
   });
 });
@@ -168,8 +167,8 @@ describe('queue consumer -- idempotency: complete record', () => {
 describe('queue consumer -- idempotency: failed record', () => {
   it('acks message when KV record is already failed', async () => {
     const captureId = makeId();
-    await createCapture(env.KV, captureId, 'https://example.com/', '93.184.216.34', 'default');
-    await failCapture(env.KV, captureId, 'prior failure', false);
+    await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
+    await failCapture(env.DB, captureId, 'prior failure', false);
 
     const msg = makeMsg(captureId);
     const { result } = await runConsumer('wrl-captures', [msg]);
@@ -177,7 +176,7 @@ describe('queue consumer -- idempotency: failed record', () => {
     expect(result.retryMessages.some(m => m.msgId === msg.id)).toBe(false);
 
     // KV record should remain failed (not re-processed)
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('failed');
   });
 });
@@ -192,7 +191,7 @@ describe('queue consumer -- idempotency: failed record', () => {
 describe('queue consumer -- retryable path (no real browser)', () => {
   it('retries message on first attempt when performCapture returns retryable', async () => {
     const captureId = makeId();
-    await createCapture(env.KV, captureId, 'https://example.com/', '93.184.216.34', 'default');
+    await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
 
     const msg = makeMsg(captureId);
     const { result } = await runConsumer('wrl-captures', [msg]);
@@ -207,12 +206,12 @@ describe('queue consumer -- retryable path (no real browser)', () => {
 
   it('KV record stays pending on retryable failure at attempt 1', async () => {
     const captureId = makeId();
-    await createCapture(env.KV, captureId, 'https://example.com/', '93.184.216.34', 'default');
+    await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
 
     const msg = makeMsg(captureId, { attempts: 1 });
     await runConsumer('wrl-captures', [msg]);
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     // On a retryable error at attempt 1, KV should remain pending
     expect(record.status).toBe('pending');
   });
@@ -226,7 +225,7 @@ describe('queue consumer -- retryable path (no real browser)', () => {
 describe('queue consumer -- DLQ handler', () => {
   it('updates KV to failed when DLQ receives a message with a valid captureId', async () => {
     const captureId = makeId();
-    await createCapture(env.KV, captureId, 'https://example.com/', '93.184.216.34', 'default');
+    await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
 
     const msg = makeMsg(captureId);
     const { result } = await runConsumer('wrl-captures-dlq', [msg]);
@@ -236,7 +235,7 @@ describe('queue consumer -- DLQ handler', () => {
     expect(result.retryMessages.some(m => m.msgId === msg.id)).toBe(false);
 
     // KV should be updated to failed
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('failed');
     expect(record.error).toBeTruthy();
   });
@@ -262,7 +261,7 @@ describe('queue consumer -- DLQ handler', () => {
 describe('queue consumer -- URL validation', () => {
   it('acks and drops message with private IP url', async () => {
     const captureId = makeId();
-    await createCapture(env.KV, captureId, 'http://10.0.0.1/', '10.0.0.1', 'default');
+    await createCapture(env.DB, captureId, 'http://10.0.0.1/', '10.0.0.1', 'default');
 
     const msg = {
       id: randomBytes(16).toString('hex'),

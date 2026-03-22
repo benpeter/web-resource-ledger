@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createCapture, completeCapture, failCapture } from '../src/kv.js';
+import { createCapture, completeCapture, failCapture } from '../src/db.js';
+import { cleanDb } from './fixtures.js';
 
 const AUTH = 'Bearer test-api-key-for-vitest';
 const TENANT_ID = 'default';
@@ -22,12 +23,12 @@ function listCaptures(query = {}) {
 }
 
 async function seedCapture(id, url = 'https://example.com') {
-  await createCapture(env.KV, id, url, '1.2.3.4', TENANT_ID);
+  await createCapture(env.DB, id, url, '1.2.3.4', TENANT_ID);
 }
 
 async function seedComplete(id, url = 'https://example.com') {
   await seedCapture(id, url);
-  await completeCapture(env.KV, id, {
+  await completeCapture(env.DB, id, {
     screenshot: `captures/${id}/screenshot.png`,
     html: `captures/${id}/page.html`,
     headers: `captures/${id}/headers.json`,
@@ -36,15 +37,12 @@ async function seedComplete(id, url = 'https://example.com') {
 
 async function seedFailed(id, url = 'https://example.com') {
   await seedCapture(id, url);
-  await failCapture(env.KV, id, 'render timeout', true);
+  await failCapture(env.DB, id, 'render timeout', true);
 }
 
-// Wipe all tenant index keys + specific capture keys between tests
+// Clean all metadata tables between tests
 beforeEach(async () => {
-  const { keys } = await env.KV.list({ prefix: 'tenant:' });
-  for (const k of keys) await env.KV.delete(k.name);
-  const { keys: captureKeys } = await env.KV.list({ prefix: 'capture:' });
-  for (const k of captureKeys) await env.KV.delete(k.name);
+  await cleanDb(env.DB);
 });
 
 afterEach(() => {
@@ -89,7 +87,10 @@ describe('GET /v1/captures -- empty results', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual([]);
-    expect(body.pagination).toEqual({ hasMore: false, cursor: null, limit: 20 });
+    expect(body.pagination.hasMore).toBe(false);
+    expect(body.pagination.limit).toBe(20);
+    expect(body.pagination.total).toBe(0);
+    expect(body.pagination.offset).toBe(0);
   });
 });
 
@@ -101,11 +102,11 @@ describe('GET /v1/captures -- response shape', () => {
   it('returns correct CaptureSummary for complete captures', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-06-01T10:00:00.000Z'));
-    await seedCapture('cap_shape1complete1234567890abcde', 'https://example.com/complete');
+    await seedCapture('cap_5a9e00010000000000000000000000a1', 'https://example.com/complete');
     vi.setSystemTime(new Date('2024-06-01T10:00:10.000Z'));
-    await completeCapture(env.KV, 'cap_shape1complete1234567890abcde', {
-      screenshot: 'captures/cap_shape1complete1234567890abcde/screenshot.png',
-      html: 'captures/cap_shape1complete1234567890abcde/page.html',
+    await completeCapture(env.DB, 'cap_5a9e00010000000000000000000000a1', {
+      screenshot: 'captures/cap_5a9e00010000000000000000000000a1/screenshot.png',
+      html: 'captures/cap_5a9e00010000000000000000000000a1/page.html',
     });
 
     const res = await listCaptures({ status: 'complete' });
@@ -113,7 +114,7 @@ describe('GET /v1/captures -- response shape', () => {
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     const item = body.data[0];
-    expect(item.id).toBe('cap_shape1complete1234567890abcde');
+    expect(item.id).toBe('cap_5a9e00010000000000000000000000a1');
     expect(item.status).toBe('complete');
     expect(item.url).toBe('https://example.com/complete');
     expect(item.createdAt).toBe('2024-06-01T10:00:00.000Z');
@@ -123,16 +124,16 @@ describe('GET /v1/captures -- response shape', () => {
   it('returns correct shape for failed captures', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-06-01T11:00:00.000Z'));
-    await seedCapture('cap_shapefailed12345678901234abcd', 'https://example.com/fail');
+    await seedCapture('cap_fa11ed010000000000000000000000b1', 'https://example.com/fail');
     vi.setSystemTime(new Date('2024-06-01T11:00:05.000Z'));
-    await failCapture(env.KV, 'cap_shapefailed12345678901234abcd', 'render timeout', true);
+    await failCapture(env.DB, 'cap_fa11ed010000000000000000000000b1', 'render timeout', true);
 
     const res = await listCaptures({ status: 'failed' });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     const item = body.data[0];
-    expect(item.id).toBe('cap_shapefailed12345678901234abcd');
+    expect(item.id).toBe('cap_fa11ed010000000000000000000000b1');
     expect(item.status).toBe('failed');
     expect(item.failedAt).toBe('2024-06-01T11:00:05.000Z');
     expect(item.error).toBe('render timeout');
@@ -143,14 +144,14 @@ describe('GET /v1/captures -- response shape', () => {
   it('returns correct shape for pending captures -- no extra fields', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-06-01T12:00:00.000Z'));
-    await seedCapture('cap_shapepending1234567890abcdef1');
+    await seedCapture('cap_9e9d000100000000000000000000c001');
 
     const res = await listCaptures({ status: 'pending' });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     const item = body.data[0];
-    expect(item.id).toBe('cap_shapepending1234567890abcdef1');
+    expect(item.id).toBe('cap_9e9d000100000000000000000000c001');
     expect(item.status).toBe('pending');
     expect(item.completedAt).toBeUndefined();
     expect(item.failedAt).toBeUndefined();
@@ -158,7 +159,7 @@ describe('GET /v1/captures -- response shape', () => {
   });
 
   it('does NOT include ip field in any response', async () => {
-    await seedComplete('cap_noip01complete1234567890abcde');
+    await seedComplete('cap_901900001e000000000000000000d001');
     const res = await listCaptures();
     const body = await res.json();
     for (const item of body.data) {
@@ -167,7 +168,7 @@ describe('GET /v1/captures -- response shape', () => {
   });
 
   it('does NOT include artifacts or wacz.key in response', async () => {
-    await seedComplete('cap_noartifact1complete890abcdef12');
+    await seedComplete('cap_0a1a0001000000000000000000000e01');
     const res = await listCaptures();
     const body = await res.json();
     for (const item of body.data) {
@@ -185,11 +186,11 @@ describe('GET /v1/captures -- status filter', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-07-01T00:00:00.000Z'));
-    await seedComplete('cap_filtercomplete123456789abcdef');
+    await seedComplete('cap_f11c001e000000000000000000000001');
     vi.setSystemTime(new Date('2024-07-01T00:00:01.000Z'));
-    await seedFailed('cap_filterfailed1234567890abcdef1');
+    await seedFailed('cap_f11fa11e000000000000000000000001');
     vi.setSystemTime(new Date('2024-07-01T00:00:02.000Z'));
-    await seedCapture('cap_filterpending123456789abcdef1');
+    await seedCapture('cap_f119e9d1000000000000000000000001');
   });
 
   it('?status=complete returns only complete captures', async () => {
@@ -223,7 +224,7 @@ describe('GET /v1/captures -- status filter', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Pagination
+// Pagination (offset-based)
 // ---------------------------------------------------------------------------
 
 describe('GET /v1/captures -- pagination', () => {
@@ -237,8 +238,8 @@ describe('GET /v1/captures -- pagination', () => {
     vi.useFakeTimers();
     for (let i = 0; i < 5; i++) {
       vi.setSystemTime(new Date(Date.now() + i * 1000));
-      const hex = i.toString(16).padStart(2, '0');
-      await seedCapture(`cap_customlimit${hex}3456789012345678901`);
+      const hex = i.toString(16).padStart(32, '0');
+      await seedCapture(`cap_${hex}`);
     }
 
     const res = await listCaptures({ limit: 3 });
@@ -271,14 +272,7 @@ describe('GET /v1/captures -- pagination', () => {
     expect(res.status).toBe(400);
   });
 
-  it('invalid cursor returns 400', async () => {
-    const res = await listCaptures({ cursor: 'not-valid-base64url$$' });
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.detail).toContain('cursor');
-  });
-
-  it('hasMore=true and cursor present when more items exist', async () => {
+  it('hasMore=true when more items exist', async () => {
     vi.useFakeTimers();
     for (let i = 0; i < 5; i++) {
       vi.setSystemTime(new Date(1700000000000 + i * 1000));
@@ -290,10 +284,10 @@ describe('GET /v1/captures -- pagination', () => {
     const body = await res.json();
     expect(body.data).toHaveLength(2);
     expect(body.pagination.hasMore).toBe(true);
-    expect(body.pagination.cursor).not.toBeNull();
+    expect(body.pagination.total).toBe(5);
   });
 
-  it('passing cursor returns next page', async () => {
+  it('offset=2 skips first 2 rows', async () => {
     vi.useFakeTimers();
     const ids = [];
     for (let i = 0; i < 5; i++) {
@@ -304,20 +298,17 @@ describe('GET /v1/captures -- pagination', () => {
       await seedCapture(id);
     }
 
-    const page1 = await (await listCaptures({ limit: 2 })).json();
-    expect(page1.pagination.hasMore).toBe(true);
+    const page1 = await (await listCaptures({ limit: 2, offset: 0, sort: 'created_at' })).json();
+    const page2 = await (await listCaptures({ limit: 2, offset: 2, sort: 'created_at' })).json();
     const page1Ids = page1.data.map(d => d.id);
-
-    const page2 = await (await listCaptures({ limit: 2, cursor: page1.pagination.cursor })).json();
     const page2Ids = page2.data.map(d => d.id);
 
-    // No overlap between pages
     for (const id of page2Ids) {
       expect(page1Ids).not.toContain(id);
     }
   });
 
-  it('final page has hasMore=false and cursor=null', async () => {
+  it('final page has hasMore=false', async () => {
     vi.useFakeTimers();
     for (let i = 0; i < 3; i++) {
       vi.setSystemTime(new Date(1700000000000 + i * 1000));
@@ -329,10 +320,25 @@ describe('GET /v1/captures -- pagination', () => {
     const body = await res.json();
     expect(body.data).toHaveLength(3);
     expect(body.pagination.hasMore).toBe(false);
-    expect(body.pagination.cursor).toBeNull();
+    expect(body.pagination.total).toBe(3);
   });
 
-  it('CRITICAL: round-trip pagination -- 25 items, 3 pages, all unique, correct order', async () => {
+  it('total count reflects complete result set regardless of limit', async () => {
+    vi.useFakeTimers();
+    for (let i = 0; i < 25; i++) {
+      vi.setSystemTime(new Date(1700000000000 + i * 1000));
+      const hex = i.toString(16).padStart(32, '0');
+      await seedCapture(`cap_${hex}`);
+    }
+
+    const res = await listCaptures({ limit: 5 });
+    const body = await res.json();
+    expect(body.pagination.total).toBe(25);
+    expect(body.data).toHaveLength(5);
+    expect(body.pagination.hasMore).toBe(true);
+  });
+
+  it('CRITICAL: full offset pagination -- 25 items, 3 pages, all unique', async () => {
     vi.useFakeTimers();
     const seededIds = [];
     for (let i = 0; i < 25; i++) {
@@ -344,37 +350,210 @@ describe('GET /v1/captures -- pagination', () => {
     }
 
     const collected = [];
-    let cursor;
+    let offset = 0;
+    const limit = 10;
     let iterations = 0;
-    do {
-      const query = { limit: 10 };
-      if (cursor) query.cursor = cursor;
+    let hasMore = true;
+    while (hasMore) {
       const res = await SELF.fetch(
-        `https://worker.test/v1/captures?${new URLSearchParams(query)}`,
+        `https://worker.test/v1/captures?${new URLSearchParams({ limit, offset, sort: 'created_at' })}`,
         { headers: { Authorization: AUTH } },
       );
       expect(res.status).toBe(200);
       const body = await res.json();
       collected.push(...body.data);
-      cursor = body.pagination.cursor;
+      hasMore = body.pagination.hasMore;
+      offset += body.data.length;
       iterations++;
       if (iterations > 10) throw new Error('Pagination loop did not terminate');
-    } while (cursor);
+    }
 
-    // 25 unique items
     expect(collected).toHaveLength(25);
     const uniqueIds = new Set(collected.map(d => d.id));
     expect(uniqueIds.size).toBe(25);
 
-    // Ascending order by createdAt
+    // Ascending order by createdAt (sort=created_at)
     for (let i = 1; i < collected.length; i++) {
       expect(collected[i].createdAt >= collected[i - 1].createdAt).toBe(true);
     }
 
-    // All seeded IDs present
     for (const id of seededIds) {
       expect(uniqueIds.has(id)).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sort parameter
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- sort parameter', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    for (let i = 0; i < 3; i++) {
+      vi.setSystemTime(new Date(1700000000000 + i * 1000));
+      const id = `cap_50e1${i.toString(16).padStart(28, '0')}`;
+      await seedCapture(id);
+    }
+  });
+
+  it('default sort is newest-first (-created_at)', async () => {
+    const res = await listCaptures();
+    const body = await res.json();
+    const dates = body.data.map(d => d.createdAt);
+    for (let i = 1; i < dates.length; i++) {
+      expect(dates[i] <= dates[i - 1]).toBe(true);
+    }
+  });
+
+  it('?sort=-created_at returns newest-first', async () => {
+    const res = await listCaptures({ sort: '-created_at' });
+    const body = await res.json();
+    const dates = body.data.map(d => d.createdAt);
+    for (let i = 1; i < dates.length; i++) {
+      expect(dates[i] <= dates[i - 1]).toBe(true);
+    }
+  });
+
+  it('?sort=created_at returns oldest-first', async () => {
+    const res = await listCaptures({ sort: 'created_at' });
+    const body = await res.json();
+    const dates = body.data.map(d => d.createdAt);
+    for (let i = 1; i < dates.length; i++) {
+      expect(dates[i] >= dates[i - 1]).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// URL filter
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- url filter', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-09-01T00:00:00.000Z'));
+    await seedCapture('cap_ee110001aaaaaaaaaaaaaaaaaaaaaa01', 'https://example.com/page1');
+    vi.setSystemTime(new Date('2024-09-01T00:00:01.000Z'));
+    await seedCapture('cap_ee110002aaaaaaaaaaaaaaaaaaaaaa02', 'https://other.org/page2');
+  });
+
+  it('?url=https://example.com filters to matching prefix', async () => {
+    const res = await listCaptures({ url: 'https://example.com' });
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].url).toContain('example.com');
+  });
+
+  it('?url= with less than 4 chars returns 400', async () => {
+    const res = await listCaptures({ url: 'abc' });
+    expect(res.status).toBe(400);
+  });
+
+  it('?url= with exactly 4 chars is accepted', async () => {
+    const res = await listCaptures({ url: 'http' });
+    expect(res.status).toBe(200);
+  });
+
+  it('url filter combined with status filter', async () => {
+    await completeCapture(env.DB, 'cap_ee110001aaaaaaaaaaaaaaaaaaaaaa01', {
+      screenshot: 'captures/cap_ee110001aaaaaaaaaaaaaaaaaaaaaa01/screenshot.png',
+      html: 'captures/cap_ee110001aaaaaaaaaaaaaaaaaaaaaa01/page.html',
+    });
+    const res = await listCaptures({ url: 'https://example.com', status: 'complete', sort: 'created_at' });
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].status).toBe('complete');
+    expect(body.data[0].url).toContain('example.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Date range filters
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- date range filters', () => {
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-10-01T00:00:00.000Z'));
+    await seedCapture('cap_da1e000100000000aaaaaaaaaaaaa001', 'https://example.com');
+    vi.setSystemTime(new Date('2024-10-02T00:00:00.000Z'));
+    await seedCapture('cap_da1e000200000000aaaaaaaaaaaaa002', 'https://example.com');
+    vi.setSystemTime(new Date('2024-10-03T00:00:00.000Z'));
+    await seedCapture('cap_da1e000300000000aaaaaaaaaaaaa003', 'https://example.com');
+  });
+
+  it('?created_after filters to captures after given date', async () => {
+    const res = await listCaptures({ created_after: '2024-10-01T12:00:00.000Z' });
+    const body = await res.json();
+    for (const item of body.data) {
+      expect(item.createdAt > '2024-10-01T12:00:00.000Z').toBe(true);
+    }
+    expect(body.data.length).toBe(2);
+  });
+
+  it('?created_before filters to captures before given date', async () => {
+    const res = await listCaptures({ created_before: '2024-10-02T12:00:00.000Z' });
+    const body = await res.json();
+    for (const item of body.data) {
+      expect(item.createdAt < '2024-10-02T12:00:00.000Z').toBe(true);
+    }
+    // 2024-10-01 and 2024-10-02T00:00 are both before 2024-10-02T12:00
+    expect(body.data.length).toBe(2);
+  });
+
+  it('combined created_after and created_before filters correctly', async () => {
+    const res = await listCaptures({
+      created_after: '2024-10-01T12:00:00.000Z',
+      created_before: '2024-10-02T12:00:00.000Z',
+    });
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].createdAt).toBe('2024-10-02T00:00:00.000Z');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Combined filters
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- combined filters', () => {
+  it('status + url + sort work together', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-11-01T00:00:00.000Z'));
+    await seedCapture('cap_c01b000100000000000000000000aa01', 'https://example.com/combo');
+    await completeCapture(env.DB, 'cap_c01b000100000000000000000000aa01', {
+      screenshot: 'captures/cap_c01b000100000000000000000000aa01/screenshot.png',
+      html: 'captures/cap_c01b000100000000000000000000aa01/page.html',
+    });
+    vi.setSystemTime(new Date('2024-11-01T00:00:01.000Z'));
+    await seedCapture('cap_c01b000200000000000000000000aa02', 'https://other.com');
+    await completeCapture(env.DB, 'cap_c01b000200000000000000000000aa02', {
+      screenshot: 'captures/cap_c01b000200000000000000000000aa02/screenshot.png',
+      html: 'captures/cap_c01b000200000000000000000000aa02/page.html',
+    });
+
+    const res = await listCaptures({ status: 'complete', url: 'https://example.com', sort: 'created_at' });
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].status).toBe('complete');
+    expect(body.data[0].url).toContain('example.com');
+  });
+
+  it('?offset=0&limit=5 returns correct pagination envelope', async () => {
+    vi.useFakeTimers();
+    for (let i = 0; i < 8; i++) {
+      vi.setSystemTime(new Date(1700000000000 + i * 1000));
+      const id = `cap_0ff5e1${i.toString(16).padStart(26, '0')}`;
+      await seedCapture(id);
+    }
+    const res = await listCaptures({ offset: 0, limit: 5 });
+    const body = await res.json();
+    expect(body.pagination.offset).toBe(0);
+    expect(body.pagination.limit).toBe(5);
+    expect(body.pagination.total).toBe(8);
+    expect(body.pagination.hasMore).toBe(true);
+    expect(body.data).toHaveLength(5);
   });
 });
 
@@ -414,10 +593,10 @@ describe('GET /v1/captures -- renderQuality in CaptureSummary', () => {
   it('list response includes renderQuality for partial captures', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-08-01T10:00:00.000Z'));
-    const partialId = 'cap_partiallist123456789012abcdef1';
-    await createCapture(env.KV, partialId, 'https://example.com/partial', '1.2.3.4', TENANT_ID);
+    const partialId = 'cap_9a1a11a100000000000000000000001a';
+    await createCapture(env.DB, partialId, 'https://example.com/partial', '1.2.3.4', TENANT_ID);
     vi.setSystemTime(new Date('2024-08-01T10:00:10.000Z'));
-    await completeCapture(env.KV, partialId, {
+    await completeCapture(env.DB, partialId, {
       screenshot: `captures/${partialId}/screenshot.png`,
       html: `captures/${partialId}/rendered.html`,
     }, null, 'partial', { waitUntilReached: 'domcontentloaded', timedOut: true, durationMs: 25000 });

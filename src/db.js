@@ -323,10 +323,12 @@ export async function createApiKeyRecord(db, sha256hex, record) {
     return { created: false, reason: 'hash_collision' };
   }
 
+  // INSERT OR REPLACE handles the case where a revoked record with this hash already exists.
+  // Non-revoked duplicates are blocked above so REPLACE only fires for revoked overwrites.
   await db.batch([
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(record.tenantId),
     db.prepare(
-      `INSERT INTO api_keys (key_hash, tenant_id, scopes, name, created_at, created_by, revoked, revoked_at)
+      `INSERT OR REPLACE INTO api_keys (key_hash, tenant_id, scopes, name, created_at, created_by, revoked, revoked_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       sha256hex,

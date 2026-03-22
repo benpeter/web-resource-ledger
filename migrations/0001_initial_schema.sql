@@ -82,8 +82,8 @@ CREATE INDEX idx_api_keys_tenant
 -- key_id: first 8 hex chars of SHA-256(raw public key bytes)
 -- ---------------------------------------------------------------------------
 CREATE TABLE signing_keys (
-  key_id      TEXT    NOT NULL PRIMARY KEY
-                        CHECK (length(key_id) = 8),
+  id          TEXT    NOT NULL PRIMARY KEY
+                        CHECK (length(id) = 8),
   algorithm   TEXT    NOT NULL DEFAULT 'Ed25519',
   public_key  TEXT    NOT NULL,
   archived_at TEXT    NOT NULL

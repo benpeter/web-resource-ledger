@@ -14,12 +14,12 @@ import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { acquire, connect } from '@cloudflare/playwright';
 import { performCapture } from '../../src/capture.js';
-import { createCapture, getCapture } from '../../src/kv.js';
+import { createCapture, getCapture } from '../../src/db.js';
 
 const captureId = 'cap_inttest00000000000000000000b1';
 
 async function cleanupCapture(id) {
-  await env.KV.delete(`capture:${id}`);
+  await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(id).run();
   const prefix = `captures/${id}`;
   await Promise.all([
     env.BUCKET.delete(`${prefix}/screenshot.png`),
@@ -40,10 +40,10 @@ describe('real URL capture (advisory)', () => {
 
   it('captures example.com end-to-end', async () => {
     try {
-      await createCapture(env.KV, captureId, 'https://example.com/', '93.184.216.34', 'default');
+      await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
       await performCapture(env, 'https://example.com/', '93.184.216.34', captureId, 'default');
 
-      const record = await getCapture(env.KV, captureId);
+      const record = await getCapture(env.DB, captureId);
       expect(record.status).toBe('complete');
       expect(record.renderQuality).toBe('full');
       if (record.wacz) {

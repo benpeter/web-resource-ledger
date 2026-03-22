@@ -9,7 +9,7 @@
 
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TEST_ADMIN_KEY, seedApiKey } from './fixtures.js';
+import { TEST_ADMIN_KEY, seedApiKey, cleanDb } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,8 +55,7 @@ function makeAdminDelete(ip) {
 }
 
 async function cleanupApiKeys() {
-  const { keys } = await env.KV.list({ prefix: 'apikey:' });
-  for (const k of keys) await env.KV.delete(k.name);
+  await cleanDb(env.DB);
 }
 
 const VALID_CREATE_BODY = {
@@ -605,7 +604,7 @@ describe('Security: legacy key rejected on admin routes', () => {
 
   it('KV tenant key on admin endpoints returns 401', async () => {
     const rawKey = 'wrl_live_' + 'c'.repeat(43);
-    await seedApiKey(env.KV, rawKey, { tenantId: 'acme' });
+    await seedApiKey(env.DB, rawKey, { tenantId: 'acme' });
 
     const ip = nextIp();
     const res = await SELF.fetch('https://worker.test/v1/admin/keys', {

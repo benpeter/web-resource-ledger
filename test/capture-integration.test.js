@@ -1,6 +1,6 @@
 import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { completeCapture, getCapture } from '../src/kv.js';
+import { completeCapture, getCapture } from '../src/db.js';
 
 const AUTH = 'Bearer test-api-key-for-vitest';
 // Use a direct public IP to avoid DNS resolution in the test environment.
@@ -68,7 +68,7 @@ describe('POST /v1/captures -- happy path', () => {
     // Use a distinct IP to avoid sharing the rate limiter bucket with other tests
     const res = await postCapture({ url: VALID_URL }, { 'CF-Connecting-IP': '10.0.0.99' });
     const { id } = await res.json();
-    const record = await getCapture(env.KV, id);
+    const record = await getCapture(env.DB, id);
     expect(record).not.toBeNull();
     expect(record.tenantId).toBe('default');
   });
@@ -342,7 +342,7 @@ describe('lifecycle smoke test', () => {
     // so status may be 'failed'. Accept any terminal or in-flight state.
     expect(['pending', 'complete', 'failed']).toContain(statusBody.status);
 
-    await completeCapture(env.KV, id, {
+    await completeCapture(env.DB, id, {
       screenshot: `captures/${id}/screenshot.png`,
       html:       `captures/${id}/rendered.html`,
       headers:    `captures/${id}/headers.json`,

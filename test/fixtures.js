@@ -8,10 +8,11 @@ export const TEST_ADMIN_KEY = 'test-admin-key-for-vitest';
 export const TEST_TENANT_KEY = 'wrl_live_' + 'a'.repeat(43);
 
 /**
- * Seed a KV-backed API key record for use in tests.
+ * Seed a D1-backed API key record for use in tests.
+ * Also ensures the tenant row exists.
  * Returns the keyHash so callers can reference it.
  */
-export async function seedApiKey(kv, rawKey, {
+export async function seedApiKey(db, rawKey, {
   tenantId = 'default',
   scopes = ['capture', 'read'],
   name = 'test-key',
@@ -19,13 +20,80 @@ export async function seedApiKey(kv, rawKey, {
   revokedAt = null,
 } = {}) {
   const keyHash = await hashApiKey(rawKey);
-  await kv.put(`apikey:${keyHash}`, JSON.stringify({
-    tenantId, scopes, name,
-    createdAt: new Date().toISOString(),
-    createdBy: 'test',
-    revoked, revokedAt,
-  }));
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT OR IGNORE INTO api_keys
+         (key_hash, tenant_id, scopes, name, created_at, created_by, revoked, revoked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      keyHash,
+      tenantId,
+      JSON.stringify(scopes),
+      name,
+      new Date().toISOString(),
+      'test',
+      revoked ? 1 : 0,
+      revokedAt,
+    ),
+  ]);
   return keyHash;
+}
+
+/**
+ * Truncate all metadata tables in FK-safe order (children first, then parents).
+ */
+export async function cleanDb(db) {
+  await db.batch([
+    db.prepare('DELETE FROM captures'),
+    db.prepare('DELETE FROM api_keys'),
+    db.prepare('DELETE FROM signing_keys'),
+    db.prepare('DELETE FROM tenants'),
+  ]);
+}
+
+/**
+ * Seed a capture row directly into D1 with sensible defaults.
+ * Ensures the tenant row exists first.
+ *
+ * @param {D1Database} db
+ * @param {string} id  capture ID (must match cap_[a-f0-9]{32})
+ * @param {object} overrides  column overrides
+ */
+export async function seedCapture(db, id, {
+  tenantId = 'default',
+  url = 'https://example.com',
+  ip = '1.2.3.4',
+  status = 'pending',
+  createdAt = new Date().toISOString(),
+  completedAt = null,
+  failedAt = null,
+  error = null,
+  retryable = null,
+  renderQuality = null,
+  artifacts = null,
+  wacz = null,
+  render = null,
+  captureSettings = null,
+} = {}) {
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT OR IGNORE INTO captures
+         (id, tenant_id, url, ip, status, created_at, completed_at, failed_at,
+          error, retryable, render_quality, artifacts, wacz, render, capture_settings)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      id, tenantId, url, ip, status, createdAt, completedAt, failedAt,
+      error,
+      retryable != null ? (retryable ? 1 : 0) : null,
+      renderQuality,
+      artifacts ? JSON.stringify(artifacts) : null,
+      wacz ? JSON.stringify(wacz) : null,
+      render ? JSON.stringify(render) : null,
+      captureSettings ? JSON.stringify(captureSettings) : null,
+    ),
+  ]);
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { getSigningKeys, computeKeyId } from '../src/signing.js';
-import { archiveSigningKey } from '../src/kv.js';
+import { archiveSigningKey } from '../src/db.js';
 
 const ENDPOINT = 'https://worker.test/.well-known/signing-key';
 const KEYS_ENDPOINT = 'https://worker.test/.well-known/signing-keys';
@@ -125,8 +125,7 @@ describe('GET /.well-known/signing-key -- round-trip verification', () => {
 describe('GET /.well-known/signing-keys -- happy path', () => {
   beforeEach(async () => {
     // Clean up any archived keys from prior tests
-    const list = await env.KV.list({ prefix: 'signing-key:' });
-    await Promise.all(list.keys.map(k => env.KV.delete(k.name)));
+    await env.DB.prepare('DELETE FROM signing_keys').run();
   });
 
   it('returns 200 with JSON body', async () => {
@@ -146,7 +145,7 @@ describe('GET /.well-known/signing-keys -- happy path', () => {
   it('returns archived keys after archiveSigningKey()', async () => {
     const keys = await getSigningKeys(env);
     const publicKeyBase64 = btoa(String.fromCharCode(...keys.publicKeyBytes));
-    await archiveSigningKey(env.KV, keys.keyId, publicKeyBase64);
+    await archiveSigningKey(env.DB, keys.keyId, publicKeyBase64);
 
     const res = await SELF.fetch(KEYS_ENDPOINT);
     const body = await res.json();
@@ -160,12 +159,12 @@ describe('GET /.well-known/signing-keys -- happy path', () => {
     // Archive the current key
     const keys = await getSigningKeys(env);
     const publicKeyBase64 = btoa(String.fromCharCode(...keys.publicKeyBytes));
-    await archiveSigningKey(env.KV, keys.keyId, publicKeyBase64);
+    await archiveSigningKey(env.DB, keys.keyId, publicKeyBase64);
 
     // Archive the "old" key
     const oldKeys = await getSigningKeys({ SIGNING_KEY: env.TEST_ARCHIVED_KEY });
     const oldPublicKeyBase64 = btoa(String.fromCharCode(...oldKeys.publicKeyBytes));
-    await archiveSigningKey(env.KV, oldKeys.keyId, oldPublicKeyBase64);
+    await archiveSigningKey(env.DB, oldKeys.keyId, oldPublicKeyBase64);
 
     const res = await SELF.fetch(KEYS_ENDPOINT);
     const body = await res.json();

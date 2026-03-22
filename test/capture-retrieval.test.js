@@ -1,6 +1,6 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createCapture, completeCapture } from '../src/kv.js';
+import { createCapture, completeCapture } from '../src/db.js';
 
 // ---------------------------------------------------------------------------
 // Partial capture seed IDs (outside main beforeEach to avoid conflicts)
@@ -30,9 +30,9 @@ const SEED_WACZ = {
 };
 
 beforeEach(async () => {
-  await env.KV.delete(`capture:${SEED_ID}`);
-  await createCapture(env.KV, SEED_ID, SEED_URL, '93.184.216.34', 'default');
-  await completeCapture(env.KV, SEED_ID, SEED_ARTIFACTS, SEED_WACZ);
+  await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(SEED_ID).run();
+  await createCapture(env.DB, SEED_ID, SEED_URL, '93.184.216.34', 'default');
+  await completeCapture(env.DB, SEED_ID, SEED_ARTIFACTS, SEED_WACZ);
 
   // Seed R2 with test artifact data
   await env.BUCKET.put(SEED_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71])); // PNG magic bytes
@@ -117,9 +117,9 @@ describe('GET /v1/captures/{id}', () => {
 
 describe('GET /v1/captures/{id} -- partial capture', () => {
   beforeEach(async () => {
-    await env.KV.delete(`capture:${PARTIAL_ID}`);
-    await createCapture(env.KV, PARTIAL_ID, 'https://example.com', '93.184.216.34', 'default');
-    await completeCapture(env.KV, PARTIAL_ID, PARTIAL_ARTIFACTS, null, 'partial', PARTIAL_RENDER);
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(PARTIAL_ID).run();
+    await createCapture(env.DB, PARTIAL_ID, 'https://example.com', '93.184.216.34', 'default');
+    await completeCapture(env.DB, PARTIAL_ID, PARTIAL_ARTIFACTS, null, 'partial', PARTIAL_RENDER);
     await env.BUCKET.put(PARTIAL_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71]));
     await env.BUCKET.put(PARTIAL_ARTIFACTS.html, '<html>partial test</html>');
   });
@@ -150,10 +150,10 @@ describe('GET /v1/captures/{id} -- partial capture', () => {
 
   it('defaults renderQuality to full for old records without renderQuality field', async () => {
     const legacyId = 'cap_' + '0'.repeat(32);
-    await env.KV.delete(`capture:${legacyId}`);
-    await createCapture(env.KV, legacyId, 'https://example.com', '93.184.216.34', 'default');
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(legacyId).run();
+    await createCapture(env.DB, legacyId, 'https://example.com', '93.184.216.34', 'default');
     // Write record without renderQuality (legacy shape)
-    await completeCapture(env.KV, legacyId, {
+    await completeCapture(env.DB, legacyId, {
       screenshot: `captures/${legacyId}/screenshot.png`,
       html:       `captures/${legacyId}/rendered.html`,
     });
@@ -168,9 +168,9 @@ describe('GET /v1/captures/{id} -- partial capture', () => {
 
   it('omits render for old records without render field', async () => {
     const legacyId = 'cap_' + '1'.repeat(32);
-    await env.KV.delete(`capture:${legacyId}`);
-    await createCapture(env.KV, legacyId, 'https://example.com', '93.184.216.34', 'default');
-    await completeCapture(env.KV, legacyId, {
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(legacyId).run();
+    await createCapture(env.DB, legacyId, 'https://example.com', '93.184.216.34', 'default');
+    await completeCapture(env.DB, legacyId, {
       screenshot: `captures/${legacyId}/screenshot.png`,
       html:       `captures/${legacyId}/rendered.html`,
     });
@@ -207,9 +207,9 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
 
   it('wacz-absent returns 404', async () => {
     const noWaczId = 'cap_' + 'c'.repeat(32);
-    await env.KV.delete(`capture:${noWaczId}`);
-    await createCapture(env.KV, noWaczId, SEED_URL, '93.184.216.34', 'default');
-    await completeCapture(env.KV, noWaczId, {
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(noWaczId).run();
+    await createCapture(env.DB, noWaczId, SEED_URL, '93.184.216.34', 'default');
+    await completeCapture(env.DB, noWaczId, {
       screenshot: `captures/${noWaczId}/screenshot.png`,
       html:       `captures/${noWaczId}/rendered.html`,
       headers:    `captures/${noWaczId}/headers.json`,
@@ -221,8 +221,8 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
 
   it('pending capture returns 404 on artifact route', async () => {
     const pendingId = 'cap_' + 'd'.repeat(32);
-    await env.KV.delete(`capture:${pendingId}`);
-    await createCapture(env.KV, pendingId, SEED_URL, '93.184.216.34', 'default');
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(pendingId).run();
+    await createCapture(env.DB, pendingId, SEED_URL, '93.184.216.34', 'default');
 
     const res = await SELF.fetch(`https://worker.test/v1/captures/${pendingId}/artifacts/screenshot`);
     expect(res.status).toBe(404);
@@ -230,9 +230,9 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
 
   it('absent optional artifact (headers) returns 404', async () => {
     const noHeadersId = 'cap_' + 'e'.repeat(32);
-    await env.KV.delete(`capture:${noHeadersId}`);
-    await createCapture(env.KV, noHeadersId, SEED_URL, '93.184.216.34', 'default');
-    await completeCapture(env.KV, noHeadersId, {
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(noHeadersId).run();
+    await createCapture(env.DB, noHeadersId, SEED_URL, '93.184.216.34', 'default');
+    await completeCapture(env.DB, noHeadersId, {
       screenshot: `captures/${noHeadersId}/screenshot.png`,
       html:       `captures/${noHeadersId}/rendered.html`,
     }, SEED_WACZ);
