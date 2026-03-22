@@ -9,8 +9,16 @@ Run `scripts/autonomous/orchestrate.sh` and monitor its output.
 Let it run. The orchestrator pauses on its own:
 - 30 minutes between phases
 - Waits for `~/wrl-go` between acts
+- Checks `~/wrl-inbox` for operator messages between phases
+- Auto-verifies deploys and attempts to fix provisioning failures
 
 ## On errors
+
+The orchestrator now auto-detects deploy failures and attempts to
+provision missing Cloudflare resources (queues, D1, KV). If it can't
+fix the issue, it writes `~/wrl-pause` and sends an ntfy notification.
+
+If the orchestrator doesn't catch an error:
 
 1. Read the logs (`scripts/autonomous/logs/*/phase-NNNN.log`)
 2. Diagnose the root cause
