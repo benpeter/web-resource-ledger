@@ -265,7 +265,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     const storedBytes = screenshot.byteLength
       + (screenshotBefore ? screenshotBefore.byteLength : 0)
       + new TextEncoder().encode(html).byteLength
-      + (headers ? JSON.stringify(headers).length : 0)
+      + (headers ? new TextEncoder().encode(JSON.stringify(headers)).byteLength : 0)
       + (waczInfo?.size ?? 0);
     return { ok: true, storedBytes };
   } catch (err) {

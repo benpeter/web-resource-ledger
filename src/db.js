@@ -4,11 +4,12 @@
  * Replaces the KV-based metadata layer (kv.js) for captures, tenants, API keys,
  * and signing keys. Rate limit counters remain in kv.js using env.KV.
  *
- * Schema (four tables, defined in migrations/0001_initial.sql):
- *   tenants      -- tenant records with optional config JSON
- *   captures     -- capture lifecycle with JSON artifact columns
- *   api_keys     -- hashed API key records with scopes JSON
- *   signing_keys -- archived Ed25519 public keys (private keys live in Wrangler secrets)
+ * Schema (five tables, defined in migrations/0001_initial.sql + 0002_usage_counters.sql):
+ *   tenants         -- tenant records with optional config JSON
+ *   captures        -- capture lifecycle with JSON artifact columns
+ *   api_keys        -- hashed API key records with scopes JSON
+ *   signing_keys    -- archived Ed25519 public keys (private keys live in Wrangler secrets)
+ *   usage_counters  -- per-tenant monthly billing counters (capture count, storage bytes, API calls)
  *
  * All DB access is centralised here. No raw env.DB.prepare() calls should
  * exist outside this module.
@@ -554,6 +555,18 @@ export async function incrementUsage(db, tenantId, deltas) {
  * @returns {Promise<{ tenantId: string, period: string, captureCount: number,
  *   storageBytes: number, apiCallCount: number, updatedAt: string|null }>}
  */
+/**
+ * Check whether a tenant row exists in D1.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<boolean>}
+ */
+export async function tenantExists(db, tenantId) {
+  const row = await db.prepare('SELECT 1 FROM tenants WHERE id = ?').bind(tenantId).first();
+  return row !== null;
+}
+
 export async function getUsage(db, tenantId, period) {
   const row = await db.prepare(
     'SELECT * FROM usage_counters WHERE tenant_id = ? AND period = ?',

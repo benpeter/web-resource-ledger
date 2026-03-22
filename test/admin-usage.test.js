@@ -10,6 +10,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TEST_ADMIN_KEY, cleanDb, seedUsageCounter } from './fixtures.js';
+import { computePeriod } from '../src/db.js';
 
 const ADMIN_AUTH = `Bearer ${TEST_ADMIN_KEY}`;
 
@@ -121,8 +122,7 @@ describe('GET /v1/admin/usage — success responses', () => {
   });
 
   it('returns current period when period param is omitted', async () => {
-    const now = new Date();
-    const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentPeriod = computePeriod();
 
     await seedUsageCounter(env.DB, {
       tenantId: 'default',

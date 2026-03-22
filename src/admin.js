@@ -18,7 +18,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
@@ -337,12 +337,10 @@ export async function handleAdminGetUsage(request, env, ctx) {
     period = computePeriod();
   }
 
-  // Verify tenant exists using direct DB query (NOT getTenantConfig)
-  const tenantExists = await env.DB.prepare(
-    'SELECT 1 FROM tenants WHERE id = ?'
-  ).bind(tenantParam).first();
+  // Verify tenant exists via centralised DAL (not raw env.DB.prepare)
+  const exists = await tenantExists(env.DB, tenantParam);
 
-  if (!tenantExists) {
+  if (!exists) {
     ctx.waitUntil(log(env, 4, 'admin', {
       event: 'admin.usage_query_fail',
       tenantId: tenantParam,
