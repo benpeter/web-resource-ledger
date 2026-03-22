@@ -47,7 +47,7 @@ Expand WRL into a platform that other tools and agents build on.
 - ~~#45 **R15: MCP server for web evidence** [M]~~ -- DONE: MCP adapter with 4 tools (capture_url, get_capture, list_captures, verify_capture), Streamable HTTP transport, docs, server.json registry
 - #46 **R16: Queue migration for capture processing** [M] -- data-driven: when timeouts >5%; staged fallback now handles partial captures, R16 still needed for full WACZ on all captures
 - #47 **R17: Web UI for capture submission** [M] -- browser-based capture; depends on R1, R3
-- #48 **R18: Batch capture endpoint** [M] -- bulk archival workflows; depends on R1, R5
+- ~~#48 **R18: Batch capture endpoint** [M]~~ -- DONE: POST /v1/captures/batch with 207 Multi-Status, per-URL SSRF validation, sequential rate limit consumption
 
 ---
 
@@ -190,6 +190,7 @@ Completed items removed from active tracking:
 - ~~Cross-domain navigation blocking~~ -- DONE (playwright-migration)
 - ~~Captured HTML XSS prevention~~ -- DONE (retrieval-endpoint)
 - ~~R6: Hashed IP logging~~ -- DONE (hashed-ip-logging phase): HMAC-SHA256 `cip` field, daily key rotation, graceful degradation
+- ~~R18: Batch capture endpoint~~ -- DONE (batch-capture-endpoint phase): POST /v1/captures/batch, 207 Multi-Status, per-URL SSRF, sequential rate limit consumption
 - ~~Security event logging~~ -- PARTIAL (mvo-coralogix): auth failures, SSRF blocks, rate limit hits logged
 - ~~HSTS header~~ -- DONE (static-verification-page)
 - ~~R14: Production CD pipeline~~ -- DONE (cd-pipeline phase): deploy-production.yml, OPERATIONS.md, environment protection with approval gate

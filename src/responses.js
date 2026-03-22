@@ -41,3 +41,15 @@ export function jsonResponse(body, status = 200, headers = {}) {
     headers: { 'Content-Type': 'application/json', ...headers },
   });
 }
+
+export function batchItemSuccess(url, captureId, statusUrl) {
+  return { status: 202, url, id: captureId, statusUrl };
+}
+
+export function batchItemError(url, status, detail) {
+  return {
+    status,
+    url,
+    error: { type: 'about:blank', status, title: titles[status] || 'Error', detail },
+  };
+}
