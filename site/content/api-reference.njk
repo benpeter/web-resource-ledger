@@ -1,0 +1,40 @@
+---
+layout: layouts/doc.njk
+title: API Reference
+description: Complete endpoint reference for the WRL API
+---
+<h1>API Reference</h1>
+
+<p>
+  This page documents all {{ api.info.title }} endpoints (v{{ api.info.version }}).
+  See the <a href="/authentication/">Authentication guide</a> for how to obtain and use API keys.
+</p>
+
+<h2>Base URLs</h2>
+<ul>
+  {% for server in api.servers %}
+  <li>
+    <strong>{{ server.description }}:</strong> <code>{{ server.url }}</code>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="alert alert--info" role="note">
+  <p>
+    <strong>Authentication:</strong> Most endpoints require a Bearer token in the
+    <code>Authorization</code> header. Tenant endpoints use per-tenant API keys;
+    admin endpoints use the infrastructure <code>ADMIN_KEY</code>.
+    See the <a href="/authentication/">Authentication guide</a> for details.
+  </p>
+</div>
+
+{% for tagGroup in api.tags %}
+<h2 id="tag-{{ tagGroup.name }}">{{ tagGroup.name | capitalize }}</h2>
+{% if tagGroup.description %}
+<p>{{ tagGroup.description }}</p>
+{% endif %}
+
+{% for op in tagGroup.operations %}
+{% include "partials/endpoint.njk" %}
+{% endfor %}
+{% endfor %}
