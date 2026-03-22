@@ -31,6 +31,8 @@ source "$SCRIPT_DIR/lib/verify-phase.sh"
 source "$SCRIPT_DIR/lib/wait-for-signal.sh"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/lib/cleanup-worktrees.sh"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/lib/fix-deploy.sh"
 
 # Initialize logging
 LOG_DIR=$(init_logging)
@@ -40,6 +42,7 @@ log_info "Repo: $REPO_DIR"
 # Configuration
 PAUSE_BETWEEN_PHASES="${PAUSE_BETWEEN_PHASES:-1800}"  # 30 minutes
 CLAUDE_MODEL="${CLAUDE_MODEL:-opus}"
+INBOX="${HOME}/wrl-inbox"
 
 cd "$REPO_DIR"
 
@@ -50,6 +53,56 @@ log_info "Manifest loaded: $PHASE_COUNT phases"
 # Read prompt template
 PROMPT_BASE=$(cat "$PROMPT_TEMPLATE")
 
+# --- Helper: process inbox messages ---
+process_inbox() {
+  if [[ ! -f "$INBOX" ]]; then
+    return 0
+  fi
+
+  log_info "Inbox message found, processing..."
+  local inbox_content
+  inbox_content=$(cat "$INBOX")
+  rm -f "$INBOX"
+
+  # Build state summary
+  local completed="" failed=""
+  for f in "${LOG_DIR}"/phase-*.status; do
+    [[ -f "$f" ]] || continue
+    local p s
+    p=$(basename "$f" .status | sed 's/phase-//')
+    s=$(cat "$f")
+    if [[ "$s" == "success" ]]; then
+      completed="${completed}${p} "
+    elif [[ "$s" != "pending" && "$s" != "in_progress" ]]; then
+      failed="${failed}${p}(${s}) "
+    fi
+  done
+
+  local inbox_prompt
+  inbox_prompt="You are the WRL orchestrator assistant. The orchestrator
+is between phases in ${REPO_DIR}.
+Completed: ${completed:-none}
+Failed: ${failed:-none}
+Log dir: ${LOG_DIR}
+
+The operator says:
+${inbox_content}
+
+Do what they ask. You can edit files, run commands, provision resources,
+adjust the manifest, reset status files in ${LOG_DIR}, etc."
+
+  claude --print \
+    --dangerously-skip-permissions \
+    --model sonnet \
+    --max-budget-usd 5 \
+    -p "$inbox_prompt" \
+    > "${LOG_DIR}/inbox-$(date +%H%M%S).log" 2>&1 || {
+    log_warn "Inbox session failed (non-blocking)"
+  }
+  notify "Inbox processed" "Message handled between phases" "low" "mailbox"
+  log_info "Inbox message processed"
+}
+
 # Main loop
 for i in $(seq 0 $((PHASE_COUNT - 1))); do
   PHASE=$(jq -r ".phases[$i].phase" "$MANIFEST")
@@ -59,6 +112,19 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
   ACT=$(jq -r ".phases[$i].act" "$MANIFEST")
   BUDGET=$(jq -r ".phases[$i].budget_usd" "$MANIFEST")
   ACT_LAST=$(jq -r ".phases[$i].act_last" "$MANIFEST")
+
+  # --- Pre-phase checks ---
+
+  # Pause signal: halt until operator clears it
+  if [[ -f "${HOME}/wrl-pause" ]]; then
+    log_info "Pause signal detected. Waiting for GO..."
+    notify "Orchestrator PAUSED" "Intervention needed. Remove ~/wrl-pause and touch ~/wrl-go to resume." "urgent" "stop_sign"
+    wait_for_signal
+    rm -f "${HOME}/wrl-pause"
+  fi
+
+  # Process inbox messages
+  process_inbox
 
   # Check if already done
   STATUS=$(get_phase_status "$PHASE")
@@ -84,7 +150,8 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
     continue
   fi
 
-  # Header
+  # --- Run phase ---
+
   echo ""
   echo "=========================================="
   log_info "Phase $((i+1))/$PHASE_COUNT: $PHASE - $TITLE (Act $ACT)"
@@ -144,62 +211,66 @@ ${ISSUE_CONTEXT:-No issue body available. Refer to the issue title and manifest 
 
     set_phase_status "$PHASE" "failed_session"
     notify_error "$PHASE" "Session exited with code $EXIT_CODE. Check ${PHASE_LOG}"
-    continue
+    # Fall through to pacing -- do NOT skip with continue
   fi
 
-  # Extract PR number
+  # --- Post-session verification (only if session succeeded) ---
+
+  # Extract PR number (skip verification if session failed)
   PR_NUMBER=""
-  PR_NUMBER=$(extract_pr_number "$PHASE_OUTPUT" 2>/dev/null || true)
+  if [[ "$(get_phase_status "$PHASE")" != "failed_session" ]]; then
+    PR_NUMBER=$(extract_pr_number "$PHASE_OUTPUT" 2>/dev/null || true)
 
-  if [[ -z "$PR_NUMBER" ]]; then
-    log_error "No PR found for phase $PHASE"
-    set_phase_status "$PHASE" "failed_no_pr"
-    notify_error "$PHASE" "No PR created. Check ${PHASE_LOG}"
-    continue
-  fi
-
-  log_info "PR #${PR_NUMBER} created"
-
-  # Verify evolution log completeness
-  EVO_DIR=$(find docs/evolution -maxdepth 1 -name "${PHASE}-*" -type d 2>/dev/null | head -1)
-  if [[ -z "$EVO_DIR" ]]; then
-    log_warn "Phase $PHASE: no evolution log directory found"
-  else
-    MISSING_DOCS=()
-    for doc in prompt.md decisions.md outcome.md process.md; do
-      if [[ ! -f "$EVO_DIR/$doc" ]]; then
-        MISSING_DOCS+=("$doc")
-      fi
-    done
-    if [[ ${#MISSING_DOCS[@]} -gt 0 ]]; then
-      log_error "Phase $PHASE: missing evolution log files: ${MISSING_DOCS[*]}"
-      notify_error "$PHASE" "Evolution log incomplete: missing ${MISSING_DOCS[*]} in $EVO_DIR"
-      # Don't block -- but make it visible
+    if [[ -z "$PR_NUMBER" ]]; then
+      log_error "No PR found for phase $PHASE"
+      set_phase_status "$PHASE" "failed_no_pr"
+      notify_error "$PHASE" "No PR created. Check ${PHASE_LOG}"
+      # Fall through to pacing
     fi
   fi
 
-  # Verify and merge
-  if verify_and_merge "$PR_NUMBER" "$PHASE" "false"; then
-    set_phase_status "$PHASE" "success"
-    log_info "Phase $PHASE complete!"
-    notify_phase_complete "$PHASE" "$TITLE" "$PR_NUMBER"
-  else
-    VERIFY_EXIT=$?
-    case $VERIFY_EXIT in
-      1) set_phase_status "$PHASE" "failed_ci" ;;
-      2) set_phase_status "$PHASE" "failed_merge" ;;
-      *) set_phase_status "$PHASE" "failed_verify" ;;
-    esac
-    notify_error "$PHASE" "Verification failed (exit $VERIFY_EXIT). PR #${PR_NUMBER}"
-    # Fall through to pacing -- do NOT continue here.
-    # Skipping pacing on failure would blow past act gates and
-    # run all remaining phases back-to-back.
+  # Verify and merge (only if we have a PR)
+  if [[ -n "$PR_NUMBER" ]]; then
+    log_info "PR #${PR_NUMBER} created"
+
+    if verify_and_merge "$PR_NUMBER" "$PHASE" "false"; then
+      set_phase_status "$PHASE" "success"
+      log_info "Phase $PHASE complete!"
+      notify_phase_complete "$PHASE" "$TITLE" "$PR_NUMBER"
+
+      # Verify evolution log completeness (check after merge, when files are on main)
+      git pull --quiet --rebase 2>/dev/null || true
+      EVO_DIR=$(find docs/evolution -maxdepth 1 -name "${PHASE}-*" -type d 2>/dev/null | head -1)
+      if [[ -z "$EVO_DIR" ]]; then
+        log_warn "Phase $PHASE: no evolution log directory found"
+      else
+        MISSING_DOCS=()
+        for doc in prompt.md decisions.md outcome.md process.md; do
+          if [[ ! -f "$EVO_DIR/$doc" ]]; then
+            MISSING_DOCS+=("$doc")
+          fi
+        done
+        if [[ ${#MISSING_DOCS[@]} -gt 0 ]]; then
+          log_warn "Phase $PHASE: missing evolution log files: ${MISSING_DOCS[*]}"
+        fi
+      fi
+    else
+      VERIFY_EXIT=$?
+      case $VERIFY_EXIT in
+        1) set_phase_status "$PHASE" "failed_ci" ;;
+        2) set_phase_status "$PHASE" "failed_merge" ;;
+        3) set_phase_status "$PHASE" "failed_deploy" ;;
+        *) set_phase_status "$PHASE" "failed_verify" ;;
+      esac
+      notify_error "$PHASE" "Verification failed (exit $VERIFY_EXIT). PR #${PR_NUMBER}"
+      # Fall through to pacing
+    fi
   fi
 
-  # Clean up worktrees
+  # --- Cleanup and pacing (always runs) ---
+
   cleanup_worktrees
 
-  # Pacing: pause between phases (runs on both success and failure)
   if [[ "$ACT_LAST" == "true" ]]; then
     # End of act: wait for GO signal
     notify_act_complete "$ACT" "$((i+1))"
