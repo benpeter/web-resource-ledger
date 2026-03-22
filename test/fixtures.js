@@ -45,10 +45,35 @@ export async function seedApiKey(db, rawKey, {
  */
 export async function cleanDb(db) {
   await db.batch([
+    db.prepare('DELETE FROM usage_counters'),
     db.prepare('DELETE FROM captures'),
     db.prepare('DELETE FROM api_keys'),
     db.prepare('DELETE FROM signing_keys'),
     db.prepare('DELETE FROM tenants'),
+  ]);
+}
+
+/**
+ * Seed a usage_counters row directly into D1 with sensible defaults.
+ * Uses plain INSERT (not UPSERT) to catch duplicate seeds as test errors.
+ * Also ensures the tenant row exists first.
+ *
+ * @param {D1Database} db
+ * @param {object} overrides  column overrides
+ */
+export async function seedUsageCounter(db, {
+  tenantId = 'default',
+  period = '2026-03',
+  captureCount = 0,
+  storageBytes = 0,
+  apiCallCount = 0,
+} = {}) {
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).bind(tenantId, period, captureCount, storageBytes, apiCallCount),
   ]);
 }
 
