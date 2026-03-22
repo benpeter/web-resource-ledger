@@ -4,6 +4,12 @@ main = "src/index.js"
 compatibility_date = "2026-03-13"
 compatibility_flags = ["nodejs_compat"]
 
+[[d1_databases]]
+binding = "DB"
+database_name = "wrl-metadata"
+database_id = "PLACEHOLDER_PROD"
+migrations_dir = "migrations"
+
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "wrl-captures"
@@ -103,6 +109,12 @@ TSA_URL = "http://timestamp.digicert.com"
 #   wrangler secret put <NAME> --env staging
 
 [env.staging]
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "wrl-metadata-staging"
+database_id = "PLACEHOLDER_STAGING"
+migrations_dir = "migrations"
 
 [[env.staging.r2_buckets]]
 binding = "BUCKET"
