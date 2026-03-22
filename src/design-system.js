@@ -22,6 +22,9 @@ export const DESIGN_SYSTEM_CSS = `
   --color-secondary: #5a6577;
   --color-secondary-hover: #4d5768;
   --color-secondary-text: #f8f8fa;
+  --color-accent: #3d7c9a;
+  --color-accent-hover: #336a84;
+  --color-accent-text: #f8f8fa;
 
   /* Semantic */
   --color-success: #2e7d32;
