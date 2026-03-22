@@ -209,7 +209,6 @@ body {
 }
 
 .section-header p {
-  margin: 0;
   font-size: var(--text-lg);
   color: var(--color-text-muted);
   max-width: 55ch;
@@ -544,8 +543,7 @@ body {
   }
 
   .pricing-card--featured::before {
-    font-size: 0;
-    padding: 0;
+    display: none;
   }
 }
 

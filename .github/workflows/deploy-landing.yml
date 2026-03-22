@@ -30,6 +30,7 @@ jobs:
 
       - name: Copy SVG assets
         run: |
+          mkdir -p landing/public/assets
           cp site/assets/logo-w-check.svg landing/public/assets/logo-w-check.svg
           cp site/assets/favicon.svg landing/public/assets/favicon.svg
 
