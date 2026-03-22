@@ -26,7 +26,7 @@ done
 : "${SMOKE_URL:?SMOKE_URL is required}"
 : "${SMOKE_API_KEY:?SMOKE_API_KEY is required}"
 SMOKE_CAPTURE_URL="${SMOKE_CAPTURE_URL:-https://example.com}"
-SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-60}"
+SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-90}"
 SMOKE_SKIP_CAPTURE="${SMOKE_SKIP_CAPTURE:-0}"
 
 # Strip trailing slash

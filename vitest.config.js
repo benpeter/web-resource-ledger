@@ -29,6 +29,21 @@ export default defineWorkersConfig({
             IP_HASH_SEED: 'test-ip-hash-seed-for-vitest',
             TSA_URL: 'http://timestamp.digicert.com',
           },
+          queueProducers: {
+            CAPTURE_QUEUE: 'wrl-captures',
+            CAPTURE_DLQ: 'wrl-captures-dlq',
+          },
+          queueConsumers: {
+            'wrl-captures': {
+              maxBatchSize: 1,
+              maxRetries: 3,
+              deadLetterQueue: 'wrl-captures-dlq',
+            },
+            'wrl-captures-dlq': {
+              maxBatchSize: 1,
+              maxRetries: 0,
+            },
+          },
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"
           // errors. All tests do explicit cleanup in beforeEach.
