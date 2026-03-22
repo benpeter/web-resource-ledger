@@ -76,7 +76,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Multiple TSAs for redundancy | 6+ months after R11 ships; based on observed TSA reliability | gru, kickoff |
 | [consider] HSM-backed key storage | When FIPS 140-2 Level 3 explicitly required or multi-tenant key management at scale | security-minion, kickoff |
 | [consider] CRL/OCSP revocation checking in CLI verify | When a TSA certificate revocation incident occurs or compliance requires it; offline requirement conflicts | security-minion, 0034-cli-verify-tool |
-| [should] Publish @w-r-l/verify to npm | When CLI tool is stable and tested in production; npm org @w-r-l registered | devx-minion, 0034-cli-verify-tool |
+| ~~[should] Publish @w-r-l/verify to npm~~ | ~~Done: CI automation in place (#98, 0050)~~ | ~~devx-minion, 0034-cli-verify-tool~~ |
+| [consider] OIDC Trusted Publishing for npm | When Node 24+ ships npm 11+; eliminates token rotation | security-minion, 0050-npm-publish-ci-automation |
 
 ### Capture Fidelity
 
