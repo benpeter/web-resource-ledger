@@ -22,6 +22,10 @@ set +x 2>/dev/null
 readonly API_BASE="https://api.eu2.coralogix.com/mgmt/openapi/latest/alerts/alerts-general/v3"
 readonly API_KEY="${WRL_CORALOGIX_API_KEY:?WRL_CORALOGIX_API_KEY not set in ~/.secrets}"
 readonly OPERATOR_EMAIL="bp@ben-peter.com"
+if [ -n "${1:-}" ] && [ "${1:-}" != "--dry-run" ]; then
+  echo "ERROR: Unknown argument: $1. Usage: $0 [--dry-run]" >&2
+  exit 1
+fi
 readonly DRY_RUN="${1:-}"
 
 # Redact API key in all output
@@ -219,7 +223,7 @@ upsert_alert() {
   local payload existing_id response
 
   # Generate payload with actual email
-  payload=$(${payload_fn} | sed "s/OPERATOR_EMAIL_PLACEHOLDER/$OPERATOR_EMAIL/g")
+  payload=$(${payload_fn} | sed "s|OPERATOR_EMAIL_PLACEHOLDER|$OPERATOR_EMAIL|g")
 
   # Validate JSON structure
   if ! echo "$payload" | jq . > /dev/null 2>&1; then
