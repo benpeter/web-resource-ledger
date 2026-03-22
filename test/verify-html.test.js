@@ -2,7 +2,7 @@
 import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture } from '../src/capture.js';
-import { createCapture } from '../src/kv.js';
+import { createCapture } from '../src/db.js';
 import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
@@ -17,8 +17,8 @@ const TEST_ORIGIN = 'https://example.com';
 // ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  // Clean KV
-  await env.KV.delete(`capture:${TEST_ID}`);
+  // Clean D1 capture
+  await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(TEST_ID).run();
 
   // Clean R2 -- all .wacz objects and anything prefixed with TEST_ID
   const listed = await env.BUCKET.list({ prefix: 'captures/' });
@@ -37,7 +37,7 @@ beforeEach(async () => {
     .reply(200, 'ok', { headers: { 'content-type': 'text/html' } });
 
   // Create a real capture with a signed WACZ
-  await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+  await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
   await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 });
 
@@ -193,8 +193,8 @@ describe('GET /v1/verify/{id} -- error paths', () => {
 
   it('unverified capture HTML response Cache-Control is not public long-cache', async () => {
     // Overwrite WACZ with garbage so verification fails -- verified: false -> no-store
-    const { getCapture } = await import('../src/kv.js');
-    const record = await getCapture(env.KV, TEST_ID);
+    const { getCapture } = await import('../src/db.js');
+    const record = await getCapture(env.DB, TEST_ID);
     await env.BUCKET.put(record.wacz.key, new Uint8Array(16).fill(0xab));
 
     const res = await SELF.fetch(

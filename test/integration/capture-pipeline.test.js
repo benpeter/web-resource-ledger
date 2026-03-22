@@ -21,7 +21,7 @@ import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach, inject } from 'vitest';
 import { acquire, connect } from '@cloudflare/playwright';
 import { performCapture } from '../../src/capture.js';
-import { createCapture, getCapture } from '../../src/kv.js';
+import { createCapture, getCapture } from '../../src/db.js';
 
 // ---------------------------------------------------------------------------
 // Browser session pre-acquisition
@@ -50,7 +50,7 @@ async function ensureBrowserSession() {
 // ---------------------------------------------------------------------------
 
 async function cleanupCapture(captureId) {
-  await env.KV.delete(`capture:${captureId}`);
+  await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(captureId).run();
   const prefix = `captures/${captureId}`;
   await Promise.all([
     env.BUCKET.delete(`${prefix}/screenshot.png`),
@@ -76,20 +76,20 @@ describe('integration: fast page -- baseline sanity', () => {
 
   it('captures a fast page with full quality', async () => {
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
     expect(record.renderQuality).toBe('full');
   });
 
   it('writes screenshot and html artifacts to R2', async () => {
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.artifacts.screenshot).toBeTruthy();
     expect(record.artifacts.html).toBeTruthy();
   });
@@ -110,10 +110,10 @@ describe('integration: fast page -- WACZ and timestamp', () => {
 
   it('produces a WACZ with valid timestamp when TSA_URL is configured', async () => {
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
     // WACZ is produced for full captures when SIGNING_KEY is configured
     expect(record.wacz).toBeTruthy();
@@ -139,10 +139,10 @@ describe('integration: never-settle page -- load strategy validation', () => {
     // This validates the 'load' strategy. With 'networkidle', this page would
     // timeout because the setInterval keeps firing fetch('/ping') every 200ms.
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/never-settle.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/never-settle.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/never-settle.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
     expect(record.renderQuality).toBe('full');
     expect(record.render?.timedOut).toBe(false);
@@ -164,10 +164,10 @@ describe('integration: cookie-banner page -- consent injection', () => {
 
   it('runs consent injection without errors on a clean page', async () => {
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/cookie-banner.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/cookie-banner.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/cookie-banner.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
     // No CMP on test page -- captureSettings.consent.result should be notDetected
     if (record.captureSettings?.consent) {
@@ -193,10 +193,10 @@ describe('integration: page with iframe -- multi-frame consent injection', () =>
     // Exercises the route handler's main-frame-only cross-domain blocking
     // and consent.js multi-frame autoconsent injection (PR #82 code paths).
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
     expect(record.renderQuality).toBe('full');
   });
@@ -208,10 +208,10 @@ describe('integration: page with iframe -- multi-frame consent injection', () =>
     // in page.content() (same-origin iframes have separate DOMs), but the
     // iframe element itself proves the route handler didn't block it.
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/with-iframe.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     const htmlObj = await env.BUCKET.get(record.artifacts.html);
     const html = await htmlObj.text();
     expect(html).toContain('main-frame-loaded');
@@ -234,20 +234,20 @@ describe('integration: timeout budget and stage timings', () => {
 
   it('completes within the 30s ctx.waitUntil budget', async () => {
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('complete');
     expect(record.render?.durationMs).toBeLessThan(30000);
   });
 
   it('stores stage-level timing breakdown in KV record', async () => {
     const port = inject('testServerPort');
-    await createCapture(env.KV, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
+    await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
     await performCapture(env, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', captureId, 'default');
 
-    const record = await getCapture(env.KV, captureId);
+    const record = await getCapture(env.DB, captureId);
     expect(record.render?.stages).toBeDefined();
     expect(record.render.stages.navigationMs).toBeDefined();
     expect(record.render.stages.settleMs).toBeDefined();

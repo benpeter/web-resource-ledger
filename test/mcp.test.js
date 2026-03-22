@@ -2,7 +2,8 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
-import { seedApiKey } from './fixtures.js';
+import { seedApiKey, cleanDb } from './fixtures.js';
+import { createCapture } from '../src/db.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -58,15 +59,13 @@ function toolCall(name, args, id = 2) {
 // ---------------------------------------------------------------------------
 
 async function cleanupApiKeys() {
-  const { keys } = await env.KV.list({ prefix: 'apikey:' });
-  for (const k of keys) await env.KV.delete(k.name);
+  await env.DB.prepare('DELETE FROM api_keys').run();
+  await env.DB.prepare('DELETE FROM tenants').run();
 }
 
 async function cleanupCaptures() {
-  const { keys } = await env.KV.list({ prefix: 'capture:' });
-  for (const k of keys) await env.KV.delete(k.name);
-  const { keys: tenantKeys } = await env.KV.list({ prefix: 'tenant:' });
-  for (const k of tenantKeys) await env.KV.delete(k.name);
+  await env.DB.prepare('DELETE FROM captures').run();
+  await env.DB.prepare('DELETE FROM tenants').run();
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +187,7 @@ describe('tool: capture_url -- insufficient scope', () => {
 
   beforeEach(async () => {
     await cleanupApiKeys();
-    await seedApiKey(env.KV, READ_ONLY_KEY, {
+    await seedApiKey(env.DB, READ_ONLY_KEY, {
       tenantId: 'test-read-only',
       scopes: ['read'],
       name: 'read-only-key',
@@ -263,14 +262,7 @@ describe('tool: get_capture -- not found', () => {
 
 describe('tool: get_capture -- pending capture', () => {
   beforeEach(async () => {
-    await env.KV.put(`capture:${PENDING_ID}`, JSON.stringify({
-      captureId: PENDING_ID,
-      status: 'pending',
-      url: 'https://example.com',
-      tenantId: 'default',
-      createdAt: new Date().toISOString(),
-      ip: '93.184.216.34',
-    }));
+    await createCapture(env.DB, PENDING_ID, 'https://example.com', '93.184.216.34', 'default');
   });
 
   afterEach(cleanupCaptures);
@@ -287,26 +279,13 @@ describe('tool: get_capture -- pending capture', () => {
 
 describe('tool: get_capture -- complete capture', () => {
   beforeEach(async () => {
-    const record = {
-      captureId: COMPLETE_ID,
-      status: 'complete',
-      url: 'https://example.com',
-      tenantId: 'default',
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-      renderQuality: 'full',
-      ip: '93.184.216.34',
-      wacz: { key: 'test-wacz-key', bundleHash: 'sha256:' + 'a'.repeat(64), size: 98765, keyId: null },
-      screenshot: { key: 'test-screenshot-key' },
-      html: { key: 'test-html-key' },
-      headers: { key: 'test-headers-key' },
-      artifacts: {
-        screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
-        html: `captures/${COMPLETE_ID}/rendered.html`,
-        headers: `captures/${COMPLETE_ID}/headers.json`,
-      },
-    };
-    await env.KV.put(`capture:${COMPLETE_ID}`, JSON.stringify(record));
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+      headers: `captures/${COMPLETE_ID}/headers.json`,
+    }, { key: 'test-wacz-key', bundleHash: 'sha256:' + 'a'.repeat(64), size: 98765, keyId: null }, 'full');
   });
 
   afterEach(cleanupCaptures);
@@ -355,29 +334,9 @@ describe('tool: list_captures -- with data', () => {
 
   beforeEach(async () => {
     await cleanupCaptures();
-    const ts1 = new Date('2025-01-01T10:00:00.000Z').toISOString();
-    const ts2 = new Date('2025-01-01T11:00:00.000Z').toISOString();
-    const tenantId = 'default';
-
-    await env.KV.put(`capture:${LIST_ID_1}`, JSON.stringify({
-      captureId: LIST_ID_1,
-      status: 'pending',
-      url: 'https://example.com/one',
-      tenantId,
-      createdAt: ts1,
-      ip: '1.2.3.4',
-    }));
-    await env.KV.put(`tenant:${tenantId}:ts:${ts1}:${LIST_ID_1}`, '');
-
-    await env.KV.put(`capture:${LIST_ID_2}`, JSON.stringify({
-      captureId: LIST_ID_2,
-      status: 'pending',
-      url: 'https://example.com/two',
-      tenantId,
-      createdAt: ts2,
-      ip: '1.2.3.4',
-    }));
-    await env.KV.put(`tenant:${tenantId}:ts:${ts2}:${LIST_ID_2}`, '');
+    const { createCapture: create } = await import('../src/db.js');
+    await create(env.DB, LIST_ID_1, 'https://example.com/one', '1.2.3.4', 'default');
+    await create(env.DB, LIST_ID_2, 'https://example.com/two', '1.2.3.4', 'default');
   });
 
   afterEach(cleanupCaptures);
@@ -409,35 +368,13 @@ describe('tool: list_captures -- status filter', () => {
 
   beforeEach(async () => {
     await cleanupCaptures();
-    const tenantId = 'default';
-    const ts1 = new Date('2025-06-01T10:00:00.000Z').toISOString();
-    const ts2 = new Date('2025-06-01T11:00:00.000Z').toISOString();
-
-    await env.KV.put(`capture:${FILTER_PENDING_ID}`, JSON.stringify({
-      captureId: FILTER_PENDING_ID,
-      status: 'pending',
-      url: 'https://pending.example.com',
-      tenantId,
-      createdAt: ts1,
-      ip: '1.2.3.4',
-    }));
-    await env.KV.put(`tenant:${tenantId}:ts:${ts1}:${FILTER_PENDING_ID}`, '');
-
-    await env.KV.put(`capture:${FILTER_COMPLETE_ID}`, JSON.stringify({
-      captureId: FILTER_COMPLETE_ID,
-      status: 'complete',
-      url: 'https://complete.example.com',
-      tenantId,
-      createdAt: ts2,
-      completedAt: ts2,
-      renderQuality: 'full',
-      ip: '1.2.3.4',
-      artifacts: {
-        screenshot: `captures/${FILTER_COMPLETE_ID}/screenshot.png`,
-        html: `captures/${FILTER_COMPLETE_ID}/rendered.html`,
-      },
-    }));
-    await env.KV.put(`tenant:${tenantId}:ts:${ts2}:${FILTER_COMPLETE_ID}`, '');
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, FILTER_PENDING_ID, 'https://pending.example.com', '1.2.3.4', 'default');
+    await create(env.DB, FILTER_COMPLETE_ID, 'https://complete.example.com', '1.2.3.4', 'default');
+    await complete(env.DB, FILTER_COMPLETE_ID, {
+      screenshot: `captures/${FILTER_COMPLETE_ID}/screenshot.png`,
+      html: `captures/${FILTER_COMPLETE_ID}/rendered.html`,
+    }, null, 'full');
   });
 
   afterEach(cleanupCaptures);

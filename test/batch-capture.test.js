@@ -1,7 +1,7 @@
 // tva
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { seedApiKey, TEST_TENANT_KEY } from './fixtures.js';
+import { seedApiKey, cleanDb, TEST_TENANT_KEY } from './fixtures.js';
 
 const AUTH = `Bearer ${TEST_TENANT_KEY}`;
 
@@ -38,23 +38,23 @@ function batchCapture(urls, headers = {}) {
 // ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  await seedApiKey(env.KV, TEST_TENANT_KEY);
-  const { keys } = await env.KV.list({ prefix: 'capture:' });
-  for (const k of keys) await env.KV.delete(k.name);
-  const { keys: tenantKeys } = await env.KV.list({ prefix: 'tenant:' });
-  for (const k of tenantKeys) await env.KV.delete(k.name);
+  // Clean all metadata tables and rate limit counters
+  await cleanDb(env.DB);
   const { keys: rlKeys } = await env.KV.list({ prefix: 'rl:' });
   for (const k of rlKeys) await env.KV.delete(k.name);
-  const { keys: apiKeys } = await env.KV.list({ prefix: 'apikey:' });
-  for (const k of apiKeys) await env.KV.delete(k.name);
-  // Re-seed after wiping apikey: and tenant: prefixes
-  await seedApiKey(env.KV, TEST_TENANT_KEY);
-  // Seed tenant config with high rate limit (batch tests send up to 20 URLs)
-  await env.KV.put('tenant:default:config', JSON.stringify({
-    rateLimit: { capture: { limit: 100, period: 60 } },
-    updatedAt: new Date().toISOString(),
-    updatedBy: 'test',
-  }));
+  // Seed API key and tenant config with high rate limit (batch tests send up to 20 URLs)
+  await seedApiKey(env.DB, TEST_TENANT_KEY);
+  await env.DB.prepare(
+    `INSERT INTO tenants (id, config, updated_at, updated_by)
+     VALUES ('default', ?, ?, 'test')
+     ON CONFLICT(id) DO UPDATE SET
+       config = excluded.config,
+       updated_at = excluded.updated_at,
+       updated_by = excluded.updated_by`,
+  ).bind(
+    JSON.stringify({ rateLimit: { capture: { limit: 100, period: 60 } }, updatedAt: new Date().toISOString(), updatedBy: 'test' }),
+    new Date().toISOString(),
+  ).run();
 });
 
 // ---------------------------------------------------------------------------
@@ -472,18 +472,18 @@ describe('POST /v1/captures/batch -- response shape', () => {
 // 7. KV dispatch (capture actually created)
 // ---------------------------------------------------------------------------
 
-describe('POST /v1/captures/batch -- KV dispatch', () => {
-  it('accepted capture creates a KV record with status pending', async () => {
+describe('POST /v1/captures/batch -- D1 dispatch', () => {
+  it('accepted capture creates a D1 record with status pending', async () => {
     const res = await batchCapture([{ url: 'https://example.com' }]);
     expect(res.status).toBe(207);
     const body = await res.json();
     const item = body.items[0];
     expect(item.status).toBe(202);
 
-    const record = JSON.parse(await env.KV.get(`capture:${item.id}`));
-    expect(record).not.toBeNull();
-    expect(record.status).toBe('pending');
-    expect(record.url).toBe('https://example.com/');
+    const row = await env.DB.prepare('SELECT * FROM captures WHERE id = ?').bind(item.id).first();
+    expect(row).not.toBeNull();
+    expect(row.status).toBe('pending');
+    expect(row.url).toBe('https://example.com/');
   });
 
   it('each accepted capture in a batch has a unique ID -- no duplicates', async () => {
@@ -499,18 +499,18 @@ describe('POST /v1/captures/batch -- KV dispatch', () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 
-  it('rejected items do not create KV records', async () => {
+  it('rejected items do not create D1 records', async () => {
     const res = await batchCapture([{ url: 'http://127.0.0.1' }]);
     expect(res.status).toBe(207);
     const body = await res.json();
     expect(body.items[0].status).toBe(422);
 
-    // No capture: KV should be empty (we wiped it in beforeEach)
-    const { keys } = await env.KV.list({ prefix: 'capture:' });
-    expect(keys).toHaveLength(0);
+    // No capture: D1 should be empty (we cleaned it in beforeEach)
+    const { results } = await env.DB.prepare('SELECT id FROM captures').all();
+    expect(results).toHaveLength(0);
   });
 
-  it('KV records for a multi-URL batch all have status pending', async () => {
+  it('D1 records for a multi-URL batch all have status pending', async () => {
     const res = await batchCapture([
       { url: 'https://example.com' },
       { url: 'https://example.org' },
@@ -520,8 +520,8 @@ describe('POST /v1/captures/batch -- KV dispatch', () => {
 
     for (const item of body.items) {
       expect(item.status).toBe(202);
-      const record = JSON.parse(await env.KV.get(`capture:${item.id}`));
-      expect(record.status).toBe('pending');
+      const row = await env.DB.prepare('SELECT status FROM captures WHERE id = ?').bind(item.id).first();
+      expect(row.status).toBe('pending');
     }
   });
 });

@@ -72,7 +72,7 @@
  */ // tva
 
 import { connect, acquire, sessions, limits } from '@cloudflare/playwright';
-import { completeCapture, failCapture, archiveSigningKey } from './kv.js';
+import { completeCapture, failCapture, archiveSigningKey } from './db.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
 import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
@@ -134,7 +134,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       if (retryable) {
         return { ok: false, retryable: true, error: message };
       }
-      await failCapture(env.KV, captureId, message, retryable);
+      await failCapture(env.DB, captureId, message, retryable);
       return { ok: false, retryable: false };
     }
 
@@ -201,7 +201,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
           });
           // Archive signing key BEFORE completeCapture() -- no race window
           try {
-            await archiveSigningKey(env.KV, keyId, publicKeyBase64);
+            await archiveSigningKey(env.DB, keyId, publicKeyBase64);
           } catch (err) {
             // Non-fatal: key may already be archived from a prior capture
             await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
@@ -221,7 +221,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       }
     }
 
-    await completeCapture(env.KV, captureId, artifacts, waczInfo, renderQuality, render || null, captureSettings);
+    await completeCapture(env.DB, captureId, artifacts, waczInfo, renderQuality, render || null, captureSettings);
 
     if (partial) {
       await log(env, 3, 'capture', {

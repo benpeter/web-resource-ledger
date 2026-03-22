@@ -1,5 +1,9 @@
-import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
+import { defineWorkersConfig, readD1Migrations } from '@cloudflare/vitest-pool-workers/config';
 import { generateKeyPairSync } from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Test keys generated at load time -- no key material committed to VCS
 // Primary key: used as the current SIGNING_KEY
@@ -10,8 +14,11 @@ const testSigningKey = _testPrivateKey.export({ type: 'pkcs8', format: 'der' }).
 const { privateKey: _testArchivedKey } = generateKeyPairSync('ed25519');
 const testArchivedKey = _testArchivedKey.export({ type: 'pkcs8', format: 'der' }).toString('base64');
 
+const TEST_MIGRATIONS = await readD1Migrations(path.join(__dirname, 'migrations'));
+
 export default defineWorkersConfig({
   test: {
+    setupFiles: ['./test/apply-migrations.js'],
     exclude: ['test/integration/**', 'packages/**', 'node_modules/**'],
     poolOptions: {
       workers: {
@@ -24,6 +31,7 @@ export default defineWorkersConfig({
         miniflare: {
           browserRendering: { binding: 'BROWSER' },
           bindings: {
+            TEST_MIGRATIONS,
             CAPTURE_API_KEY: 'test-api-key-for-vitest',
             ADMIN_KEY: 'test-admin-key-for-vitest',
             SIGNING_KEY: testSigningKey,

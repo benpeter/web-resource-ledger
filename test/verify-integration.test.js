@@ -2,7 +2,7 @@
 import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture } from '../src/capture.js';
-import { createCapture, getCapture, completeCapture } from '../src/kv.js';
+import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';
 import { unzipSync, zipSync } from 'fflate';
 import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer } from './fixtures.js';
 
@@ -18,8 +18,8 @@ const TEST_ORIGIN = 'https://example.com';
 // ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  // Clean KV
-  await env.KV.delete(`capture:${TEST_ID}`);
+  // Clean D1 captures
+  await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(TEST_ID).run();
 
   // Clean R2 -- all .wacz objects and anything prefixed with TEST_ID
   const listed = await env.BUCKET.list({ prefix: 'captures/' });
@@ -38,7 +38,7 @@ beforeEach(async () => {
     .reply(200, 'ok', { headers: { 'content-type': 'text/html' } });
 
   // Create a real capture with a signed WACZ
-  await createCapture(env.KV, TEST_ID, TEST_URL, TEST_IP, 'default');
+  await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
   await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
 });
 
@@ -125,7 +125,7 @@ describe('GET /v1/verify/{id} -- happy path', () => {
 describe('GET /v1/verify/{id} -- tamper detection', () => {
   it('detects tampered WACZ content -- artifactHashes fails, verified: false', async () => {
     // Fetch the real WACZ from R2 and tamper with archive/data.warc
-    const record = await getCapture(env.KV, TEST_ID);
+    const record = await getCapture(env.DB, TEST_ID);
     expect(record?.wacz?.key).toBeTruthy();
 
     const obj = await env.BUCKET.get(record.wacz.key);
@@ -160,7 +160,7 @@ describe('GET /v1/verify/{id} -- tamper detection', () => {
 
   it('returns 200 (not 4xx) for failed verification', async () => {
     // Overwrite WACZ with garbage bytes -- all checks will fail
-    const record = await getCapture(env.KV, TEST_ID);
+    const record = await getCapture(env.DB, TEST_ID);
     const garbage = new Uint8Array(16).fill(0xab);
     await env.BUCKET.put(record.wacz.key, garbage);
 
@@ -179,10 +179,10 @@ describe('GET /v1/verify/{id} -- tamper detection', () => {
 describe('GET /v1/verify/{id} -- partial capture (no WACZ)', () => {
   it('verify endpoint returns 404 for captures without WACZ', async () => {
     const partialId = 'cap_' + 'a'.repeat(32);
-    await env.KV.delete(`capture:${partialId}`);
-    await createCapture(env.KV, partialId, TEST_URL, TEST_IP, 'default');
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(partialId).run();
+    await createCapture(env.DB, partialId, TEST_URL, TEST_IP, 'default');
     await completeCapture(
-      env.KV,
+      env.DB,
       partialId,
       {
         screenshot: `captures/${partialId}/screenshot.png`,
@@ -207,8 +207,8 @@ describe('GET /v1/verify/{id} -- error cases', () => {
 
   it('404 for pending capture (no performCapture called)', async () => {
     const pendingId = 'cap_' + '1'.repeat(32);
-    await env.KV.delete(`capture:${pendingId}`);
-    await createCapture(env.KV, pendingId, TEST_URL, TEST_IP, 'default');
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(pendingId).run();
+    await createCapture(env.DB, pendingId, TEST_URL, TEST_IP, 'default');
 
     const res = await SELF.fetch(`https://worker.test/v1/verify/${pendingId}`);
     expect(res.status).toBe(404);
@@ -216,10 +216,10 @@ describe('GET /v1/verify/{id} -- error cases', () => {
 
   it('404 for capture without WACZ (completeCapture with null wacz)', async () => {
     const noWaczId = 'cap_' + '2'.repeat(32);
-    await env.KV.delete(`capture:${noWaczId}`);
-    await createCapture(env.KV, noWaczId, TEST_URL, TEST_IP, 'default');
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(noWaczId).run();
+    await createCapture(env.DB, noWaczId, TEST_URL, TEST_IP, 'default');
     await completeCapture(
-      env.KV,
+      env.DB,
       noWaczId,
       {
         screenshot: `captures/${noWaczId}/screenshot.png`,
@@ -239,16 +239,9 @@ describe('GET /v1/verify/{id} -- error cases', () => {
 
   it('404 for failed capture', async () => {
     const failedId = 'cap_' + '3'.repeat(32);
-    await env.KV.delete(`capture:${failedId}`);
-    await createCapture(env.KV, failedId, TEST_URL, TEST_IP, 'default');
-
-    // Read it back, mutate status to 'failed', write back
-    const record = await env.KV.get(`capture:${failedId}`, 'json');
-    record.status = 'failed';
-    record.failedAt = new Date().toISOString();
-    record.error = 'Synthetic failure for test';
-    record.retryable = false;
-    await env.KV.put(`capture:${failedId}`, JSON.stringify(record));
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(failedId).run();
+    await createCapture(env.DB, failedId, TEST_URL, TEST_IP, 'default');
+    await failCapture(env.DB, failedId, 'Synthetic failure for test', false);
 
     const res = await SELF.fetch(`https://worker.test/v1/verify/${failedId}`);
     expect(res.status).toBe(404);
@@ -271,7 +264,7 @@ describe('GET /v1/verify/{id} -- headers', () => {
 
   it('Cache-Control: no-store on verified: false', async () => {
     // Put garbage in R2 so verification fails
-    const record = await getCapture(env.KV, TEST_ID);
+    const record = await getCapture(env.DB, TEST_ID);
     await env.BUCKET.put(record.wacz.key, new Uint8Array(16).fill(0xcc));
 
     const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
@@ -348,10 +341,10 @@ describe('GET /v1/captures/{id} -- verifyUrl', () => {
 
   it('retrieval response omits verifyUrl when no WACZ', async () => {
     const noWaczId = 'cap_' + '5'.repeat(32);
-    await env.KV.delete(`capture:${noWaczId}`);
-    await createCapture(env.KV, noWaczId, TEST_URL, TEST_IP, 'default');
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(noWaczId).run();
+    await createCapture(env.DB, noWaczId, TEST_URL, TEST_IP, 'default');
     await completeCapture(
-      env.KV,
+      env.DB,
       noWaczId,
       {
         screenshot: `captures/${noWaczId}/screenshot.png`,

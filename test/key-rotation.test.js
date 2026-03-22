@@ -3,7 +3,7 @@ import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getSigningKeys, computeKeyId } from '../src/signing.js';
 import { buildWacz } from '../src/wacz.js';
-import { createCapture, completeCapture, archiveSigningKey, getArchivedSigningKey } from '../src/kv.js';
+import { createCapture, completeCapture, archiveSigningKey, getArchivedSigningKey } from '../src/db.js';
 import { PNG_BYTES } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
@@ -18,17 +18,10 @@ const TEST_URL = 'https://example.com/key-rotation';
 // ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  // Clean up signing key archive
-  const keyList = await env.KV.list({ prefix: 'signing-key:' });
-  await Promise.all(keyList.keys.map(k => env.KV.delete(k.name)));
-
-  // Clean up capture records
-  const captureList = await env.KV.list({ prefix: 'capture:' });
-  await Promise.all(captureList.keys.map(k => env.KV.delete(k.name)));
-
-  // Clean up tenant index keys
-  const tenantList = await env.KV.list({ prefix: 'tenant:' });
-  await Promise.all(tenantList.keys.map(k => env.KV.delete(k.name)));
+  // Clean up D1 metadata tables
+  await env.DB.prepare('DELETE FROM captures').run();
+  await env.DB.prepare('DELETE FROM signing_keys').run();
+  await env.DB.prepare('DELETE FROM tenants').run();
 
   // Clean up R2
   const r2List = await env.BUCKET.list({ prefix: 'captures/' });
@@ -92,9 +85,9 @@ describe('Signing key archive', () => {
   it('archiveSigningKey stores and getArchivedSigningKey retrieves', async () => {
     const keys = await getSigningKeys(env);
     const pubKeyB64 = btoa(String.fromCharCode(...keys.publicKeyBytes));
-    await archiveSigningKey(env.KV, keys.keyId, pubKeyB64);
+    await archiveSigningKey(env.DB, keys.keyId, pubKeyB64);
 
-    const archived = await getArchivedSigningKey(env.KV, keys.keyId);
+    const archived = await getArchivedSigningKey(env.DB, keys.keyId);
     expect(archived).not.toBeNull();
     expect(archived.algorithm).toBe('Ed25519');
     expect(archived.publicKey).toBe(pubKeyB64);
@@ -104,23 +97,23 @@ describe('Signing key archive', () => {
   it('idempotent -- writing same keyId twice succeeds', async () => {
     const keys = await getSigningKeys(env);
     const pubKeyB64 = btoa(String.fromCharCode(...keys.publicKeyBytes));
-    await archiveSigningKey(env.KV, keys.keyId, pubKeyB64);
-    await archiveSigningKey(env.KV, keys.keyId, pubKeyB64);
+    await archiveSigningKey(env.DB, keys.keyId, pubKeyB64);
+    await archiveSigningKey(env.DB, keys.keyId, pubKeyB64);
 
-    const archived = await getArchivedSigningKey(env.KV, keys.keyId);
+    const archived = await getArchivedSigningKey(env.DB, keys.keyId);
     expect(archived).not.toBeNull();
     expect(archived.publicKey).toBe(pubKeyB64);
   });
 
   it('getArchivedSigningKey returns null for unknown keyId', async () => {
-    const result = await getArchivedSigningKey(env.KV, 'deadbeef');
+    const result = await getArchivedSigningKey(env.DB, 'deadbeef');
     expect(result).toBeNull();
   });
 
   it('archiveSigningKey rejects keys that do not decode to 32 bytes', async () => {
     const shortKey = btoa('too short');
     await expect(
-      archiveSigningKey(env.KV, 'badkey01', shortKey),
+      archiveSigningKey(env.DB, 'badkey01', shortKey),
     ).rejects.toThrow('Expected 32-byte public key');
   });
 });
@@ -163,11 +156,11 @@ describe('Key rotation -- verification', () => {
     await env.BUCKET.put(`captures/${result.waczHash}.wacz`, result.waczBytes);
 
     // Archive signing key
-    await archiveSigningKey(env.KV, result.keyId, result.publicKeyBase64);
+    await archiveSigningKey(env.DB, result.keyId, result.publicKeyBase64);
 
     // Create capture record with keyId
-    await createCapture(env.KV, captureId, TEST_URL, '127.0.0.1', 'default');
-    await completeCapture(env.KV, captureId, { screenshot: 's.png', html: 'h.html' }, {
+    await createCapture(env.DB, captureId, TEST_URL, '127.0.0.1', 'default');
+    await completeCapture(env.DB, captureId, { screenshot: 's.png', html: 'h.html' }, {
       key: `captures/${result.waczHash}.wacz`,
       bundleHash: result.bundleHash,
       size: result.waczBytes.byteLength,
@@ -198,8 +191,8 @@ describe('Key rotation -- verification', () => {
     await env.BUCKET.put(`captures/${result.waczHash}.wacz`, result.waczBytes);
 
     // Create capture record WITHOUT keyId (simulates pre-versioning capture)
-    await createCapture(env.KV, captureId, TEST_URL, '127.0.0.1', 'default');
-    await completeCapture(env.KV, captureId, { screenshot: 's.png', html: 'h.html' }, {
+    await createCapture(env.DB, captureId, TEST_URL, '127.0.0.1', 'default');
+    await completeCapture(env.DB, captureId, { screenshot: 's.png', html: 'h.html' }, {
       key: `captures/${result.waczHash}.wacz`,
       bundleHash: result.bundleHash,
       size: result.waczBytes.byteLength,
@@ -231,12 +224,12 @@ describe('Key rotation -- verification', () => {
     await env.BUCKET.put(`captures/${result.waczHash}.wacz`, result.waczBytes);
 
     // Archive the key, then DELETE it (simulates data loss)
-    await archiveSigningKey(env.KV, result.keyId, result.publicKeyBase64);
-    await env.KV.delete(`signing-key:${result.keyId}`);
+    await archiveSigningKey(env.DB, result.keyId, result.publicKeyBase64);
+    await env.DB.prepare('DELETE FROM signing_keys WHERE id = ?').bind(result.keyId).run();
 
     // Create capture record with keyId pointing to the now-deleted archived key
-    await createCapture(env.KV, captureId, TEST_URL, '127.0.0.1', 'default');
-    await completeCapture(env.KV, captureId, { screenshot: 's.png', html: 'h.html' }, {
+    await createCapture(env.DB, captureId, TEST_URL, '127.0.0.1', 'default');
+    await completeCapture(env.DB, captureId, { screenshot: 's.png', html: 'h.html' }, {
       key: `captures/${result.waczHash}.wacz`,
       bundleHash: result.bundleHash,
       size: result.waczBytes.byteLength,
@@ -271,11 +264,11 @@ describe('Key rotation -- verification', () => {
     await env.BUCKET.put(`captures/${result.waczHash}.wacz`, result.waczBytes);
 
     // Archive the old key in KV (as would happen during normal operation)
-    await archiveSigningKey(env.KV, result.keyId, result.publicKeyBase64);
+    await archiveSigningKey(env.DB, result.keyId, result.publicKeyBase64);
 
     // Create capture record with the OLD keyId
-    await createCapture(env.KV, captureId, TEST_URL, '127.0.0.1', 'default');
-    await completeCapture(env.KV, captureId, { screenshot: 's.png', html: 'h.html' }, {
+    await createCapture(env.DB, captureId, TEST_URL, '127.0.0.1', 'default');
+    await completeCapture(env.DB, captureId, { screenshot: 's.png', html: 'h.html' }, {
       key: `captures/${result.waczHash}.wacz`,
       bundleHash: result.bundleHash,
       size: result.waczBytes.byteLength,
