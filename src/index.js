@@ -1,13 +1,13 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE } from './kv.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, getTenantConfig, setTenantConfig, rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
 import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { log } from './log.js';
-import { RATE_LIMITS } from './rate-limits.js';
+import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey } from './admin.js';
 import { handleMcp } from './mcp.js';
@@ -31,6 +31,8 @@ const routes = [
   ['POST',   /^\/v1\/admin\/keys$/, handleAdminCreateKey],
   ['GET',    /^\/v1\/admin\/keys$/, handleAdminListKeys],
   ['DELETE', /^\/v1\/admin\/keys\/([a-f0-9]{64})$/, handleAdminRevokeKey],
+  ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handleGetTenantConfig],
+  ['PUT',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handlePutTenantConfig],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -284,9 +286,10 @@ export default {
       response.headers.set('Access-Control-Allow-Origin', '*');
     }
 
-    // X-RateLimit-Limit: report per-IP ceiling on rate-limited endpoints
+    // X-RateLimit headers: authenticated handlers set their own (Limit/Remaining/Reset);
+    // fall back to static Limit for unauthenticated endpoints (verify, admin)
     const rateLimitGroup = getRateLimitGroup(request.method, pathname);
-    if (rateLimitGroup && response.status !== 503) {
+    if (rateLimitGroup && response.status !== 503 && !response.headers.has('X-RateLimit-Limit')) {
       response.headers.set('X-RateLimit-Limit', String(RATE_LIMITS[rateLimitGroup].limit));
     }
 
@@ -310,6 +313,72 @@ function handleHealth() {
   });
 }
 
+/**
+ * Dual-layer rate limit check for authenticated capture endpoints.
+ * - Legacy auth: IP-only via CF binding (unchanged behavior)
+ * - KV auth: CF ceiling → KV counter → IP guard
+ */
+async function checkCaptureRateLimit(env, auth, clientIp, group, count = 1) {
+  // Legacy auth: IP-only using existing CF binding (unchanged behavior)
+  if (auth.authMethod === 'legacy') {
+    if (env.CAPTURE_RATE_LIMITER) {
+      const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
+      if (!success) {
+        return { exceeded: true, type: 'ip' };
+      }
+    }
+    return { exceeded: false };
+  }
+
+  // KV auth: three-layer check
+  // Layer 1: CF binding ceiling (tenantId key -- hard backstop at 100/60s)
+  if (env.CAPTURE_RATE_LIMITER) {
+    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: auth.tenantId });
+    if (!success) {
+      return { exceeded: true, type: 'tenant' };
+    }
+  }
+
+  // Layer 2: KV counter (per-tenant, respects custom overrides)
+  const tenantConfig = await getTenantConfig(env.KV, auth.tenantId);
+  const effective = getEffectiveLimit(tenantConfig, group);
+  const counter = await rateLimitCounter(env.KV, auth.tenantId, group, effective.limit, effective.period, count);
+
+  if (counter.exceeded) {
+    return {
+      exceeded: true,
+      type: 'tenant',
+      remaining: 0,
+      resetIn: counter.resetIn,
+      limit: effective.limit,
+      writePromise: counter.writePromise,
+    };
+  }
+
+  // Layer 3: IP secondary guard (per-IP abuse prevention)
+  if (env.CAPTURE_IP_GUARD) {
+    const { success } = await env.CAPTURE_IP_GUARD.limit({ key: clientIp });
+    if (!success) {
+      return {
+        exceeded: true,
+        type: 'ip_guard',
+        remaining: counter.remaining,
+        resetIn: counter.resetIn,
+        limit: effective.limit,
+        writePromise: counter.writePromise,
+      };
+    }
+  }
+
+  return {
+    exceeded: false,
+    remaining: counter.remaining,
+    resetIn: counter.resetIn,
+    limit: effective.limit,
+    writePromise: counter.writePromise,
+  };
+}
+
 async function handleCreateCapture(request, env, ctx) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
@@ -328,13 +397,30 @@ async function handleCreateCapture(request, env, ctx) {
   }
   const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
 
-  // Step 3: Rate limit check
-  if (env.CAPTURE_RATE_LIMITER) {
-    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
-    if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
-      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+  // Step 3: Per-tenant rate limit (dual-layer for KV auth, IP-only for legacy)
+  const rl = await checkCaptureRateLimit(env, auth, clientIp, 'capture');
+  if (rl.exceeded) {
+    const limiter = rl.type === 'ip_guard' ? 'capture_per_ip_guard' : rl.type === 'ip' ? 'capture_per_ip' : 'capture_per_tenant';
+    ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter, tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
+    if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+    const retryAfter = String(rl.resetIn || 60);
+    const headers = { 'Retry-After': retryAfter };
+    if (rl.limit !== undefined) {
+      headers['X-RateLimit-Limit'] = String(rl.limit);
+      headers['X-RateLimit-Remaining'] = '0';
+      headers['X-RateLimit-Reset'] = retryAfter;
     }
+    if (rl.type === 'tenant') {
+      return problemResponse(429, 'Per-tenant rate limit exceeded.', headers, { limitType: 'tenant' });
+    }
+    return problemResponse(429, 'Rate limit exceeded. Try again later.', headers);
+  }
+  if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+  const rlHeaders = {};
+  if (rl.limit !== undefined) {
+    rlHeaders['X-RateLimit-Limit'] = String(rl.limit);
+    rlHeaders['X-RateLimit-Remaining'] = String(rl.remaining);
+    rlHeaders['X-RateLimit-Reset'] = String(rl.resetIn);
   }
 
   // Global rate limit check (service capacity protection)
@@ -434,7 +520,7 @@ async function handleCreateCapture(request, env, ctx) {
     id: captureId,
     statusUrl,
     note: 'Use GET /v1/captures to list and search your captures.',
-  }, 202, { 'Retry-After': '10' });
+  }, 202, { 'Retry-After': '10', ...rlHeaders });
 }
 
 async function handleBatchCapture(request, env, ctx) {
@@ -455,25 +541,7 @@ async function handleBatchCapture(request, env, ctx) {
   }
   const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
 
-  // Step 3: Per-IP rate limit pre-check (consumes 1 token; index 0 uses this token)
-  if (env.CAPTURE_RATE_LIMITER) {
-    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
-    if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
-      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
-    }
-  }
-
-  // Step 4: Global capacity pre-check
-  if (env.GLOBAL_CAPTURE_LIMITER) {
-    const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
-    if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 503, cip }) ?? Promise.resolve());
-      return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
-    }
-  }
-
-  // Step 5: Parse JSON body
+  // Step 3: Parse JSON body (before rate limit -- need batch size)
   let body;
   try {
     body = await request.json();
@@ -481,7 +549,7 @@ async function handleBatchCapture(request, env, ctx) {
     return problemResponse(400, 'Request body must be valid JSON');
   }
 
-  // Step 6: Validate batch structure
+  // Step 4: Validate batch structure
   if (!body || !Array.isArray(body.urls)) {
     return problemResponse(400, "Field 'urls' is required and must be an array");
   }
@@ -494,10 +562,46 @@ async function handleBatchCapture(request, env, ctx) {
     return problemResponse(400, `Batch size exceeds the maximum of ${maxBatchSize} items`);
   }
 
+  // Step 5: Per-tenant rate limit (KV auth: upfront check for entire batch; legacy: single pre-check)
+  const rl = await checkCaptureRateLimit(env, auth, clientIp, 'capture', body.urls.length);
+  if (rl.exceeded) {
+    const limiter = rl.type === 'ip_guard' ? 'capture_per_ip_guard' : rl.type === 'ip' ? 'capture_per_ip' : 'capture_per_tenant';
+    ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter, tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
+    if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+    const retryAfter = String(rl.resetIn || 60);
+    const headers = { 'Retry-After': retryAfter };
+    if (rl.limit !== undefined) {
+      headers['X-RateLimit-Limit'] = String(rl.limit);
+      headers['X-RateLimit-Remaining'] = '0';
+      headers['X-RateLimit-Reset'] = retryAfter;
+    }
+    if (rl.type === 'tenant') {
+      return problemResponse(429, 'Per-tenant rate limit exceeded.', headers, { limitType: 'tenant' });
+    }
+    return problemResponse(429, 'Rate limit exceeded. Try again later.', headers);
+  }
+  if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+  const rlHeaders = {};
+  if (rl.limit !== undefined) {
+    rlHeaders['X-RateLimit-Limit'] = String(rl.limit);
+    rlHeaders['X-RateLimit-Remaining'] = String(rl.remaining);
+    rlHeaders['X-RateLimit-Reset'] = String(rl.resetIn);
+  }
+
+  // Step 6: Global capacity pre-check
+  if (env.GLOBAL_CAPTURE_LIMITER) {
+    const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 503, cip }) ?? Promise.resolve());
+      return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
+    }
+  }
+
   // Step 7: Process each URL sequentially
   const items = [];
   const queueMessages = [];
-  let rateLimitedStatus = null; // 429 or 503 if a limiter fires mid-batch
+  let rateLimitedStatus = null; // 429 or 503 if a limiter fires mid-batch (legacy auth only)
+  const usePerUrlRateLimits = auth.authMethod === 'legacy';
 
   for (let i = 0; i < body.urls.length; i++) {
     const item = body.urls[i];
@@ -513,8 +617,8 @@ async function handleBatchCapture(request, env, ctx) {
       continue;
     }
 
-    // Per-URL rate limits: index 0 already consumed 1 token in the pre-check above
-    if (i > 0) {
+    // Per-URL rate limits (legacy auth only -- KV auth uses upfront batch check)
+    if (usePerUrlRateLimits && i > 0) {
       if (env.CAPTURE_RATE_LIMITER) {
         const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
         if (!success) {
@@ -629,7 +733,7 @@ async function handleBatchCapture(request, env, ctx) {
   }) ?? Promise.resolve());
 
   // Step 10: Return 207
-  return jsonResponse({ items, summary: { total: items.length, accepted, failed } }, 207);
+  return jsonResponse({ items, summary: { total: items.length, accepted, failed } }, 207, rlHeaders);
 }
 
 async function handleListCaptures(request, env, ctx) {
@@ -644,14 +748,30 @@ async function handleListCaptures(request, env, ctx) {
   }
   const { keyName, keyHashPrefix, authMethod } = auth;
 
-  // Step 2: Rate limit checks (reuse capture limiters -- list is read-only but
-  // fans out to N+1 KV operations, so both per-IP and global limits apply)
-  if (env.CAPTURE_RATE_LIMITER) {
-    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
-    if (!success) {
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId: auth.tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
-      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+  // Step 2: Per-tenant rate limit (dual-layer for KV auth, IP-only for legacy)
+  const rl = await checkCaptureRateLimit(env, auth, clientIp, 'capture');
+  if (rl.exceeded) {
+    const limiter = rl.type === 'ip_guard' ? 'capture_per_ip_guard' : rl.type === 'ip' ? 'capture_per_ip' : 'capture_per_tenant';
+    ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter, tenantId: auth.tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
+    if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+    const retryAfter = String(rl.resetIn || 60);
+    const headers = { 'Retry-After': retryAfter };
+    if (rl.limit !== undefined) {
+      headers['X-RateLimit-Limit'] = String(rl.limit);
+      headers['X-RateLimit-Remaining'] = '0';
+      headers['X-RateLimit-Reset'] = retryAfter;
     }
+    if (rl.type === 'tenant') {
+      return problemResponse(429, 'Per-tenant rate limit exceeded.', headers, { limitType: 'tenant' });
+    }
+    return problemResponse(429, 'Rate limit exceeded. Try again later.', headers);
+  }
+  if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+  const rlHeaders = {};
+  if (rl.limit !== undefined) {
+    rlHeaders['X-RateLimit-Limit'] = String(rl.limit);
+    rlHeaders['X-RateLimit-Remaining'] = String(rl.remaining);
+    rlHeaders['X-RateLimit-Reset'] = String(rl.resetIn);
   }
   if (env.GLOBAL_CAPTURE_LIMITER) {
     const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
@@ -737,7 +857,53 @@ async function handleListCaptures(request, env, ctx) {
   // Step 8: Return response
   return jsonResponse({ data, pagination: result.pagination }, 200, {
     'Cache-Control': 'private, no-store',
+    ...rlHeaders,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Admin: tenant config
+// ---------------------------------------------------------------------------
+
+async function handleGetTenantConfig(request, env, ctx, match) {
+  const tenantId = match[1];
+  const config = await getTenantConfig(env.KV, tenantId);
+  if (!config) {
+    return problemResponse(404, `No configuration found for tenant '${tenantId}'.`);
+  }
+  return jsonResponse(config);
+}
+
+async function handlePutTenantConfig(request, env, ctx, match) {
+  const tenantId = match[1];
+
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+
+  if (!body || typeof body !== 'object') {
+    return problemResponse(400, 'Request body must be a JSON object');
+  }
+
+  try {
+    const saved = await setTenantConfig(env.KV, tenantId, body, 'admin_key');
+    ctx.waitUntil(log(env, 3, 'admin', {
+      event: 'admin.tenant_config_updated',
+      tenantId,
+      updatedBy: 'admin_key',
+    }) ?? Promise.resolve());
+    return jsonResponse(saved);
+  } catch (err) {
+    return problemResponse(400, err.message);
+  }
 }
 
 // SECURITY: No authentication required -- capture ID acts as the access secret.

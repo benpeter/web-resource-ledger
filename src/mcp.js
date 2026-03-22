@@ -21,9 +21,10 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod';
 import { verifyApiKey, hasScope } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures } from './kv.js';
+import { createCapture, getCapture, failCapture, listCaptures, getTenantConfig, rateLimitCounter } from './kv.js';
 import { performVerification } from './verify.js';
 import { log } from './log.js';
+import { getEffectiveLimit } from './rate-limits.js';
 
 // ---------------------------------------------------------------------------
 // MCP server factory
@@ -62,11 +63,10 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      // Step 2: Rate limit check (per-tenant then global) -- before DNS resolution
-      // MCP requests don't carry CF-Connecting-IP; use tenantId as rate limit key
-      const rateLimitKey = auth.tenantId;
+      // Step 2: Rate limit check (CF ceiling + KV counter) -- before DNS resolution
+      // MCP requests don't carry CF-Connecting-IP; skip IP guard
       if (env.CAPTURE_RATE_LIMITER) {
-        const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: rateLimitKey });
+        const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: auth.tenantId });
         if (!success) {
           ctx.waitUntil(log(env, 4, 'security', {
             event: 'security.rate_limit',
@@ -81,6 +81,29 @@ function createMcpServer(env, ctx, auth, origin) {
           return {
             isError: true,
             content: [{ type: 'text', text: 'Rate limit exceeded. Try again in 60 seconds.' }],
+          };
+        }
+      }
+      // Per-tenant KV counter (respects custom overrides)
+      {
+        const tenantConfig = await getTenantConfig(env.KV, auth.tenantId);
+        const effective = getEffectiveLimit(tenantConfig, 'capture');
+        const counter = await rateLimitCounter(env.KV, auth.tenantId, 'capture', effective.limit, effective.period);
+        ctx.waitUntil(counter.writePromise);
+        if (counter.exceeded) {
+          ctx.waitUntil(log(env, 4, 'security', {
+            event: 'security.rate_limit',
+            limiter: 'capture_per_tenant',
+            tenantId: auth.tenantId,
+            keyName: auth.keyName,
+            keyHashPrefix: auth.keyHashPrefix,
+            authMethod: auth.authMethod,
+            responseStatus: 429,
+            via: 'mcp',
+          }) ?? Promise.resolve());
+          return {
+            isError: true,
+            content: [{ type: 'text', text: `Rate limit exceeded. Try again in ${counter.resetIn} seconds.` }],
           };
         }
       }

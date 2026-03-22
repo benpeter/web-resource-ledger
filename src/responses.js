@@ -18,12 +18,13 @@ const titles = {
   503: 'Service Unavailable',
 };
 
-export function problemResponse(status, detail, headers = {}) {
+export function problemResponse(status, detail, headers = {}, extra = {}) {
   const body = {
     type: 'about:blank',
     status,
     title: titles[status] || 'Error',  // Fallback 'Error' signals a missing entry in the titles map
     detail,
+    ...extra,
   };
 
   return new Response(JSON.stringify(body), {

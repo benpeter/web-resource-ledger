@@ -320,23 +320,24 @@ export function rateLimitWindowId(period) {
  * @param {string} group  Rate limit group name (e.g., 'capture')
  * @param {number} limit  The tenant's effective limit for this group
  * @param {number} period  Window size in seconds
+ * @param {number} [count=1]  Number of tokens to consume (e.g., batch size)
  * @returns {Promise<{ remaining: number, resetIn: number, exceeded: boolean, writePromise: Promise<void> }>}
  */
-export async function rateLimitCounter(kv, tenantId, group, limit, period) {
+export async function rateLimitCounter(kv, tenantId, group, limit, period, count = 1) {
   const windowId = rateLimitWindowId(period);
   const key = `rl:${tenantId}:${group}:${windowId}`;
 
   const raw = await kv.get(key);
   const current = raw ? parseInt(raw, 10) : 0;
-  const exceeded = current >= limit;
-  const remaining = Math.max(0, limit - current - 1);
+  const exceeded = (current + count) > limit;
+  const remaining = Math.max(0, limit - current - count);
 
   // Seconds until current window resets
   const windowStart = windowId * period;
   const resetIn = Math.max(1, (windowStart + period) - Math.floor(Date.now() / 1000));
 
   // Non-blocking write -- caller passes to ctx.waitUntil()
-  const writePromise = kv.put(key, String(current + 1), {
+  const writePromise = kv.put(key, String(current + count), {
     expirationTtl: period * 2,
   });
 
