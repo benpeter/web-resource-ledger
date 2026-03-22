@@ -1,4 +1,4 @@
-import { problemResponse, jsonResponse } from './responses.js';
+import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
 import { createCapture, getCapture, listCaptures, listArchivedSigningKeys } from './kv.js';
@@ -19,6 +19,7 @@ import { handleMcp } from './mcp.js';
 // Add new routes as one-line tuples.
 const routes = [
   ['GET',    /^\/health$/, handleHealth],
+  ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
@@ -44,7 +45,7 @@ function getAllowedOrigin(request, env) {
 
 function getRateLimitGroup(method, pathname) {
   if (pathname.startsWith('/v1/admin/')) return 'admin';
-  if (pathname === '/v1/captures') return 'capture';
+  if (pathname === '/v1/captures' || pathname === '/v1/captures/batch') return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
   return null;
 }
@@ -283,6 +284,180 @@ async function handleCreateCapture(request, env, ctx) {
     statusUrl,
     note: 'Use GET /v1/captures to list and search your captures.',
   }, 202, { 'Retry-After': '5' });
+}
+
+async function handleBatchCapture(request, env, ctx) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
+  // Step 1: Content-Type check
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+
+  // Step 2: Auth check
+  const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
+  if (!auth.ok) {
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
+    return auth.response;
+  }
+  const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
+
+  // Step 3: Per-IP rate limit pre-check (consumes 1 token; index 0 uses this token)
+  if (env.CAPTURE_RATE_LIMITER) {
+    const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
+  }
+
+  // Step 4: Global capacity pre-check
+  if (env.GLOBAL_CAPTURE_LIMITER) {
+    const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 503, cip }) ?? Promise.resolve());
+      return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
+    }
+  }
+
+  // Step 5: Parse JSON body
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+
+  // Step 6: Validate batch structure
+  if (!body || !Array.isArray(body.urls)) {
+    return problemResponse(400, "Field 'urls' is required and must be an array");
+  }
+  if (body.urls.length === 0) {
+    return problemResponse(400, "Field 'urls' must contain at least one item");
+  }
+  const ABSOLUTE_MAX_BATCH_SIZE = 100;
+  const maxBatchSize = Math.min(parseInt(env.MAX_BATCH_SIZE, 10) || 20, ABSOLUTE_MAX_BATCH_SIZE);
+  if (body.urls.length > maxBatchSize) {
+    return problemResponse(400, `Batch size exceeds the maximum of ${maxBatchSize} items`);
+  }
+
+  // Step 7: Process each URL sequentially
+  const items = [];
+  let rateLimitedStatus = null; // 429 or 503 if a limiter fires mid-batch
+
+  for (let i = 0; i < body.urls.length; i++) {
+    const item = body.urls[i];
+
+    // If a rate limit fired on a prior iteration, mark all remaining URLs the same way
+    if (rateLimitedStatus !== null) {
+      const url = (item && typeof item === 'object' && typeof item.url === 'string') ? item.url : '';
+      if (rateLimitedStatus === 429) {
+        items.push(batchItemError(url, 429, 'Rate limit exceeded. Try again later.'));
+      } else {
+        items.push(batchItemError(url, 503, 'Service is at capacity. Retry in 10 seconds.'));
+      }
+      continue;
+    }
+
+    // Per-URL rate limits: index 0 already consumed 1 token in the pre-check above
+    if (i > 0) {
+      if (env.CAPTURE_RATE_LIMITER) {
+        const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: clientIp });
+        if (!success) {
+          ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
+          rateLimitedStatus = 429;
+          const url = (item && typeof item === 'object' && typeof item.url === 'string') ? item.url : '';
+          items.push(batchItemError(url, 429, 'Rate limit exceeded. Try again later.'));
+          continue;
+        }
+      }
+      if (env.GLOBAL_CAPTURE_LIMITER) {
+        const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
+        if (!success) {
+          ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 503, cip }) ?? Promise.resolve());
+          rateLimitedStatus = 503;
+          const url = (item && typeof item === 'object' && typeof item.url === 'string') ? item.url : '';
+          items.push(batchItemError(url, 503, 'Service is at capacity. Retry in 10 seconds.'));
+          continue;
+        }
+      }
+    }
+
+    // Validate per-item structure
+    if (!item || typeof item !== 'object' || typeof item.url !== 'string') {
+      items.push(batchItemError('', 400, 'Each item must be an object with a string url field'));
+      continue;
+    }
+
+    // SSRF validation
+    const result = await validateUrl(item.url);
+    if (!result.ok) {
+      ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: result.status, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
+      items.push(batchItemError(item.url, result.status, result.detail));
+      continue;
+    }
+
+    // Generate capture ID
+    const captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
+
+    // Write KV record
+    try {
+      await createCapture(env.KV, captureId, result.url, result.ip, tenantId);
+    } catch (err) {
+      ctx.waitUntil(log(env, 5, 'capture', {
+        event: 'capture.kv_create_fail',
+        captureId,
+        tenantId,
+        keyName,
+        keyHashPrefix,
+        authMethod,
+        responseStatus: 500,
+        cip,
+        errorMessage: String(err?.message ?? '').slice(0, 256),
+      }) ?? Promise.resolve());
+      items.push(batchItemError(item.url, 500, 'Could not create capture record'));
+      continue;
+    }
+
+    // Log and dispatch
+    ctx.waitUntil(log(env, 3, 'capture', {
+      event: 'capture.queued',
+      captureId,
+      tenantId,
+      keyName,
+      keyHashPrefix,
+      authMethod,
+      responseStatus: 202,
+      url: result.url,
+      cip,
+    }) ?? Promise.resolve());
+    ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
+
+    const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
+    items.push(batchItemSuccess(result.url, captureId, statusUrl));
+  }
+
+  // Step 8: Build summary
+  const accepted = items.filter(it => it.status === 202).length;
+  const failed = items.length - accepted;
+
+  // Step 9: Log batch event
+  ctx.waitUntil(log(env, 3, 'capture', {
+    event: 'capture.batch',
+    tenantId,
+    keyName,
+    keyHashPrefix,
+    authMethod,
+    total: items.length,
+    accepted,
+    failed,
+    cip,
+  }) ?? Promise.resolve());
+
+  // Step 10: Return 207
+  return jsonResponse({ items, summary: { total: items.length, accepted, failed } }, 207);
 }
 
 async function handleListCaptures(request, env, ctx) {
