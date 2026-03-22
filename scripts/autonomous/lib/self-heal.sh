@@ -65,10 +65,16 @@ diagnose_failure() {
     return 0
   fi
 
-  # 7. CI/deploy failures are not retryable via session changes
-  if [[ "$phase_status" == "failed_ci" || "$phase_status" == "failed_deploy" ]]; then
+  # 7. CI failures are not retryable via session changes
+  if [[ "$phase_status" == "failed_ci" ]]; then
     echo "infra_failure"
     return 1
+  fi
+
+  # 8. Deploy failures may be fixable (missing resources, placeholder IDs)
+  if [[ "$phase_status" == "failed_deploy" ]]; then
+    echo "deploy_failure"
+    return 0
   fi
 
   echo "unknown"
@@ -127,6 +133,15 @@ and waste your budget."
     session_too_short)
       log_info "Self-heal [$diagnosis]: session was too short, retrying as-is"
       # Likely a transient error, just retry
+      return 0
+      ;;
+
+    deploy_failure)
+      log_info "Self-heal [$diagnosis]: deploy failed, fix-deploy already ran in verify_and_merge"
+      # The fix-deploy logic in verify-phase.sh already attempted auto-provisioning.
+      # If we're here, it either fixed the issue (retry deploy) or couldn't.
+      # Don't retry the full session — just retry the deploy.
+      SELF_HEAL_DEPLOY_RETRY=true
       return 0
       ;;
 
