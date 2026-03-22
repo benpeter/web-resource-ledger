@@ -98,8 +98,17 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [consider] Webhooks / outbound callbacks | When per-tenant keys exist and async notification demand demonstrated | api-design-minion, kickoff |
+| ~~[consider] Webhooks / outbound callbacks~~ | ~~When per-tenant keys exist~~ -- DONE (Phase 0054): CRUD API, HMAC-SHA256 signing, queue-based dispatch with retry, Coralogix logging (Issue #102) | api-design-minion, kickoff |
 | ~~[consider] Pagination filtering and sorting~~ | ~~URL filter and sorting require D1~~ -- DONE (Phase 0047): offset/limit pagination, URL prefix filter, date range filter, sort order | api-design-minion, kickoff |
+
+### Webhooks (R27 shipped -- extensions)
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Webhook event replay/redelivery API | When tenants report missed deliveries and need to replay events | Phase 0054, issue #102 out-of-scope |
+| [consider] PATCH /v1/webhooks/{id} for active toggle | Schema supports it; expose when tenants need to pause without deleting | Phase 0054, code-review-minion |
+| [consider] Webhook delivery exhaustion Coralogix alert | When webhook feature is verified in production; alert on DLQ events | Phase 0054, observability-minion |
+| [consider] VERIFICATION_BASE_URL env var enforcement | Currently falls back to hardcoded production URL; require explicit config | Phase 0054, margo |
 
 ### Security
 
@@ -212,6 +221,7 @@ Completed items removed from active tracking:
 - ~~R19: Documentation site~~ -- DONE (Phase 0051): 11ty v3 static site at docs.webresourceledger.com, 6 guide pages, OpenAPI-generated API reference, WRL brand design system, Cloudflare Workers Static Assets deployment
 - ~~R23: Landing page~~ -- DONE (Phase 0052): static HTML/CSS at webresourceledger.com, zero JS, full SEO (JSON-LD, OG, sitemap), WCAG AA, Cloudflare Workers Static Assets (Issue #100)
 - ~~R25: Usage Metering~~ -- DONE (Phase 0053): D1 usage_counters table, per-tenant capture/storage/API counters via UPSERT, admin usage endpoint, waitUntil deferred writes (Issue #101)
+- ~~R27: Webhooks / outbound callbacks~~ -- DONE (Phase 0054): CRUD API (POST/GET/DELETE + ping), HMAC-SHA256 signing (Stripe model), Cloudflare Queue dispatch with exponential backoff retry, Coralogix delivery logging, 68 tests (Issue #102)
 
 ---
 

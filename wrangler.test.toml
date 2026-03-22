@@ -84,6 +84,16 @@ binding = "CAPTURE_DLQ"
 queue = "wrl-captures-dlq"
 
 
+# Webhook queues -- producer bindings only; no consumers to prevent miniflare auto-consuming
+[[queues.producers]]
+binding = "WEBHOOK_QUEUE"
+queue = "wrl-webhooks"
+
+[[queues.producers]]
+binding = "WEBHOOK_DLQ"
+queue = "wrl-webhooks-dlq"
+
+
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 # IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
@@ -161,6 +171,16 @@ queue = "wrl-captures-staging"
 [[env.staging.queues.producers]]
 binding = "CAPTURE_DLQ"
 queue = "wrl-captures-staging-dlq"
+
+
+# Webhook queues -- producer bindings only; no consumers to prevent miniflare auto-consuming
+[[env.staging.queues.producers]]
+binding = "WEBHOOK_QUEUE"
+queue = "wrl-webhooks-staging"
+
+[[env.staging.queues.producers]]
+binding = "WEBHOOK_DLQ"
+queue = "wrl-webhooks-staging-dlq"
 
 
 [env.staging.vars]

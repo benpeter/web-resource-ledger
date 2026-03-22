@@ -1,0 +1,29 @@
+# R27: Webhooks / Outbound Callbacks
+
+Issue: #102
+
+## Task Description
+
+**Outcome**: WRL supports outbound webhook notifications so tenants receive real-time callbacks when captures complete or fail, eliminating the need to poll the API. Webhooks are CRUD-managed, signed with HMAC-SHA256 for authenticity, and retried with exponential backoff on delivery failure.
+
+**Success criteria**:
+- POST /v1/webhooks registers a callback URL with target events and returns a webhook ID and signing secret
+- GET /v1/webhooks lists all webhooks for the authenticated tenant
+- DELETE /v1/webhooks/{id} removes a webhook registration
+- `capture.complete` event fires after successful capture with payload: captureId, status, url, timestamp, verificationUrl
+- `capture.failed` event fires on capture failure with payload: captureId, status, url, timestamp, error reason
+- Payload is signed with HMAC-SHA256 using a per-tenant webhook secret; signature sent in `X-WRL-Signature-256` header
+- Failed deliveries retry 3 times with exponential backoff (1min, 5min, 15min)
+- Webhook registrations stored in D1 with tenant isolation
+- All delivery attempts (success and failure) logged to Coralogix with webhook ID, target URL, HTTP status, and attempt number
+- Webhook secret is shown only once at creation time
+
+**Scope**:
+- In: CRUD API for webhook management, event dispatch for capture lifecycle, HMAC signing, retry logic, D1 storage, delivery logging
+- Out: Webhook event replay/redelivery API, custom event filtering beyond event type, webhook UI management (future R17 enhancement), batch event delivery
+
+**Constraints**:
+- Depends on R30 (D1 migration) for webhook registration storage
+- Retry mechanism uses Cloudflare Queues or scheduled re-dispatch; must not block the capture response path
+- Webhook target URLs must be HTTPS only
+- Per-tenant limit on webhook registrations (e.g., 5) to bound resource usage

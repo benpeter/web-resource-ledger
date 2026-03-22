@@ -121,6 +121,9 @@ Use WRL with AI agents in Claude Code, Cursor, Windsurf, and other MCP clients.
 **[Batch Captures](/batch/)**
 Submit multiple URLs in a single request and handle per-item results.
 
+**[Webhooks](/webhooks/)**
+Receive real-time notifications when captures complete or fail.
+
 **[API Reference](/api-reference/)**
 Full endpoint details, request and response schemas, status codes, and rate limits.
 

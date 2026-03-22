@@ -14,6 +14,8 @@ import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage } from './admin.js';
 import { handleMcp } from './mcp.js';
 import { htmlDashboard } from './ui/ui-shell.js';
+import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
+import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 
 // tva
 
@@ -40,6 +42,10 @@ const routes = [
   ['GET',    /^\/v1\/admin\/usage$/, handleAdminGetUsage],
   ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handleGetTenantConfig],
   ['PUT',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handlePutTenantConfig],
+  ['POST',   /^\/v1\/webhooks$/, handleCreateWebhook],
+  ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
+  ['DELETE', /^\/v1\/webhooks\/(whk_[a-f0-9]{32})$/, handleDeleteWebhook],
+  ['POST',   /^\/v1\/webhooks\/(whk_[a-f0-9]{32})\/ping$/, handlePingWebhook],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -153,9 +159,31 @@ async function handleCaptureMessage(msg, env, ctx) {
       })
     );
     msg.ack();
+    // Dispatch webhooks after ack -- must not block capture completion
+    ctx.waitUntil((async () => {
+      try {
+        const captureRecord = await getCapture(env.DB, captureId);
+        if (captureRecord) {
+          await dispatchWebhooks(env, tenantId, 'capture.complete', captureRecord);
+        }
+      } catch (err) {
+        log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
+      }
+    })());
   } else if (!result.retryable) {
-    // Already written to KV as failed by performCapture
+    // Already written to D1 as failed by performCapture
     msg.ack();
+    // Dispatch webhooks after ack -- must not block capture completion
+    ctx.waitUntil((async () => {
+      try {
+        const captureRecord = await getCapture(env.DB, captureId);
+        if (captureRecord) {
+          await dispatchWebhooks(env, tenantId, 'capture.failed', captureRecord);
+        }
+      } catch (err) {
+        log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
+      }
+    })());
   } else {
     const delay = Math.min(10 * Math.pow(2, msg.attempts - 1), 300);
     ctx.waitUntil(log(env, 4, 'capture', {
@@ -187,6 +215,17 @@ async function handleDlqMessage(msg, env, ctx) {
     } catch {
       // Best-effort
     }
+    // Dispatch webhooks after failCapture -- must not block DLQ ack
+    ctx.waitUntil((async () => {
+      try {
+        const captureRecord = await getCapture(env.DB, captureId);
+        if (captureRecord) {
+          await dispatchWebhooks(env, tenantId, 'capture.failed', captureRecord);
+        }
+      } catch (err) {
+        log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
+      }
+    })());
   }
 
   msg.ack();
@@ -199,10 +238,19 @@ async function handleDlqMessage(msg, env, ctx) {
 export default {
   async queue(batch, env, ctx) {
     for (const msg of batch.messages) {
-      if (batch.queue.endsWith('-dlq')) {
-        await handleDlqMessage(msg, env, ctx);
+      const q = batch.queue;
+      if (q.includes('webhooks')) {
+        if (q.endsWith('-dlq')) {
+          await handleWebhookDlqMessage(msg, env, ctx);
+        } else {
+          await handleWebhookMessage(msg, env, ctx);
+        }
       } else {
-        await handleCaptureMessage(msg, env, ctx);
+        if (q.endsWith('-dlq')) {
+          await handleDlqMessage(msg, env, ctx);
+        } else {
+          await handleCaptureMessage(msg, env, ctx);
+        }
       }
     }
   },

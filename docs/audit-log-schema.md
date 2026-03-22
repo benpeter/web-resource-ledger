@@ -46,6 +46,15 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `security.ssrf_block` | security | 5 (error) | URL blocked by SSRF prevention |
 | `security.legacy_auth_used` | security | 4 (warn) | Legacy single-key auth used |
 | `signing.key_unavailable` | security | 5 (error) | Signing key missing or invalid |
+| `webhook.create` | webhooks | 3 (info) | Webhook registered |
+| `webhook.list` | webhooks | 6 (verbose) | Webhooks list request |
+| `webhook.delete` | webhooks | 3 (info) | Webhook deleted |
+| `webhook.ping` | webhooks | 3 (info) | Ping dispatched to endpoint |
+| `webhook.deliver` | webhooks | 3 (info) | Event successfully delivered to endpoint |
+| `webhook.deliver_fail` | webhooks | 4 (warn) | Delivery attempt failed; retry scheduled |
+| `webhook.deliver_dlq` | webhooks | 5 (error) | All retries exhausted; event moved to dead-letter queue |
+| `webhook.deliver_ssrf_block` | webhooks | 5 (error) | Delivery blocked by SSRF prevention |
+| `webhook.dispatch_error` | webhooks | 5 (error) | Internal error dispatching event |
 
 ## Audit fields
 
@@ -70,6 +79,13 @@ fewer fields.
 | `errorMessage` | string | Truncated error message (max 256 chars) |
 | `count` | number | Result count (key listings) |
 | `idempotent` | boolean | Whether revocation was a no-op |
+| `webhookId` | string | Webhook identifier (`whk_` prefix) |
+| `webhookUrl` | string | Registered endpoint URL (delivery events) |
+| `eventId` | string | Event identifier (`evt_` prefix) |
+| `eventType` | string | Event type (e.g., `capture.complete`) |
+| `attemptNumber` | number | Delivery attempt count (1-indexed) |
+| `deliveryStatus` | number | HTTP status code from endpoint (delivery events) |
+| `deliveryLatencyMs` | number | Round-trip latency in ms (delivery events) |
 
 ## Severity mapping
 
@@ -110,4 +126,24 @@ applicationName:wrl AND tenantId:"acme-corp" AND responseStatus:>=400
 **All admin operations in last 7 days:**
 ```
 applicationName:wrl AND event:admin.*
+```
+
+**All webhook deliveries for a tenant:**
+```
+applicationName:wrl AND event:webhook.deliver* AND tenantId:"acme-corp"
+```
+
+**Failed deliveries (retries + DLQ):**
+```
+applicationName:wrl AND (event:webhook.deliver_fail OR event:webhook.deliver_dlq)
+```
+
+**All activity for a specific webhook:**
+```
+applicationName:wrl AND webhookId:"whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+```
+
+**SSRF blocks on webhook delivery:**
+```
+applicationName:wrl AND event:webhook.deliver_ssrf_block
 ```

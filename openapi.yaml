@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.5.0
+  version: 0.6.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
@@ -25,6 +25,8 @@ tags:
     description: Signing key management
   - name: admin
     description: API key management (admin-only)
+  - name: webhooks
+    description: Outbound webhook registration and management
 
 components:
   securitySchemes:
@@ -769,6 +771,256 @@ components:
           type: string
           format: date-time
           description: ISO 8601 timestamp when the key was revoked. Present only when revoked is true.
+
+    WebhookId:
+      type: string
+      pattern: '^whk_[a-f0-9]{32}$'
+      description: Unique webhook identifier.
+      examples:
+        - whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+
+    WebhookCreateRequest:
+      type: object
+      description: Request body for registering a new outbound webhook.
+      required: [url, events, name]
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+          description: >
+            HTTPS endpoint WRL will POST events to. Must use https scheme.
+            Maximum 2048 characters.
+          maxLength: 2048
+          examples:
+            - https://hooks.example.com/wrl-events
+        events:
+          type: array
+          description: >
+            Event types this webhook subscribes to. At least one required.
+            Valid values: capture.complete, capture.failed.
+          items:
+            type: string
+            enum: [capture.complete, capture.failed]
+          minItems: 1
+          examples:
+            - [capture.complete, capture.failed]
+        name:
+          type: string
+          description: >
+            Human-readable label for this webhook. 1-128 characters using
+            letters, digits, spaces, and _ . : - characters.
+          pattern: '^[a-zA-Z0-9 _.:-]{1,128}$'
+          examples:
+            - ci-notifier
+            - slack-alerts
+
+    WebhookCreated:
+      type: object
+      description: >
+        Response when a webhook is successfully registered. The secret is
+        returned exactly once -- store it immediately, it cannot be retrieved.
+      required: [id, url, events, name, secret, createdAt, warning]
+      properties:
+        id:
+          $ref: '#/components/schemas/WebhookId'
+        url:
+          type: string
+          format: uri
+          description: The HTTPS endpoint registered.
+          examples:
+            - https://hooks.example.com/wrl-events
+        events:
+          type: array
+          items:
+            type: string
+          description: Event types this webhook is subscribed to.
+          examples:
+            - [capture.complete, capture.failed]
+        name:
+          type: string
+          description: Human-readable label for this webhook.
+          examples:
+            - ci-notifier
+        secret:
+          type: string
+          description: >
+            Webhook signing secret. Prefixed with "whsec_" followed by 64
+            hex characters (32 bytes, hex-encoded). Use this to verify the
+            HMAC-SHA256 signature on incoming webhook requests. Store this
+            value now -- it cannot be retrieved after this response.
+          pattern: '^whsec_[a-f0-9]{64}$'
+          examples:
+            - 'whsec_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the webhook was created.
+          examples:
+            - '2026-03-22T12:00:00.000Z'
+        warning:
+          type: string
+          description: Always "Store this secret now. It cannot be retrieved after this response."
+          const: 'Store this secret now. It cannot be retrieved after this response.'
+
+    WebhookSummary:
+      type: object
+      description: >
+        Webhook record returned by the list endpoint. Never includes the
+        signing secret.
+      required: [id, url, events, name, createdAt, active]
+      properties:
+        id:
+          $ref: '#/components/schemas/WebhookId'
+        url:
+          type: string
+          format: uri
+          description: The registered HTTPS endpoint.
+          examples:
+            - https://hooks.example.com/wrl-events
+        events:
+          type: array
+          items:
+            type: string
+          description: Event types this webhook is subscribed to.
+          examples:
+            - [capture.complete, capture.failed]
+        name:
+          type: string
+          description: Human-readable label for this webhook.
+          examples:
+            - ci-notifier
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the webhook was created.
+          examples:
+            - '2026-03-22T12:00:00.000Z'
+        active:
+          type: boolean
+          description: >
+            Whether this webhook is active and will receive events. All
+            registered webhooks are active by default. To disable, delete
+            and re-register.
+          examples:
+            - true
+
+    WebhookListResponse:
+      type: object
+      description: List of registered webhooks for the authenticated tenant.
+      required: [data]
+      properties:
+        data:
+          type: array
+          description: Registered webhooks. Empty array when none exist; never null.
+          items:
+            $ref: '#/components/schemas/WebhookSummary'
+
+    WebhookDeleted:
+      type: object
+      description: Confirmation that a webhook was deleted.
+      required: [id, deleted]
+      properties:
+        id:
+          $ref: '#/components/schemas/WebhookId'
+        deleted:
+          type: boolean
+          const: true
+          description: Always true in this response.
+
+    PingResponse:
+      type: object
+      description: Result of a webhook ping test.
+      required: [success, httpStatus, latencyMs]
+      properties:
+        success:
+          type: boolean
+          description: True when the endpoint responded with a 2xx status code.
+        httpStatus:
+          type: integer
+          description: HTTP status code returned by the webhook endpoint.
+          examples:
+            - 200
+            - 404
+        latencyMs:
+          type: integer
+          minimum: 0
+          description: Round-trip latency in milliseconds from dispatch to response.
+          examples:
+            - 142
+        detail:
+          type: string
+          description: >
+            Human-readable description of the outcome. Present on failures
+            (non-2xx response, network error, timeout).
+          examples:
+            - Endpoint returned 404 Not Found
+
+    WebhookEventPayload:
+      type: object
+      description: >
+        The POST body WRL sends to registered webhook endpoints when an event
+        fires. WRL signs the raw request body using HMAC-SHA256 and includes
+        the signature in the X-WRL-Signature-256 header. The delivery timestamp
+        is in X-WRL-Timestamp.
+
+        Verify the signature before processing any payload. See the Webhook
+        Integration Guide for verification code examples.
+      required: [id, type, createdAt, data]
+      properties:
+        id:
+          type: string
+          pattern: '^evt_[a-f0-9]{32}$'
+          description: Unique event identifier, prefixed with "evt_".
+          examples:
+            - evt_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+        type:
+          type: string
+          enum: [capture.complete, capture.failed, ping]
+          description: >
+            Event type. "capture.complete" fires when a capture finishes
+            successfully. "capture.failed" fires when a capture fails.
+            "ping" is sent by POST /v1/webhooks/{id}/ping for testing.
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when this event was generated.
+          examples:
+            - '2026-03-22T12:05:00.000Z'
+        data:
+          type: object
+          description: >
+            Event-specific payload. Shape depends on the event type.
+            capture.complete includes the full capture record. capture.failed
+            includes the capture ID, URL, and failure reason. ping includes
+            a message field.
+      examples:
+        - id: evt_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+          type: capture.complete
+          createdAt: '2026-03-22T12:05:00.000Z'
+          data:
+            id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+            status: complete
+            url: https://example.com
+            createdAt: '2026-03-22T12:04:45.000Z'
+            completedAt: '2026-03-22T12:05:00.312Z'
+            renderQuality: full
+            artifacts:
+              screenshot: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+              html: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+              headers: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+            verifyUrl: https://wrl.benpeter.workers.dev/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+        - id: evt_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+          type: capture.failed
+          createdAt: '2026-03-22T12:05:10.000Z'
+          data:
+            id: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+            status: failed
+            url: https://example.com/missing-page
+            createdAt: '2026-03-22T12:04:55.000Z'
+            failedAt: '2026-03-22T12:05:10.000Z'
+            error: Navigation timeout after 30000ms
+            retryable: true
 
     AdminKeyRevoked:
       type: object
@@ -2907,6 +3159,264 @@ paths:
               examples:
                 notConfigured:
                   value: {type: about:blank, status: 503, title: Service Unavailable, detail: Admin API is not configured}
+
+  /v1/webhooks:
+    post:
+      operationId: createWebhook
+      summary: Register a webhook
+      description: >
+        Registers an HTTPS endpoint to receive outbound event notifications.
+        A signing secret is returned exactly once -- store it immediately.
+        Tenants are limited to 5 active webhooks. All registered webhooks
+        are active immediately upon creation.
+      tags: [webhooks]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreateRequest'
+            examples:
+              bothEvents:
+                summary: Subscribe to both event types
+                value:
+                  url: https://hooks.example.com/wrl-events
+                  events: [capture.complete, capture.failed]
+                  name: ci-notifier
+              completeOnly:
+                summary: Subscribe to capture.complete only
+                value:
+                  url: https://hooks.example.com/wrl-complete
+                  events: [capture.complete]
+                  name: archive-sync
+      responses:
+        '201':
+          description: Webhook registered. Store the secret -- it is shown only once.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookCreated'
+              examples:
+                created:
+                  summary: Webhook registered successfully
+                  value:
+                    id: whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    url: https://hooks.example.com/wrl-events
+                    events: [capture.complete, capture.failed]
+                    name: ci-notifier
+                    secret: 'whsec_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                    createdAt: '2026-03-22T12:00:00.000Z'
+                    warning: 'Store this secret now. It cannot be retrieved after this response.'
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '409':
+          description: Conflict -- tenant has reached the 5-webhook limit.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                limitExceeded:
+                  summary: Webhook limit reached
+                  value: {type: about:blank, status: 409, title: Conflict, detail: "Webhook limit reached. A tenant may have at most 5 active webhooks. Delete an existing webhook to register a new one."}
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'
+
+    get:
+      operationId: listWebhooks
+      summary: List webhooks
+      description: >
+        Returns all registered webhooks for the authenticated tenant.
+        Secrets are never included in list responses.
+      tags: [webhooks]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of registered webhooks.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookListResponse'
+              examples:
+                twoWebhooks:
+                  summary: Tenant has two registered webhooks
+                  value:
+                    data:
+                      - id: whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                        url: https://hooks.example.com/wrl-events
+                        events: [capture.complete, capture.failed]
+                        name: ci-notifier
+                        createdAt: '2026-03-22T12:00:00.000Z'
+                        active: true
+                      - id: whk_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+                        url: https://alerts.example.com/wrl
+                        events: [capture.failed]
+                        name: failure-alerts
+                        createdAt: '2026-03-22T14:00:00.000Z'
+                        active: true
+                empty:
+                  summary: No webhooks registered
+                  value:
+                    data: []
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/webhooks/{webhookId}:
+    delete:
+      operationId: deleteWebhook
+      summary: Delete a webhook
+      description: >
+        Permanently removes a registered webhook. Events that were in-flight
+        at deletion time may still be delivered. Deletion is not reversible;
+        the secret is discarded.
+      tags: [webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/WebhookId'
+          description: The webhook ID to delete.
+          example: whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+      responses:
+        '200':
+          description: Webhook deleted.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookDeleted'
+              examples:
+                deleted:
+                  summary: Webhook deleted
+                  value:
+                    id: whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    deleted: true
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/webhooks/{webhookId}/ping:
+    post:
+      operationId: pingWebhook
+      summary: Send a test event
+      description: >
+        Delivers a synthetic "ping" event to the registered endpoint and
+        reports the outcome. Use this to verify your endpoint is reachable
+        and correctly configured before relying on live events.
+
+        The ping payload has type "ping" and is signed with the webhook secret
+        using the same HMAC-SHA256 scheme as live events. Your endpoint should
+        verify the signature even for ping events.
+
+        A non-2xx response from your endpoint does not prevent future event
+        delivery -- ping results do not affect webhook active status.
+      tags: [webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/WebhookId'
+          description: The webhook ID to ping.
+          example: whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+      responses:
+        '200':
+          description: Ping dispatched. Check `success` for the delivery outcome.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PingResponse'
+              examples:
+                success:
+                  summary: Endpoint responded 200
+                  value:
+                    success: true
+                    httpStatus: 200
+                    latencyMs: 142
+                failure:
+                  summary: Endpoint returned non-2xx
+                  value:
+                    success: false
+                    httpStatus: 404
+                    latencyMs: 89
+                    detail: Endpoint returned 404 Not Found
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          $ref: '#/components/responses/Problem404'
+        '429':
+          $ref: '#/components/responses/Problem429'
 
   /v1/admin/usage:
     get:

@@ -92,6 +92,30 @@ max_batch_size = 1
 max_batch_timeout = 30
 max_retries = 0
 
+# Webhook delivery queue -- one message per (capture, webhook) pair.
+# max_batch_size = 1 isolates failures. max_concurrency = 20 supports burst fan-out.
+[[queues.producers]]
+binding = "WEBHOOK_QUEUE"
+queue = "wrl-webhooks"
+
+[[queues.consumers]]
+queue = "wrl-webhooks"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "wrl-webhooks-dlq"
+max_concurrency = 20
+
+[[queues.producers]]
+binding = "WEBHOOK_DLQ"
+queue = "wrl-webhooks-dlq"
+
+[[queues.consumers]]
+queue = "wrl-webhooks-dlq"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 0
+
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 # IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
@@ -185,6 +209,29 @@ queue = "wrl-captures-staging-dlq"
 
 [[env.staging.queues.consumers]]
 queue = "wrl-captures-staging-dlq"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 0
+
+# Webhook delivery queue (staging)
+[[env.staging.queues.producers]]
+binding = "WEBHOOK_QUEUE"
+queue = "wrl-webhooks-staging"
+
+[[env.staging.queues.consumers]]
+queue = "wrl-webhooks-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "wrl-webhooks-staging-dlq"
+max_concurrency = 10
+
+[[env.staging.queues.producers]]
+binding = "WEBHOOK_DLQ"
+queue = "wrl-webhooks-staging-dlq"
+
+[[env.staging.queues.consumers]]
+queue = "wrl-webhooks-staging-dlq"
 max_batch_size = 1
 max_batch_timeout = 30
 max_retries = 0
