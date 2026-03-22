@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#2a3444" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    Concept B: Abstract ledger page with verification checkmark overlay.
+    Dog-eared document rectangle: open path omitting top-right corner,
+    then fold triangle. Large checkmark centered on the page.
+    stroke-width 2px for document, 2.5px for checkmark to give hierarchy.
+  -->
+
+  <!-- Document outline with dog-ear fold at top-right -->
+  <!-- Main body: bottom-right → bottom-left → top-left → up to fold start -->
+  <polyline
+    points="23,28 5,28 5,4 18,4"
+    stroke-width="2"
+  />
+  <!-- Right edge below fold -->
+  <line x1="23" y1="10" x2="23" y2="28" stroke-width="2" />
+  <!-- Fold triangle -->
+  <polyline
+    points="18,4 18,10 23,10"
+    stroke-width="2"
+  />
+  <!-- Fold diagonal -->
+  <line x1="18" y1="4" x2="23" y2="10" stroke-width="2" />
+
+  <!-- Checkmark: short downstroke then long upstroke, centered on page -->
+  <polyline
+    points="9,17 13,22 24,9"
+    stroke-width="2.5"
+  />
+</svg>

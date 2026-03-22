@@ -7,6 +7,7 @@ import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
 import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
+import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { computeCip } from './ip-hash.js';
@@ -19,6 +20,7 @@ import { handleMcp } from './mcp.js';
 // Order matters: most specific pattern first.
 // Add new routes as one-line tuples.
 const routes = [
+  ['GET',    /^\/favicon\.ico$/, handleFavicon],
   ['GET',    /^\/health$/, handleHealth],
   ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
@@ -303,6 +305,18 @@ export default {
     return response;
   },
 };
+
+function handleFavicon() {
+  // Serve SVG as favicon (modern browsers accept SVG favicons)
+  const body = FAVICON_SVG;
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'image/svg+xml',
+      'Cache-Control': 'public, max-age=604800',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
 
 function handleHealth() {
   return jsonResponse({
