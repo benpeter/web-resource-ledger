@@ -207,6 +207,7 @@ Completed items removed from active tracking:
 - ~~R21: Per-tenant rate limiting~~ -- DONE (Phase 0045): dual-layer enforcement (CF ceiling + KV counter + IP guard), X-RateLimit-* headers, KV-based tenant config overrides, admin config endpoints
 - ~~R22: Coralogix alerting rules~~ -- DONE (Phase 0046): 4 alert rules (capture failures, TSA failures, auth spikes, worker errors), provisioning script, runbooks, alert documentation
 - ~~R30: D1 migration for metadata~~ -- DONE (Phase 0047): all metadata (captures, tenants, API keys, signing keys) migrated from KV to D1, offset/limit pagination with SQL filtering and sorting, KV retained only for rate limit counters
+- ~~R19: Documentation site~~ -- DONE (Phase 0051): 11ty v3 static site at docs.webresourceledger.com, 6 guide pages, OpenAPI-generated API reference, WRL brand design system, Cloudflare Workers Static Assets deployment
 
 ---
 
