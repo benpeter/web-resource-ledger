@@ -453,3 +453,44 @@ body {
 .docs-footer a:hover {
   color: var(--color-accent-hover);
 }
+
+/* ------------------------------------------------------------------ */
+/* Content details/summary (no .disclosure class in markdown)         */
+/* ------------------------------------------------------------------ */
+
+.docs-prose details summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Copy-to-clipboard button (progressive enhancement)                 */
+/* ------------------------------------------------------------------ */
+
+.copy-btn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  line-height: var(--leading-tight);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+pre:hover .copy-btn,
+pre:focus-within .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  opacity: 1;
+}

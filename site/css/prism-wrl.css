@@ -7,6 +7,12 @@
 :root {
   /* Inherit accessible muted color from docs.css if loaded; fall back inline */
   --color-text-muted-docs: #5a5650;
+
+  /*
+   * --color-accent (#3d7c9a) achieves ~4.1:1 on --color-surface-muted (#f3f2f0),
+   * failing WCAG AA (4.5:1). Use this darker shade (~5.5:1) for code tokens.
+   */
+  --color-accent-code: #2f6a85;
 }
 
 code[class*="language-"],
@@ -36,7 +42,7 @@ pre[class*="language-"] {
 .token.selector,
 .token.important,
 .token.atrule {
-  color: var(--color-accent);
+  color: var(--color-accent-code);
   font-weight: var(--weight-medium);
 }
 
@@ -75,7 +81,7 @@ pre[class*="language-"] {
 
 /* Functions */
 .token.function {
-  color: var(--color-accent);
+  color: var(--color-accent-code);
 }
 
 /* Deleted */

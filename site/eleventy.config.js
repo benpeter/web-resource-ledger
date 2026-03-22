@@ -10,8 +10,9 @@ export default function (eleventyConfig) {
   // Syntax highlighting (Prism, build-time)
   eleventyConfig.addPlugin(syntaxHighlight);
 
-  // Copy site CSS and assets
+  // Copy site CSS, JS, and assets
   eleventyConfig.addPassthroughCopy("css");
+  eleventyConfig.addPassthroughCopy("js");
   eleventyConfig.addPassthroughCopy("assets");
 
   // Copy design-system.css from src/ into _output/css/
