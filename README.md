@@ -312,6 +312,15 @@ WRL exposes all four core operations — capture, retrieve, list, and verify —
 
 See [`docs/mcp.md`](docs/mcp.md) for setup instructions (Claude Code, Cursor, Windsurf, and generic clients), tool reference, and a step-by-step capture-and-verify walkthrough.
 
+## Web UI
+
+WRL includes a browser-based interface for submitting captures and browsing
+results. Navigate to `/ui` on your WRL deployment to access it. Authentication
+requires a WRL API key with `capture` and `read` scopes.
+
+The UI is served directly from the Worker — no separate hosting or CORS
+configuration required.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for local dev setup, test conventions, and contribution guidelines.
