@@ -98,7 +98,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | Item | Condition | Source |
 |------|-----------|--------|
 | [consider] Webhooks / outbound callbacks | When per-tenant keys exist and async notification demand demonstrated | api-design-minion, kickoff |
-| [consider] Pagination filtering and sorting | URL filter and sorting require D1; cursor pagination in R1 | api-design-minion, kickoff |
+| ~~[consider] Pagination filtering and sorting~~ | ~~URL filter and sorting require D1~~ -- DONE (Phase 0047): offset/limit pagination, URL prefix filter, date range filter, sort order | api-design-minion, kickoff |
 
 ### Security
 
@@ -110,7 +110,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [consider] D1 (edge SQLite) | When KV list latency >300ms at observed capture counts | iac-minion, kickoff |
+| ~~[consider] D1 (edge SQLite)~~ | ~~When KV list latency >300ms at observed capture counts~~ -- DONE (Phase 0047): all metadata migrated to D1, KV retained only for rate limit counters | iac-minion, kickoff |
 | [consider] R2 artifact streaming | When WACZ bundles >10MB become common | margo, retrieval-endpoint |
 
 ### Operations
@@ -123,6 +123,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [should] Coralogix DLQ alert for queue capture failures | When queue migration deploys to production; monitor capture.dlq events | observability-minion, 0044-queue-migration |
 | ~~[consider] Coralogix alerting rules~~ | ~~When operational load justifies alerting~~ -- DONE (Phase 0046): 4 alert rules, provisioning script, runbooks | observability-minion, mvo-coralogix |
 | [consider] Queue architecture documentation update | When queue migration is verified in production | software-docs-minion, 0044-queue-migration |
+| [consider] Cron Trigger for pending capture TTL cleanup | When stale pending captures accumulate beyond queue retry window; queue retries handle most cases | data-minion, Phase 0047 |
 | [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
 | [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
@@ -154,7 +155,7 @@ Removed from active backlog. Rationale preserved here.
 | Item | Rationale |
 |------|-----------|
 | SSE / WebSocket | Explicitly rejected during kickoff; polling works for 5-30s lifecycle |
-| Database for metadata (generic) | Rejected during kickoff; D1 is the specific option if needed |
+| Database for metadata (generic) | Rejected during kickoff as generic; D1 shipped in Phase 0047 (#96) |
 | Domain-ownership certificate | Architecturally problematic; .well-known/signing-key already ties key to domain |
 | Social signup (GitHub first) | No identity system, no users; self-acknowledged YAGNI |
 | Network namespace isolation | Over-engineering; Cloudflare manages the browser sandbox |
@@ -181,7 +182,7 @@ Removed from active backlog. Rationale preserved here.
 Completed items removed from active tracking:
 
 - ~~R8: Auth identity enrichment~~ -- DONE (list-endpoint phase)
-- ~~R1: List captures endpoint~~ -- DONE (list-endpoint phase): `GET /v1/captures` with cursor pagination, status filter, tenant isolation
+- ~~R1: List captures endpoint~~ -- DONE (list-endpoint phase): `GET /v1/captures` with cursor pagination, status filter, tenant isolation (pagination upgraded to offset/limit with filtering in Phase 0047)
 - ~~R2: Key versioning and public key archive~~ -- DONE (key-versioning phase): keyId fingerprints, signing key archive in KV, historical key verification
 - ~~R3: CORS for capture POST~~ -- DONE (cors-hsts-ratelimit phase): configurable origin allowlist, CORS headers on all POST responses including errors
 - ~~R4: HSTS preload submission~~ -- DONE (cors-hsts-ratelimit phase): `preload` directive; submit domain to hstspreload.org post-merge
@@ -201,6 +202,7 @@ Completed items removed from active tracking:
 - ~~R12: Per-tenant API keys and tenant isolation~~ -- DONE (Phase 0037): KV-based key lookup with SHA-256 hash, admin API (POST/GET/DELETE /v1/admin/keys), dual-mode legacy fallback, scope enforcement (capture/read/admin), ADMIN_KEY infrastructure secret
 - ~~R21: Per-tenant rate limiting~~ -- DONE (Phase 0045): dual-layer enforcement (CF ceiling + KV counter + IP guard), X-RateLimit-* headers, KV-based tenant config overrides, admin config endpoints
 - ~~R22: Coralogix alerting rules~~ -- DONE (Phase 0046): 4 alert rules (capture failures, TSA failures, auth spikes, worker errors), provisioning script, runbooks, alert documentation
+- ~~R30: D1 migration for metadata~~ -- DONE (Phase 0047): all metadata (captures, tenants, API keys, signing keys) migrated from KV to D1, offset/limit pagination with SQL filtering and sorting, KV retained only for rate limit counters
 
 ---
 

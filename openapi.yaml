@@ -601,14 +601,17 @@ components:
 
     Pagination:
       type: object
-      description: Cursor-based pagination metadata.
-      required: [cursor, hasMore, limit]
+      description: Offset-based pagination metadata.
+      required: [total, offset, hasMore, limit]
       properties:
-        cursor:
-          type: ["string", "null"]
-          description: >
-            Opaque base64url string to pass as the `cursor` query parameter
-            to retrieve the next page. Null when hasMore is false.
+        total:
+          type: integer
+          description: Total number of results matching the query (before pagination).
+          minimum: 0
+        offset:
+          type: integer
+          description: Zero-based offset of the first result in this page.
+          minimum: 0
         hasMore:
           type: boolean
           description: True when additional results exist beyond the current page.
@@ -642,7 +645,7 @@ components:
           pattern: '^[a-z0-9_-]{1,64}$'
           description: >
             Tenant this key belongs to. Must match /^[a-z0-9_-]{1,64}$/.
-            Callers may use tenantId as a KV key component without additional sanitization.
+            Callers may use tenantId as a database key without additional sanitization.
           examples:
             - default
             - acme-corp
@@ -652,7 +655,7 @@ components:
             Non-empty list of scopes to grant. Valid values: capture, read, admin.
             'capture' implies 'read'. 'admin' does NOT imply 'capture' or 'read'.
             Note: the 'admin' scope is reserved for a future migration from the
-            ADMIN_KEY env var to per-tenant KV-based admin keys. It currently has
+            ADMIN_KEY env var to per-tenant admin keys. It currently has
             no runtime effect on access control -- admin endpoints use ADMIN_KEY only.
           items:
             type: string
@@ -689,7 +692,7 @@ components:
         keyHash:
           type: string
           pattern: '^[a-f0-9]{64}$'
-          description: SHA-256 hex digest of the raw key. Used as the KV record key and for revocation.
+          description: SHA-256 hex digest of the raw key. Used as the database primary key and for revocation.
           examples:
             - 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
         tenantId:
@@ -862,7 +865,7 @@ components:
 
     VerificationCapture:
       type: object
-      description: Capture identity and timing metadata, extracted from the KV record.
+      description: Capture identity and timing metadata, extracted from the database record.
       required: [id, createdAt, completedAt]
       properties:
         id:
@@ -1149,14 +1152,13 @@ paths:
       operationId: listCaptures
       summary: List captures
       description: >
-        Returns a paginated list of captures for the authenticated tenant in ascending
-        chronological order (oldest first). Only captures created after the list
-        feature was deployed appear in results -- pre-deployment captures are not
-        indexed and will not appear.
+        Returns a paginated list of captures for the authenticated tenant in
+        descending chronological order (newest first by default). Supports
+        filtering by status, URL prefix, and date range, with configurable
+        sort order.
 
-        Pagination is cursor-based. Pass the `cursor` value from the previous
-        response's `pagination.cursor` field to retrieve the next page. An absent or
-        null cursor means there are no further results.
+        Pagination is offset-based. Use `offset` and `limit` to navigate
+        pages. The response includes a `total` count for the matched query.
       tags: [captures]
       security:
         - bearerAuth: []
@@ -1172,14 +1174,15 @@ paths:
           description: >
             Number of results per page. Default 20. Values above 100 are silently
             clamped to 100. Values below 1 or non-integers return 400.
-        - name: cursor
+        - name: offset
           in: query
           required: false
           schema:
-            type: string
+            type: integer
+            default: 0
+            minimum: 0
           description: >
-            Opaque pagination cursor from a previous response's
-            `pagination.cursor` field. Omit to start from the beginning.
+            Zero-based offset for pagination. Default 0 (first page).
         - name: status
           in: query
           required: false
@@ -1188,6 +1191,45 @@ paths:
             enum: [pending, complete, failed]
           description: >
             Filter results to captures with this status. Omit to return all statuses.
+        - name: url
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 200
+          description: >
+            Filter by URL prefix match. Minimum 4 characters. Must not contain
+            `%` or `_` wildcard characters. Returns captures whose URL starts
+            with the given string.
+        - name: created_after
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: >
+            Filter to captures created at or after this ISO 8601 timestamp
+            (inclusive). Use with `created_before` for date range queries.
+        - name: created_before
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: >
+            Filter to captures created before this ISO 8601 timestamp
+            (exclusive). Must be after `created_after` if both are provided.
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            default: '-created_at'
+            enum: [created_at, '-created_at']
+          description: >
+            Sort order. `-created_at` (default) for newest first,
+            `created_at` for oldest first.
       responses:
         '200':
           description: Paginated list of capture summaries. Returns empty data array when no captures exist.
@@ -1219,7 +1261,8 @@ paths:
                   value:
                     data: []
                     pagination:
-                      cursor: null
+                      total: 0
+                      offset: 0
                       hasMore: false
                       limit: 20
                 firstPage:
@@ -1233,7 +1276,8 @@ paths:
                         completedAt: '2024-01-15T10:30:45.123Z'
                         renderQuality: full
                     pagination:
-                      cursor: eyJrdiI6Im9wYXF1ZS1rdC1jdXJzb3IifQ
+                      total: 42
+                      offset: 0
                       hasMore: true
                       limit: 20
                 mixedStatuses:
@@ -1257,7 +1301,8 @@ paths:
                         url: https://another.example.com
                         createdAt: '2024-01-15T11:05:00.000Z'
                     pagination:
-                      cursor: null
+                      total: 3
+                      offset: 0
                       hasMore: false
                       limit: 20
         '400':
@@ -1267,7 +1312,7 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
         '500':
-          description: Internal Server Error — KV storage read failed.
+          description: Internal Server Error — database read failed.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -1284,8 +1329,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
               examples:
-                kvError:
-                  summary: KV storage read failed
+                dbError:
+                  summary: Database read failed
                   value: {type: about:blank, status: 500, title: Internal Server Error, detail: Could not list captures}
         '503':
           $ref: '#/components/responses/Problem503'
@@ -2687,7 +2732,7 @@ paths:
       operationId: adminRevokeKey
       summary: Revoke an API key
       description: >
-        Marks an API key as revoked. The key is immediately recorded as revoked in KV.
+        Marks an API key as revoked. The key is immediately recorded as revoked in D1.
         Revocation takes effect within 60 seconds due to distributed edge caching.
 
         This operation is idempotent -- revoking an already-revoked key returns 200

@@ -132,13 +132,27 @@ Captures are rate-limited to 10 per minute per IP. Verification is limited to 60
 npm install
 ```
 
-### 2. Create KV namespace
+### 2. Create D1 database
+
+```bash
+wrangler d1 create wrl-metadata
+```
+
+Update the `database_id` in `wrangler.toml` under `[[d1_databases]]` with the returned ID. Then apply migrations:
+
+```bash
+wrangler d1 migrations apply wrl-metadata
+```
+
+### 2a. Create KV namespace (rate limiting)
+
+KV is used only for rate limit counters. Create the namespace:
 
 ```bash
 wrangler kv namespace create wrl-kv
 ```
 
-Update `wrangler.toml` with the returned `id` and `preview_id`. If you forked this repo, replace the existing `id` and `preview_id` values in `wrangler.toml` with the IDs returned by these commands.
+Update `wrangler.toml` with the returned `id` and `preview_id`.
 
 ### 3. Create R2 bucket
 
@@ -149,7 +163,7 @@ wrangler r2 bucket create wrl-captures-preview
 
 ### 4. Configure capture API key (legacy fallback)
 
-`CAPTURE_API_KEY` is a static bearer token that acts as a fallback when no KV-based tenant key is found. For new deployments, consider setting up the admin API (step 8a) and creating tenant keys instead. For existing deployments, this key continues to work during migration.
+`CAPTURE_API_KEY` is a static bearer token that acts as a fallback when no tenant key is found in D1. For new deployments, consider setting up the admin API (step 8a) and creating tenant keys instead. For existing deployments, this key continues to work during migration.
 
 In the usage examples above, this is `$WRL_API_KEY`.
 
@@ -306,9 +320,21 @@ See [OPERATIONS.md](OPERATIONS.md) for deployment, rollback, and environment set
 
 ### Staging
 
-`wrangler.toml` includes an `[env.staging]` configuration with its own R2 bucket and KV namespace. Before deploying, you must create those resources in your own Cloudflare account (same as steps 2-3 above, but scoped to staging).
+`wrangler.toml` includes an `[env.staging]` configuration with its own R2 bucket, D1 database, and KV namespace (rate limiting only). Before deploying, you must create those resources in your own Cloudflare account (same as steps 2-3 above, but scoped to staging).
 
-Create the staging KV namespace:
+Create the staging D1 database:
+
+```bash
+wrangler d1 create wrl-metadata-staging
+```
+
+Update the `database_id` under `[[env.staging.d1_databases]]` in `wrangler.toml`, then apply migrations:
+
+```bash
+wrangler d1 migrations apply wrl-metadata-staging --env staging
+```
+
+Create the staging KV namespace (rate limiting only):
 
 ```bash
 wrangler kv namespace create KV --env staging
@@ -360,7 +386,7 @@ WRL was built using [despicable-agents](https://github.com/benpeter/despicable-a
 
 ### Key Rotation
 
-Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData.signatures` array (v0.2.0) or `signedData` directly (v0.1.0 legacy) and in the KV capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
+Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData.signatures` array (v0.2.0) or `signedData` directly (v0.1.0 legacy) and in the D1 capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
 
 Rotation procedure:
 
