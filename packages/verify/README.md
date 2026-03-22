@@ -121,6 +121,30 @@ The tool bundles the DigiCert Trusted Root G4 certificate. Use `--trust-root` to
 
 Node.js 20 or later.
 
+## Releasing
+
+Releases are published to npm automatically when a `verify/v*` tag is pushed.
+
+**Steps:**
+
+1. Generate the changelog (review and edit before proceeding):
+   ```bash
+   ./scripts/changelog-verify.sh patch   # or minor, major
+   ```
+
+2. Bump version, commit, and create tag:
+   ```bash
+   cd packages/verify && npm version patch -m "chore(verify): release %s"
+   ```
+
+3. Push the commit and tag:
+   ```bash
+   git push origin main --follow-tags
+   ```
+
+The CI workflow runs tests and publishes to npm with provenance attestation.
+If the version already exists on npm, the publish step exits cleanly.
+
 ## License
 
 [Apache 2.0](../../LICENSE)
