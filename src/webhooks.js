@@ -23,6 +23,7 @@ import { validateUrl } from './url-validation.js';
 import { createWebhook, getWebhook, listWebhooks, deleteWebhook, countWebhooks } from './db.js';
 import { log } from './log.js';
 import { signWebhookPayload, SIGNATURE_HEADER, TIMESTAMP_HEADER } from './webhook-signing.js';
+import { classifyDeliveryError } from './webhook-dispatch.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const VALID_EVENTS = ['capture.complete', 'capture.failed'];
@@ -312,7 +313,7 @@ export async function handlePingWebhook(request, env, ctx, match) {
     httpStatus = resp.status;
     success = resp.ok;
   } catch (err) {
-    detail = classifyPingError(err);
+    detail = classifyDeliveryError(err, null);
   }
 
   const latencyMs = Date.now() - start;
@@ -336,19 +337,3 @@ export async function handlePingWebhook(request, env, ctx, match) {
   return jsonResponse({ success, httpStatus, latencyMs });
 }
 
-/**
- * Classify a network-level error from a ping attempt to a safe category string.
- * Does NOT expose raw error messages (network topology leak risk).
- *
- * @param {Error} err
- * @returns {string} category
- */
-function classifyPingError(err) {
-  const msg = String(err?.message ?? '');
-  if (err?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('timed out')) return 'timeout';
-  if (msg.includes('ENOTFOUND') || msg.includes('getaddrinfo') || msg.includes('DNS')) return 'dns';
-  if (msg.includes('certificate') || msg.includes('TLS') || msg.includes('SSL') || msg.includes('CERT')) return 'tls';
-  if (msg.includes('ECONNREFUSED') || msg.includes('Connection refused')) return 'connection';
-  if (msg.includes('ECONNRESET') || msg.includes('socket') || msg.includes('network')) return 'connection';
-  return 'connection';
-}

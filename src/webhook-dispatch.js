@@ -165,8 +165,10 @@ export async function dispatchWebhooks(env, tenantId, eventType, captureRecord) 
 
   if (!webhooks || webhooks.length === 0) return;
 
-  // Build payload once -- the same string is used for all webhooks in this dispatch
+  // Build payload once -- the same string is signed and delivered to all webhooks.
+  // eventId is intentionally shared across all webhooks for the same event (Stripe model).
   const payload = buildWebhookPayload(eventType, captureRecord, env);
+  const eventId = JSON.parse(payload).id;
 
   for (const webhook of webhooks) {
     try {
@@ -175,6 +177,7 @@ export async function dispatchWebhooks(env, tenantId, eventType, captureRecord) 
         tenantId,
         captureId: captureRecord.captureId,
         eventType,
+        eventId,
         payload,
       });
     } catch (err) {
@@ -214,7 +217,7 @@ export async function dispatchWebhooks(env, tenantId, eventType, captureRecord) 
  * @param {ExecutionContext} ctx
  */
 export async function handleWebhookMessage(msg, env, ctx) {
-  const { webhookId, tenantId, captureId, eventType, payload } = msg.body ?? {};
+  const { webhookId, tenantId, captureId, eventType, eventId, payload } = msg.body ?? {};
 
   // Look up the webhook -- it may have been deleted since the message was enqueued
   let webhook;
@@ -300,7 +303,7 @@ export async function handleWebhookMessage(msg, env, ctx) {
         'Content-Type': 'application/json',
         'User-Agent': 'WRL-Webhook/1.0',
         'X-WRL-Event': eventType,
-        'X-WRL-Delivery': JSON.parse(payload).id,
+        'X-WRL-Delivery': eventId,
         [TIMESTAMP_HEADER]: String(timestamp),
         [SIGNATURE_HEADER]: `t=${timestamp},v1=${signature}`,
       },

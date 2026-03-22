@@ -34,7 +34,7 @@ export const TIMESTAMP_HEADER = 'X-WRL-Timestamp';
 export async function signWebhookPayload(secret, timestamp, body) {
   // Strip the prefix and decode hex to raw bytes for the HMAC key.
   // Using raw bytes (not the hex string) ensures the key space is 2^256.
-  const hexKey = secret.replace('whsec_', '');
+  const hexKey = secret.startsWith('whsec_') ? secret.slice(6) : secret;
   const keyBytes = hexToBytes(hexKey);
 
   const cryptoKey = await crypto.subtle.importKey(
