@@ -12,10 +12,13 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. Consent has a 2s hard timeout within the
- *   30s ctx.waitUntil budget (NAV_TIMEOUT_MS=20s load + 3s settle(max) + 2s consent + 2s post ≈ 27s worst-case; in practice load fires in 2-5s).
+ *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle(max) + 2s consent + 2s post ≈ 27s worst-case; in practice load fires in 2-5s).
  *   Partial captures skip consent entirely.
  *
- * Called from ctx.waitUntil() -- must always update KV (never leave pending).
+ * Called from queue consumer. For retryable errors, does NOT write KV
+ * (leaves pending for retry). For non-retryable errors and success, writes
+ * terminal KV state. The queue consumer/DLQ handler owns the final
+ * failCapture() call when retries exhaust.
  *
  * Rendering is injectable via the `renderer` parameter on performCapture()
  * for unit testing -- no module-scoped mutable state.
@@ -26,7 +29,7 @@
  *   by calling connect(). One free session is picked at random to distribute
  *   contention across concurrent workers. If all sessions are in use and the
  *   pool limit is reached, the capture fails immediately -- no wait loop, to
- *   preserve the 30s ctx.waitUntil budget.
+ *   preserve the 15-minute queue consumer wall clock.
  *
  * BrowserContext isolation guarantees:
  *   Each capture creates a fresh BrowserContext and closes it in try/finally.
@@ -94,11 +97,12 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 // ---------------------------------------------------------------------------
 
 /**
- * Orchestrates the full capture pipeline. Called from ctx.waitUntil().
+ * Orchestrates the full capture pipeline. Called from queue consumer.
  *
  * Runs browser rendering and header fetch concurrently. On success, stores
- * artifacts in R2 and updates KV to complete. On any failure, updates KV
- * to failed. Always updates KV -- never leaves a capture stuck in pending.
+ * artifacts in R2 and updates KV to complete. For non-retryable failures,
+ * writes KV to failed. For retryable failures, leaves KV pending (caller
+ * must ack/retry the queue message and eventually call failCapture on DLQ).
  *
  * @param {{ KV: KVNamespace, BUCKET: R2Bucket, BROWSER: unknown }} env
  * @param {string} url Validated URL string
@@ -107,12 +111,14 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
  * @param {string} tenantId Tenant identifier
  * @param {string} [cip] Hashed client IP (undefined when IP_HASH_SEED not configured)
  * @param {Function} [renderer] Injectable rendering function (defaults to defaultRenderer)
+ * @param {number} [attempt] Delivery attempt number (1-based, incremented by queue consumer)
+ * @returns {Promise<{ ok: true }|{ ok: false, retryable: boolean, error?: string }>}
  */
-export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer) {
+export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer, attempt = 1) {
   const start = Date.now();
-  await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip });
+  await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip, attempt });
   try {
-    const RENDER_DEADLINE_MS = 27000; // Hard cap: leaves ~3s for KV/log in catch-all
+    const RENDER_DEADLINE_MS = 600000; // 10 min hard cap within 15-min queue consumer budget
     const renderWithDeadline = Promise.race([
       renderer(env.BROWSER, url),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Render deadline exceeded')), RENDER_DEADLINE_MS)),
@@ -124,9 +130,12 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
 
     if (renderResult.status === 'rejected') {
       const { message, retryable } = categorizeError(renderResult.reason);
-      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable, cip, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
+      await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable, cip, attempt, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
+      if (retryable) {
+        return { ok: false, retryable: true, error: message };
+      }
       await failCapture(env.KV, captureId, message, retryable);
-      return;
+      return { ok: false, retryable: false };
     }
 
     const { screenshot, html, partial, render, consent, screenshotBefore } = renderResult.value;
@@ -253,14 +262,11 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         });
       }
     }
+    return { ok: true };
   } catch (err) {
-    // Catch-all: ensure KV is updated even on unexpected errors
-    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip });
-    try {
-      await failCapture(env.KV, captureId, 'Capture could not be completed', true);
-    } catch (err) {
-      await log(env, 5, 'capture', { event: 'capture.kv_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
-    }
+    // Catch-all: retryable -- leave KV pending, let queue consumer retry
+    await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip, attempt });
+    return { ok: false, retryable: true, error: 'Capture could not be completed' };
   }
 }
 
@@ -317,7 +323,7 @@ export async function captureHeaders(url) {
  * Prefers reusing a free existing session (picked at random to distribute
  * contention). Falls back to acquiring a new session if the pool has capacity.
  * Throws immediately if no session is available -- no retry loop, to preserve
- * the 30s ctx.waitUntil budget.
+ * the 15-minute queue consumer wall clock.
  *
  * @param {unknown} browserBinding Cloudflare BROWSER binding
  * @returns {Promise<import('@cloudflare/playwright').Browser>}
@@ -500,7 +506,7 @@ async function defaultRenderer(browserBinding, url) {
     });
 
     // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
-    // Post-load: 3s settle(max) + 2s consent + 2s post-processing fits the 30s ctx.waitUntil budget
+    // Post-load: 3s settle(max) + 2s consent + 2s post-processing well within the 15-min queue consumer wall clock
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
     } catch (navError) {
@@ -516,7 +522,7 @@ async function defaultRenderer(browserBinding, url) {
           throw navError;
         }
 
-        // 2000ms budget: renderer has been running ~20.5s (load timed out); leaves margin for KV/R2 post-work
+        // 2000ms budget: renderer has been running ~20.5s (load timed out); leaves margin for R2/KV post-work
         const deadline = Date.now() + 2000;
         const remainingMs = () => Math.max(0, deadline - Date.now());
 
@@ -657,7 +663,7 @@ async function defaultRenderer(browserBinding, url) {
   } finally {
     // MANDATORY: close context before disconnecting to clear all isolation state.
     // Timeout cleanup to prevent hanging on unresponsive browser sessions
-    // (e.g., Akamai stalling with 0 bytes) from eating the ctx.waitUntil budget.
+    // (e.g., Akamai stalling with 0 bytes) from eating into the queue consumer budget.
     await Promise.race([
       context.close().then(() => browser.close()),
       new Promise((r) => setTimeout(r, 3000)),
@@ -674,7 +680,7 @@ async function defaultRenderer(browserBinding, url) {
  * @param {Error} error
  * @returns {{ message: string, retryable: boolean }}
  */
-function categorizeError(error) {
+export function categorizeError(error) {
   const msg = error?.message ?? '';
 
   if (msg.includes('did not respond')) {

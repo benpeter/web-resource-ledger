@@ -41,6 +41,42 @@ simple = { limit = 5, period = 60 }
 [browser]
 binding = "BROWSER"
 
+# CPU time limit: 60 s covers the full browser-capture pipeline including
+# heavy pages.  Default (30 s for paid plans) is too tight for worst-case
+# captures.
+[limits]
+cpu_ms = 60000
+
+# --- Queue architecture ---
+# Two queues per environment:
+#   wrl-captures        -- main processing queue (capture jobs)
+#   wrl-captures-dlq    -- dead-letter queue (jobs exhausted max_retries)
+# The same Worker exports both fetch() and queue() handlers; no separate
+# consumer Worker is required.  max_batch_size = 1 ensures each invocation
+# processes exactly one capture so failures are isolated.
+
+[[queues.producers]]
+binding = "CAPTURE_QUEUE"
+queue = "wrl-captures"
+
+[[queues.consumers]]
+queue = "wrl-captures"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "wrl-captures-dlq"
+max_concurrency = 10
+
+[[queues.producers]]
+binding = "CAPTURE_DLQ"
+queue = "wrl-captures-dlq"
+
+[[queues.consumers]]
+queue = "wrl-captures-dlq"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 0
+
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 # IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
@@ -94,6 +130,34 @@ simple = { limit = 5, period = 60 }
 
 [env.staging.browser]
 binding = "BROWSER"
+
+[env.staging.limits]
+cpu_ms = 60000
+
+# Queues are non-inheritable -- staging must declare its own producers and
+# consumers with -staging suffixed queue names.
+
+[[env.staging.queues.producers]]
+binding = "CAPTURE_QUEUE"
+queue = "wrl-captures-staging"
+
+[[env.staging.queues.consumers]]
+queue = "wrl-captures-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "wrl-captures-staging-dlq"
+max_concurrency = 5
+
+[[env.staging.queues.producers]]
+binding = "CAPTURE_DLQ"
+queue = "wrl-captures-staging-dlq"
+
+[[env.staging.queues.consumers]]
+queue = "wrl-captures-staging-dlq"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 0
 
 [env.staging.vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
