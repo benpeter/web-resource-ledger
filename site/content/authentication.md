@@ -44,6 +44,10 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `GET /v1/verify/{id}` | None (public endpoint) |
 | `GET /.well-known/signing-key` | None (public endpoint) |
 | `GET /.well-known/signing-keys` | None (public endpoint) |
+| `POST /v1/webhooks` | `capture` |
+| `GET /v1/webhooks` | `capture` |
+| `DELETE /v1/webhooks/{id}` | `capture` |
+| `POST /v1/webhooks/{id}/ping` | `capture` |
 | `POST /v1/admin/keys` | Admin credential |
 | `GET /v1/admin/keys` | Admin credential |
 | `DELETE /v1/admin/keys/{keyHash}` | Admin credential |
