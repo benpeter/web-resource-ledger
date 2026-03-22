@@ -54,7 +54,10 @@ that are in the active roadmap or issue description.
 ### Evolution Log (MANDATORY -- do not skip)
 
 Create the evolution log directory as the FIRST action:
-  docs/evolution/NNNN-short-name/prompt.md
+  docs/evolution/{{PHASE}}-short-name/prompt.md
+
+The orchestrator assigns the phase number ({{PHASE}}). Use EXACTLY this
+number -- do NOT auto-increment from existing directories on disk.
 
 ALL FOUR files are required. The PR MUST NOT be created until all exist:
   1. prompt.md -- created FIRST, before any code work

@@ -104,7 +104,10 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
     ISSUE_CONTEXT=$(gh issue view "$ISSUE" --json body --jq '.body' 2>/dev/null || echo "")
   fi
 
-  SESSION_PROMPT="${PROMPT_BASE}
+  # Inject phase number into prompt template
+  PROMPT_WITH_PHASE="${PROMPT_BASE//\{\{PHASE\}\}/$PHASE}"
+
+  SESSION_PROMPT="${PROMPT_WITH_PHASE}
 
 ### Issue Context
 
@@ -188,13 +191,15 @@ ${ISSUE_CONTEXT:-No issue body available. Refer to the issue title and manifest 
       *) set_phase_status "$PHASE" "failed_verify" ;;
     esac
     notify_error "$PHASE" "Verification failed (exit $VERIFY_EXIT). PR #${PR_NUMBER}"
-    continue
+    # Fall through to pacing -- do NOT continue here.
+    # Skipping pacing on failure would blow past act gates and
+    # run all remaining phases back-to-back.
   fi
 
   # Clean up worktrees
   cleanup_worktrees
 
-  # Pacing: pause between phases
+  # Pacing: pause between phases (runs on both success and failure)
   if [[ "$ACT_LAST" == "true" ]]; then
     # End of act: wait for GO signal
     notify_act_complete "$ACT" "$((i+1))"

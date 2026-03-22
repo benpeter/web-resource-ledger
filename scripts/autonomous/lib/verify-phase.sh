@@ -33,14 +33,27 @@ verify_and_merge() {
     return 1
   fi
 
-  # 2. Merge
-  log_info "Merging PR #${pr_number}..."
-  if ! gh pr merge "$pr_number" --squash --delete-branch 2>&1; then
-    log_error "Merge failed for PR #${pr_number}"
-    return 2
-  fi
+  # 2. Check if already merged (nefario sessions often merge their own PRs)
+  local pr_state
+  pr_state=$(gh pr view "$pr_number" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
 
-  log_info "PR #${pr_number} merged successfully"
+  if [[ "$pr_state" == "MERGED" ]]; then
+    log_info "PR #${pr_number} already merged (by nefario session)"
+  else
+    log_info "Merging PR #${pr_number}..."
+    if ! gh pr merge "$pr_number" --squash 2>&1; then
+      # Double-check: maybe it merged between the check and the attempt
+      pr_state=$(gh pr view "$pr_number" --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+      if [[ "$pr_state" == "MERGED" ]]; then
+        log_info "PR #${pr_number} was merged concurrently"
+      else
+        log_error "Merge failed for PR #${pr_number} (state: $pr_state)"
+        return 2
+      fi
+    else
+      log_info "PR #${pr_number} merged successfully"
+    fi
+  fi
 
   # 3. Wait for deploy (if not skipped)
   if [[ "$skip_deploy" != "true" ]]; then
