@@ -149,8 +149,8 @@ async function handleCaptureMessage(msg, env, ctx) {
         if (captureRecord) {
           await dispatchWebhooks(env, tenantId, 'capture.complete', captureRecord);
         }
-      } catch {
-        // Best-effort: webhook dispatch must never break the capture pipeline
+      } catch (err) {
+        log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
       }
     })());
   } else if (!result.retryable) {
@@ -163,8 +163,8 @@ async function handleCaptureMessage(msg, env, ctx) {
         if (captureRecord) {
           await dispatchWebhooks(env, tenantId, 'capture.failed', captureRecord);
         }
-      } catch {
-        // Best-effort: webhook dispatch must never break the capture pipeline
+      } catch (err) {
+        log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
       }
     })());
   } else {
@@ -205,8 +205,8 @@ async function handleDlqMessage(msg, env, ctx) {
         if (captureRecord) {
           await dispatchWebhooks(env, tenantId, 'capture.failed', captureRecord);
         }
-      } catch {
-        // Best-effort: webhook dispatch must never break the DLQ handler
+      } catch (err) {
+        log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
       }
     })());
   }
