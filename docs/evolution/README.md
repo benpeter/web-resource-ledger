@@ -57,3 +57,4 @@ software development.
 | [0047-d1-migration-metadata](0047-d1-migration-metadata/) | D1 migration for metadata -- KV to edge SQLite (Issue #96) |
 | [0048-brand-identity-design-system](0048-brand-identity-design-system/) | Brand identity and CSS design system -- tokens, components, logo, favicon (Issue #97) |
 | [0049-web-ui-capture-browsing](0049-web-ui-capture-browsing/) | Web UI for capture submission and browsing -- vanilla JS dashboard served from Worker (Issue #47) |
+| [0050-npm-publish-ci-automation](0050-npm-publish-ci-automation/) | npm publish CI automation -- GitHub Actions workflow, version bump tooling, changelog generation (Issue #98) |
