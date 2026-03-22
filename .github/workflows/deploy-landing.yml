@@ -6,8 +6,7 @@ on:
     paths:
       - 'landing/**'
       - 'src/design-system.css'
-      - 'site/assets/logo-w-check.svg'
-      - 'site/assets/favicon.svg'
+      - 'site/assets/*.svg'
   workflow_dispatch:
 
 # Note: CLOUDFLARE_API_TOKEN must have Workers Scripts:Edit and Workers Routes:Edit
@@ -31,8 +30,7 @@ jobs:
       - name: Copy SVG assets
         run: |
           mkdir -p landing/public/assets
-          cp site/assets/logo-w-check.svg landing/public/assets/logo-w-check.svg
-          cp site/assets/favicon.svg landing/public/assets/favicon.svg
+          cp site/assets/*.svg landing/public/assets/
 
       - uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
         with:

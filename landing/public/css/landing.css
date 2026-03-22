@@ -138,7 +138,8 @@ body {
   flex-shrink: 0;
 }
 
-.site-header__logo svg {
+.site-header__logo svg,
+.site-header__logo img {
   width: 28px;
   height: 28px;
 }
@@ -477,7 +478,8 @@ body {
   gap: var(--space-3);
 }
 
-.site-footer__brand svg {
+.site-footer__brand svg,
+.site-footer__brand img {
   width: 28px;
   height: 28px;
 }
