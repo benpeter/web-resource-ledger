@@ -20,6 +20,10 @@ node_modules/
 site/_output/
 site/node_modules/
 
+# Landing page assets copied at CI time (sources: src/ and site/assets/)
+landing/public/css/design-system.css
+landing/public/assets/
+
 # Logs
 *.log
 

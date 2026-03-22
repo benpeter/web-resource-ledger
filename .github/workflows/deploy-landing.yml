@@ -1,0 +1,40 @@
+name: Deploy Landing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - 'src/design-system.css'
+      - 'site/assets/logo-w-check.svg'
+      - 'site/assets/favicon.svg'
+  workflow_dispatch:
+
+# Note: CLOUDFLARE_API_TOKEN must have Workers Scripts:Edit and Workers Routes:Edit
+# permissions for the wrl-landing Worker. Prefer a resource-scoped token over account-wide.
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Copy design-system.css
+        run: cp src/design-system.css landing/public/css/design-system.css
+
+      - name: Copy SVG assets
+        run: |
+          cp site/assets/logo-w-check.svg landing/public/assets/logo-w-check.svg
+          cp site/assets/favicon.svg landing/public/assets/favicon.svg
+
+      - uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: landing
+          command: deploy
