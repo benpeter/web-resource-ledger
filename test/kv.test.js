@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { createCapture, completeCapture, failCapture, getCapture, tenantPrefix, listCaptures, createApiKeyRecord, getApiKeyRecord, revokeApiKeyRecord, listApiKeyRecords } from '../src/kv.js';
+import { createCapture, completeCapture, failCapture, getCapture, tenantPrefix, listCaptures, createApiKeyRecord, getApiKeyRecord, revokeApiKeyRecord, listApiKeyRecords, getTenantConfig, setTenantConfig, rateLimitWindowId, rateLimitCounter } from '../src/kv.js';
 import { hashApiKey } from '../src/auth.js';
 
 const TEST_ID = 'cap_test1234';
@@ -530,5 +530,228 @@ describe('listApiKeyRecords', () => {
     await createApiKeyRecord(env.KV, sha256hex, BASE_RECORD);
     const result = await listApiKeyRecords(env.KV);
     expect(result[0].keyHash).toBe(sha256hex);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tenant config
+// ---------------------------------------------------------------------------
+
+async function cleanupTenantConfig(tenantId) {
+  await env.KV.delete(`tenant:${tenantId}:config`);
+}
+
+describe('getTenantConfig', () => {
+  const TID = 'cfg-test';
+  beforeEach(() => cleanupTenantConfig(TID));
+  afterEach(() => cleanupTenantConfig(TID));
+
+  it('returns null when no config exists', async () => {
+    const result = await getTenantConfig(env.KV, TID);
+    expect(result).toBeNull();
+  });
+
+  it('returns parsed config after setTenantConfig', async () => {
+    await setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 100 } } }, 'admin');
+    const result = await getTenantConfig(env.KV, TID);
+    expect(result).not.toBeNull();
+    expect(result.rateLimit.capture.limit).toBe(100);
+  });
+
+  it('throws on invalid tenantId', async () => {
+    await expect(getTenantConfig(env.KV, 'BAD:ID')).rejects.toThrow();
+  });
+});
+
+describe('setTenantConfig', () => {
+  const TID = 'cfg-test2';
+  beforeEach(() => cleanupTenantConfig(TID));
+  afterEach(() => cleanupTenantConfig(TID));
+
+  it('returns record with updatedAt and updatedBy', async () => {
+    const result = await setTenantConfig(env.KV, TID, {}, 'admin');
+    expect(result.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(result.updatedBy).toBe('admin');
+  });
+
+  it('is a pure write -- replaces entire config', async () => {
+    await setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 50 } } }, 'admin');
+    await setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 200 } } }, 'admin');
+    const result = await getTenantConfig(env.KV, TID);
+    expect(result.rateLimit.capture.limit).toBe(200);
+  });
+
+  it('accepts config without rateLimit', async () => {
+    await expect(setTenantConfig(env.KV, TID, {}, 'admin')).resolves.not.toThrow();
+  });
+
+  it('throws when rateLimit.group.limit is not a positive integer', async () => {
+    await expect(setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 0 } } }, 'admin')).rejects.toThrow();
+    await expect(setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 1.5 } } }, 'admin')).rejects.toThrow();
+    await expect(setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: -1 } } }, 'admin')).rejects.toThrow();
+  });
+
+  it('throws when rateLimit.group.period is not 10 or 60', async () => {
+    await expect(
+      setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 10, period: 30 } } }, 'admin'),
+    ).rejects.toThrow();
+  });
+
+  it('accepts period 10 and 60', async () => {
+    await expect(
+      setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 10, period: 10 } } }, 'admin'),
+    ).resolves.not.toThrow();
+    await expect(
+      setTenantConfig(env.KV, TID, { rateLimit: { capture: { limit: 10, period: 60 } } }, 'admin'),
+    ).resolves.not.toThrow();
+  });
+
+  it('throws on invalid tenantId', async () => {
+    await expect(setTenantConfig(env.KV, 'BAD:ID', {}, 'admin')).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rateLimitWindowId (pure math -- no KV needed)
+// ---------------------------------------------------------------------------
+
+describe('rateLimitWindowId', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('returns consistent value within the same window', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:05.000Z')); // 5s into a 10s window
+    const id1 = rateLimitWindowId(10);
+    vi.setSystemTime(new Date('2024-01-01T00:00:09.999Z')); // still same window
+    const id2 = rateLimitWindowId(10);
+    expect(id1).toBe(id2);
+  });
+
+  it('returns different value after window boundary', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:09.999Z'));
+    const before = rateLimitWindowId(10);
+    vi.setSystemTime(new Date('2024-01-01T00:00:10.000Z'));
+    const after = rateLimitWindowId(10);
+    expect(after).toBe(before + 1);
+  });
+
+  it('returns different values for different periods at same moment', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:30.000Z'));
+    const id10 = rateLimitWindowId(10);
+    const id60 = rateLimitWindowId(60);
+    expect(id10).not.toBe(id60);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rateLimitCounter (unit tests with mock KV)
+// ---------------------------------------------------------------------------
+
+function makeMockKv(initial = {}) {
+  const store = { ...initial };
+  return {
+    async get(key) {
+      return store[key] ?? null;
+    },
+    async put(key, value) {
+      store[key] = value;
+    },
+    _store: store,
+  };
+}
+
+describe('rateLimitCounter', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('returns remaining = limit - 1 on first call (no prior count)', async () => {
+    const kv = makeMockKv();
+    const { remaining } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(remaining).toBe(9);
+  });
+
+  it('returns exceeded = false when current < limit', async () => {
+    const kv = makeMockKv();
+    const { exceeded } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(exceeded).toBe(false);
+  });
+
+  it('returns exceeded = true when current >= limit', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+    const windowId = rateLimitWindowId(60);
+    const kv = makeMockKv({ [`rl:acme:capture:${windowId}`]: '10' });
+    const { exceeded } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(exceeded).toBe(true);
+  });
+
+  it('returns remaining = 0 when current >= limit - 1', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+    const windowId = rateLimitWindowId(60);
+    // current = limit - 1 (last allowed request)
+    const kv = makeMockKv({ [`rl:acme:capture:${windowId}`]: '9' });
+    const { remaining, exceeded } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(remaining).toBe(0);
+    expect(exceeded).toBe(false);
+  });
+
+  it('exceeded uses current >= limit (blocks at exact boundary)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+    const windowId = rateLimitWindowId(60);
+    // current exactly at limit -- must be blocked
+    const kv = makeMockKv({ [`rl:acme:capture:${windowId}`]: '10' });
+    const { exceeded, remaining } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(exceeded).toBe(true);
+    expect(remaining).toBe(0);
+  });
+
+  it('writes incremented count to KV with expirationTtl = period * 2', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+    const windowId = rateLimitWindowId(60);
+    const key = `rl:acme:capture:${windowId}`;
+
+    const puts = [];
+    const kv = {
+      async get() { return null; },
+      async put(k, v, opts) { puts.push({ k, v, opts }); },
+    };
+
+    await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(puts).toHaveLength(1);
+    expect(puts[0].k).toBe(key);
+    expect(puts[0].v).toBe('1');
+    expect(puts[0].opts.expirationTtl).toBe(120); // 60 * 2
+  });
+
+  it('writePromise resolves without throwing', async () => {
+    const kv = makeMockKv();
+    const { writePromise } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    await expect(writePromise).resolves.not.toThrow();
+  });
+
+  it('returns resetIn >= 1', async () => {
+    const kv = makeMockKv();
+    const { resetIn } = await rateLimitCounter(kv, 'acme', 'capture', 10, 60);
+    expect(resetIn).toBeGreaterThanOrEqual(1);
+  });
+
+  it('uses correct window key for given tenantId and group', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-06-15T12:00:30.000Z'));
+    const windowId = rateLimitWindowId(10);
+    const expectedKey = `rl:tenant-x:batch:${windowId}`;
+
+    const gets = [];
+    const kv = {
+      async get(k) { gets.push(k); return null; },
+      async put() {},
+    };
+
+    await rateLimitCounter(kv, 'tenant-x', 'batch', 5, 10);
+    expect(gets[0]).toBe(expectedKey);
   });
 });

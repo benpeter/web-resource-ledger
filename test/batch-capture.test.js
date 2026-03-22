@@ -43,10 +43,18 @@ beforeEach(async () => {
   for (const k of keys) await env.KV.delete(k.name);
   const { keys: tenantKeys } = await env.KV.list({ prefix: 'tenant:' });
   for (const k of tenantKeys) await env.KV.delete(k.name);
+  const { keys: rlKeys } = await env.KV.list({ prefix: 'rl:' });
+  for (const k of rlKeys) await env.KV.delete(k.name);
   const { keys: apiKeys } = await env.KV.list({ prefix: 'apikey:' });
   for (const k of apiKeys) await env.KV.delete(k.name);
-  // Re-seed after wiping apikey: prefix
+  // Re-seed after wiping apikey: and tenant: prefixes
   await seedApiKey(env.KV, TEST_TENANT_KEY);
+  // Seed tenant config with high rate limit (batch tests send up to 20 URLs)
+  await env.KV.put('tenant:default:config', JSON.stringify({
+    rateLimit: { capture: { limit: 100, period: 60 } },
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'test',
+  }));
 });
 
 // ---------------------------------------------------------------------------
