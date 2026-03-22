@@ -53,8 +53,7 @@ capture_failures_payload() {
         "condition": {
           "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
           "threshold": 3,
-          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_5_OR_UNSPECIFIED"},
-          "evaluationWindow": "EVALUATION_WINDOW_ROLLING_OR_UNSPECIFIED"
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_5_OR_UNSPECIFIED"}
         },
         "override": {"priority": "ALERT_DEF_PRIORITY_P1"}
       }]
@@ -163,7 +162,7 @@ worker_errors_payload() {
     "logsThreshold": {
       "logsFilter": {
         "simpleFilter": {
-          "luceneQuery": "responseStatus:>=500",
+          "luceneQuery": "responseStatus:[500 TO *]",
           "labelFilters": {
             "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}]
           }
@@ -194,13 +193,16 @@ ALERT_JSON
 
 # Fetch all existing alerts and extract [WRL] ones
 fetch_existing_alerts() {
-  local response
-  response=$(curl -s -f -X GET "$API_BASE" \
+  local response http_code
+  response=$(curl -s -w '\n%{http_code}' -X GET "$API_BASE" \
     -H "Authorization: $API_KEY" \
-    -H "Content-Type: application/json") || {
-    err "Failed to list existing alerts"
+    -H "Content-Type: application/json")
+  http_code=$(echo "$response" | tail -1)
+  response=$(echo "$response" | sed '$d')
+  if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+    err "Failed to list existing alerts: HTTP $http_code: $response"
     return 1
-  }
+  fi
   echo "$response"
 }
 
@@ -208,7 +210,7 @@ fetch_existing_alerts() {
 find_alert_id() {
   local alerts_json="$1" name="$2"
   echo "$alerts_json" | jq -r --arg name "$name" \
-    '.alerts[]? | select(.alertDefProperties.name == $name) | .id // empty'
+    '.alertDefs[]? | select(.alertDefProperties.name == $name) | .id // empty'
 }
 
 # Create or update a single alert
@@ -242,11 +244,11 @@ upsert_alert() {
     # Check if update is needed by comparing key fields
     local existing_desc existing_query existing_threshold
     existing_desc=$(echo "$existing_alerts" | jq -r --arg name "$name" \
-      '.alerts[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.description // ""')
+      '.alertDefs[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.description // ""')
     existing_query=$(echo "$existing_alerts" | jq -r --arg name "$name" \
-      '.alerts[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.logsThreshold.logsFilter.simpleFilter.luceneQuery // ""')
+      '.alertDefs[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.logsThreshold.logsFilter.simpleFilter.luceneQuery // ""')
     existing_threshold=$(echo "$existing_alerts" | jq -r --arg name "$name" \
-      '.alerts[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.logsThreshold.rules[0].condition.threshold // 0')
+      '.alertDefs[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.logsThreshold.rules[0].condition.threshold // 0')
 
     local new_desc new_query new_threshold
     new_desc=$(echo "$payload" | jq -r '.alertDefProperties.description')
@@ -262,23 +264,31 @@ upsert_alert() {
     local update_payload
     update_payload=$(echo "$payload" | jq --arg id "$existing_id" '. + {id: $id}')
 
-    response=$(curl -s -f -X PUT "$API_BASE" \
+    local http_code
+    response=$(curl -s -w '\n%{http_code}' -X PUT "$API_BASE" \
       -H "Authorization: $API_KEY" \
       -H "Content-Type: application/json" \
-      -d "$update_payload") || {
-      err "Failed to update alert '$name' (id: $existing_id)"
+      -d "$update_payload")
+    http_code=$(echo "$response" | tail -1)
+    response=$(echo "$response" | sed '$d')
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+      err "Failed to update alert '$name' (id: $existing_id): HTTP $http_code: $response"
       return 1
-    }
+    fi
     log "[UPDATE] $name (id: $existing_id)"
   else
     # Create: POST
-    response=$(curl -s -f -X POST "$API_BASE" \
+    local http_code
+    response=$(curl -s -w '\n%{http_code}' -X POST "$API_BASE" \
       -H "Authorization: $API_KEY" \
       -H "Content-Type: application/json" \
-      -d "$payload") || {
-      err "Failed to create alert '$name'"
+      -d "$payload")
+    http_code=$(echo "$response" | tail -1)
+    response=$(echo "$response" | sed '$d')
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+      err "Failed to create alert '$name': HTTP $http_code: $response"
       return 1
-    }
+    fi
     local new_id
     new_id=$(echo "$response" | jq -r '.alertDef.id // "unknown"')
     log "[CREATE] $name (id: $new_id)"
@@ -298,7 +308,7 @@ main() {
   existing_alerts=$(fetch_existing_alerts) || exit 1
 
   local existing_count
-  existing_count=$(echo "$existing_alerts" | jq '.alerts | length // 0')
+  existing_count=$(echo "$existing_alerts" | jq '.alertDefs | length // 0')
   log "Found $existing_count existing alert(s)"
   log ""
 
