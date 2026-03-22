@@ -543,10 +543,13 @@ function rowToWebhook(row, opts = {}) {
  * @returns {Promise<object>}
  */
 export async function createWebhook(db, { id, tenantId, url, name, secret, events }) {
-  await db.prepare(
-    `INSERT INTO webhooks (id, tenant_id, url, name, secret, events)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).bind(id, tenantId, url, name, secret, JSON.stringify(events)).run();
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT INTO webhooks (id, tenant_id, url, name, secret, events)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).bind(id, tenantId, url, name, secret, JSON.stringify(events)),
+  ]);
 
   const row = await db.prepare('SELECT * FROM webhooks WHERE id = ?').bind(id).first();
   return rowToWebhook(row, { includeSecret: true });
