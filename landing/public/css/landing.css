@@ -1,0 +1,561 @@
+/* WRL Landing Page Styles */
+/* Extends src/design-system.css -- do NOT modify design-system.css */
+
+/* tva */
+
+/* ===================================================================
+   1. Landing-specific tokens
+   =================================================================== */
+
+:root {
+  /* Extended type scale for hero/section headings */
+  --text-3xl: clamp(1.75rem, 4vw, 2.25rem);
+  --text-hero: clamp(2.5rem, 6vw, 3.5rem);
+
+  /* Extended spacing scale */
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* Layout */
+  --container-max: 1120px;
+  --header-height: 60px;
+  --section-pad-v: var(--space-16);
+}
+
+/* ===================================================================
+   2. Smooth scrolling (respects prefers-reduced-motion)
+   =================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* ===================================================================
+   3. Base reset and body
+   =================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* ===================================================================
+   4. Skip link
+   =================================================================== */
+
+.skip-link:focus {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 9999;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  clip: auto;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+/* ===================================================================
+   5. Container
+   =================================================================== */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
+/* ===================================================================
+   6. Button extensions
+   =================================================================== */
+
+.btn--lg {
+  min-height: 52px;
+  padding: var(--space-3) var(--space-8);
+  font-size: var(--text-md);
+}
+
+/* Ghost button for dark backgrounds */
+.btn--inverse {
+  background: transparent;
+  color: var(--color-primary-text);
+  border-color: rgba(248, 248, 250, 0.4);
+}
+
+.btn--inverse:hover {
+  background: rgba(248, 248, 250, 0.1);
+  border-color: rgba(248, 248, 250, 0.7);
+}
+
+/* Focus indicators on dark backgrounds */
+.hero .btn:focus-visible,
+.site-footer a:focus-visible {
+  outline-color: var(--color-primary-text);
+}
+
+/* ===================================================================
+   7. Site header
+   =================================================================== */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--header-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  gap: var(--space-4);
+}
+
+.site-header__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.site-header__logo svg {
+  width: 28px;
+  height: 28px;
+}
+
+.site-header__wordmark {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+}
+
+.site-header nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.site-header nav a {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.site-header nav a:hover {
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}
+
+.site-header nav a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===================================================================
+   8. Section base (landing override -- sections here are big)
+   =================================================================== */
+
+.landing-section {
+  padding: var(--section-pad-v) 0;
+  scroll-margin-top: calc(var(--header-height) + var(--space-4));
+}
+
+.landing-section--white {
+  background: var(--color-surface);
+}
+
+.landing-section--muted {
+  background: var(--color-surface-muted);
+}
+
+.section-header {
+  margin-bottom: var(--space-12);
+  text-align: center;
+}
+
+.section-header h2 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.section-header p {
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+  max-width: 55ch;
+  margin: 0 auto;
+}
+
+/* ===================================================================
+   9. Hero section
+   =================================================================== */
+
+.hero {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  padding: var(--space-24) 0;
+}
+
+.hero__inner {
+  max-width: 700px;
+}
+
+.hero h1 {
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-hero);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.03em;
+  max-width: 20ch;
+  color: var(--color-primary-text);
+}
+
+.hero__tagline {
+  margin: 0 0 var(--space-8);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: rgba(248, 248, 250, 0.85);
+  max-width: 55ch;
+  font-weight: var(--weight-medium);
+}
+
+.hero__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+/* Hero button colors: primary on dark bg becomes an inverted solid */
+.hero .btn--primary {
+  background: var(--color-primary-text);
+  color: var(--color-primary);
+  border-color: var(--color-primary-text);
+}
+
+.hero .btn--primary:hover {
+  background: #e8e8ea;
+  border-color: #e8e8ea;
+}
+
+/* ===================================================================
+   10. How It Works section
+   =================================================================== */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-8);
+}
+
+.step {
+  display: flex;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+
+.step__number {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.step__body h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+.step__body p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* 3-column at desktop */
+@media (min-width: 1024px) {
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-8);
+  }
+
+  .step {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+}
+
+/* ===================================================================
+   11. Use cases section
+   =================================================================== */
+
+.use-cases-grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.use-case-card {
+  padding: var(--space-6);
+}
+
+.use-case-card h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+.use-case-card p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* 2-col at tablet */
+@media (min-width: 768px) {
+  .use-cases-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 4-col at desktop */
+@media (min-width: 1024px) {
+  .use-cases-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ===================================================================
+   12. Pricing section
+   =================================================================== */
+
+.pricing-grid {
+  display: grid;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+.pricing-card {
+  position: relative;
+  padding: var(--space-8);
+}
+
+.pricing-card__tier {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.pricing-card__tier h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+.pricing-card__price {
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.pricing-card__price span {
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  color: var(--color-text-muted);
+}
+
+.pricing-card__description {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* Featured (Evidence) card */
+.pricing-card--featured {
+  border-color: var(--color-accent);
+  border-width: 2px;
+}
+
+.pricing-card--featured::before {
+  content: "Recommended";
+  position: absolute;
+  top: -1px;
+  left: var(--space-8);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+/* 3-col at tablet+ */
+@media (min-width: 768px) {
+  .pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.pricing-note {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+/* Badge variant for "Coming soon" */
+.badge--info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  border-color: var(--color-info);
+}
+
+/* ===================================================================
+   13. Footer
+   =================================================================== */
+
+.site-footer {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  padding: var(--space-16) 0 var(--space-8);
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.site-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.site-footer__brand svg {
+  width: 28px;
+  height: 28px;
+}
+
+.site-footer__wordmark {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-primary-text);
+}
+
+.site-footer__tagline {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.7);
+}
+
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.site-footer nav a {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.8);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+}
+
+.site-footer nav a:hover {
+  color: var(--color-primary-text);
+  background: rgba(248, 248, 250, 0.1);
+}
+
+.site-footer__bottom {
+  padding-top: var(--space-6);
+  border-top: 1px solid rgba(248, 248, 250, 0.15);
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.6);
+}
+
+/* ===================================================================
+   14. Responsive adjustments
+   =================================================================== */
+
+@media (max-width: 767px) {
+  :root {
+    --section-pad-v: var(--space-12);
+  }
+
+  .hero {
+    padding: var(--space-16) 0;
+  }
+
+  .container {
+    padding: 0 var(--space-4);
+  }
+
+  .site-header__wordmark {
+    display: none;
+  }
+
+  .pricing-card--featured::before {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .site-footer__inner {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .site-footer__brand {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

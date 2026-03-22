@@ -149,6 +149,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] E2E Playwright browser tests for Web UI | When client-side JS complexity grows beyond current 3-view scope | Phase 0049, test-minion |
 | [consider] AbortController for auth validation timeout | When auth UX polish is prioritized; currently low-risk race window | Phase 0049, code-review-minion |
 | [consider] OAuth for web UI (upgrade from API key input) | When persistent auth and multi-user sessions are needed | Phase 0049, security-minion |
+| [consider] OG image for landing page | When landing page visual design is considered final; placeholder worse than none | Phase 0052 |
+| [consider] Fix --color-text-muted contrast on landing page | When a11y audit runs; apply local override (same pattern as docs site in Phase 0051) | Phase 0052 |
 
 ---
 
@@ -208,6 +210,7 @@ Completed items removed from active tracking:
 - ~~R22: Coralogix alerting rules~~ -- DONE (Phase 0046): 4 alert rules (capture failures, TSA failures, auth spikes, worker errors), provisioning script, runbooks, alert documentation
 - ~~R30: D1 migration for metadata~~ -- DONE (Phase 0047): all metadata (captures, tenants, API keys, signing keys) migrated from KV to D1, offset/limit pagination with SQL filtering and sorting, KV retained only for rate limit counters
 - ~~R19: Documentation site~~ -- DONE (Phase 0051): 11ty v3 static site at docs.webresourceledger.com, 6 guide pages, OpenAPI-generated API reference, WRL brand design system, Cloudflare Workers Static Assets deployment
+- ~~R23: Landing page~~ -- DONE (Phase 0052): static HTML/CSS at webresourceledger.com, zero JS, full SEO (JSON-LD, OG, sitemap), WCAG AA, Cloudflare Workers Static Assets (Issue #100)
 
 ---
 
