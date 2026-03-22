@@ -832,9 +832,8 @@ components:
           minimum: 0
           example: 128
         updatedAt:
-          type: string
+          type: ['string', 'null']
           format: date-time
-          nullable: true
           description: >
             Last time counters were updated. Null if no activity in the period.
           example: '2026-03-22T14:30:00.000Z'
@@ -1184,6 +1183,12 @@ paths:
               schema:
                 type: string
                 enum: [no-store]
+        '403':
+          description: Origin not allowed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
     get:
       operationId: listCaptures
       summary: List captures
