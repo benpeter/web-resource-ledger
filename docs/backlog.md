@@ -44,7 +44,7 @@ word "evidence" defensible.
 
 Expand WRL into a platform that other tools and agents build on.
 
-- #45 **R15: MCP server for web evidence** [M] -- AI agent integration; depends on R1, R11 recommended
+- ~~#45 **R15: MCP server for web evidence** [M]~~ -- DONE: MCP adapter with 4 tools (capture_url, get_capture, list_captures, verify_capture), Streamable HTTP transport, docs, server.json registry
 - #46 **R16: Queue migration for capture processing** [M] -- data-driven: when timeouts >5%; staged fallback now handles partial captures, R16 still needed for full WACZ on all captures
 - #47 **R17: Web UI for capture submission** [M] -- browser-based capture; depends on R1, R3
 - #48 **R18: Batch capture endpoint** [M] -- bulk archival workflows; depends on R1, R5
