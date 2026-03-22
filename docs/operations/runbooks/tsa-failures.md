@@ -21,7 +21,7 @@ Look at:
 - `tsaUrl` — which TSA endpoint was attempted
 - Timing — are failures continuous or intermittent?
 
-Also check: [Sectigo status page](https://sectigo.com/support) for known outages.
+Also check: [Sectigo status page](https://status.sectigo.com) for known outages.
 
 ## Likely causes
 
