@@ -121,7 +121,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Cross-document anchor link lint in CI | When cross-document link rot is observed | software-docs-minion, 0026-secrets-env-docs-onboarding |
 | [consider] Session pre-warming via cron | When Coralogix shows cold-start latency is measurable | iac-minion |
 | [should] Coralogix DLQ alert for queue capture failures | When queue migration deploys to production; monitor capture.dlq events | observability-minion, 0044-queue-migration |
-| [consider] Coralogix alerting rules | When operational load justifies alerting | observability-minion, mvo-coralogix |
+| ~~[consider] Coralogix alerting rules~~ | ~~When operational load justifies alerting~~ -- DONE (Phase 0046): 4 alert rules, provisioning script, runbooks | observability-minion, mvo-coralogix |
 | [consider] Queue architecture documentation update | When queue migration is verified in production | software-docs-minion, 0044-queue-migration |
 | [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
@@ -200,6 +200,7 @@ Completed items removed from active tracking:
 - ~~R14: Production CD pipeline~~ -- DONE (cd-pipeline phase): deploy-production.yml, OPERATIONS.md, environment protection with approval gate
 - ~~R12: Per-tenant API keys and tenant isolation~~ -- DONE (Phase 0037): KV-based key lookup with SHA-256 hash, admin API (POST/GET/DELETE /v1/admin/keys), dual-mode legacy fallback, scope enforcement (capture/read/admin), ADMIN_KEY infrastructure secret
 - ~~R21: Per-tenant rate limiting~~ -- DONE (Phase 0045): dual-layer enforcement (CF ceiling + KV counter + IP guard), X-RateLimit-* headers, KV-based tenant config overrides, admin config endpoints
+- ~~R22: Coralogix alerting rules~~ -- DONE (Phase 0046): 4 alert rules (capture failures, TSA failures, auth spikes, worker errors), provisioning script, runbooks, alert documentation
 
 ---
 
