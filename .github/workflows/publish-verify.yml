@@ -33,6 +33,7 @@ jobs:
           node-version-file: '.nvmrc'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
+          cache-dependency-path: 'packages/verify/package-lock.json'
 
       - name: Install dependencies
         working-directory: packages/verify

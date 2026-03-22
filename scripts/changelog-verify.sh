@@ -76,9 +76,8 @@ if [ ! -f "$CHANGELOG" ]; then
   printf '# Changelog\n' > "$CHANGELOG"
 fi
 
-EXISTING=$(cat "$CHANGELOG")
-printf '%s\n\n%s\n' "# Changelog" "$(printf '%b' "$NEW_SECTION")" > "$CHANGELOG"
-echo "${EXISTING#*$'\n'}" >> "$CHANGELOG"
+EXISTING_BODY=$(tail -n +2 "$CHANGELOG" | sed '/./,$!d')
+printf '# Changelog\n\n%b\n%s\n' "$NEW_SECTION" "$EXISTING_BODY" > "$CHANGELOG"
 
 echo "Generated v${NEXT} section in ${CHANGELOG}"
 echo ""
