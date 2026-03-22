@@ -31,6 +31,8 @@
  *   tenant:{tenantId}:ts:{ISO}:{captureId}     -- tenant listing index
  *   signing-key:{keyId}                        -- archived signing keys
  *   apikey:{sha256hex}                         -- API key records (64 hex chars)
+ *   tenant:{tenantId}:config                   -- tenant configuration (rate limit overrides, future settings)
+ *   rl:{tenantId}:{group}:{windowId}           -- rate limit sliding window counters (TTL: period * 2)
  */ // tva
 
 const KEY_PREFIX = 'capture:';
@@ -245,6 +247,100 @@ export async function listCaptures(kv, tenantId, { cursor, limit = 20, status } 
     data: page,
     pagination: { cursor: cursorStr, hasMore: !!cursorStr, limit },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Tenant configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Read tenant configuration. Returns null if no config exists (use defaults).
+ */
+export async function getTenantConfig(kv, tenantId) {
+  if (!TENANT_ID_RE.test(tenantId)) {
+    throw new Error(`Invalid tenantId: ${tenantId}`);
+  }
+  return kv.get(`tenant:${tenantId}:config`, 'json');
+}
+
+/**
+ * Write tenant configuration (pure write, replaces entire config).
+ * Validates rate limit values.
+ */
+export async function setTenantConfig(kv, tenantId, config, updatedBy) {
+  if (!TENANT_ID_RE.test(tenantId)) {
+    throw new Error(`Invalid tenantId: ${tenantId}`);
+  }
+
+  // Validate rate limit overrides if present
+  if (config.rateLimit) {
+    for (const [group, limits] of Object.entries(config.rateLimit)) {
+      if (typeof limits.limit !== 'number' || limits.limit < 1 || !Number.isInteger(limits.limit)) {
+        throw new Error(`rateLimit.${group}.limit must be a positive integer`);
+      }
+      if (limits.period !== undefined && limits.period !== 10 && limits.period !== 60) {
+        throw new Error(`rateLimit.${group}.period must be 10 or 60 (Cloudflare constraint)`);
+      }
+    }
+  }
+
+  const record = {
+    ...config,
+    updatedAt: new Date().toISOString(),
+    updatedBy,
+  };
+
+  await kv.put(`tenant:${tenantId}:config`, JSON.stringify(record));
+  return record;
+}
+
+// ---------------------------------------------------------------------------
+// Rate limit counters (informational -- enforcement is via CF binding)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the window ID for the current time and period.
+ * @param {number} period  Window size in seconds (10 or 60)
+ * @returns {number}
+ */
+export function rateLimitWindowId(period) {
+  return Math.floor(Date.now() / (period * 1000));
+}
+
+/**
+ * Read and increment the rate limit counter for a tenant+group.
+ * Returns the count BEFORE this request is counted.
+ * The check uses `current >= limit` to correctly block at the boundary.
+ *
+ * Non-blocking: the KV write (increment) is returned as a Promise
+ * for the caller to pass to ctx.waitUntil().
+ *
+ * @param {KVNamespace} kv
+ * @param {string} tenantId
+ * @param {string} group  Rate limit group name (e.g., 'capture')
+ * @param {number} limit  The tenant's effective limit for this group
+ * @param {number} period  Window size in seconds
+ * @returns {Promise<{ remaining: number, resetIn: number, exceeded: boolean, writePromise: Promise<void> }>}
+ */
+export async function rateLimitCounter(kv, tenantId, group, limit, period) {
+  const windowId = rateLimitWindowId(period);
+  const key = `rl:${tenantId}:${group}:${windowId}`;
+
+  const raw = await kv.get(key);
+  const current = raw ? parseInt(raw, 10) : 0;
+  const exceeded = current >= limit;
+  const remaining = Math.max(0, limit - current - 1);
+
+  // Seconds until current window resets
+  const windowStart = windowId * period;
+  const resetIn = Math.max(1, (windowStart + period) - Math.floor(Date.now() / 1000));
+
+  // Non-blocking write -- caller passes to ctx.waitUntil()
+  const writePromise = kv.put(key, String(current + 1), {
+    expirationTtl: period * 2,
+  });
+
+  return { remaining, resetIn, exceeded, writePromise };
 }
 
 // ---------------------------------------------------------------------------
