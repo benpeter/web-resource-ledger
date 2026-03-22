@@ -64,9 +64,10 @@ cpu_ms = 60000
 
 # --- Custom domain ---
 # Cloudflare auto-provisions DNS records when custom_domain = true.
-[[routes]]
-pattern = "api.webresourceledger.com"
-custom_domain = true
+# NOTE: routes use inline array syntax to prevent inheritance into staging env.
+routes = [
+  { pattern = "api.webresourceledger.com", custom_domain = true }
+]
 
 # --- Queue architecture ---
 # Two queues per environment:
@@ -140,9 +141,10 @@ TSA_URL = "http://timestamp.digicert.com"
 
 [env.staging]
 
-[[env.staging.routes]]
-pattern = "staging.webresourceledger.com"
-custom_domain = true
+# Custom domain deferred -- staging.webresourceledger.com
+# [[env.staging.routes]]
+# pattern = "staging.webresourceledger.com"
+# custom_domain = true
 
 [[env.staging.d1_databases]]
 binding = "DB"
