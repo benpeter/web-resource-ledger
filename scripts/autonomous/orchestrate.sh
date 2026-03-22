@@ -288,8 +288,9 @@ ${SELF_HEAL_SUFFIX}"
     fi
 
     if [[ $ATTEMPT -ge $MAX_PHASE_ATTEMPTS ]]; then
-      log_error "Phase $PHASE: all $MAX_PHASE_ATTEMPTS attempts exhausted"
-      notify_error "$PHASE" "Failed after $MAX_PHASE_ATTEMPTS attempts. Last status: $(get_phase_status "$PHASE")"
+      log_error "Phase $PHASE: all $MAX_PHASE_ATTEMPTS attempts exhausted -- PAUSING"
+      notify_error "$PHASE" "Failed after $MAX_PHASE_ATTEMPTS attempts. Orchestrator paused. Status: $(get_phase_status "$PHASE")"
+      touch "${HOME}/wrl-pause"
       break
     fi
 
@@ -306,8 +307,9 @@ ${SELF_HEAL_SUFFIX}"
       notify "Self-healing retry" "Phase $PHASE attempt $((ATTEMPT+1))/$MAX_PHASE_ATTEMPTS. Diagnosis: $DIAGNOSIS" "default" "wrench"
       sleep 60
     else
-      log_error "Phase $PHASE: no self-heal fix available for '$DIAGNOSIS'"
-      notify_error "$PHASE" "Failed (${DIAGNOSIS}), no auto-fix. Status: $(get_phase_status "$PHASE")"
+      log_error "Phase $PHASE: no self-heal fix for '$DIAGNOSIS' -- PAUSING"
+      notify_error "$PHASE" "Failed (${DIAGNOSIS}), no auto-fix. Orchestrator paused. Touch ~/wrl-go to resume."
+      touch "${HOME}/wrl-pause"
       break
     fi
 
