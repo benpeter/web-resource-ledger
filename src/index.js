@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, listCaptures, listArchivedSigningKeys } from './kv.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE } from './kv.js';
 import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
 import { getSigningKeys } from './signing.js';
@@ -50,7 +50,139 @@ function getRateLimitGroup(method, pathname) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Queue consumer helpers
+// ---------------------------------------------------------------------------
+
+async function handleCaptureMessage(msg, env, ctx) {
+  const { url, ip, captureId, tenantId, cip, enqueuedAt } = msg.body ?? {};
+
+  // Defense-in-depth: validate message structure before trusting it
+  const valid =
+    typeof tenantId === 'string' && TENANT_ID_RE.test(tenantId) &&
+    typeof captureId === 'string' && /^cap_[a-f0-9]{32}$/.test(captureId) &&
+    typeof url === 'string' && url.length > 0;
+
+  if (valid) {
+    // Also run SSRF check on the URL from the queue message
+    const urlCheck = await validateUrl(url);
+    if (!urlCheck.ok) {
+      ctx.waitUntil(log(env, 5, 'capture', {
+        event: 'capture.invalid_message',
+        captureId,
+        tenantId,
+        reason: 'url_validation_failed',
+        detail: urlCheck.detail,
+      }) ?? Promise.resolve());
+      msg.ack();
+      return;
+    }
+  }
+
+  if (!valid) {
+    ctx.waitUntil(log(env, 5, 'capture', {
+      event: 'capture.invalid_message',
+      captureId: captureId ?? null,
+      tenantId: tenantId ?? null,
+      reason: 'invalid_message_structure',
+    }) ?? Promise.resolve());
+    msg.ack();
+    return;
+  }
+
+  // Idempotency guard: skip if already terminal
+  const existing = await getCapture(env.KV, captureId);
+  if (existing && (existing.status === 'complete' || existing.status === 'failed')) {
+    msg.ack();
+    return;
+  }
+
+  const queueTimeMs = Date.now() - msg.timestamp.getTime();
+
+  ctx.waitUntil(log(env, 3, 'capture', {
+    event: 'capture.dequeued',
+    captureId,
+    tenantId,
+    url,
+    attempt: msg.attempts,
+    queueTimeMs,
+  }) ?? Promise.resolve());
+
+  let result;
+  try {
+    result = await performCapture(env, url, ip, captureId, tenantId, cip, undefined, msg.attempts);
+  } catch (err) {
+    // Catastrophic error (OOM, binding failure, etc.)
+    if (msg.attempts >= 4) {
+      try {
+        await failCapture(env.KV, captureId, 'Capture permanently failed after catastrophic error', false);
+      } catch {
+        // Best-effort -- do not block ack
+      }
+      msg.ack();
+    } else {
+      const delay = Math.min(10 * Math.pow(2, msg.attempts - 1), 300);
+      msg.retry({ delaySeconds: delay });
+    }
+    return;
+  }
+
+  if (result.ok === true) {
+    msg.ack();
+  } else if (!result.retryable) {
+    // Already written to KV as failed by performCapture
+    msg.ack();
+  } else {
+    const delay = Math.min(10 * Math.pow(2, msg.attempts - 1), 300);
+    ctx.waitUntil(log(env, 4, 'capture', {
+      event: 'capture.retry',
+      captureId,
+      tenantId,
+      attempt: msg.attempts,
+      retryDelaySeconds: delay,
+      retryReason: result.error,
+    }) ?? Promise.resolve());
+    msg.retry({ delaySeconds: delay });
+  }
+}
+
+async function handleDlqMessage(msg, env, ctx) {
+  const { captureId, tenantId, url } = msg.body ?? {};
+
+  ctx.waitUntil(log(env, 5, 'capture', {
+    event: 'capture.dlq',
+    captureId: captureId ?? null,
+    tenantId: tenantId ?? null,
+    url: url ?? null,
+    attempts: msg.attempts,
+  }) ?? Promise.resolve());
+
+  if (captureId) {
+    try {
+      await failCapture(env.KV, captureId, 'Capture permanently failed after all retry attempts', false);
+    } catch {
+      // Best-effort
+    }
+  }
+
+  msg.ack();
+}
+
+// ---------------------------------------------------------------------------
+// Worker default export
+// ---------------------------------------------------------------------------
+
 export default {
+  async queue(batch, env, ctx) {
+    for (const msg of batch.messages) {
+      if (batch.queue.endsWith('-dlq')) {
+        await handleDlqMessage(msg, env, ctx);
+      } else {
+        await handleCaptureMessage(msg, env, ctx);
+      }
+    }
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // Normalize trailing slashes: /health/ matches /health
@@ -259,9 +391,9 @@ async function handleCreateCapture(request, env, ctx) {
     return problemResponse(500, 'Could not create capture record');
   }
 
-  // Step 9: Log capture dispatch (bridge event: ties captureId to keyName for correlation)
+  // Step 9: Log capture accepted (bridge event: ties captureId to keyName for correlation)
   ctx.waitUntil(log(env, 3, 'capture', {
-    event: 'capture.queued',
+    event: 'capture.accepted',
     captureId,
     tenantId,
     keyName,
@@ -272,8 +404,28 @@ async function handleCreateCapture(request, env, ctx) {
     cip,
   }) ?? Promise.resolve());
 
-  // Step 10a: Trigger background capture
-  ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
+  // Step 10a: Dispatch to queue
+  try {
+    await env.CAPTURE_QUEUE.send({
+      captureId, url: result.url, ip: result.ip, tenantId, cip,
+      enqueuedAt: Date.now(),
+    });
+  } catch (err) {
+    await failCapture(env.KV, captureId, 'Queue dispatch failed', true);
+    ctx.waitUntil(log(env, 5, 'capture', {
+      event: 'capture.enqueue_fail', captureId, tenantId, cip,
+      errorMessage: String(err?.message ?? '').slice(0, 256),
+    }) ?? Promise.resolve());
+    return problemResponse(500, 'Could not dispatch capture');
+  }
+
+  ctx.waitUntil(log(env, 3, 'capture', {
+    event: 'capture.enqueued',
+    captureId,
+    tenantId,
+    url: result.url,
+    cip,
+  }) ?? Promise.resolve());
 
   // Step 10b: Build absolute status URL
   const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
@@ -283,7 +435,7 @@ async function handleCreateCapture(request, env, ctx) {
     id: captureId,
     statusUrl,
     note: 'Use GET /v1/captures to list and search your captures.',
-  }, 202, { 'Retry-After': '5' });
+  }, 202, { 'Retry-After': '10' });
 }
 
 async function handleBatchCapture(request, env, ctx) {
@@ -345,6 +497,7 @@ async function handleBatchCapture(request, env, ctx) {
 
   // Step 7: Process each URL sequentially
   const items = [];
+  const queueMessages = [];
   let rateLimitedStatus = null; // 429 or 503 if a limiter fires mid-batch
 
   for (let i = 0; i < body.urls.length; i++) {
@@ -421,9 +574,9 @@ async function handleBatchCapture(request, env, ctx) {
       continue;
     }
 
-    // Log and dispatch
+    // Log accepted and stage for queue dispatch
     ctx.waitUntil(log(env, 3, 'capture', {
-      event: 'capture.queued',
+      event: 'capture.accepted',
       captureId,
       tenantId,
       keyName,
@@ -433,10 +586,29 @@ async function handleBatchCapture(request, env, ctx) {
       url: result.url,
       cip,
     }) ?? Promise.resolve());
-    ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, tenantId, cip));
+
+    queueMessages.push({
+      body: { captureId, url: result.url, ip: result.ip, tenantId, cip, enqueuedAt: Date.now() },
+    });
 
     const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
     items.push(batchItemSuccess(result.url, captureId, statusUrl));
+  }
+
+  // Enqueue all accepted captures
+  if (queueMessages.length > 0) {
+    try {
+      await env.CAPTURE_QUEUE.sendBatch(queueMessages);
+    } catch (err) {
+      for (const qm of queueMessages) {
+        await failCapture(env.KV, qm.body.captureId, 'Queue dispatch failed', true);
+      }
+      ctx.waitUntil(log(env, 5, 'capture', {
+        event: 'capture.batch_enqueue_fail', tenantId, cip,
+        count: queueMessages.length,
+        errorMessage: String(err?.message ?? '').slice(0, 256),
+      }) ?? Promise.resolve());
+    }
   }
 
   // Step 8: Build summary
@@ -841,7 +1013,7 @@ async function handleCaptureStatus(request, env, ctx, match) {
   if (record.status === 'pending') {
     return jsonResponse({ id: captureId, status: 'pending' }, 200, {
       ...headers,
-      'Retry-After': '5',
+      'Retry-After': '10',
     });
   }
 
