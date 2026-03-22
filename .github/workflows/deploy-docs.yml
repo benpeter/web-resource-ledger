@@ -1,0 +1,69 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'openapi.yaml'
+      - 'src/design-system.css'
+  workflow_dispatch:
+
+# Note: CLOUDFLARE_API_TOKEN must have Workers Scripts:Edit and Workers Routes:Edit
+# permissions for the wrl-docs Worker. Prefer a resource-scoped token over account-wide.
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install site dependencies
+        run: cd site && npm ci
+
+      - name: Build docs
+        run: npm run build:docs
+
+      - name: Check internal links
+        run: |
+          broken=$(find site/_output -name '*.html' \
+            -exec grep -oP 'href="(/[^"]*)"' {} \; \
+            | sort -u \
+            | while read -r link; do
+                path="site/_output${link%/}/index.html"
+                if [ ! -f "$path" ] && [ ! -f "site/_output${link}" ]; then
+                  echo "BROKEN: $link"
+                fi
+              done)
+          if [ -n "$broken" ]; then
+            echo "$broken"
+            exit 1
+          fi
+
+      - name: Lighthouse accessibility check
+        run: |
+          npx @lhci/cli autorun \
+            --collect.staticDistDir=site/_output \
+            --assert.assertions.categories:accessibility=error \
+            --assert.minScore.accessibility=0.9 \
+            --upload.target=temporary-public-storage
+
+      - uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: site
+          command: deploy

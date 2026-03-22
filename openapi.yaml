@@ -9,9 +9,9 @@ info:
     identifier: Apache-2.0
 
 servers:
-  - url: https://wrl.example.com
+  - url: https://wrl.benpeter.workers.dev
     description: Production
-  - url: https://wrl-staging.example.workers.dev
+  - url: https://wrl-staging.benpeter.workers.dev
     description: Staging
 
 tags:
