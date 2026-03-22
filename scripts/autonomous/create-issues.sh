@@ -35,6 +35,9 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
     continue
   fi
 
+  # Ensure act label exists
+  gh label create "act-${ACT}" --color "0e8a16" --force 2>/dev/null || true
+
   # Check if spec file exists
   SPEC_FILE="$SPECS_DIR/${ITEM}.md"
   if [[ ! -f "$SPEC_FILE" ]]; then

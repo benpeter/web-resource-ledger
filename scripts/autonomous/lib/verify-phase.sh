@@ -263,10 +263,10 @@ extract_pr_number() {
 
   # Try to find PR URL in the output
   local pr_url
-  pr_url=$(grep -oE 'https://github\.com/[^/]+/[^/]+/pull/\d+' "$json_file" 2>/dev/null | head -1 || true)
+  pr_url=$(grep -oE 'https://github\.com/[^/]+/[^/]+/pull/[0-9]+' "$json_file" 2>/dev/null | head -1 || true)
 
   if [[ -n "$pr_url" ]]; then
-    echo "$pr_url" | grep -oE '\d+$'
+    echo "$pr_url" | grep -oE '[0-9]+$'
     return 0
   fi
 

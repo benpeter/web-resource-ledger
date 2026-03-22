@@ -104,6 +104,12 @@ Examples:
 This applies to ALL environments (production and staging). If you add a
 binding to both environments, provision the resource for both.
 
+**wrangler.test.toml**: If you modify `wrangler.toml` (new bindings, changed
+rate limits, new queues), regenerate `wrangler.test.toml` by copying
+`wrangler.toml` and removing all `[[queues.consumers]]` sections. Queue
+consumers cause miniflare to auto-consume messages during tests, crashing
+the workerd runtime. CI will fail if `wrangler.test.toml` is stale.
+
 ### Error Signaling
 
 If an unrecoverable error occurs, output a line starting with
