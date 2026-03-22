@@ -61,7 +61,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 |------|-----------|--------|
 | ~~[must:multi-user] API key rotation without downtime~~ | ~~When R12 (per-tenant keys) ships~~ -- R12 shipped; key rotation now possible via create + revoke flow | security-minion, kickoff |
 | ~~[must:multi-user] Tenant isolation / RBAC~~ | ~~Folded into R12~~ -- DONE: tenantId in KV records, capture list scoped to tenant | security-minion, kickoff |
-| [consider] Per-tenant rate limiting | R12 shipped; switch rate limit key from IP to tenantId when per-tenant quotas needed | edge-minion, capture-endpoint |
+| ~~[consider] Per-tenant rate limiting~~ | ~~R12 shipped~~ -- DONE: dual-layer enforcement (CF ceiling + KV counter + IP guard), admin config endpoints, X-RateLimit-* headers | Phase 0045 |
+| [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
+| [consider] Billing-tier-based limits | When monetization actively planned; deferred from R21 scope | Phase 0045 |
 | [consider] OAuth for web UI | When R17 (web UI) is built and needs user auth | security-minion, kickoff |
 | [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
 
@@ -197,6 +199,7 @@ Completed items removed from active tracking:
 - ~~HSTS header~~ -- DONE (static-verification-page)
 - ~~R14: Production CD pipeline~~ -- DONE (cd-pipeline phase): deploy-production.yml, OPERATIONS.md, environment protection with approval gate
 - ~~R12: Per-tenant API keys and tenant isolation~~ -- DONE (Phase 0037): KV-based key lookup with SHA-256 hash, admin API (POST/GET/DELETE /v1/admin/keys), dual-mode legacy fallback, scope enforcement (capture/read/admin), ADMIN_KEY infrastructure secret
+- ~~R21: Per-tenant rate limiting~~ -- DONE (Phase 0045): dual-layer enforcement (CF ceiling + KV counter + IP guard), X-RateLimit-* headers, KV-based tenant config overrides, admin config endpoints
 
 ---
 
