@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, getTenantConfig, setTenantConfig } from './db.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, getTenantConfig, setTenantConfig, incrementUsage } from './db.js';
 import { rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
@@ -11,7 +11,7 @@ import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { computeCip } from './ip-hash.js';
-import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey } from './admin.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage } from './admin.js';
 import { handleMcp } from './mcp.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 
@@ -37,6 +37,7 @@ const routes = [
   ['POST',   /^\/v1\/admin\/keys$/, handleAdminCreateKey],
   ['GET',    /^\/v1\/admin\/keys$/, handleAdminListKeys],
   ['DELETE', /^\/v1\/admin\/keys\/([a-f0-9]{64})$/, handleAdminRevokeKey],
+  ['GET',    /^\/v1\/admin\/usage$/, handleAdminGetUsage],
   ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handleGetTenantConfig],
   ['PUT',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handlePutTenantConfig],
 ];
@@ -135,6 +136,22 @@ async function handleCaptureMessage(msg, env, ctx) {
   }
 
   if (result.ok === true) {
+    ctx.waitUntil(
+      incrementUsage(env.DB, tenantId, {
+        captures: 1,
+        storageBytes: result.storedBytes || 0,
+      }).then(() =>
+        log(env, 3, 'usage', {
+          event: 'usage.counter_incremented',
+          tenantId,
+          captureId,
+          captures: 1,
+          storageBytes: result.storedBytes || 0,
+        })
+      ).catch((err) => {
+        console.warn('wrl:usage_increment_fail', { captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      })
+    );
     msg.ack();
   } else if (!result.retryable) {
     // Already written to KV as failed by performCapture
@@ -419,6 +436,13 @@ async function handleCreateCapture(request, env, ctx) {
   }
   const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
 
+  ctx.waitUntil(
+    incrementUsage(env.DB, tenantId, { apiCalls: 1 })
+      .catch((err) => {
+        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      })
+  );
+
   // Step 3: Per-tenant rate limit (dual-layer for KV auth, IP-only for legacy)
   const rl = await checkCaptureRateLimit(env, auth, clientIp, 'capture');
   if (rl.exceeded) {
@@ -562,6 +586,13 @@ async function handleBatchCapture(request, env, ctx) {
     return auth.response;
   }
   const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
+
+  ctx.waitUntil(
+    incrementUsage(env.DB, tenantId, { apiCalls: 1 })
+      .catch((err) => {
+        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      })
+  );
 
   // Step 3: Parse JSON body (before rate limit -- need batch size)
   let body;
@@ -768,7 +799,14 @@ async function handleListCaptures(request, env, ctx) {
     ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
   }
-  const { keyName, keyHashPrefix, authMethod } = auth;
+  const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
+
+  ctx.waitUntil(
+    incrementUsage(env.DB, tenantId, { apiCalls: 1 })
+      .catch((err) => {
+        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      })
+  );
 
   // Step 2: Per-tenant rate limit (dual-layer for KV auth, IP-only for legacy)
   const rl = await checkCaptureRateLimit(env, auth, clientIp, 'capture');
