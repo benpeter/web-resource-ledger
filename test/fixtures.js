@@ -6,6 +6,8 @@ import { hashApiKey } from '../src/auth.js';
 
 export const TEST_ADMIN_KEY = 'test-admin-key-for-vitest';
 export const TEST_TENANT_KEY = 'wrl_live_' + 'a'.repeat(43);
+export const TEST_WEBHOOK_URL = 'https://hooks.example.com/webhook';
+export const TEST_WEBHOOK_SECRET = 'whsec_' + 'b'.repeat(64);
 
 /**
  * Seed a D1-backed API key record for use in tests.
@@ -41,10 +43,49 @@ export async function seedApiKey(db, rawKey, {
 }
 
 /**
+ * Seed a webhook registration directly into D1 for use in tests.
+ * Also ensures the tenant row exists.
+ *
+ * @param {D1Database} db
+ * @param {string} id  webhook ID (must match whk_[a-f0-9]{32})
+ * @param {object} overrides  column overrides
+ */
+export async function seedWebhook(db, id, {
+  tenantId = 'default',
+  url = TEST_WEBHOOK_URL,
+  name = 'test-webhook',
+  secret = TEST_WEBHOOK_SECRET,
+  events = ['capture.complete', 'capture.failed'],
+  active = true,
+  createdAt = new Date().toISOString(),
+  updatedAt = null,
+} = {}) {
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT OR IGNORE INTO webhooks
+         (id, tenant_id, url, name, secret, events, active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      id,
+      tenantId,
+      url,
+      name,
+      secret,
+      JSON.stringify(events),
+      active ? 1 : 0,
+      createdAt,
+      updatedAt,
+    ),
+  ]);
+}
+
+/**
  * Truncate all metadata tables in FK-safe order (children first, then parents).
  */
 export async function cleanDb(db) {
   await db.batch([
+    db.prepare('DELETE FROM webhooks'),
     db.prepare('DELETE FROM captures'),
     db.prepare('DELETE FROM api_keys'),
     db.prepare('DELETE FROM signing_keys'),

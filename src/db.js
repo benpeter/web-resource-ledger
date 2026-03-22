@@ -4,11 +4,12 @@
  * Replaces the KV-based metadata layer (kv.js) for captures, tenants, API keys,
  * and signing keys. Rate limit counters remain in kv.js using env.KV.
  *
- * Schema (four tables, defined in migrations/0001_initial.sql):
+ * Schema (tables defined in migrations/):
  *   tenants      -- tenant records with optional config JSON
  *   captures     -- capture lifecycle with JSON artifact columns
  *   api_keys     -- hashed API key records with scopes JSON
  *   signing_keys -- archived Ed25519 public keys (private keys live in Wrangler secrets)
+ *   webhooks     -- outbound webhook registrations per tenant
  *
  * All DB access is centralised here. No raw env.DB.prepare() calls should
  * exist outside this module.
@@ -23,6 +24,9 @@
 
 /** Regex for valid tenant IDs -- single source of truth, also exported from kv.js */
 export const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
+
+/** Regex for valid webhook IDs: whk_ + 32 lowercase hex chars (total 36 chars) */
+export const WEBHOOK_ID_RE = /^whk_[a-f0-9]{32}$/;
 
 const SHA256HEX_RE = /^[a-f0-9]{64}$/;
 
@@ -498,4 +502,140 @@ export async function listArchivedSigningKeys(db) {
     publicKey: row.public_key,
     archivedAt: row.archived_at,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Webhook operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Transform a D1 webhooks row into the canonical camelCase shape.
+ * Parses events JSON to array. Converts active INTEGER to boolean.
+ * Secret is omitted by default -- pass opts.includeSecret = true on show-once paths.
+ *
+ * @param {object} row
+ * @param {{ includeSecret?: boolean }} [opts]
+ * @returns {object}
+ */
+function rowToWebhook(row, opts = {}) {
+  const record = {
+    webhookId: row.id,
+    tenantId: row.tenant_id,
+    url: row.url,
+    name: row.name,
+    events: JSON.parse(row.events),
+    active: Boolean(row.active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
+  };
+  if (opts.includeSecret) {
+    record.secret = row.secret;
+  }
+  return record;
+}
+
+/**
+ * Insert a new webhook registration.
+ * Returns the created record WITH secret (show-once in API response).
+ *
+ * @param {D1Database} db
+ * @param {{ id: string, tenantId: string, url: string, name: string, secret: string, events: string[] }} params
+ * @returns {Promise<object>}
+ */
+export async function createWebhook(db, { id, tenantId, url, name, secret, events }) {
+  await db.prepare(
+    `INSERT INTO webhooks (id, tenant_id, url, name, secret, events)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).bind(id, tenantId, url, name, secret, JSON.stringify(events)).run();
+
+  const row = await db.prepare('SELECT * FROM webhooks WHERE id = ?').bind(id).first();
+  return rowToWebhook(row, { includeSecret: true });
+}
+
+/**
+ * Read a single webhook by ID, scoped to tenantId for authorization.
+ * Returns null if not found or tenant does not match.
+ *
+ * @param {D1Database} db
+ * @param {string} webhookId
+ * @param {string} tenantId
+ * @param {{ includeSecret?: boolean }} [opts]
+ * @returns {Promise<object|null>}
+ */
+export async function getWebhook(db, webhookId, tenantId, opts = {}) {
+  const row = await db.prepare(
+    'SELECT * FROM webhooks WHERE id = ? AND tenant_id = ?',
+  ).bind(webhookId, tenantId).first();
+  if (!row) return null;
+  return rowToWebhook(row, opts);
+}
+
+/**
+ * List all webhooks for a tenant, ordered by created_at ascending.
+ * Secrets are not included.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<object[]>}
+ */
+export async function listWebhooks(db, tenantId) {
+  const rows = await db.prepare(
+    'SELECT * FROM webhooks WHERE tenant_id = ? ORDER BY created_at ASC',
+  ).bind(tenantId).all();
+  return (rows.results ?? []).map(row => rowToWebhook(row));
+}
+
+/**
+ * Delete a webhook by ID, scoped to tenantId for authorization.
+ * Returns { deleted: true } on success, null if not found or wrong tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} webhookId
+ * @param {string} tenantId
+ * @returns {Promise<{ deleted: true }|null>}
+ */
+export async function deleteWebhook(db, webhookId, tenantId) {
+  const result = await db.prepare(
+    'DELETE FROM webhooks WHERE id = ? AND tenant_id = ?',
+  ).bind(webhookId, tenantId).run();
+  if (result.meta.changes === 0) return null;
+  return { deleted: true };
+}
+
+/**
+ * Count all webhooks (active + inactive) for a tenant.
+ * Used to enforce the 5-per-tenant limit.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<number>}
+ */
+export async function countWebhooks(db, tenantId) {
+  const row = await db.prepare(
+    'SELECT COUNT(*) AS total FROM webhooks WHERE tenant_id = ?',
+  ).bind(tenantId).first();
+  return row?.total ?? 0;
+}
+
+/**
+ * Fetch all active webhooks for a tenant that should receive a given event type.
+ * Event filtering is performed in application code (max 5 rows per tenant makes
+ * json_each unnecessary overhead). Returns records WITH secrets for HMAC signing.
+ * This is the hot-path query called from the queue consumer.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} eventType  e.g. "capture.complete" or "capture.failed"
+ * @returns {Promise<object[]>}
+ */
+export async function getActiveWebhooksForEvent(db, tenantId, eventType) {
+  const rows = await db.prepare(
+    'SELECT * FROM webhooks WHERE tenant_id = ? AND active = 1',
+  ).bind(tenantId).all();
+  return (rows.results ?? [])
+    .filter(row => {
+      const events = JSON.parse(row.events);
+      return events.includes(eventType);
+    })
+    .map(row => rowToWebhook(row, { includeSecret: true }));
 }
