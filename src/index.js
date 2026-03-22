@@ -13,6 +13,7 @@ import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey } from './admin.js';
 import { handleMcp } from './mcp.js';
+import { htmlDashboard } from './ui/ui-shell.js';
 
 // tva
 
@@ -22,6 +23,8 @@ import { handleMcp } from './mcp.js';
 const routes = [
   ['GET',    /^\/favicon\.ico$/, handleFavicon],
   ['GET',    /^\/health$/, handleHealth],
+  // UI dashboard -- same-origin only; no CORS needed (browser-only, uses credentials via sessionStorage)
+  ['GET',    /^\/ui$/, handleDashboard],
   ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
@@ -326,6 +329,10 @@ function handleHealth() {
       policy: 'https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md',
     },
   });
+}
+
+function handleDashboard() {
+  return htmlDashboard();
 }
 
 /**

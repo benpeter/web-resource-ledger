@@ -46,7 +46,7 @@ Expand WRL into a platform that other tools and agents build on.
 
 - ~~#45 **R15: MCP server for web evidence** [M]~~ -- DONE: MCP adapter with 4 tools (capture_url, get_capture, list_captures, verify_capture), Streamable HTTP transport, docs, server.json registry
 - ~~#46 **R16: Queue migration for capture processing** [M]~~ -- DONE: Cloudflare Queue producer/consumer, exponential backoff retry, DLQ, 15-min rendering budget
-- #47 **R17: Web UI for capture submission** [M] -- browser-based capture; depends on R1, R3
+- ~~#47 **R17: Web UI for capture submission** [M]~~ -- DONE: Browser-based UI at GET /ui with auth gate, capture submission, list with pagination, detail view with polling, 38 tests, vanilla JS/CSS
 - ~~#48 **R18: Batch capture endpoint** [M]~~ -- DONE: POST /v1/captures/batch with 207 Multi-Status, per-URL SSRF validation, sequential rate limit consumption
 
 ---
@@ -64,7 +64,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] Per-tenant rate limiting~~ | ~~R12 shipped~~ -- DONE: dual-layer enforcement (CF ceiling + KV counter + IP guard), admin config endpoints, X-RateLimit-* headers | Phase 0045 |
 | [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
 | [consider] Billing-tier-based limits | When monetization actively planned; deferred from R21 scope | Phase 0045 |
-| [consider] OAuth for web UI | When R17 (web UI) is built and needs user auth | security-minion, kickoff |
+| [consider] OAuth for web UI | R17 shipped with API key auth; upgrade when persistent auth and multi-user sessions needed | security-minion, kickoff, Phase 0049 |
 | [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
 
 ### Signing and Legal
@@ -145,6 +145,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Notifications | When event-driven workflows needed | MVP.md |
 | [consider] Billing and quotas | When monetization actively planned | MVP.md |
 | ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |
+| [consider] E2E Playwright browser tests for Web UI | When client-side JS complexity grows beyond current 3-view scope | Phase 0049, test-minion |
+| [consider] AbortController for auth validation timeout | When auth UX polish is prioritized; currently low-risk race window | Phase 0049, code-review-minion |
+| [consider] OAuth for web UI (upgrade from API key input) | When persistent auth and multi-user sessions are needed | Phase 0049, security-minion |
 
 ---
 
