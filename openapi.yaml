@@ -163,6 +163,93 @@ components:
           type: string
           description: Advisory message about related API capabilities.
 
+    BatchCaptureRequest:
+      type: object
+      required: [urls]
+      additionalProperties: false
+      properties:
+        urls:
+          type: array
+          description: >
+            List of URLs to capture. Each item is an object with a url field.
+            Maximum batch size is configurable (default 20, hard cap 100).
+            Duplicate URLs are allowed — each gets its own capture ID.
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required: [url]
+            properties:
+              url:
+                type: string
+                format: uri
+                description: Public http or https URL to capture. Must not resolve to a private IP.
+
+    BatchCaptureItemSuccess:
+      type: object
+      required: [status, url, id, statusUrl]
+      properties:
+        status:
+          type: integer
+          const: 202
+          description: HTTP status code for this item.
+        url:
+          type: string
+          format: uri
+          description: The validated/normalized URL.
+        id:
+          $ref: '#/components/schemas/CaptureId'
+        statusUrl:
+          type: string
+          format: uri
+          description: Absolute URL to poll for this capture's status.
+
+    BatchCaptureItemError:
+      type: object
+      required: [status, url, error]
+      properties:
+        status:
+          type: integer
+          description: HTTP status code for this item (400, 422, 429, 500, 503).
+        url:
+          type: string
+          description: The URL as submitted (raw input for errors, empty string for structural errors).
+        error:
+          $ref: '#/components/schemas/ProblemDetail'
+
+    BatchCaptureSummary:
+      type: object
+      required: [total, accepted, failed]
+      properties:
+        total:
+          type: integer
+          minimum: 1
+          description: Total number of items in the request.
+        accepted:
+          type: integer
+          minimum: 0
+          description: Number of items accepted for capture (status 202).
+        failed:
+          type: integer
+          minimum: 0
+          description: Number of items that failed validation or rate limiting.
+
+    BatchCaptureResponse:
+      type: object
+      required: [items, summary]
+      properties:
+        items:
+          type: array
+          description: >
+            Per-URL outcome in the same order as the input urls array.
+            Length always equals the input array length.
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/BatchCaptureItemSuccess'
+              - $ref: '#/components/schemas/BatchCaptureItemError'
+        summary:
+          $ref: '#/components/schemas/BatchCaptureSummary'
+
     CaptureStatus:
       type: object
       description: Current state of a capture. Fields depend on status value.
@@ -1471,6 +1558,229 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                atCapacity:
+                  summary: Service is at capacity
+                  value: {type: about:blank, status: 503, title: Service Unavailable, detail: Service is at capacity. Retry in 10 seconds.}
+
+  /v1/captures/batch:
+    post:
+      operationId: batchCapture
+      summary: Submit multiple URLs for capture
+      description: >
+        Enqueues headless-browser captures for a list of URLs in a single request.
+        Designed for bulk archival use cases: legal holds, compliance monitoring,
+        CI pipelines that need to snapshot multiple pages simultaneously.
+
+        Each URL is validated and rate-limited independently. A URL that fails
+        validation or hits a per-item rate limit does not affect other items in
+        the batch. Rate-limit tokens are consumed per URL, not per request.
+
+        The response is always 207 Multi-Status when the batch structure itself
+        is valid (non-empty urls array, within size limits). Top-level 400, 401,
+        429, and 503 are returned when the entire request cannot be processed
+        (auth failure, pre-flight rate limit, service at capacity, or the batch
+        structure is invalid). This endpoint is server-to-server only — no CORS
+        headers are emitted.
+      tags: [captures]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCaptureRequest'
+            examples:
+              twoUrls:
+                summary: Capture two URLs
+                value:
+                  urls:
+                    - url: https://example.com
+                    - url: https://example.org/page
+      responses:
+        '207':
+          description: >
+            Multi-Status. Returned when the batch structure is valid. Each item
+            in `items` corresponds to the URL at the same index in the request.
+            Check each item's `status` field — 202 means accepted, 4xx/5xx
+            means that item failed. The summary counts accepted vs failed items.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCaptureResponse'
+              examples:
+                allAccepted:
+                  summary: All URLs accepted for capture
+                  value:
+                    items:
+                      - status: 202
+                        url: https://example.com
+                        id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                        statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+                      - status: 202
+                        url: https://example.org/page
+                        id: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+                        statusUrl: https://wrl.example.com/v1/captures/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7/status
+                    summary:
+                      total: 2
+                      accepted: 2
+                      failed: 0
+                mixedResults:
+                  summary: Mixed success and failure
+                  value:
+                    items:
+                      - status: 202
+                        url: https://example.com
+                        id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                        statusUrl: https://wrl.example.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+                      - status: 422
+                        url: https://10.0.0.1
+                        error:
+                          type: about:blank
+                          status: 422
+                          title: Unprocessable Content
+                          detail: Host resolves to a private IP address
+                    summary:
+                      total: 2
+                      accepted: 1
+                      failed: 1
+        '400':
+          description: >
+            Bad request — invalid batch structure (missing urls field, empty array,
+            batch size exceeds configured maximum, or malformed JSON body).
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                emptyUrls:
+                  summary: Empty urls array
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "Field 'urls' must contain at least one item"}
+                batchTooLarge:
+                  summary: Batch size exceeds limit
+                  value: {type: about:blank, status: 400, title: Bad Request, detail: "Batch size exceeds the maximum of 20 items"}
+        '401':
+          description: Unauthorized — missing, malformed, or invalid Authorization header.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            WWW-Authenticate:
+              description: Authentication challenge.
+              schema:
+                type: string
+                enum: [Bearer]
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                missing:
+                  summary: No Authorization header
+                  value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
+        '415':
+          description: Unsupported Media Type — Content-Type is not application/json.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                wrongContentType:
+                  summary: Text/plain submitted instead of JSON
+                  value: {type: about:blank, status: 415, title: Unsupported Media Type, detail: Content-Type must be application/json}
+        '429':
+          description: Too Many Requests — pre-flight rate limit exceeded before any item was processed.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Retry-After:
+              $ref: '#/components/headers/RetryAfter'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                rateLimited:
+                  summary: Caller exceeded allowed request rate
+                  value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again later.}
+        '503':
+          description: Service Unavailable — service is at capacity.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Retry-After:
+              $ref: '#/components/headers/RetryAfter'
           content:
             application/problem+json:
               schema:
