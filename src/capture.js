@@ -262,7 +262,12 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         });
       }
     }
-    return { ok: true };
+    const storedBytes = screenshot.byteLength
+      + (screenshotBefore ? screenshotBefore.byteLength : 0)
+      + new TextEncoder().encode(html).byteLength
+      + (headers ? new TextEncoder().encode(JSON.stringify(headers)).byteLength : 0)
+      + (waczInfo?.size ?? 0);
+    return { ok: true, storedBytes };
   } catch (err) {
     // Catch-all: retryable -- leave KV pending, let queue consumer retry
     await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip, attempt });

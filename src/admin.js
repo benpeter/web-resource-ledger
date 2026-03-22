@@ -18,7 +18,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
@@ -301,5 +301,74 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     createdAt: result.record.createdAt,
     revoked: true,
     revokedAt: result.record.revokedAt,
+  }, 200, ADMIN_CACHE);
+}
+
+/**
+ * GET /v1/admin/usage -- query per-tenant usage counters
+ * Query params:
+ *   tenant (required) -- tenant ID to query
+ *   period (optional) -- billing period in YYYY-MM format (defaults to current)
+ */
+export async function handleAdminGetUsage(request, env, ctx) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
+  const params = new URL(request.url).searchParams;
+  const tenantParam = params.get('tenant');
+  const periodParam = params.get('period');
+
+  // Validate tenant (required)
+  if (!tenantParam) {
+    return problemResponse(400, "Query parameter 'tenant' is required");
+  }
+  if (!TENANT_ID_RE.test(tenantParam)) {
+    return problemResponse(400, "Query parameter 'tenant' must match /^[a-z0-9_-]{1,64}$/");
+  }
+
+  // Validate period format (optional, defaults to current)
+  let period;
+  if (periodParam) {
+    if (!/^\d{4}-\d{2}$/.test(periodParam)) {
+      return problemResponse(400, "Query parameter 'period' must be in YYYY-MM format");
+    }
+    period = periodParam;
+  } else {
+    period = computePeriod();
+  }
+
+  // Verify tenant exists via centralised DAL (not raw env.DB.prepare)
+  const exists = await tenantExists(env.DB, tenantParam);
+
+  if (!exists) {
+    ctx.waitUntil(log(env, 4, 'admin', {
+      event: 'admin.usage_query_fail',
+      tenantId: tenantParam,
+      reason: 'tenant_not_found',
+      authMethod: 'admin_key',
+      responseStatus: 404,
+      cip,
+    }) ?? Promise.resolve());
+    return problemResponse(404, `Tenant '${tenantParam}' not found`, ADMIN_CACHE);
+  }
+
+  const usage = await getUsage(env.DB, tenantParam, period);
+
+  ctx.waitUntil(log(env, 3, 'admin', {
+    event: 'admin.usage_query',
+    tenantId: tenantParam,
+    period,
+    authMethod: 'admin_key',
+    responseStatus: 200,
+    cip,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({
+    tenantId: usage.tenantId,
+    period: usage.period,
+    captureCount: usage.captureCount,
+    storageBytes: usage.storageBytes,
+    apiCallCount: usage.apiCallCount,
+    updatedAt: usage.updatedAt,
   }, 200, ADMIN_CACHE);
 }

@@ -108,11 +108,12 @@ describe('performCapture -- successful capture', () => {
     expect(record.artifacts.headers).toBe(`captures/${TEST_ID}/headers.json`);
   });
 
-  it('returns { ok: true }', async () => {
+  it('returns ok with storedBytes', async () => {
     mockHeaderFetch();
     await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
     const result = await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, stubRenderer);
-    expect(result).toEqual({ ok: true });
+    expect(result.ok).toBe(true);
+    expect(result.storedBytes).toBeGreaterThan(0);
   });
 });
 

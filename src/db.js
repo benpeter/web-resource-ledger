@@ -5,11 +5,12 @@
  * and signing keys. Rate limit counters remain in kv.js using env.KV.
  *
  * Schema (tables defined in migrations/):
- *   tenants      -- tenant records with optional config JSON
- *   captures     -- capture lifecycle with JSON artifact columns
- *   api_keys     -- hashed API key records with scopes JSON
- *   signing_keys -- archived Ed25519 public keys (private keys live in Wrangler secrets)
- *   webhooks     -- outbound webhook registrations per tenant
+ *   tenants         -- tenant records with optional config JSON
+ *   captures        -- capture lifecycle with JSON artifact columns
+ *   api_keys        -- hashed API key records with scopes JSON
+ *   signing_keys    -- archived Ed25519 public keys (private keys live in Wrangler secrets)
+ *   usage_counters  -- per-tenant monthly billing counters (capture count, storage bytes, API calls)
+ *   webhooks        -- outbound webhook registrations per tenant
  *
  * All DB access is centralised here. No raw env.DB.prepare() calls should
  * exist outside this module.
@@ -641,4 +642,96 @@ export async function getActiveWebhooksForEvent(db, tenantId, eventType) {
       return events.includes(eventType);
     })
     .map(row => rowToWebhook(row, { includeSecret: true }));
+}
+
+// ---------------------------------------------------------------------------
+// Usage counters
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the billing period string ('YYYY-MM') from a Date.
+ * Defaults to current UTC time. Exported for testing.
+ *
+ * @param {Date} [date]
+ * @returns {string}
+ */
+export function computePeriod(date = new Date()) {
+  return date.toISOString().slice(0, 7);
+}
+
+/**
+ * Increment usage counters for a tenant in the current billing period.
+ * Uses UPSERT: creates the row on first write, increments on subsequent.
+ * Caller should pass this to ctx.waitUntil() for non-blocking execution.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {{ captures?: number, storageBytes?: number, apiCalls?: number }} deltas
+ * @returns {Promise<void>}
+ */
+export async function incrementUsage(db, tenantId, deltas) {
+  const period = computePeriod();
+  const captures = deltas.captures ?? 0;
+  const storageBytes = deltas.storageBytes ?? 0;
+  const apiCalls = deltas.apiCalls ?? 0;
+
+  if (captures === 0 && storageBytes === 0 && apiCalls === 0) return;
+
+  await db.prepare(
+    `INSERT INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(tenant_id, period) DO UPDATE SET
+       capture_count = capture_count + excluded.capture_count,
+       storage_bytes = storage_bytes + excluded.storage_bytes,
+       api_call_count = api_call_count + excluded.api_call_count,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+  ).bind(tenantId, period, captures, storageBytes, apiCalls).run();
+}
+
+/**
+ * Read usage counters for a tenant in a specific billing period.
+ * Returns zeroed counters if no row exists (tenant had no activity).
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} period  'YYYY-MM' format
+ * @returns {Promise<{ tenantId: string, period: string, captureCount: number,
+ *   storageBytes: number, apiCallCount: number, updatedAt: string|null }>}
+ */
+export async function getUsage(db, tenantId, period) {
+  const row = await db.prepare(
+    'SELECT * FROM usage_counters WHERE tenant_id = ? AND period = ?',
+  ).bind(tenantId, period).first();
+
+  if (!row) {
+    return {
+      tenantId,
+      period,
+      captureCount: 0,
+      storageBytes: 0,
+      apiCallCount: 0,
+      updatedAt: null,
+    };
+  }
+
+  return {
+    tenantId: row.tenant_id,
+    period: row.period,
+    captureCount: row.capture_count,
+    storageBytes: row.storage_bytes,
+    apiCallCount: row.api_call_count,
+    updatedAt: row.updated_at ?? null,
+  };
+}
+
+/**
+ * Check whether a tenant row exists in D1.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<boolean>}
+ */
+export async function tenantExists(db, tenantId) {
+  const row = await db.prepare('SELECT 1 FROM tenants WHERE id = ?').bind(tenantId).first();
+  return row !== null;
 }
