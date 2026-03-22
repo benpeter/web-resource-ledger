@@ -68,7 +68,7 @@ function kvListAll(prefix) {
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const cursorFlag = cursor ? `--cursor "${cursor}"` : '';
+    const cursorFlag = cursor ? `--cursor ${JSON.stringify(cursor)}` : '';
     const cmd = `npx wrangler kv key list --binding ${KV_BINDING} --prefix "${prefix}" ${cursorFlag} ${WRANGLER_ENV_FLAG} --format json`;
     const raw = execSync(cmd, { encoding: 'utf8' });
     const result = JSON.parse(raw);

@@ -208,6 +208,9 @@ export async function listCaptures(db, tenantId, {
   }
 
   const where = 'WHERE ' + conditions.join(' AND ');
+  if (sort && sort !== 'created_at' && sort !== '-created_at') {
+    throw new Error(`Invalid sort value: ${sort}`);
+  }
   const order = sort === 'created_at' ? 'ORDER BY created_at ASC' : 'ORDER BY created_at DESC';
 
   const dataQuery = db.prepare(
