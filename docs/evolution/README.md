@@ -53,3 +53,4 @@ software development.
 | [0043-batch-capture-endpoint](0043-batch-capture-endpoint/) | Batch capture endpoint for bulk URL archival workflows (Issue #48) |
 | [0044-queue-migration](0044-queue-migration/) | Queue migration for capture processing -- Cloudflare Queue producer/consumer (Issue #46) |
 | [0045-per-tenant-rate-limiting](0045-per-tenant-rate-limiting/) | Per-tenant rate limiting with dual-layer enforcement and admin config (Issue #94) |
+| [0046-coralogix-alerting-rules](0046-coralogix-alerting-rules/) | Coralogix alerting rules for production health monitoring (Issue #95) |
