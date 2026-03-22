@@ -1,0 +1,36 @@
+# Phase 0048: Brand Identity and Design System
+
+## Source
+
+GitHub Issue #97: BRAND: Brand identity and design system
+
+## Task Description
+
+WRL needs a cohesive visual identity expressed as a pure CSS design system. A single set of custom properties defines colors, typography, and spacing used across all WRL surfaces. The existing verification page is restyled as the first consumer, a style guide documents the system, and logo concepts are ready for use in favicons and page headers.
+
+### Success Criteria
+
+- CSS design system implemented as custom properties in a single `design-system.css` file
+- Color palette defined: primary, secondary, accent, plus semantic colors (success, error, warning, info)
+- Colors meet WCAG AA contrast ratio (4.5:1 for text, 3:1 for large text) against their intended backgrounds
+- Typography scale: font families (system font stack), 6-8 size steps, line heights, font weights
+- Spacing scale: consistent rem-based spacing tokens (4px base unit or similar)
+- Component patterns defined in CSS: buttons (primary, secondary, ghost), form inputs, tables, cards, badges, alerts
+- Existing verification page restyled using the design system (no visual regression in functionality)
+- Style guide document in `docs/style-guide.md` with usage examples and dos/don'ts
+- Logo concepts: at least 2 text-based logo options suitable for favicon (16x16, 32x32) and page header
+- Favicon generated and deployed
+- Design system file is <10KB uncompressed
+- No framework dependency -- pure CSS custom properties, no Tailwind, no SCSS
+
+### Scope
+
+- In: CSS custom properties file, color palette, typography scale, spacing scale, component patterns, verification page restyle, style guide document, logo concepts, favicon
+- Out: Full component library with JavaScript, dark mode (can be added later via custom properties), animation system, icon set, print stylesheet
+
+### Constraints
+
+- Must work in all modern browsers (last 2 versions of Chrome, Firefox, Safari, Edge)
+- Verification page restyle must not break existing functionality or verification flow
+- Logo must be legible at favicon sizes (16x16) -- avoid fine detail
+- Design system must be importable as a single CSS file with no build step
