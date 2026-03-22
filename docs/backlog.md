@@ -211,6 +211,7 @@ Completed items removed from active tracking:
 - ~~R30: D1 migration for metadata~~ -- DONE (Phase 0047): all metadata (captures, tenants, API keys, signing keys) migrated from KV to D1, offset/limit pagination with SQL filtering and sorting, KV retained only for rate limit counters
 - ~~R19: Documentation site~~ -- DONE (Phase 0051): 11ty v3 static site at docs.webresourceledger.com, 6 guide pages, OpenAPI-generated API reference, WRL brand design system, Cloudflare Workers Static Assets deployment
 - ~~R23: Landing page~~ -- DONE (Phase 0052): static HTML/CSS at webresourceledger.com, zero JS, full SEO (JSON-LD, OG, sitemap), WCAG AA, Cloudflare Workers Static Assets (Issue #100)
+- ~~R25: Usage Metering~~ -- DONE (Phase 0053): D1 usage_counters table, per-tenant capture/storage/API counters via UPSERT, admin usage endpoint, waitUntil deferred writes (Issue #101)
 
 ---
 

@@ -803,6 +803,41 @@ components:
           format: date-time
           description: ISO 8601 timestamp when the key was revoked.
 
+    UsageResponse:
+      type: object
+      description: Per-tenant usage counters for a billing period.
+      required: [tenantId, period, captureCount, storageBytes, apiCallCount, updatedAt]
+      properties:
+        tenantId:
+          type: string
+          description: Tenant identifier.
+          example: default
+        period:
+          type: string
+          description: Billing period in YYYY-MM format.
+          example: '2026-03'
+        captureCount:
+          type: integer
+          description: Number of captures completed in this period.
+          minimum: 0
+          example: 42
+        storageBytes:
+          type: integer
+          description: Total R2 storage bytes consumed by captures in this period.
+          minimum: 0
+          example: 157286400
+        apiCallCount:
+          type: integer
+          description: Number of authenticated API calls in this period.
+          minimum: 0
+          example: 128
+        updatedAt:
+          type: ['string', 'null']
+          format: date-time
+          description: >
+            Last time counters were updated. Null if no activity in the period.
+          example: '2026-03-22T14:30:00.000Z'
+
     VerificationCheck:
       type: object
       description: Result of a single cryptographic check within a WACZ verification.
@@ -1148,6 +1183,12 @@ paths:
               schema:
                 type: string
                 enum: [no-store]
+        '403':
+          description: Origin not allowed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
     get:
       operationId: listCaptures
       summary: List captures
@@ -2866,3 +2907,88 @@ paths:
               examples:
                 notConfigured:
                   value: {type: about:blank, status: 503, title: Service Unavailable, detail: Admin API is not configured}
+
+  /v1/admin/usage:
+    get:
+      operationId: adminGetUsage
+      summary: Get tenant usage counters
+      description: >
+        Returns per-tenant usage counters for the specified billing period.
+        Defaults to the current calendar month (UTC) if no period is specified.
+
+        Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
+
+        ```bash
+        # Current period usage
+        curl "https://wrl.example.com/v1/admin/usage?tenant=default" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+
+        # Specific period
+        curl "https://wrl.example.com/v1/admin/usage?tenant=default&period=2026-03" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenant
+          in: query
+          required: true
+          description: Tenant ID to query usage for.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: default
+        - name: period
+          in: query
+          required: false
+          description: >
+            Billing period in YYYY-MM format. Defaults to the current calendar
+            month (UTC) if omitted.
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2026-03'
+      responses:
+        '200':
+          description: Usage counters for the specified tenant and period.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageResponse'
+              examples:
+                currentPeriod:
+                  summary: Current period with activity
+                  value:
+                    tenantId: default
+                    period: '2026-03'
+                    captureCount: 42
+                    storageBytes: 157286400
+                    apiCallCount: 128
+                    updatedAt: '2026-03-22T14:30:00.000Z'
+                zeroPeriod:
+                  summary: Period with no activity
+                  value:
+                    tenantId: default
+                    period: '2026-02'
+                    captureCount: 0
+                    storageBytes: 0
+                    apiCallCount: 0
+                    updatedAt: null
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Tenant not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant 'nonexistent' not found"
+        '429':
+          $ref: '#/components/responses/Problem429'
