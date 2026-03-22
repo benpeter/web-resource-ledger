@@ -337,9 +337,10 @@ export async function rateLimitCounter(kv, tenantId, group, limit, period, count
   const resetIn = Math.max(1, (windowStart + period) - Math.floor(Date.now() / 1000));
 
   // Non-blocking write -- caller passes to ctx.waitUntil()
-  const writePromise = kv.put(key, String(current + count), {
-    expirationTtl: period * 2,
-  });
+  // Skip write when exceeded to avoid inflating counter on blocked requests
+  const writePromise = exceeded
+    ? Promise.resolve()
+    : kv.put(key, String(current + count), { expirationTtl: period * 2 });
 
   return { remaining, resetIn, exceeded, writePromise };
 }

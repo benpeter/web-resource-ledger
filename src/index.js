@@ -869,7 +869,7 @@ async function handleGetTenantConfig(request, env, ctx, match) {
   const tenantId = match[1];
   const config = await getTenantConfig(env.KV, tenantId);
   if (!config) {
-    return problemResponse(404, `No configuration found for tenant '${tenantId}'.`);
+    return problemResponse(404, 'Tenant configuration not found.');
   }
   return jsonResponse(config);
 }
@@ -893,17 +893,21 @@ async function handlePutTenantConfig(request, env, ctx, match) {
     return problemResponse(400, 'Request body must be a JSON object');
   }
 
+  let saved;
   try {
-    const saved = await setTenantConfig(env.KV, tenantId, body, 'admin_key');
-    ctx.waitUntil(log(env, 3, 'admin', {
-      event: 'admin.tenant_config_updated',
-      tenantId,
-      updatedBy: 'admin_key',
-    }) ?? Promise.resolve());
-    return jsonResponse(saved);
+    saved = await setTenantConfig(env.KV, tenantId, body, 'admin_key');
   } catch (err) {
-    return problemResponse(400, err.message);
+    if (err.message && (err.message.startsWith('rateLimit.') || err.message.startsWith('Invalid tenantId'))) {
+      return problemResponse(400, err.message);
+    }
+    throw err;
   }
+  ctx.waitUntil(log(env, 3, 'admin', {
+    event: 'admin.tenant_config_updated',
+    tenantId,
+    updatedBy: 'admin_key',
+  }) ?? Promise.resolve());
+  return jsonResponse(saved);
 }
 
 // SECURITY: No authentication required -- capture ID acts as the access secret.
