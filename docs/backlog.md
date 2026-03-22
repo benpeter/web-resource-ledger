@@ -45,7 +45,7 @@ word "evidence" defensible.
 Expand WRL into a platform that other tools and agents build on.
 
 - ~~#45 **R15: MCP server for web evidence** [M]~~ -- DONE: MCP adapter with 4 tools (capture_url, get_capture, list_captures, verify_capture), Streamable HTTP transport, docs, server.json registry
-- #46 **R16: Queue migration for capture processing** [M] -- data-driven: when timeouts >5%; staged fallback now handles partial captures, R16 still needed for full WACZ on all captures
+- ~~#46 **R16: Queue migration for capture processing** [M]~~ -- DONE: Cloudflare Queue producer/consumer, exponential backoff retry, DLQ, 15-min rendering budget
 - #47 **R17: Web UI for capture submission** [M] -- browser-based capture; depends on R1, R3
 - ~~#48 **R18: Batch capture endpoint** [M]~~ -- DONE: POST /v1/captures/batch with 207 Multi-Status, per-URL SSRF validation, sequential rate limit consumption
 
@@ -118,7 +118,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Fork setup onboarding checklist | When a second operator forks and reports setup confusion | ux-strategy-minion, 0026-secrets-env-docs-onboarding |
 | [consider] Cross-document anchor link lint in CI | When cross-document link rot is observed | software-docs-minion, 0026-secrets-env-docs-onboarding |
 | [consider] Session pre-warming via cron | When Coralogix shows cold-start latency is measurable | iac-minion |
+| [should] Coralogix DLQ alert for queue capture failures | When queue migration deploys to production; monitor capture.dlq events | observability-minion, 0044-queue-migration |
 | [consider] Coralogix alerting rules | When operational load justifies alerting | observability-minion, mvo-coralogix |
+| [consider] Queue architecture documentation update | When queue migration is verified in production | software-docs-minion, 0044-queue-migration |
 | [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
 | [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
