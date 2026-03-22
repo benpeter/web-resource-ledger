@@ -16,7 +16,10 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: './wrangler.toml',
+          // Use test-specific config that omits [[queues.consumers]].
+          // Auto-consumption triggers performCapture() with browser binding
+          // during tests, causing isolated storage corruption in the runtime.
+          configPath: './wrangler.test.toml',
         },
         miniflare: {
           browserRendering: { binding: 'BROWSER' },
@@ -29,6 +32,8 @@ export default defineWorkersConfig({
             IP_HASH_SEED: 'test-ip-hash-seed-for-vitest',
             TSA_URL: 'http://timestamp.digicert.com',
           },
+          // Queue producers come from wrangler.test.toml; consumers are
+          // omitted there to prevent auto-consumption during tests.
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"
           // errors. All tests do explicit cleanup in beforeEach.

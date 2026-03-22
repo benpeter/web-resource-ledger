@@ -1,3 +1,7 @@
+# Auto-generated from wrangler.toml -- omits [[queues.consumers]]
+# to prevent miniflare auto-consuming messages during tests.
+# Regenerate: see vitest.config.js comment.
+
 #:schema node_modules/wrangler/config-schema.json
 name = "wrl"
 main = "src/index.js"
@@ -51,31 +55,17 @@ cpu_ms = 60000
 # Two queues per environment:
 #   wrl-captures        -- main processing queue (capture jobs)
 #   wrl-captures-dlq    -- dead-letter queue (jobs exhausted max_retries)
-# The same Worker exports both fetch() and queue() handlers; no separate
-# consumer Worker is required.  max_batch_size = 1 ensures each invocation
 # processes exactly one capture so failures are isolated.
 
 [[queues.producers]]
 binding = "CAPTURE_QUEUE"
 queue = "wrl-captures"
 
-[[queues.consumers]]
-queue = "wrl-captures"
-max_batch_size = 1
-max_batch_timeout = 5
-max_retries = 3
-dead_letter_queue = "wrl-captures-dlq"
-max_concurrency = 10
 
 [[queues.producers]]
 binding = "CAPTURE_DLQ"
 queue = "wrl-captures-dlq"
 
-[[queues.consumers]]
-queue = "wrl-captures-dlq"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 0
 
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
@@ -141,23 +131,11 @@ cpu_ms = 60000
 binding = "CAPTURE_QUEUE"
 queue = "wrl-captures-staging"
 
-[[env.staging.queues.consumers]]
-queue = "wrl-captures-staging"
-max_batch_size = 1
-max_batch_timeout = 5
-max_retries = 3
-dead_letter_queue = "wrl-captures-staging-dlq"
-max_concurrency = 5
 
 [[env.staging.queues.producers]]
 binding = "CAPTURE_DLQ"
 queue = "wrl-captures-staging-dlq"
 
-[[env.staging.queues.consumers]]
-queue = "wrl-captures-staging-dlq"
-max_batch_size = 1
-max_batch_timeout = 30
-max_retries = 0
 
 [env.staging.vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"

@@ -49,7 +49,7 @@ describe('POST /v1/captures -- happy path', () => {
 
     expect(res.status).toBe(202);
     expect(res.headers.get('Content-Type')).toContain('application/json');
-    expect(res.headers.get('Retry-After')).toBe('5');
+    expect(res.headers.get('Retry-After')).toBe('10');
 
     const body = await res.json();
     expect(body.id).toMatch(/^cap_[a-f0-9]{32}$/);

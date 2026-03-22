@@ -121,7 +121,8 @@ describe('POST /v1/captures -- CORS response headers', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
   });
 
-  it('allowed origin receives Vary: Origin on 202 response', async () => {
+  it('allowed origin receives Vary: Origin on non-202 response', async () => {
+    // Use invalid URL to get 400 without triggering queue dispatch
     const res = await SELF.fetch('https://worker.test/v1/captures', {
       method: 'POST',
       headers: {
@@ -129,12 +130,13 @@ describe('POST /v1/captures -- CORS response headers', () => {
         Authorization: AUTH,
         Origin: ALLOWED_ORIGIN,
       },
-      body: JSON.stringify({ url: 'https://example.com' }),
+      body: JSON.stringify({ url: 'not-a-valid-url' }),
     });
     expect(res.headers.get('Vary')).toBe('Origin');
   });
 
   it('disallowed origin does NOT receive Access-Control-Allow-Origin', async () => {
+    // Use invalid URL to get 400 without triggering queue dispatch
     const res = await SELF.fetch('https://worker.test/v1/captures', {
       method: 'POST',
       headers: {
@@ -142,7 +144,7 @@ describe('POST /v1/captures -- CORS response headers', () => {
         Authorization: AUTH,
         Origin: DISALLOWED_ORIGIN,
       },
-      body: JSON.stringify({ url: 'https://example.com' }),
+      body: JSON.stringify({ url: 'not-a-valid-url' }),
     });
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });

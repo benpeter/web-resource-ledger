@@ -21,8 +21,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod';
 import { verifyApiKey, hasScope } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, listCaptures } from './kv.js';
-import { performCapture } from './capture.js';
+import { createCapture, getCapture, failCapture, listCaptures } from './kv.js';
 import { performVerification } from './verify.js';
 import { log } from './log.js';
 
@@ -147,12 +146,27 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      // Step 6: Trigger background capture
-      ctx.waitUntil(performCapture(env, result.url, result.ip, captureId, auth.tenantId, 'mcp'));
+      // Step 6: Dispatch to queue
+      try {
+        await env.CAPTURE_QUEUE.send({
+          captureId, url: result.url, ip: result.ip, tenantId: auth.tenantId, cip: 'mcp',
+          enqueuedAt: Date.now(),
+        });
+      } catch (err) {
+        await failCapture(env.KV, captureId, 'Queue dispatch failed', true);
+        ctx.waitUntil(log(env, 5, 'capture', {
+          event: 'capture.enqueue_fail', captureId, tenantId: auth.tenantId, cip: 'mcp',
+          errorMessage: String(err?.message ?? '').slice(0, 256),
+        }) ?? Promise.resolve());
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Could not dispatch capture. Please try again.' }],
+        };
+      }
 
-      // Step 7: Log capture.queued
+      // Step 7: Log capture.accepted
       ctx.waitUntil(log(env, 3, 'capture', {
-        event: 'capture.queued',
+        event: 'capture.accepted',
         captureId,
         tenantId: auth.tenantId,
         keyName: auth.keyName,
