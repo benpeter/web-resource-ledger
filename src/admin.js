@@ -18,7 +18,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE } from './kv.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
@@ -121,7 +121,7 @@ export async function handleAdminCreateKey(request, env, ctx) {
   };
 
   // Store in KV
-  const result = await createApiKeyRecord(env.KV, keyHash, record);
+  const result = await createApiKeyRecord(env.DB, keyHash, record);
   if (!result.created) {
     // Hash collision is astronomically rare; treat as internal error
     ctx.waitUntil(log(env, 5, 'admin', { event: 'admin.key_create_fail', reason: result.reason, authMethod: 'admin_key', responseStatus: 500, cip }) ?? Promise.resolve());
@@ -162,7 +162,7 @@ export async function handleAdminListKeys(request, env, ctx) {
   const tenantFilter = params.get('tenant') || undefined;
   const includeRevoked = params.get('include') === 'revoked';
 
-  const records = await listApiKeyRecords(env.KV, { tenantId: tenantFilter, includeRevoked });
+  const records = await listApiKeyRecords(env.DB, { tenantId: tenantFilter, includeRevoked });
 
   // Project to API response shape
   const data = records.map(r => {
@@ -213,7 +213,7 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
   // keyHash, which it currently does not (ADMIN_KEY has no hash).
 
   // Pre-flight read
-  const record = await getApiKeyRecord(env.KV, keyHash);
+  const record = await getApiKeyRecord(env.DB, keyHash);
 
   if (!record) {
     ctx.waitUntil(log(env, 4, 'admin', {
@@ -258,7 +258,7 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     // revocation. Concurrent requests may both pass the check. Acceptable
     // because ADMIN_KEY (env var) prevents lockout. Revisit when admin
     // auth moves to per-tenant KV keys.
-    const activeKeys = await listApiKeyRecords(env.KV, { tenantId: record.tenantId, includeRevoked: false });
+    const activeKeys = await listApiKeyRecords(env.DB, { tenantId: record.tenantId, includeRevoked: false });
     const otherAdminCount = activeKeys.filter(r => r.scopes.includes('admin') && r.keyHash !== keyHash).length;
     if (otherAdminCount === 0) {
       ctx.waitUntil(log(env, 3, 'admin', {
@@ -274,7 +274,7 @@ export async function handleAdminRevokeKey(request, env, ctx, match) {
     }
   }
 
-  const result = await revokeApiKeyRecord(env.KV, keyHash);
+  const result = await revokeApiKeyRecord(env.DB, keyHash);
 
   // Defensive: concurrent DELETE could remove the record between pre-flight read and here
   if (!result.revoked) {

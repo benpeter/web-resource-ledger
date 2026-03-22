@@ -31,7 +31,7 @@ import { canonicalize } from './canonical-json.js';
 import { sha256 } from './warc.js';
 import { verifySignature, getSigningKeys } from './signing.js';
 import { verifyTimestamp } from './rfc3161.js';
-import { getCapture, getArchivedSigningKey } from './kv.js';
+import { getCapture, getArchivedSigningKey } from './db.js';
 
 const enc = new TextEncoder();
 
@@ -249,7 +249,7 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
  * Core verification orchestration: KV lookup → key resolution → R2 fetch → WACZ verify.
  * Shared between REST handler and MCP tool handler.
  *
- * @param {{ KV: KVNamespace, BUCKET: R2Bucket, SIGNING_KEY: string }} deps
+ * @param {{ DB: D1Database, BUCKET: R2Bucket, SIGNING_KEY: string }} deps
  * @param {string} captureId
  * @returns {Promise<
  *   { ok: true, record: object, result: object } |
@@ -257,10 +257,10 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
  * >}
  */
 export async function performVerification(deps, captureId) {
-  const { KV, BUCKET, SIGNING_KEY } = deps;
+  const { DB, BUCKET, SIGNING_KEY } = deps;
 
-  // Step 1: KV lookup (fast-fail before expensive R2 fetch)
-  const record = await getCapture(KV, captureId);
+  // Step 1: DB lookup (fast-fail before expensive R2 fetch)
+  const record = await getCapture(DB, captureId);
   if (!record || record.status !== 'complete' || !record.wacz) {
     return { ok: false, reason: 'not_found' };
   }
@@ -272,7 +272,7 @@ export async function performVerification(deps, captureId) {
   // Priority: KV record keyId → archived key → current key (legacy fallback)
   let publicKeyBytes = null;
   if (record.wacz.keyId) {
-    const archived = await getArchivedSigningKey(KV, record.wacz.keyId);
+    const archived = await getArchivedSigningKey(DB, record.wacz.keyId);
     if (archived) {
       publicKeyBytes = Uint8Array.from(atob(archived.publicKey), c => c.charCodeAt(0));
     }

@@ -21,7 +21,8 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod';
 import { verifyApiKey, hasScope } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, getTenantConfig, rateLimitCounter } from './kv.js';
+import { createCapture, getCapture, failCapture, listCaptures, getTenantConfig } from './db.js';
+import { rateLimitCounter } from './kv.js';
 import { performVerification } from './verify.js';
 import { log } from './log.js';
 import { getEffectiveLimit } from './rate-limits.js';
@@ -86,7 +87,7 @@ function createMcpServer(env, ctx, auth, origin) {
       }
       // Per-tenant KV counter (respects custom overrides)
       {
-        const tenantConfig = await getTenantConfig(env.KV, auth.tenantId);
+        const tenantConfig = await getTenantConfig(env.DB, auth.tenantId);
         const effective = getEffectiveLimit(tenantConfig, 'capture');
         const counter = await rateLimitCounter(env.KV, auth.tenantId, 'capture', effective.limit, effective.period);
         ctx.waitUntil(counter.writePromise);
@@ -150,7 +151,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
       // Step 5: Write pending record to KV
       try {
-        await createCapture(env.KV, captureId, result.url, result.ip, auth.tenantId);
+        await createCapture(env.DB, captureId, result.url, result.ip, auth.tenantId);
       } catch (err) {
         ctx.waitUntil(log(env, 5, 'capture', {
           event: 'capture.kv_create_fail',
@@ -176,7 +177,7 @@ function createMcpServer(env, ctx, auth, origin) {
           enqueuedAt: Date.now(),
         });
       } catch (err) {
-        await failCapture(env.KV, captureId, 'Queue dispatch failed', true);
+        await failCapture(env.DB, captureId, 'Queue dispatch failed', true);
         ctx.waitUntil(log(env, 5, 'capture', {
           event: 'capture.enqueue_fail', captureId, tenantId: auth.tenantId, cip: 'mcp',
           errorMessage: String(err?.message ?? '').slice(0, 256),
@@ -227,7 +228,7 @@ function createMcpServer(env, ctx, auth, origin) {
     'Get the status and details of a capture by ID. Returns status (pending, complete, failed) and when complete includes artifact URLs for screenshot, HTML, WACZ bundle, and a verification link. No additional auth scope needed beyond the route-level read scope.',
     { capture_id: z.string().describe('The capture ID (format: cap_ followed by 32 hex characters).') },
     async ({ capture_id: captureId }) => {
-      const record = await getCapture(env.KV, captureId);
+      const record = await getCapture(env.DB, captureId);
 
       if (!record) {
         return {
@@ -307,16 +308,20 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'list_captures',
-    'List your recent captures with optional status filter. Returns summaries in reverse chronological order. Use get_capture with a specific ID for full details.',
+    'List your recent captures with optional filters. Returns summaries in reverse chronological order (newest first by default). Supports filtering by status, URL prefix, date range, and custom sort. Use offset for pagination. Use get_capture with a specific ID for full details.',
     {
       status: z.enum(['pending', 'complete', 'failed']).optional().describe('Filter by capture status.'),
       limit: z.number().int().min(1).max(100).optional().default(20).describe('Maximum number of captures to return (1-100, default 20).'),
-      cursor: z.string().optional().describe('Pagination cursor from a previous list_captures response.'),
+      offset: z.number().int().min(0).optional().describe('Number of captures to skip for pagination (default 0).'),
+      url: z.string().optional().describe('Filter captures whose URL starts with this prefix (min 4 characters).'),
+      created_after: z.string().optional().describe('Filter captures created after this ISO 8601 timestamp.'),
+      created_before: z.string().optional().describe('Filter captures created before this ISO 8601 timestamp.'),
+      sort: z.enum(['created_at', '-created_at']).optional().describe('Sort order: -created_at (newest first, default) or created_at (oldest first).'),
     },
-    async ({ status, limit = 20, cursor }) => {
+    async ({ status, limit = 20, offset = 0, url, created_after, created_before, sort = '-created_at' }) => {
       let result;
       try {
-        result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status });
+        result = await listCaptures(env.DB, auth.tenantId, { offset, limit, status, url, created_after, created_before, sort });
       } catch (err) {
         ctx.waitUntil(log(env, 5, 'capture', {
           event: 'capture.list_fail',
@@ -334,13 +339,6 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      if (result.error === 'invalid_cursor') {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: 'Invalid pagination cursor.' }],
-        };
-      }
-
       const { data, pagination } = result;
 
       if (data.length === 0) {
@@ -350,7 +348,7 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      const lines = [`Found ${data.length} capture(s)${status ? ` (status: ${status})` : ''}:`];
+      const lines = [`Found ${data.length} capture(s)${status ? ` (status: ${status})` : ''} (${pagination.total} total):`];
 
       for (const r of data) {
         // Strip fragment, truncate to 80 chars for list output
@@ -371,10 +369,9 @@ function createMcpServer(env, ctx, auth, origin) {
         }
       }
 
-      if (pagination.cursor) {
+      if (pagination.hasMore) {
         lines.push('');
-        lines.push(`Next page cursor: ${pagination.cursor}`);
-        lines.push('Pass this as the cursor parameter to list_captures for the next page.');
+        lines.push(`Next page: pass offset=${offset + data.length} to list_captures for the next page.`);
       }
 
       return {
@@ -410,7 +407,7 @@ function createMcpServer(env, ctx, auth, origin) {
       }
 
       const verification = await performVerification(
-        { KV: env.KV, BUCKET: env.BUCKET, SIGNING_KEY: env.SIGNING_KEY },
+        { DB: env.DB, BUCKET: env.BUCKET, SIGNING_KEY: env.SIGNING_KEY },
         captureId,
       );
 

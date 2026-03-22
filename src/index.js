@@ -1,7 +1,8 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, getTenantConfig, setTenantConfig, rateLimitCounter } from './kv.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, getTenantConfig, setTenantConfig } from './db.js';
+import { rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
 import { getSigningKeys } from './signing.js';
@@ -91,7 +92,7 @@ async function handleCaptureMessage(msg, env, ctx) {
   }
 
   // Idempotency guard: skip if already terminal
-  const existing = await getCapture(env.KV, captureId);
+  const existing = await getCapture(env.DB, captureId);
   if (existing && (existing.status === 'complete' || existing.status === 'failed')) {
     msg.ack();
     return;
@@ -116,7 +117,7 @@ async function handleCaptureMessage(msg, env, ctx) {
     // max_retries=3 in wrangler.toml → up to 4 deliveries (attempts 1-4)
     if (msg.attempts >= 4) {
       try {
-        await failCapture(env.KV, captureId, 'Capture permanently failed after catastrophic error', false);
+        await failCapture(env.DB, captureId, 'Capture permanently failed after catastrophic error', false);
       } catch {
         // Best-effort -- do not block ack
       }
@@ -160,7 +161,7 @@ async function handleDlqMessage(msg, env, ctx) {
 
   if (captureId) {
     try {
-      await failCapture(env.KV, captureId, 'Capture permanently failed after all retry attempts', false);
+      await failCapture(env.DB, captureId, 'Capture permanently failed after all retry attempts', false);
     } catch {
       // Best-effort
     }
@@ -340,7 +341,7 @@ async function checkCaptureRateLimit(env, auth, clientIp, group, count = 1) {
   }
 
   // Layer 2: KV counter (per-tenant, respects custom overrides)
-  const tenantConfig = await getTenantConfig(env.KV, auth.tenantId);
+  const tenantConfig = await getTenantConfig(env.DB, auth.tenantId);
   const effective = getEffectiveLimit(tenantConfig, group);
   const counter = await rateLimitCounter(env.KV, auth.tenantId, group, effective.limit, effective.period, count);
 
@@ -460,7 +461,7 @@ async function handleCreateCapture(request, env, ctx) {
 
   // Step 8: Write pending record to KV (synchronously before returning 202)
   try {
-    await createCapture(env.KV, captureId, result.url, result.ip, tenantId);
+    await createCapture(env.DB, captureId, result.url, result.ip, tenantId);
   } catch (err) {
     ctx.waitUntil(log(env, 5, 'capture', {
       event: 'capture.kv_create_fail',
@@ -496,7 +497,7 @@ async function handleCreateCapture(request, env, ctx) {
       enqueuedAt: Date.now(),
     });
   } catch (err) {
-    await failCapture(env.KV, captureId, 'Queue dispatch failed', true);
+    await failCapture(env.DB, captureId, 'Queue dispatch failed', true);
     ctx.waitUntil(log(env, 5, 'capture', {
       event: 'capture.enqueue_fail', captureId, tenantId, cip,
       errorMessage: String(err?.message ?? '').slice(0, 256),
@@ -660,7 +661,7 @@ async function handleBatchCapture(request, env, ctx) {
 
     // Write KV record
     try {
-      await createCapture(env.KV, captureId, result.url, result.ip, tenantId);
+      await createCapture(env.DB, captureId, result.url, result.ip, tenantId);
     } catch (err) {
       ctx.waitUntil(log(env, 5, 'capture', {
         event: 'capture.kv_create_fail',
@@ -704,7 +705,7 @@ async function handleBatchCapture(request, env, ctx) {
       await env.CAPTURE_QUEUE.sendBatch(queueMessages);
     } catch (err) {
       for (const qm of queueMessages) {
-        await failCapture(env.KV, qm.body.captureId, 'Queue dispatch failed', true);
+        await failCapture(env.DB, qm.body.captureId, 'Queue dispatch failed', true);
       }
       ctx.waitUntil(log(env, 5, 'capture', {
         event: 'capture.batch_enqueue_fail', tenantId, cip,
@@ -795,11 +796,59 @@ async function handleListCaptures(request, env, ctx) {
     limit = Math.min(parsed, 100);
   }
 
-  const cursor = params.get('cursor') || undefined;
+  // offset: default 0, reject negative / NaN / non-integer
+  let offset = 0;
+  const offsetParam = params.get('offset');
+  if (offsetParam !== null) {
+    const parsed = Number(offsetParam);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return problemResponse(400, "Query parameter 'offset' must be a non-negative integer.");
+    }
+    offset = parsed;
+  }
 
   const statusParam = params.get('status') || undefined;
   if (statusParam !== undefined && !['pending', 'complete', 'failed'].includes(statusParam)) {
     return problemResponse(400, "Query parameter 'status' must be 'pending', 'complete', or 'failed'.");
+  }
+
+  // url: optional prefix filter, min 4 chars, max 200, no % or _ wildcards
+  let urlParam;
+  const urlRaw = params.get('url');
+  if (urlRaw !== null) {
+    if (urlRaw.length < 4) {
+      return problemResponse(400, "Query parameter 'url' must be at least 4 characters.");
+    }
+    if (urlRaw.length > 200) {
+      return problemResponse(400, "Query parameter 'url' must be 200 characters or fewer.");
+    }
+    if (urlRaw.indexOf('%') !== -1 || urlRaw.indexOf('_') !== -1) {
+      return problemResponse(400, "Query parameter 'url' must not contain '%' or '_' characters.");
+    }
+    urlParam = urlRaw;
+  }
+
+  // created_after / created_before: ISO 8601 strings
+  const createdAfter = params.get('created_after') || undefined;
+  const createdBefore = params.get('created_before') || undefined;
+  if (createdAfter && isNaN(Date.parse(createdAfter))) {
+    return problemResponse(400, "Query parameter 'created_after' must be a valid ISO 8601 date.");
+  }
+  if (createdBefore && isNaN(Date.parse(createdBefore))) {
+    return problemResponse(400, "Query parameter 'created_before' must be a valid ISO 8601 date.");
+  }
+  if (createdAfter && createdBefore && createdBefore <= createdAfter) {
+    return problemResponse(400, "Query parameter 'created_before' must be after 'created_after'.");
+  }
+
+  // sort: enum
+  const sortRaw = params.get('sort');
+  let sort = '-created_at';
+  if (sortRaw !== null) {
+    if (sortRaw !== 'created_at' && sortRaw !== '-created_at') {
+      return problemResponse(400, "Query parameter 'sort' must be 'created_at' or '-created_at'.");
+    }
+    sort = sortRaw;
   }
 
   // Step 4: Start timer
@@ -808,15 +857,19 @@ async function handleListCaptures(request, env, ctx) {
   // Step 5: List captures
   let result;
   try {
-    result = await listCaptures(env.KV, auth.tenantId, { cursor, limit, status: statusParam });
+    result = await listCaptures(env.DB, auth.tenantId, {
+      offset,
+      limit,
+      status: statusParam,
+      url: urlParam,
+      created_after: createdAfter,
+      created_before: createdBefore,
+      sort,
+    });
   } catch (err) {
     const durationMs = Date.now() - start;
     ctx.waitUntil(log(env, 5, 'capture', { event: 'capture.list_fail', tenantId: auth.tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 500, errorClass: err.constructor.name, durationMs, cip }) ?? Promise.resolve());
     return problemResponse(500, 'Could not list captures');
-  }
-
-  if (result.error === 'invalid_cursor') {
-    return problemResponse(400, "Query parameter 'cursor' is invalid.");
   }
 
   // Step 6: Build CaptureSummary projection (exclude ip, artifacts.*, wacz.key)
@@ -849,7 +902,7 @@ async function handleListCaptures(request, env, ctx) {
     responseStatus: 200,
     resultCount: data.length,
     status: statusParam || 'all',
-    cursor: result.pagination.cursor ? 'present' : 'absent',
+    offset,
     durationMs,
     cip,
   }) ?? Promise.resolve());
@@ -867,7 +920,7 @@ async function handleListCaptures(request, env, ctx) {
 
 async function handleGetTenantConfig(request, env, ctx, match) {
   const tenantId = match[1];
-  const config = await getTenantConfig(env.KV, tenantId);
+  const config = await getTenantConfig(env.DB, tenantId);
   if (!config) {
     return problemResponse(404, 'Tenant configuration not found.');
   }
@@ -895,7 +948,7 @@ async function handlePutTenantConfig(request, env, ctx, match) {
 
   let saved;
   try {
-    saved = await setTenantConfig(env.KV, tenantId, body, 'admin_key');
+    saved = await setTenantConfig(env.DB, tenantId, body, 'admin_key');
   } catch (err) {
     if (err.message && (err.message.startsWith('rateLimit.') || err.message.startsWith('Invalid tenantId'))) {
       return problemResponse(400, err.message);
@@ -917,7 +970,7 @@ async function handlePutTenantConfig(request, env, ctx, match) {
 async function handleGetCapture(request, env, ctx, match) {
   const captureId = match[1];
 
-  const record = await getCapture(env.KV, captureId);
+  const record = await getCapture(env.DB, captureId);
 
   if (!record || record.status !== 'complete') {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
@@ -974,7 +1027,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   const captureId = match[1];
   const artifactName = match[2];
 
-  const record = await getCapture(env.KV, captureId);
+  const record = await getCapture(env.DB, captureId);
 
   // SECURITY ADVISORY: check status === 'complete' same as metadata endpoint
   if (!record || record.status !== 'complete') {
@@ -1047,7 +1100,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
   }
 
   // Steps 2-6: Delegate to shared orchestrator (KV lookup, key resolution, R2, verify)
-  const verification = await performVerification({ KV: env.KV, BUCKET: env.BUCKET, SIGNING_KEY: env.SIGNING_KEY }, captureId);
+  const verification = await performVerification({ DB: env.DB, BUCKET: env.BUCKET, SIGNING_KEY: env.SIGNING_KEY }, captureId);
 
   if (!verification.ok) {
     if (verification.reason === 'not_found') {
@@ -1161,7 +1214,7 @@ async function handleGetSigningKeys(request, env, ctx) {
     }
   }
 
-  const archived = await listArchivedSigningKeys(env.KV);
+  const archived = await listArchivedSigningKeys(env.DB);
 
   return jsonResponse({ keys: archived }, 200, {
     'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
@@ -1173,7 +1226,7 @@ async function handleCaptureStatus(request, env, ctx, match) {
   // match[1] is validated by regex: cap_[a-f0-9]{32}
   const captureId = match[1];
 
-  const record = await getCapture(env.KV, captureId);
+  const record = await getCapture(env.DB, captureId);
 
   // SECURITY: Static string -- do NOT echo captureId back in response body
   if (!record) return problemResponse(404, 'Capture not found');

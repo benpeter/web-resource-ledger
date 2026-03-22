@@ -24,7 +24,7 @@
 
 import { problemResponse } from './responses.js';
 import { log } from './log.js';
-import { TENANT_ID_RE } from './kv.js';
+import { TENANT_ID_RE, getApiKeyRecord } from './db.js';
 
 /**
  * Hashes a raw API key with SHA-256, returning lowercase hex.
@@ -125,7 +125,7 @@ async function timingSafeEqual(a, b) {
  */
 export async function verifyApiKey(request, env, { requiredScope = 'capture' } = {}) {
   // Misconfiguration guard: at least one auth mechanism must be present
-  if (!env.KV && !env.CAPTURE_API_KEY) {
+  if (!env.DB && !env.CAPTURE_API_KEY) {
     return {
       ok: false,
       response: problemResponse(503, 'Service is not configured'),
@@ -143,13 +143,13 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
   // Hash token once -- used for KV lookup and safe logging (prefix only)
   const sha256hex = await hashApiKey(token);
 
-  // KV lookup
-  if (env.KV) {
+  // D1 lookup
+  if (env.DB) {
     let record;
     try {
-      record = await env.KV.get(`apikey:${sha256hex}`, 'json');
+      record = await getApiKeyRecord(env.DB, sha256hex);
     } catch (err) {
-      // KV I/O failure: fail loudly, do NOT fall through to legacy
+      // D1 I/O failure: fail loudly, do NOT fall through to legacy
       console.error('wrl:auth:kv_error', { errorMessage: String(err?.message ?? '').slice(0, 128) });
       return {
         ok: false,
@@ -205,7 +205,7 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
         authMethod: 'kv',
       };
     }
-    // record === null: key not found in KV -- fall through to legacy below
+    // record === null: key not found in D1 -- fall through to legacy below
   }
 
   // Legacy fallback: only reached on KV miss (null) or when env.KV is absent
