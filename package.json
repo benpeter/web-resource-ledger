@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.js",
     "lint:api": "redocly lint openapi.yaml",
-    "smoke": "./scripts/smoke-test.sh"
+    "smoke": "./scripts/smoke-test.sh",
+    "build:docs": "cd site && npm run build"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.12.21",

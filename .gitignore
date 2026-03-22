@@ -16,6 +16,10 @@ node_modules/
 .vscode/
 .idea/
 
+# Documentation site build output
+site/_output/
+site/node_modules/
+
 # Logs
 *.log
 

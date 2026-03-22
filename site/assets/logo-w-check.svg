@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#2a3444" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    Concept A: Stylized "W" with right leg extending into a checkmark angle.
+    Single polyline: left outer top → left valley → mid-peak → right valley
+    → checkmark pivot → checkmark upstroke (right outer top).
+    Designed for legibility at 16x16 first.
+  -->
+  <polyline
+    points="4,7 10,23 16,11 22,23 25,26 29,9"
+    stroke-width="2.5"
+  />
+</svg>
