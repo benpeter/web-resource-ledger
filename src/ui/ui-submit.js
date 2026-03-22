@@ -79,8 +79,6 @@ function stopAllElapsedTimers() {
 // ---------------------------------------------------------------------------
 
 function buildCaptureItem(capture) {
-  var safe = safeUrl(capture.url);
-
   var item = document.createElement('a');
   item.className = 'capture-item';
   item.setAttribute('href', '#/captures/' + capture.id);
@@ -91,10 +89,6 @@ function buildCaptureItem(capture) {
   urlCell.className = 'capture-url';
   urlCell.textContent = capture.url || '(unknown URL)';
   urlCell.title = capture.url || '';
-  if (!safe) {
-    // Prevent navigation to unsafe protocol links
-    item.setAttribute('href', '#/captures/' + capture.id);
-  }
   item.appendChild(urlCell);
 
   // Time cell
@@ -330,9 +324,13 @@ function loadMoreCaptures() {
 
     _moreBtn.disabled = false;
     _moreBtn.textContent = 'Load more';
-  }).catch(function() {
+  }).catch(function(err) {
     _moreBtn.disabled = false;
     _moreBtn.textContent = 'Load more';
+    var isTimeout = err && err.message === 'fetch_timeout';
+    showGlobalError(isTimeout
+      ? 'Connection timed out. Check your network.'
+      : 'Could not load more captures. Check your connection.');
   });
 }
 

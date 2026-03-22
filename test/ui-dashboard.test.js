@@ -181,21 +181,21 @@ describe('security -- innerHTML usage', () => {
   it('AUTH_JS: innerHTML only assigned the empty string', () => {
     const assignments = innerHtmlAssignments(AUTH_JS);
     for (const rhs of assignments) {
-      expect(rhs, `innerHTML assignment "${rhs}" uses variable data`).toMatch(/^''|^""/);
+      expect(rhs, `innerHTML assignment "${rhs}" uses variable data`).toMatch(/^(?:''|"")$/);
     }
   });
 
   it('SUBMIT_VIEW_JS: innerHTML only assigned the empty string', () => {
     const assignments = innerHtmlAssignments(SUBMIT_VIEW_JS);
     for (const rhs of assignments) {
-      expect(rhs, `innerHTML assignment "${rhs}" uses variable data`).toMatch(/^''|^""/);
+      expect(rhs, `innerHTML assignment "${rhs}" uses variable data`).toMatch(/^(?:''|"")$/);
     }
   });
 
   it('DETAIL_VIEW_JS: innerHTML only assigned the empty string', () => {
     const assignments = innerHtmlAssignments(DETAIL_VIEW_JS);
     for (const rhs of assignments) {
-      expect(rhs, `innerHTML assignment "${rhs}" uses variable data`).toMatch(/^''|^""/);
+      expect(rhs, `innerHTML assignment "${rhs}" uses variable data`).toMatch(/^(?:''|"")$/);
     }
   });
 

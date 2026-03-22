@@ -1,3 +1,4 @@
+// tva
 // Polling module for WRL captures view.
 // startPolling(captureId, onUpdate) -- begin polling a capture until terminal state.
 // stopAllPolling() -- cancel all active polls (call on navigation away).
