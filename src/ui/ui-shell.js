@@ -91,6 +91,8 @@ function route() {
 }
 
 window.addEventListener('hashchange', function () {
+  // Stop all active capture polls before rendering the next view
+  stopAllPolling();
   // Clear global error on navigation
   var ge = document.getElementById('global-error');
   if (ge) ge.remove();

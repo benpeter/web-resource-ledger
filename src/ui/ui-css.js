@@ -163,6 +163,228 @@ input, select, textarea {
 }
 
 /* ---------------------------------------------------------------------------
+   Captures view
+--------------------------------------------------------------------------- */
+
+.captures-heading {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+  margin-bottom: var(--space-6);
+}
+
+/* Submit form */
+
+.captures-form-section {
+  margin-bottom: var(--space-8);
+}
+
+.capture-form-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.capture-form-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.capture-form-error {
+  margin-top: var(--space-2);
+}
+
+/* List section */
+
+.captures-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.captures-count {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+/* Shared column layout for header row and items */
+
+.capture-header-row,
+.capture-item {
+  display: grid;
+  grid-template-columns: 1fr 6rem 6rem;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Header row */
+
+.capture-header-row {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* Capture list */
+
+.capture-list {
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+}
+
+/* When there's no header row (empty state) ensure correct border-radius */
+.capture-list:first-child {
+  border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* Individual capture items */
+
+.capture-item {
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  transition: background 0.1s;
+}
+
+.capture-item:last-child {
+  border-bottom: none;
+}
+
+.capture-item:hover {
+  background: var(--color-surface-muted);
+}
+
+.capture-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* URL cell: truncate on desktop */
+.capture-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-base);
+  color: var(--color-primary);
+}
+
+/* Header URL cell: no truncation */
+.capture-header-row .capture-url {
+  color: var(--color-text-muted);
+  overflow: visible;
+  white-space: normal;
+}
+
+.capture-time {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.capture-badge {
+  display: flex;
+  align-items: center;
+}
+
+/* Timeout note shown inside item */
+.capture-timeout-note {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-1);
+}
+
+/* Empty state and load error */
+
+.capture-empty,
+.capture-load-error {
+  padding: var(--space-8) var(--space-4);
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.capture-load-error {
+  color: var(--color-error-text);
+}
+
+/* Load more button */
+
+.captures-more-btn {
+  align-self: center;
+  margin-top: var(--space-4);
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile: stacked layout for capture items (<640px)
+--------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  /* Hide the desktop column header row */
+  .capture-header-row {
+    display: none;
+  }
+
+  /* Border-radius fix when header is hidden */
+  .capture-list {
+    border-top: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  /* Stack columns vertically */
+  .capture-item {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: var(--space-1);
+    padding: var(--space-3);
+  }
+
+  /* URL spans full width, wraps */
+  .capture-url {
+    grid-column: 1 / -1;
+    white-space: normal;
+    word-break: break-all;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Time and badge on second row */
+  .capture-time {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .capture-badge {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  /* Form row stacks on small screens */
+  .capture-form-row {
+    flex-direction: column;
+  }
+
+  .capture-form-row .btn {
+    width: 100%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Responsive -- mobile-first
 --------------------------------------------------------------------------- */
 
