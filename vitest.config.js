@@ -33,10 +33,11 @@ export default defineWorkersConfig({
             CAPTURE_QUEUE: 'wrl-captures',
             CAPTURE_DLQ: 'wrl-captures-dlq',
           },
-          // Queue consumers deliberately omitted: auto-consuming messages
-          // in the test runner causes isolated storage conflicts. Queue
-          // consumer logic is tested via dedicated queue tests that invoke
-          // the handler directly.
+          // Explicitly empty: overrides wrangler.toml [[queues.consumers]]
+          // which would auto-consume messages and call performCapture()
+          // with browser binding, crashing the test runtime.
+          // Queue consumer logic is tested directly in queue-consumer.test.js.
+          queueConsumers: {},
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"
           // errors. All tests do explicit cleanup in beforeEach.
