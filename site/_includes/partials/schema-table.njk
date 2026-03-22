@@ -1,0 +1,26 @@
+{#
+  Renders a flattened schema property array as an HTML table.
+  Expects: rows — array of { name, type, required, description }
+#}
+{% if rows and rows.length %}
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col">Property</th>
+      <th scope="col">Type</th>
+      <th scope="col">Required</th>
+      <th scope="col">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><code>{{ row.name }}</code></td>
+      <td><code>{{ row.type }}</code></td>
+      <td>{% if row.required %}Yes{% else %}No{% endif %}</td>
+      <td>{{ row.description }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

@@ -6,6 +6,8 @@ Cryptographic evidence of web content -- capture what a page looked like, when, 
 
 Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519-signed WACZ bundle. The verification URL works for anyone -- no account needed. Deploy on your own infrastructure; your captures, your keys, your evidence.
 
+For comprehensive guides on authentication, verification, batch captures, and MCP integration, see [docs.webresourceledger.com](https://docs.webresourceledger.com).
+
 > **Status:** Early development, single-operator deployment. The API is functional and deployed but pre-1.0. See the [roadmap](#roadmap) for what's coming.
 
 ## What you get
@@ -117,6 +119,8 @@ curl https://wrl.example.com/v1/captures \
 Optional query parameters: `limit` (1-100, default 20), `cursor` (for paging), `status` (`pending`, `complete`, or `failed`).
 
 Captures are rate-limited to 10 per minute per IP. Verification is limited to 60 per minute per IP. Error responses use RFC 9457 `application/problem+json` format. For full details, see [`openapi.yaml`](openapi.yaml).
+
+> **Detailed guides**: See [Getting Started](https://docs.webresourceledger.com) for a complete walkthrough, or browse the [API Reference](https://docs.webresourceledger.com/api-reference/) for the full endpoint catalog.
 
 ## Setup
 
@@ -310,7 +314,7 @@ Steps 1-9 are one-time setup. After initial deployment, the CD pipeline handles 
 
 WRL exposes all four core operations — capture, retrieve, list, and verify — as MCP tools. Any MCP-compatible agent or IDE can capture web pages and verify evidence without writing HTTP client code.
 
-See [`docs/mcp.md`](docs/mcp.md) for setup instructions (Claude Code, Cursor, Windsurf, and generic clients), tool reference, and a step-by-step capture-and-verify walkthrough.
+See the [MCP Server Guide](https://docs.webresourceledger.com/mcp/) for setup instructions and example workflows. For local reference, [`docs/mcp.md`](docs/mcp.md) covers Claude Code, Cursor, Windsurf, and generic clients along with the full tool reference.
 
 ## Web UI
 

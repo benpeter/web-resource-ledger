@@ -1,0 +1,9 @@
+name = "wrl-docs"
+compatibility_date = "2026-03-13"
+
+[assets]
+directory = "./_output"
+
+routes = [
+  { pattern = "docs.webresourceledger.com", custom_domain = true }
+]

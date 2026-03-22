@@ -1,0 +1,86 @@
+{#
+  Renders a single API endpoint card.
+  Expects: op — an operation object from api.tags[*].operations
+#}
+<div class="docs-endpoint" id="{{ op.operationId }}">
+  <div class="docs-endpoint-header">
+    <span class="method-badge method-badge--{{ op.method | lower }}" aria-label="HTTP method {{ op.method }}">{{ op.method }}</span>
+    <code class="docs-endpoint-path">{{ op.path }}</code>
+
+    {# Auth requirement badge #}
+    {% if op.authRequired == "none" %}
+      <span class="badge badge--skip" title="No authentication required">No auth</span>
+    {% elif op.authRequired == "bearerAuth" %}
+      <span class="badge badge--pass" title="Requires tenant API key">Tenant key</span>
+    {% elif op.authRequired == "adminAuth" %}
+      <span class="badge badge--fail" title="Requires admin key">Admin key</span>
+    {% endif %}
+  </div>
+
+  {% if op.summary %}
+  <h3>{{ op.summary }}</h3>
+  {% endif %}
+
+  {% if op.description %}
+  <p>{{ op.description }}</p>
+  {% endif %}
+
+  {# Parameters table #}
+  {% if op.parameters and op.parameters.length %}
+  <h4>Parameters</h4>
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Location</th>
+        <th scope="col">Required</th>
+        <th scope="col">Type</th>
+        <th scope="col">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for param in op.parameters %}
+      <tr>
+        <td><code>{{ param.name }}</code></td>
+        <td>{{ param.in }}</td>
+        <td>{% if param.required %}Yes{% else %}No{% endif %}</td>
+        <td><code>{{ param.type }}</code></td>
+        <td>{{ param.description }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {# Request body #}
+  {% if op.requestBody %}
+  <h4>Request body{% if op.requestBody.required %} <span class="badge">required</span>{% endif %}</h4>
+  {% if op.requestBody.schema and op.requestBody.schema.length %}
+  {% set rows = op.requestBody.schema %}
+  {% include "partials/schema-table.njk" %}
+  {% endif %}
+  {% if op.requestBody.example %}
+  <pre class="code-block"><code class="language-json">{{ op.requestBody.example }}</code></pre>
+  {% endif %}
+  {% endif %}
+
+  {# Responses #}
+  {% if op.responses and op.responses.length %}
+  <h4>Responses</h4>
+  {% for resp in op.responses %}
+  <details class="disclosure">
+    <summary>
+      <code>{{ resp.status }}</code>
+      {% if resp.description %}&mdash; {{ resp.description }}{% endif %}
+    </summary>
+    {% if resp.schema and resp.schema.length %}
+    {% set rows = resp.schema %}
+    {% include "partials/schema-table.njk" %}
+    {% endif %}
+    {% if resp.example %}
+    <pre class="code-block"><code class="language-json">{{ resp.example }}</code></pre>
+    {% endif %}
+  </details>
+  {% endfor %}
+  {% endif %}
+</div>

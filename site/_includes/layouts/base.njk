@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} — {{ site.title }}</title>
+  <meta name="description" content="{{ description or site.title }}">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/docs.css">
+  <link rel="stylesheet" href="/css/prism-wrl.css">
+  <script src="/js/clipboard.js" defer></script>
+</head>
+<body>
+  <a class="sr-only skip-link" href="#content">Skip to content</a>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar-header">
+        <a href="/" class="docs-logo" aria-label="{{ site.title }} home">
+          <img src="/assets/logo-w-check.svg" alt="" width="28" height="28" aria-hidden="true">
+          <span>{{ site.title }}</span>
+        </a>
+      </div>
+
+      {# Mobile: collapsible nav via details/summary — no JS required #}
+      <details class="docs-nav-mobile">
+        <summary>Menu</summary>
+        <nav aria-label="Documentation mobile">
+          <ul class="docs-nav-list">
+            {% for item in site.nav %}
+            <li>
+              <a href="{{ item.url }}"
+                 {% if page.url == item.url %}aria-current="page"{% endif %}
+                 class="docs-nav-link">
+                {{ item.title }}
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </nav>
+      </details>
+
+      {# Desktop: always-visible nav #}
+      <nav class="docs-nav-desktop" aria-label="Documentation">
+        <ul class="docs-nav-list">
+          {% for item in site.nav %}
+          <li>
+            <a href="{{ item.url }}"
+               {% if page.url == item.url %}aria-current="page"{% endif %}
+               class="docs-nav-link">
+              {{ item.title }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </nav>
+    </aside>
+
+    <main id="content" class="docs-main">
+      {{ content | safe }}
+
+      <footer class="docs-footer">
+        <p>
+          <a href="https://github.com/benpeter/web-resource-ledger">View on GitHub</a>
+        </p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

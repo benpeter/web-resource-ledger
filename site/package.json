@@ -1,0 +1,19 @@
+{
+  "name": "wrl-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WRL Documentation Site",
+  "type": "module",
+  "scripts": {
+    "build": "eleventy",
+    "serve": "eleventy --serve"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.0.0",
+    "@11ty/eleventy-plugin-syntaxhighlight": "^5.0.0"
+  },
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^10.1.1",
+    "yaml": "^2.8.2"
+  }
+}
