@@ -55,3 +55,4 @@ software development.
 | [0045-per-tenant-rate-limiting](0045-per-tenant-rate-limiting/) | Per-tenant rate limiting with dual-layer enforcement and admin config (Issue #94) |
 | [0046-coralogix-alerting-rules](0046-coralogix-alerting-rules/) | Coralogix alerting rules for production health monitoring (Issue #95) |
 | [0047-d1-migration-metadata](0047-d1-migration-metadata/) | D1 migration for metadata -- KV to edge SQLite (Issue #96) |
+| [0048-brand-identity-design-system](0048-brand-identity-design-system/) | Brand identity and CSS design system -- tokens, components, logo, favicon (Issue #97) |
