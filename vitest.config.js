@@ -33,17 +33,10 @@ export default defineWorkersConfig({
             CAPTURE_QUEUE: 'wrl-captures',
             CAPTURE_DLQ: 'wrl-captures-dlq',
           },
-          queueConsumers: {
-            'wrl-captures': {
-              maxBatchSize: 1,
-              maxRetries: 3,
-              deadLetterQueue: 'wrl-captures-dlq',
-            },
-            'wrl-captures-dlq': {
-              maxBatchSize: 1,
-              maxRetries: 0,
-            },
-          },
+          // Queue consumers deliberately omitted: auto-consuming messages
+          // in the test runner causes isolated storage conflicts. Queue
+          // consumer logic is tested via dedicated queue tests that invoke
+          // the handler directly.
           // R2 isolated storage uses SQLite WAL files that can remain open
           // between tests, causing "failed to pop isolated storage stack frame"
           // errors. All tests do explicit cleanup in beforeEach.
