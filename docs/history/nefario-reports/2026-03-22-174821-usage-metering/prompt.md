@@ -1,0 +1,20 @@
+Per-tenant usage counters are maintained in D1, tracking captures, storage consumption, and API calls. An admin endpoint exposes usage data for billing and quota enforcement.
+
+**Success criteria**:
+- D1 records per-tenant counters: capture count, storage bytes (R2 object sizes), API call count
+- Counters increment on each relevant operation (capture stored, API request authenticated)
+- `GET /v1/admin/usage?tenant={tenantId}` returns current-period usage for a tenant (admin auth required)
+- `GET /v1/admin/usage?tenant={tenantId}&period=2026-03` returns usage for a specific billing period
+- Billing period is calendar month (UTC)
+- Counter updates are eventually consistent (batched writes acceptable; no strong consistency requirement)
+- Usage data survives Worker restarts (persisted in D1, not in-memory only)
+- Counters are monotonically increasing within a period (no resets mid-period)
+
+**Scope**:
+- In: D1 usage table, counter increment logic in capture and API middleware, admin usage endpoint, per-period aggregation
+- Out: Usage dashboards in web UI (deferred to R26), real-time usage (eventual consistency is fine), usage alerts, historical usage export
+
+**Constraints**:
+- Depends on R30 (D1 migration) for the storage layer
+- Counter increments must not add measurable latency to the capture hot path (use waitUntil or similar deferred write)
+- Storage byte counting relies on R2 object metadata (Content-Length) available after upload

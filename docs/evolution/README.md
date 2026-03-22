@@ -60,3 +60,4 @@ software development.
 | [0050-npm-publish-ci-automation](0050-npm-publish-ci-automation/) | npm publish CI automation -- GitHub Actions workflow, version bump tooling, changelog generation (Issue #98) |
 | [0051-documentation-site](0051-documentation-site/) | Static documentation site with 11ty v3, OpenAPI-generated API reference, WRL brand styling, Cloudflare Workers deployment (Issue #99) |
 | [0052-landing-page](0052-landing-page/) | Static HTML/CSS landing page for webresourceledger.com (Issue #100) |
+| [0053-usage-metering](0053-usage-metering/) | Per-tenant usage metering with D1 counters and admin endpoint (Issue #101) |
