@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 # Structured logging for orchestrator
 
-LOG_DIR="${LOG_DIR:-scripts/autonomous/logs/$(date +%Y%m%d-%H%M%S)}"
+LOGS_BASE="scripts/autonomous/logs"
+CURRENT_LINK="${LOGS_BASE}/current"
 
 init_logging() {
-  mkdir -p "$LOG_DIR"
+  # Resume: if a "current" symlink exists and has status files, reuse it
+  if [[ -L "$CURRENT_LINK" ]] && [[ -d "$CURRENT_LINK" ]]; then
+    # Resolve symlink to real path, then back to repo-relative
+    LOG_DIR="$(cd "$CURRENT_LINK" && pwd -P)"
+    LOG_DIR="${LOG_DIR#"$(pwd -P)/"}"
+  else
+    LOG_DIR="${LOGS_BASE}/$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$LOG_DIR"
+    # Symlink with just the basename since both are in LOGS_BASE
+    ln -sfn "$(basename "$LOG_DIR")" "$CURRENT_LINK"
+  fi
   echo "$LOG_DIR"
 }
 

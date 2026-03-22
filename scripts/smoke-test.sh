@@ -4,8 +4,8 @@
 # Validates that the Worker is alive, configured, and can process captures.
 #
 # Required env vars:
-#   SMOKE_URL     -- base URL of the deployed Worker
-#   SMOKE_API_KEY -- API key for the staging environment
+#   SMOKE_URL     -- base URL of the deployed Worker (or pass as $1)
+#   SMOKE_API_KEY -- API key for the staging environment (required unless SMOKE_SKIP_CAPTURE=1)
 #
 # Optional env vars:
 #   SMOKE_CAPTURE_URL  -- URL to capture (default: https://example.com)
@@ -23,11 +23,17 @@ for cmd in curl jq; do
 done
 
 # --- Configuration ---
-: "${SMOKE_URL:?SMOKE_URL is required}"
-: "${SMOKE_API_KEY:?SMOKE_API_KEY is required}"
+SMOKE_URL="${SMOKE_URL:-${1:-}}"
+: "${SMOKE_URL:?SMOKE_URL is required (set env var or pass as \$1)}"
 SMOKE_CAPTURE_URL="${SMOKE_CAPTURE_URL:-https://example.com}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-90}"
 SMOKE_SKIP_CAPTURE="${SMOKE_SKIP_CAPTURE:-0}"
+SMOKE_API_KEY="${SMOKE_API_KEY:-}"
+
+if [ "$SMOKE_SKIP_CAPTURE" != "1" ] && [ -z "$SMOKE_API_KEY" ]; then
+  echo "ERROR: SMOKE_API_KEY is required when SMOKE_SKIP_CAPTURE != 1" >&2
+  exit 1
+fi
 
 # Strip trailing slash
 SMOKE_URL="${SMOKE_URL%/}"
