@@ -1,0 +1,38 @@
+# Phase 0058: Stripe Usage-Based Billing
+
+## Source
+
+GitHub Issue #106: R29: Stripe usage-based billing
+
+## Task Description
+
+WRL integrates Stripe for pure usage-based billing. There is one billable unit: captures. No subscriptions, no plans, no tiers. The first 200 captures per month are free (no credit card required). After that, tenants add a payment method and pay per capture with volume discounts. Invoices are generated monthly when accumulated charges reach €5 or more. Stripe Tax handles VAT automatically.
+
+### Success Criteria
+
+- Single Stripe meter configured: Captures (per capture)
+- Volume discount pricing in Stripe: €0.05 (201–10k), €0.035 (10k–100k), €0.015 (100k+)
+- First 200 captures/month require no payment method and no Stripe customer record
+- Stripe customer created on-demand when tenant adds a payment method (after free limit or proactively)
+- Payment method collection via Stripe Checkout in "setup" mode (collects card, no charge)
+- Stripe Customer Portal linked for self-serve billing management (update payment method, view invoices)
+- €5 invoice threshold: charges below €5 roll over to the next billing period
+- Webhook handler processes billing events: `invoice.paid`, `invoice.payment_failed`, `invoice.finalized`
+- Stripe customer ID stored in D1 tenant record (null until payment method added)
+- Stripe Tax enabled for automatic VAT/sales tax calculation based on tenant location
+- Payment failure triggers grace period with tenant notification; hard block after grace expires
+- Tenants without a payment method are hard-blocked at 200 captures/month
+
+### Scope
+
+- In: Stripe meter configuration, payment method collection (Checkout setup mode), Customer Portal integration, webhook handler for billing lifecycle, D1 tenant billing fields, Stripe Tax, grace period on payment failure, $5 invoice threshold, volume discount tiers
+- Out: Subscription plans, plan selection UI, custom pricing page, invoice PDF generation (Stripe handles this), multi-currency support beyond what Stripe Tax provides, annual billing
+
+### Constraints
+
+- Depends on R24 (signup flow) for tenant creation
+- Depends on R26 (quota enforcement) for free-limit gating
+- Stripe webhook endpoint must verify signatures using webhook signing secret
+- Must handle Stripe webhook retries idempotently (use event ID deduplication)
+- Stripe API version must be pinned in code to avoid breaking changes
+- No Stripe Checkout for plan selection (there are no plans) -- only for payment method setup

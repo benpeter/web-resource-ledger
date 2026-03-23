@@ -110,6 +110,13 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Webhook delivery exhaustion Coralogix alert | When webhook feature is verified in production; alert on DLQ events | Phase 0054, observability-minion |
 | [consider] VERIFICATION_BASE_URL env var enforcement | Currently falls back to hardcoded production URL; require explicit config | Phase 0054, margo |
 
+### Billing (R29 shipped -- extensions)
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [should] Wire Stripe meter event reporting into capture pipeline | When first paying tenant onboards; `reportMeterEvent()` exists but is not called from the post-capture success path | Phase 0058 |
+| [consider] Stripe Checkout returnUrl from client config | Currently defaults to `/ui`; make configurable when billing UI exists | Phase 0058 |
+
 ### Security
 
 | Item | Condition | Source |
@@ -228,6 +235,7 @@ Completed items removed from active tracking:
 - ~~R27: Webhooks / outbound callbacks~~ -- DONE (Phase 0054): CRUD API (POST/GET/DELETE + ping), HMAC-SHA256 signing (Stripe model), Cloudflare Queue dispatch with exponential backoff retry, Coralogix delivery logging, 68 tests (Issue #102)
 - ~~R24: Self-serve signup (OAuth)~~ -- DONE (Phase 0055): GitHub OAuth 2.0 with PKCE, auto-tenant provisioning, first-key display, session management, account settings (key CRUD), ToS enforcement, 10 new routes (Issue #103)
 - ~~R26: Tenant Quotas~~ -- DONE (Phase 0056): free limit (100 captures/month without payment method, unlimited with card), pre-capture enforcement with 429 payment_required, per-tenant D1 overrides, web UI usage dashboard with progress bars (Issue #104). Note: updated 2026-03-23 from tier-based (free/pro) to usage-based pricing model.
+- ~~R29: Stripe usage-based billing~~ -- DONE (Phase 0058): Stripe API client (no SDK), webhook signature verification with event dedup, billing endpoints (checkout, portal, webhook), D1 billing columns, grace period on payment failure, free tier 200 captures/month (Issue #106)
 
 ---
 

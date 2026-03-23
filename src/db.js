@@ -29,6 +29,9 @@ export const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
 /** Allowed tier values. Application-layer validation (D1 ALTER TABLE has no CHECK support). */
 export const VALID_TIERS = ['free', 'pro'];
 
+/** Allowed billing status values. Application-layer validation (D1 ALTER TABLE has no CHECK support). */
+export const VALID_BILLING_STATUSES = ['active', 'grace_period', 'blocked'];
+
 /** Regex for valid webhook IDs: whk_ + 32 lowercase hex chars (total 36 chars) */
 export const WEBHOOK_ID_RE = /^whk_[a-f0-9]{32}$/;
 
@@ -327,6 +330,9 @@ export async function setTenantConfig(db, tenantId, config, updatedBy) {
 /**
  * Update the tier for a tenant. The tenant row must already exist.
  * Validates the tier value against VALID_TIERS before writing.
+ *
+ * @deprecated Tier-based billing is replaced by usage-based billing (payment_method_added_at).
+ *   Use billing functions (setBillingStatus, setPaymentMethodAdded) for new billing logic.
  *
  * @param {D1Database} db
  * @param {string} tenantId
@@ -895,6 +901,140 @@ export async function createSession(db, { idHash, githubId, tenantId, expiresAt 
   await db.prepare(
     `INSERT INTO sessions (id_hash, github_id, tenant_id, expires_at) VALUES (?, ?, ?, ?)`,
   ).bind(idHash, githubId, tenantId, expiresAt).run();
+}
+
+// ---------------------------------------------------------------------------
+// Billing operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the Stripe customer ID for a tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} customerId  Stripe's cus_xxx identifier
+ * @returns {Promise<void>}
+ */
+export async function setStripeCustomerId(db, tenantId, customerId) {
+  const updatedAt = new Date().toISOString();
+  await db.prepare(
+    `UPDATE tenants SET stripe_customer_id = ?, updated_at = ? WHERE id = ?`,
+  ).bind(customerId, updatedAt, tenantId).run();
+}
+
+/**
+ * Transition a tenant's billing_status. Validates the new status against
+ * VALID_BILLING_STATUSES. Uses a WHERE clause on the current state to make
+ * transitions idempotent (concurrent calls produce the same result).
+ *
+ * - 'grace_period' requires gracePeriodEnd (ISO 8601 timestamp).
+ * - 'active' clears grace_period_end.
+ * - 'blocked' leaves grace_period_end unchanged (record for audit purposes).
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} status  'active' | 'grace_period' | 'blocked'
+ * @param {string|null} [gracePeriodEnd]  Required when status = 'grace_period'
+ * @returns {Promise<void>}
+ */
+export async function setBillingStatus(db, tenantId, status, gracePeriodEnd = null) {
+  if (!VALID_BILLING_STATUSES.includes(status)) {
+    throw new Error(`Invalid billing status '${status}'; must be one of: ${VALID_BILLING_STATUSES.join(', ')}`);
+  }
+  const updatedAt = new Date().toISOString();
+
+  if (status === 'grace_period') {
+    // Transition to grace period: set end timestamp, only if not already in grace period
+    await db.prepare(
+      `UPDATE tenants
+       SET billing_status = ?, grace_period_end = ?, updated_at = ?
+       WHERE id = ? AND billing_status != 'grace_period'`,
+    ).bind(status, gracePeriodEnd, updatedAt, tenantId).run();
+  } else if (status === 'active') {
+    // Transition to active: clear grace_period_end
+    await db.prepare(
+      `UPDATE tenants
+       SET billing_status = ?, grace_period_end = NULL, updated_at = ?
+       WHERE id = ? AND billing_status != 'active'`,
+    ).bind(status, updatedAt, tenantId).run();
+  } else {
+    // 'blocked': only transition from grace_period
+    await db.prepare(
+      `UPDATE tenants
+       SET billing_status = ?, updated_at = ?
+       WHERE id = ? AND billing_status = 'grace_period'`,
+    ).bind(status, updatedAt, tenantId).run();
+  }
+}
+
+/**
+ * Record that a tenant has added a payment method. Idempotent -- the WHERE
+ * clause ensures payment_method_added_at is set only once, never overwritten.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<void>}
+ */
+export async function setPaymentMethodAdded(db, tenantId) {
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE tenants
+     SET payment_method_added_at = ?, updated_at = ?
+     WHERE id = ? AND payment_method_added_at IS NULL`,
+  ).bind(now, now, tenantId).run();
+}
+
+/**
+ * Read billing fields for a tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<{
+ *   stripeCustomerId: string|null,
+ *   billingStatus: string,
+ *   gracePeriodEnd: string|null,
+ *   paymentMethodAddedAt: string|null
+ * }|null>}
+ */
+export async function getTenantBilling(db, tenantId) {
+  const row = await db.prepare(
+    `SELECT stripe_customer_id, billing_status, grace_period_end, payment_method_added_at
+     FROM tenants WHERE id = ?`,
+  ).bind(tenantId).first();
+  if (!row) return null;
+  return {
+    stripeCustomerId: row.stripe_customer_id ?? null,
+    billingStatus: row.billing_status,
+    gracePeriodEnd: row.grace_period_end ?? null,
+    paymentMethodAddedAt: row.payment_method_added_at ?? null,
+  };
+}
+
+/**
+ * Look up a tenant by Stripe customer ID.
+ * Used by the Stripe webhook handler to resolve the affected tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} customerId  Stripe's cus_xxx identifier
+ * @returns {Promise<{
+ *   id: string,
+ *   billingStatus: string,
+ *   gracePeriodEnd: string|null,
+ *   paymentMethodAddedAt: string|null
+ * }|null>}
+ */
+export async function getTenantByStripeCustomerId(db, customerId) {
+  const row = await db.prepare(
+    `SELECT id, billing_status, grace_period_end, payment_method_added_at
+     FROM tenants WHERE stripe_customer_id = ?`,
+  ).bind(customerId).first();
+  if (!row) return null;
+  return {
+    id: row.id,
+    billingStatus: row.billing_status,
+    gracePeriodEnd: row.grace_period_end ?? null,
+    paymentMethodAddedAt: row.payment_method_added_at ?? null,
+  };
 }
 
 /**

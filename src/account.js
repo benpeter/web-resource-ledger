@@ -27,7 +27,7 @@ import { hashApiKey } from './auth.js';
 import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, computePeriod } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
-import { checkQuota, getEffectiveQuota, TIER_DISPLAY_NAMES, DEFAULT_TIER, computeQuotaReset } from './quotas.js';
+import { checkQuota, getEffectiveQuota, computeQuotaReset } from './quotas.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 
@@ -475,34 +475,50 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     return jsonResponse({ error: 'tenant_not_found' }, 404, ACCOUNT_CACHE);
   }
 
-  let tier, quota, captureCount, storageBytes, period;
+  let hasPaymentMethod, billingStatus, gracePeriodEnd, quota, captureCount, storageBytes, period;
 
   if (result.allowed) {
     // Common case: under both limits, checkQuota returns full data.
-    tier          = result.tier;
-    quota         = result.quota;
-    captureCount  = result.captureCount;
-    storageBytes  = result.storageBytes;
-    period        = result.period;
+    hasPaymentMethod = result.hasPaymentMethod;
+    billingStatus    = result.billingStatus;
+    gracePeriodEnd   = null; // populated below for grace_period status
+    quota            = result.quota;
+    captureCount     = result.captureCount;
+    storageBytes     = result.storageBytes;
+    period           = result.period;
   } else {
-    // Already over capture or storage limit. checkQuota returns a limited shape
-    // that omits tier, quota, and (depending on reason) the other counter.
-    // Read the tenant + usage rows directly so we can build a complete response.
+    // Already over a limit or billing blocked. checkQuota returns a limited shape.
+    // Read the tenant + usage rows directly to build a complete response.
     period = result.period ?? computePeriod();
     const [tenantRow, usageRow] = await env.DB.batch([
-      env.DB.prepare('SELECT tier, config FROM tenants WHERE id = ?').bind(tenantId),
+      env.DB.prepare(
+        'SELECT config, payment_method_added_at, billing_status, grace_period_end FROM tenants WHERE id = ?',
+      ).bind(tenantId),
       env.DB.prepare(
         'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
       ).bind(tenantId, period),
     ]);
-    const tenantData = tenantRow.results?.[0];
-    const config     = tenantData?.config ? JSON.parse(tenantData.config) : null;
-    tier         = tenantData?.tier || DEFAULT_TIER;
-    quota        = getEffectiveQuota(tier, config);
-    const usageData  = usageRow.results?.[0];
-    captureCount = usageData?.capture_count ?? 0;
-    storageBytes = usageData?.storage_bytes ?? 0;
+    const tenantData     = tenantRow.results?.[0];
+    const config         = tenantData?.config ? JSON.parse(tenantData.config) : null;
+    hasPaymentMethod     = tenantData?.payment_method_added_at != null;
+    billingStatus        = tenantData?.billing_status ?? 'active';
+    gracePeriodEnd       = tenantData?.grace_period_end ?? null;
+    quota                = getEffectiveQuota(hasPaymentMethod, config);
+    const usageData      = usageRow.results?.[0];
+    captureCount         = usageData?.capture_count ?? 0;
+    storageBytes         = usageData?.storage_bytes ?? 0;
   }
+
+  // Derive the public-facing billingStatus.
+  // 'free' is a derived state: billing_status='active' with no payment method.
+  const publicBillingStatus = (billingStatus === 'active' && !hasPaymentMethod)
+    ? 'free'
+    : billingStatus;
+
+  // Quota-response headers: omit limit/remaining for paid tenants (unlimited).
+  const captureLimit = (quota?.capturesPerMonth === Infinity || hasPaymentMethod)
+    ? null
+    : (quota?.capturesPerMonth ?? null);
 
   ctx.waitUntil(log(env, 3, 'oauth', {
     event: 'oauth.usage_view',
@@ -515,16 +531,20 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
   return jsonResponse({
     tenantId,
     period,
-    tierDisplay: TIER_DISPLAY_NAMES[tier] || TIER_DISPLAY_NAMES[DEFAULT_TIER],
+    billingStatus:    publicBillingStatus,
+    hasPaymentMethod: Boolean(hasPaymentMethod),
+    gracePeriodEnd:   billingStatus === 'grace_period' ? gracePeriodEnd : null,
     captures: {
       used:      captureCount,
-      limit:     quota.capturesPerMonth,
-      remaining: Math.max(0, quota.capturesPerMonth - captureCount),
+      limit:     captureLimit,
+      remaining: captureLimit !== null ? Math.max(0, captureLimit - captureCount) : null,
     },
     storageBytes: {
       used:      storageBytes,
-      limit:     quota.storageBytes,
-      remaining: Math.max(0, quota.storageBytes - storageBytes),
+      limit:     quota?.storageBytes === Infinity ? null : (quota?.storageBytes ?? null),
+      remaining: quota?.storageBytes === Infinity
+        ? null
+        : Math.max(0, (quota?.storageBytes ?? 0) - storageBytes),
     },
     resetsAt: computeQuotaReset(),
   }, 200, ACCOUNT_CACHE);
