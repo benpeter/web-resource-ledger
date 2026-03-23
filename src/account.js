@@ -24,9 +24,10 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, computePeriod } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
+import { checkQuota, getEffectiveQuota, TIER_DISPLAY_NAMES, DEFAULT_TIER, computeQuotaReset } from './quotas.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 
@@ -439,4 +440,92 @@ export async function handleAccountAcceptTos(request, env, ctx, _match) {
   }) ?? Promise.resolve());
 
   return jsonResponse({ ok: true, tosAcceptedAt }, 200, ACCOUNT_CACHE);
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/account/usage
+// ---------------------------------------------------------------------------
+
+/**
+ * Return current-period quota usage for the authenticated tenant.
+ *
+ * Reuses checkQuota(db, tenantId, 0) as the primary data source to avoid
+ * duplicating the D1 batch query. count=0 means the capture check fires only
+ * if captureCount > quota (already over), not on the normal path.
+ *
+ * Edge case: when the tenant is already over their capture or storage limit,
+ * checkQuota returns a limited shape (missing tier, quota, or the other usage
+ * counter). In that case a single fallback read fills in the missing fields.
+ * This endpoint is not on the hot capture path, so the extra read is fine.
+ *
+ * @param {Request} request
+ * @param {object} env  env._session is set by the router (verified session)
+ * @param {ExecutionContext} ctx
+ * @param {RegExpMatchArray} _match  unused
+ * @returns {Promise<Response>}
+ */
+export async function handleAccountGetUsage(request, env, ctx, _match) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+  const { tenantId } = env._session;
+
+  const result = await checkQuota(env.DB, tenantId, 0);
+
+  if (!result.allowed && result.reason === 'tenant_not_found') {
+    return jsonResponse({ error: 'tenant_not_found' }, 404, ACCOUNT_CACHE);
+  }
+
+  let tier, quota, captureCount, storageBytes, period;
+
+  if (result.allowed) {
+    // Common case: under both limits, checkQuota returns full data.
+    tier          = result.tier;
+    quota         = result.quota;
+    captureCount  = result.captureCount;
+    storageBytes  = result.storageBytes;
+    period        = result.period;
+  } else {
+    // Already over capture or storage limit. checkQuota returns a limited shape
+    // that omits tier, quota, and (depending on reason) the other counter.
+    // Read the tenant + usage rows directly so we can build a complete response.
+    period = result.period ?? computePeriod();
+    const [tenantRow, usageRow] = await env.DB.batch([
+      env.DB.prepare('SELECT tier, config FROM tenants WHERE id = ?').bind(tenantId),
+      env.DB.prepare(
+        'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
+      ).bind(tenantId, period),
+    ]);
+    const tenantData = tenantRow.results?.[0];
+    const config     = tenantData?.config ? JSON.parse(tenantData.config) : null;
+    tier         = tenantData?.tier || DEFAULT_TIER;
+    quota        = getEffectiveQuota(tier, config);
+    const usageData  = usageRow.results?.[0];
+    captureCount = usageData?.capture_count ?? 0;
+    storageBytes = usageData?.storage_bytes ?? 0;
+  }
+
+  ctx.waitUntil(log(env, 3, 'oauth', {
+    event: 'oauth.usage_view',
+    cip,
+    tenantId,
+    authMethod: 'session',
+    responseStatus: 200,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({
+    tenantId,
+    period,
+    tierDisplay: TIER_DISPLAY_NAMES[tier] || TIER_DISPLAY_NAMES[DEFAULT_TIER],
+    captures: {
+      used:      captureCount,
+      limit:     quota.capturesPerMonth,
+      remaining: Math.max(0, quota.capturesPerMonth - captureCount),
+    },
+    storageBytes: {
+      used:      storageBytes,
+      limit:     quota.storageBytes,
+      remaining: Math.max(0, quota.storageBytes - storageBytes),
+    },
+    resetsAt: computeQuotaReset(),
+  }, 200, ACCOUNT_CACHE);
 }
