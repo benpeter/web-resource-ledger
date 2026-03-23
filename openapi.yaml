@@ -2732,9 +2732,8 @@ paths:
                     description: Full URL with the token embedded as a query parameter.
                     example: 'https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6?token=wrl_share_abc123...'
                   expiresAt:
-                    type: string
+                    type: ['string', 'null']
                     format: date-time
-                    nullable: true
                     description: ISO 8601 expiry timestamp, or null for permanent tokens.
                     example: '2024-01-16T10:30:00.000Z'
               examples:
