@@ -173,19 +173,19 @@ describe('checkQuota', () => {
 
   it('respects count parameter for batch checks -- denies when count pushes over limit', async () => {
     await seedTenant(env.DB, 'test-t5');
-    // 97 used, limit 100: count=5 would push to 102 (over limit)
-    await seedUsage(env.DB, 'test-t5', currentPeriod(), { captureCount: 97 });
+    // 197 used, free limit 200: count=5 would push to 202 (over limit)
+    await seedUsage(env.DB, 'test-t5', currentPeriod(), { captureCount: 197 });
     const result = await checkQuota(env.DB, 'test-t5', 5);
     expect(result.allowed).toBe(false);
     expect(result.reason).toBe('capture_limit');
     expect(result.requested).toBe(5);
-    expect(result.used).toBe(97);
+    expect(result.used).toBe(197);
   });
 
   it('allows when count does not push over limit', async () => {
     await seedTenant(env.DB, 'test-t5b');
-    // 97 used, limit 100: count=3 pushes to exactly 100 -- NOT over (> not >=)
-    await seedUsage(env.DB, 'test-t5b', currentPeriod(), { captureCount: 97 });
+    // 197 used, free limit 200: count=3 pushes to exactly 200 -- NOT over (> not >=)
+    await seedUsage(env.DB, 'test-t5b', currentPeriod(), { captureCount: 197 });
     const result = await checkQuota(env.DB, 'test-t5b', 3);
     expect(result.allowed).toBe(true);
   });
