@@ -113,7 +113,8 @@ function mountSettings() {
     createdAt: _wrlUser ? _wrlUser.createdAt : ''
   };
 
-  // Fetch keys and usage in parallel. Usage failure must not block keys section.
+  // Fetch keys, usage, and account settings in parallel.
+  // Usage and settings failures must not block the keys section.
   var keysPromise = apiFetch('/v1/account/keys', { credentials: 'same-origin' });
   var usagePromise = apiFetch('/v1/account/usage', { credentials: 'same-origin' })
     .then(function(res) {
@@ -121,11 +122,18 @@ function mountSettings() {
       return res.json();
     })
     .catch(function() { return null; });
+  var settingsPromise = apiFetch('/v1/account/settings', { credentials: 'same-origin' })
+    .then(function(res) {
+      if (!res || !res.ok) return null;
+      return res.json();
+    })
+    .catch(function() { return null; });
 
-  Promise.all([keysPromise, usagePromise])
+  Promise.all([keysPromise, usagePromise, settingsPromise])
   .then(function(results) {
     var keysRes = results[0];
     var usageData = results[1]; // null on failure
+    var settingsData = results[2]; // null on failure
 
     if (!keysRes) return; // 401 handled by apiFetch
 
@@ -141,7 +149,7 @@ function mountSettings() {
 
     return keysRes.json().then(function(keysBody) {
       if (loadingEl) loadingEl.remove();
-      buildSettingsContent(view, accountData, keysBody || {}, usageData);
+      buildSettingsContent(view, accountData, keysBody || {}, usageData, settingsData);
     });
   }).catch(function() {
     if (loadingEl) loadingEl.remove();
@@ -317,7 +325,7 @@ function refreshUsageSection() {
 // buildSettingsContent -- render account info + keys after data loads
 // ---------------------------------------------------------------------------
 
-function buildSettingsContent(view, accountData, keysData, usageData) {
+function buildSettingsContent(view, accountData, keysData, usageData, settingsData) {
   // --- Account info section ---
   var accountSection = document.createElement('section');
   accountSection.className = 'settings-section card';
@@ -355,6 +363,197 @@ function buildSettingsContent(view, accountData, keysData, usageData) {
 
   // --- Usage section ---
   view.appendChild(buildUsageSection(usageData));
+
+  // --- Add-ons section ---
+  var addonsSection = document.createElement('section');
+  addonsSection.className = 'settings-section card';
+  addonsSection.id = 'settings-addons-section';
+  addonsSection.setAttribute('aria-labelledby', 'settings-addons-heading');
+
+  var addonsHeading = document.createElement('h2');
+  addonsHeading.id = 'settings-addons-heading';
+  addonsHeading.className = 'settings-section-heading';
+  addonsHeading.textContent = 'Add-ons';
+  addonsSection.appendChild(addonsHeading);
+
+  if (!settingsData) {
+    // Settings fetch failed -- show error state, do not block rest of page
+    var addonsErrEl = document.createElement('p');
+    addonsErrEl.className = 'alert alert--error';
+    addonsErrEl.setAttribute('role', 'alert');
+    addonsErrEl.textContent = 'Could not load add-on settings.';
+    addonsSection.appendChild(addonsErrEl);
+  } else {
+    // Toggle row for Qualified Timestamps (eIDAS)
+    var addonRow = document.createElement('div');
+    addonRow.className = 'settings-addon-row';
+
+    var toggleWrap = document.createElement('label');
+    toggleWrap.className = 'settings-addon-toggle-label';
+    toggleWrap.htmlFor = 'settings-toggle-qualified-timestamps';
+
+    var toggleInput = document.createElement('input');
+    toggleInput.type = 'checkbox';
+    toggleInput.id = 'settings-toggle-qualified-timestamps';
+    toggleInput.className = 'settings-toggle';
+    toggleInput.setAttribute('role', 'switch');
+    toggleInput.checked = !!(settingsData && settingsData.qualifiedTimestamps);
+    toggleWrap.appendChild(toggleInput);
+
+    var addonTextWrap = document.createElement('div');
+    addonTextWrap.className = 'settings-addon-text';
+
+    var addonLabel = document.createElement('span');
+    addonLabel.className = 'settings-addon-label';
+    addonLabel.textContent = 'Qualified Timestamps (eIDAS)';
+    addonTextWrap.appendChild(addonLabel);
+
+    var addonDesc = document.createElement('span');
+    addonDesc.className = 'settings-addon-description';
+    addonDesc.textContent = 'Each capture receives a legally compliant qualified electronic timestamp under eIDAS regulation.';
+    addonTextWrap.appendChild(addonDesc);
+
+    var addonCost = document.createElement('span');
+    addonCost.className = 'settings-addon-cost';
+    addonCost.textContent = '+EUR 0.10 per capture';
+    addonTextWrap.appendChild(addonCost);
+
+    toggleWrap.appendChild(addonTextWrap);
+    addonRow.appendChild(toggleWrap);
+
+    // Inline confirmation/error area (hidden by default)
+    var addonConfirm = document.createElement('div');
+    addonConfirm.className = 'settings-addon-confirm';
+    addonConfirm.style.display = 'none';
+    addonConfirm.setAttribute('role', 'group');
+    addonConfirm.setAttribute('aria-label', 'Confirm enabling qualified timestamps');
+    addonConfirm.setAttribute('aria-live', 'polite');
+
+    var addonConfirmText = document.createElement('span');
+    addonConfirmText.className = 'settings-confirm-text';
+    addonConfirmText.textContent = 'This adds EUR 0.10 per capture to your bill. Enable?';
+    addonConfirm.appendChild(addonConfirmText);
+
+    var addonConfirmBtn = document.createElement('button');
+    addonConfirmBtn.type = 'button';
+    addonConfirmBtn.className = 'btn btn--primary btn--sm';
+    addonConfirmBtn.textContent = 'Confirm';
+    addonConfirm.appendChild(addonConfirmBtn);
+
+    var addonCancelBtn = document.createElement('button');
+    addonCancelBtn.type = 'button';
+    addonCancelBtn.className = 'btn btn--ghost btn--sm';
+    addonCancelBtn.textContent = 'Cancel';
+    addonConfirm.appendChild(addonCancelBtn);
+
+    addonRow.appendChild(addonConfirm);
+    addonsSection.appendChild(addonRow);
+
+    // Wire toggle behavior
+    toggleInput.addEventListener('change', function() {
+      var enabling = toggleInput.checked;
+
+      if (enabling) {
+        // Show inline confirmation before applying
+        toggleInput.checked = false; // revert visually until confirmed
+        addonConfirm.style.display = '';
+        addonConfirmText.textContent = 'This adds EUR 0.10 per capture to your bill. Enable?';
+        addonConfirmBtn.style.display = '';
+        addonCancelBtn.style.display = '';
+        addonCancelBtn.focus();
+      } else {
+        // Disabling -- no confirmation needed
+        sendAddonToggle(false);
+      }
+    });
+
+    addonCancelBtn.addEventListener('click', function() {
+      addonConfirm.style.display = 'none';
+      toggleInput.checked = false;
+      toggleInput.focus();
+    });
+
+    addonConfirmBtn.addEventListener('click', function() {
+      sendAddonToggle(true);
+    });
+
+    function sendAddonToggle(newValue) {
+      toggleInput.disabled = true;
+      addonConfirmBtn.disabled = true;
+      addonCancelBtn.disabled = true;
+
+      apiFetch('/v1/account/settings', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-WRL-CSRF': '1'
+        },
+        body: JSON.stringify({ qualifiedTimestamps: newValue })
+      }).then(function(res) {
+        toggleInput.disabled = false;
+        addonConfirmBtn.disabled = false;
+        addonCancelBtn.disabled = false;
+
+        if (!res) return; // 401 handled by apiFetch
+
+        if (res.ok) {
+          toggleInput.checked = newValue;
+          addonConfirm.style.display = 'none';
+          settingsAnnounce(newValue ? 'Qualified Timestamps enabled.' : 'Qualified Timestamps disabled.');
+          return;
+        }
+
+        if (res.status === 402) {
+          addonConfirmText.textContent = '';
+          addonConfirmBtn.style.display = 'none';
+          addonCancelBtn.style.display = 'none';
+          // Build message with billing portal link using safe DOM methods
+          var payMsg = document.createElement('span');
+          payMsg.textContent = 'A payment method is required to enable this add-on. ';
+          var payLink = document.createElement('a');
+          payLink.href = '/billing';
+          payLink.className = 'settings-addon-billing-link';
+          payLink.textContent = 'Add a payment method';
+          addonConfirmText.appendChild(payMsg);
+          addonConfirmText.appendChild(payLink);
+          addonConfirm.style.display = '';
+          // Add a standalone close button for the 402 state
+          var dismissBtn = document.createElement('button');
+          dismissBtn.type = 'button';
+          dismissBtn.className = 'btn btn--ghost btn--sm';
+          dismissBtn.textContent = 'Dismiss';
+          dismissBtn.addEventListener('click', function() {
+            addonConfirm.style.display = 'none';
+            toggleInput.checked = false;
+            // Restore confirm/cancel buttons for future use
+            addonConfirmText.textContent = 'This adds EUR 0.10 per capture to your bill. Enable?';
+            addonConfirmBtn.style.display = '';
+            addonCancelBtn.style.display = '';
+            addonConfirm.removeChild(dismissBtn);
+            toggleInput.focus();
+          });
+          addonConfirm.appendChild(dismissBtn);
+          settingsAnnounce('Payment method required to enable qualified timestamps.');
+          return;
+        }
+
+        // Other error -- revert toggle and show inline error
+        toggleInput.checked = !newValue;
+        addonConfirm.style.display = 'none';
+        settingsAnnounce('Could not update add-on setting (HTTP ' + res.status + '). Try again.');
+      }).catch(function() {
+        toggleInput.disabled = false;
+        addonConfirmBtn.disabled = false;
+        addonCancelBtn.disabled = false;
+        toggleInput.checked = !newValue;
+        addonConfirm.style.display = 'none';
+        settingsAnnounce('Connection failed updating add-on setting. Check your network.');
+      });
+    }
+  }
+
+  view.appendChild(addonsSection);
 
   // --- API Keys section ---
   var keys = (keysData && keysData.data) ? keysData.data : [];

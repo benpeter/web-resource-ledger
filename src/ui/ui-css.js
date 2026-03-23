@@ -766,6 +766,116 @@ input, select, textarea {
 }
 
 /* ---------------------------------------------------------------------------
+   Add-ons section
+--------------------------------------------------------------------------- */
+
+.settings-addon-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.settings-addon-toggle-label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.settings-addon-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-addon-label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+
+.settings-addon-description {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: var(--leading-normal);
+}
+
+.settings-addon-cost {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.settings-addon-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+.settings-addon-billing-link {
+  color: var(--color-accent);
+}
+
+/* Toggle switch -- native checkbox styled as a sliding pill */
+
+.settings-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 40px;
+  height: 22px;
+  background: var(--color-border);
+  border-radius: 11px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease;
+  margin-top: 2px;
+}
+
+.settings-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-surface);
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+
+.settings-toggle:checked {
+  background: var(--color-primary);
+}
+
+.settings-toggle:checked::after {
+  transform: translateX(18px);
+}
+
+.settings-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.settings-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-toggle,
+  .settings-toggle::after {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Usage section
 --------------------------------------------------------------------------- */
 
