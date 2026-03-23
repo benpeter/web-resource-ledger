@@ -74,7 +74,7 @@ cpu_ms = 60000
 # capture jobs onto the existing wrl-captures queue.
 # NOTE: cron triggers are non-inheritable -- each environment must declare its own [triggers].
 [triggers]
-crons = ["*/1 * * * *"]
+crons = ["*/1 * * * *", "0 3 * * *"]
 
 # --- Custom domain ---
 # Cloudflare auto-provisions DNS records when custom_domain = true.
@@ -233,7 +233,7 @@ cpu_ms = 60000
 
 # Cron triggers are non-inheritable -- staging must declare its own [triggers].
 [env.staging.triggers]
-crons = ["*/1 * * * *"]
+crons = ["*/1 * * * *", "0 4 * * *"]
 
 # Queues are non-inheritable -- staging must declare its own producers and
 # consumers with -staging suffixed queue names.

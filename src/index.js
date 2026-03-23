@@ -1,7 +1,8 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage } from './db.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck } from './db.js';
+import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
@@ -296,6 +297,11 @@ async function handleDlqMessage(msg, env, ctx) {
 
 export default {
   async scheduled(controller, env, ctx) {
+    if (controller.cron === '0 3 * * *') {
+      const { handleRescanTick } = await import('./rescan.js');
+      await handleRescanTick(controller, env, ctx);
+      return;
+    }
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
@@ -714,6 +720,31 @@ async function handleCreateCapture(request, env, ctx) {
     return problemResponse(result.status, result.detail);
   }
 
+  // Step 6b: Threat check (content security screening)
+  const threat = await checkUrl(result.url, env);
+  if (!threat.safe) {
+    ctx.waitUntil(log(env, 5, 'security', {
+      event: 'threatcheck.block',
+      tenantId, keyName, keyHashPrefix, authMethod,
+      threatTypes: threat.threatTypes,
+      responseStatus: 422,
+      cip,
+    }) ?? Promise.resolve());
+    return problemResponse(422, 'URL flagged by content security screening', rlHeaders, {
+      threatTypes: threat.threatTypes,
+    });
+  }
+  if (threat.degraded) {
+    ctx.waitUntil(log(env, 4, 'security', {
+      event: 'threatcheck.api_fail',
+      tenantId, keyName, keyHashPrefix, authMethod,
+      context: 'pre_capture',
+      reason: threat.reason,
+      responseStatus: 202,
+      cip,
+    }) ?? Promise.resolve());
+  }
+
   // Step 7: Generate capture ID
   const captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
 
@@ -734,6 +765,12 @@ async function handleCreateCapture(request, env, ctx) {
     }) ?? Promise.resolve());
     return problemResponse(500, 'Could not create capture record');
   }
+
+  // Step 8b: Store pre-capture threat check result
+  ctx.waitUntil(
+    setCaptureThreatCheck(env.DB, captureId, threat.degraded ? 'unavailable' : 'pass')
+      .catch(err => console.warn('threat check storage failed', err))
+  );
 
   // Step 9: Log capture accepted (bridge event: ties captureId to keyName for correlation)
   ctx.waitUntil(log(env, 3, 'capture', {
@@ -904,11 +941,14 @@ async function handleBatchCapture(request, env, ctx) {
     }
   }
 
-  // Step 7: Process each URL sequentially
-  const items = [];
+  // Step 7: Validate all URLs (structure + SSRF) and collect valid results for bulk threat check
+  // Phase 7a: validate, tracking original index for ordering
+  const items = new Array(body.urls.length).fill(null);
   const queueMessages = [];
   let rateLimitedStatus = null; // 429 or 503 if a limiter fires mid-batch (legacy auth only)
   const usePerUrlRateLimits = auth.authMethod === 'legacy';
+  // validatedItems holds { i, item, result } for each URL that passed SSRF validation
+  const validatedItems = [];
 
   for (let i = 0; i < body.urls.length; i++) {
     const item = body.urls[i];
@@ -917,9 +957,9 @@ async function handleBatchCapture(request, env, ctx) {
     if (rateLimitedStatus !== null) {
       const url = (item && typeof item === 'object' && typeof item.url === 'string') ? item.url : '';
       if (rateLimitedStatus === 429) {
-        items.push(batchItemError(url, 429, 'Rate limit exceeded. Try again later.'));
+        items[i] = batchItemError(url, 429, 'Rate limit exceeded. Try again later.');
       } else {
-        items.push(batchItemError(url, 503, 'Service is at capacity. Retry in 10 seconds.'));
+        items[i] = batchItemError(url, 503, 'Service is at capacity. Retry in 10 seconds.');
       }
       continue;
     }
@@ -932,7 +972,7 @@ async function handleBatchCapture(request, env, ctx) {
           ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'capture_per_ip', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
           rateLimitedStatus = 429;
           const url = (item && typeof item === 'object' && typeof item.url === 'string') ? item.url : '';
-          items.push(batchItemError(url, 429, 'Rate limit exceeded. Try again later.'));
+          items[i] = batchItemError(url, 429, 'Rate limit exceeded. Try again later.');
           continue;
         }
       }
@@ -942,7 +982,7 @@ async function handleBatchCapture(request, env, ctx) {
           ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 503, cip }) ?? Promise.resolve());
           rateLimitedStatus = 503;
           const url = (item && typeof item === 'object' && typeof item.url === 'string') ? item.url : '';
-          items.push(batchItemError(url, 503, 'Service is at capacity. Retry in 10 seconds.'));
+          items[i] = batchItemError(url, 503, 'Service is at capacity. Retry in 10 seconds.');
           continue;
         }
       }
@@ -950,7 +990,7 @@ async function handleBatchCapture(request, env, ctx) {
 
     // Validate per-item structure
     if (!item || typeof item !== 'object' || typeof item.url !== 'string') {
-      items.push(batchItemError('', 400, 'Each item must be an object with a string url field'));
+      items[i] = batchItemError('', 400, 'Each item must be an object with a string url field');
       continue;
     }
 
@@ -958,14 +998,50 @@ async function handleBatchCapture(request, env, ctx) {
     const result = await validateUrl(item.url);
     if (!result.ok) {
       ctx.waitUntil(log(env, 5, 'security', { event: 'security.ssrf_block', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: result.status, reason: result.detail.startsWith('URL scheme') ? 'url_scheme_not_allowed' : result.detail, cip }) ?? Promise.resolve());
-      items.push(batchItemError(item.url, result.status, result.detail));
+      items[i] = batchItemError(item.url, result.status, result.detail);
+      continue;
+    }
+
+    validatedItems.push({ i, item, result });
+  }
+
+  // Phase 7b: Bulk threat check for all SSRF-validated URLs (single fan-out)
+  const validatedUrls = validatedItems.map(v => v.result.url);
+  const threatResults = await checkUrls(validatedUrls, env);
+
+  // Log degraded results for monitoring
+  for (const [url, threat] of threatResults) {
+    if (threat.degraded) {
+      ctx.waitUntil(log(env, 4, 'security', {
+        event: 'threatcheck.api_fail',
+        tenantId, keyName, keyHashPrefix, authMethod,
+        context: 'pre_capture',
+        reason: threat.reason,
+        cip,
+      }) ?? Promise.resolve());
+    }
+  }
+
+  // Phase 7c: Process validated items -- create captures for those that pass threat check
+  for (const { i, item, result } of validatedItems) {
+    const threat = threatResults.get(result.url) ?? { safe: true };
+
+    if (!threat.safe) {
+      ctx.waitUntil(log(env, 5, 'security', {
+        event: 'threatcheck.block',
+        tenantId, keyName, keyHashPrefix, authMethod,
+        threatTypes: threat.threatTypes,
+        responseStatus: 422,
+        cip,
+      }) ?? Promise.resolve());
+      items[i] = batchItemError(item.url, 422, 'URL flagged by content security screening');
       continue;
     }
 
     // Generate capture ID
     const captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
 
-    // Write KV record
+    // Write DB record
     try {
       await createCapture(env.DB, captureId, result.url, result.ip, tenantId);
     } catch (err) {
@@ -980,9 +1056,15 @@ async function handleBatchCapture(request, env, ctx) {
         cip,
         errorMessage: String(err?.message ?? '').slice(0, 256),
       }) ?? Promise.resolve());
-      items.push(batchItemError(item.url, 500, 'Could not create capture record'));
+      items[i] = batchItemError(item.url, 500, 'Could not create capture record');
       continue;
     }
+
+    // Store pre-capture threat check result
+    ctx.waitUntil(
+      setCaptureThreatCheck(env.DB, captureId, threat.degraded ? 'unavailable' : 'pass')
+        .catch(err => console.warn('threat check storage failed', err))
+    );
 
     // Log accepted and stage for queue dispatch
     ctx.waitUntil(log(env, 3, 'capture', {
@@ -1002,7 +1084,7 @@ async function handleBatchCapture(request, env, ctx) {
     });
 
     const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;
-    items.push(batchItemSuccess(result.url, captureId, statusUrl));
+    items[i] = batchItemSuccess(result.url, captureId, statusUrl);
   }
 
   // Enqueue all accepted captures
@@ -1211,6 +1293,9 @@ async function handleListCaptures(request, env, ctx) {
       summary.failedAt = r.failedAt;
       summary.error = r.error;
       summary.retryable = r.retryable;
+    } else if (r.status === 'quarantined') {
+      summary.quarantineReason = r.quarantineReason;
+      summary.quarantinedAt = r.quarantinedAt;
     }
     return summary;
   });
@@ -1296,8 +1381,28 @@ async function handleGetCapture(request, env, ctx, match) {
 
   const record = await getCapture(env.DB, captureId);
 
-  if (!record || record.status !== 'complete') {
+  if (!record || (record.status !== 'complete' && record.status !== 'quarantined')) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  // Quarantined captures: return metadata without artifact URLs
+  if (record.status === 'quarantined') {
+    const body = {
+      id: record.captureId,
+      status: 'quarantined',
+      url: record.url,
+      createdAt: record.createdAt,
+      completedAt: record.completedAt,
+      quarantineReason: record.quarantineReason,
+      quarantinedAt: record.quarantinedAt,
+      // threatCheck reflects the pre-capture result; re-scan verdict triggered quarantine
+      threatCheck: record.threatCheck,
+    };
+    if (record.captureSettings) body.captureSettings = record.captureSettings;
+    return jsonResponse(body, 200, {
+      'Cache-Control': 'private, no-store',
+      'Access-Control-Allow-Origin': '*',
+    });
   }
 
   const base = new URL(request.url).origin;
@@ -1323,6 +1428,10 @@ async function handleGetCapture(request, env, ctx, match) {
     renderQuality: record.renderQuality ?? 'full',
     artifacts,
   };
+
+  if (record.threatCheck) {
+    body.threatCheck = record.threatCheck;
+  }
 
   if (record.render) {
     body.render = record.render;
@@ -1352,6 +1461,16 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   const artifactName = match[2];
 
   const record = await getCapture(env.DB, captureId);
+
+  // Quarantined captures: return 451 before the generic status check
+  if (record && record.status === 'quarantined') {
+    return problemResponse(451, 'Capture artifacts restricted due to content security policy', {
+      'Cache-Control': 'no-store',
+    }, {
+      quarantineReason: record.quarantineReason,
+      quarantinedAt: record.quarantinedAt,
+    });
+  }
 
   // SECURITY ADVISORY: check status === 'complete' same as metadata endpoint
   if (!record || record.status !== 'complete') {
@@ -1421,6 +1540,17 @@ async function handleVerifyCapture(request, env, ctx, match) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
+  }
+
+  // Step 1b: Quarantine check -- must happen before performVerification (which returns not_found for quarantined)
+  const qRecord = await getCapture(env.DB, captureId);
+  if (qRecord && qRecord.status === 'quarantined') {
+    return problemResponse(451, 'Capture artifacts restricted due to content security policy', {
+      'Cache-Control': 'no-store',
+    }, {
+      quarantineReason: qRecord.quarantineReason,
+      quarantinedAt: qRecord.quarantinedAt,
+    });
   }
 
   // Steps 2-6: Delegate to shared orchestrator (KV lookup, key resolution, R2, verify)
@@ -1562,6 +1692,15 @@ async function handleCaptureStatus(request, env, ctx, match) {
       ...headers,
       'Retry-After': '10',
     });
+  }
+
+  if (record.status === 'quarantined') {
+    return jsonResponse({
+      id: captureId,
+      status: 'quarantined',
+      quarantineReason: record.quarantineReason,
+      quarantinedAt: record.quarantinedAt,
+    }, 200, headers);
   }
 
   if (record.status === 'complete') {
