@@ -23,6 +23,7 @@ import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, 
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
+import { reportPendingMeterEvents } from './meter-reporter.js';
 
 // tva
 
@@ -296,6 +297,9 @@ async function handleDlqMessage(msg, env, ctx) {
 export default {
   async scheduled(controller, env, ctx) {
     await handleScheduledTick(controller, env, ctx);
+    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
+      ctx.waitUntil(reportPendingMeterEvents(env, ctx));
+    }
   },
 
   async queue(batch, env, ctx) {
