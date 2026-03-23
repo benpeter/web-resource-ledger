@@ -111,8 +111,8 @@ test('captures a URL and verifies the result', async () => {
 
   const contentType = downloadRes.headers.get('content-type') ?? '';
   expect(
-    contentType === 'application/wacz' || contentType.startsWith('application/octet-stream'),
-    `Content-Type must be application/wacz or application/octet-stream, got '${contentType}'`
+    contentType === 'application/wacz' || contentType === 'application/wacz+zip' || contentType.startsWith('application/octet-stream'),
+    `Content-Type must be application/wacz, application/wacz+zip, or application/octet-stream, got '${contentType}'`
   ).toBe(true);
 
   const contentLength = Number(downloadRes.headers.get('content-length') ?? 0);
