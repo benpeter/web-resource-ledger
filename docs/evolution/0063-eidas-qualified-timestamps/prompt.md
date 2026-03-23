@@ -1,0 +1,26 @@
+Tenants can opt in to eIDAS-qualified RFC 3161 timestamps on their account. When enabled, every capture receives a qualified timestamp from a TSA listed on the EU Trusted List, in addition to the standard DigiCert timestamp. This gives captures a legal presumption of accuracy across all EU member states (eIDAS Article 41(2)). The feature is billed as a per-capture add-on (+$0.10).
+
+Success criteria:
+- Account-level setting: eidas_qualified: true/false on the tenant record in D1
+- Setting configurable via API (PUT /v1/tenant/settings) and web UI account settings
+- When enabled, the WACZ bundle includes both standard and qualified timestamps
+- Qualified timestamp stored alongside standard timestamp in datapackage-digest.json
+- Verification endpoint validates both timestamps and reports qualified status
+- Web UI and API responses indicate whether a capture has a qualified timestamp
+- Billing: +$0.10 per capture reported as a separate Stripe meter line item when eIDAS is enabled
+- Free captures (first 100/month) include qualified timestamps at no extra charge when enabled
+- TSA provider: start with Sectigo free qualified endpoint, switchable to qtsa.eu via config
+- TSA endpoint URL and auth credentials stored as Worker secrets (not hardcoded)
+- Fallback: if qualified TSA is unreachable (3s timeout), capture still succeeds with standard timestamp only; failure logged to Coralogix with alert
+
+Scope:
+- In: Tenant eIDAS setting, dual-timestamp in WACZ, verification of qualified timestamps, billing meter for eIDAS add-on, TSA provider abstraction (Sectigo/qtsa.eu), fallback to standard-only on qualified TSA failure
+- Out: Multiple qualified TSA providers simultaneously, tenant-selectable TSA provider, per-capture eIDAS toggle (it's account-level only), qualified electronic signatures (only timestamps)
+
+Constraints:
+- Depends on R24 (tenant identity and settings)
+- Depends on R29 (Stripe billing for the add-on meter)
+- Existing RFC 3161 code (src/rfc3161.js) handles standard timestamps; extend to support a second TSA call with auth
+- Qualified TSA call must not block capture on failure - use same 3s timeout as standard TSA, fall back gracefully
+- Sectigo qualified endpoint recommends 15s between requests - at low volume this is fine; monitor and switch to qtsa.eu if throttled
+- qtsa.eu uses username/password auth over RFC 3161 HTTP - store as Worker secrets
