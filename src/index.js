@@ -1870,7 +1870,7 @@ async function handleCreateShare(request, env, ctx, match) {
   }
 
   // Only allow share creation for captures that are pending or complete
-  if (record.status === 'failed') {
+  if (record.status === 'failed' || record.status === 'quarantined') {
     return problemResponse(404, 'Capture not found');
   }
 
@@ -1878,12 +1878,23 @@ async function handleCreateShare(request, env, ctx, match) {
   const rawToken = generateShareToken();
   const tokenHash = await hashShareToken(rawToken);
 
-  await createShareToken(env.DB, {
-    tokenHash,
-    captureId,
-    tenantId: auth.tenantId,
-    expiresAt,
-  });
+  try {
+    await createShareToken(env.DB, {
+      tokenHash,
+      captureId,
+      tenantId: auth.tenantId,
+      expiresAt,
+    });
+  } catch (err) {
+    ctx.waitUntil(log(env, 5, 'capture', {
+      event: 'capture.share_token_create_fail',
+      captureId,
+      tenantId: auth.tenantId,
+      tokenHashPrefix: tokenHash.slice(0, 8),
+      errorMessage: String(err?.message ?? '').slice(0, 256),
+    }) ?? Promise.resolve());
+    return problemResponse(500, 'Could not create share token');
+  }
 
   const origin = new URL(request.url).origin;
   const shareUrl = `${origin}/v1/captures/${captureId}?token=${encodeURIComponent(rawToken)}`;
