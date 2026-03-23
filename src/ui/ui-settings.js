@@ -33,7 +33,7 @@ function formatBytes(n) {
   if (n === null || n === undefined || isNaN(n)) return '0 B';
   if (n < 1000) return n + ' B';
   if (n < 1000000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + ' KB';
-  if (n < 1000000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 0) + ' MB';
+  if (n < 1000000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + ' MB';
   return (n / 1000000000).toFixed(n % 1000000000 === 0 ? 0 : 1) + ' GB';
 }
 
