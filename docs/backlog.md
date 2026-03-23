@@ -110,6 +110,14 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Webhook delivery exhaustion Coralogix alert | When webhook feature is verified in production; alert on DLQ events | Phase 0054, observability-minion |
 | [consider] VERIFICATION_BASE_URL env var enforcement | Currently falls back to hardcoded production URL; require explicit config | Phase 0054, margo |
 
+### Scheduling (R28 shipped -- extensions)
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Schedule pause/resume (PATCH endpoint) | Schema supports it (`paused` column); expose when tenants need to pause without deleting | Phase 0059, lucy/margo scope review |
+| [consider] Schedule-specific webhook events | Beyond capture.complete/failed; when schedule monitoring is requested | Phase 0059, out-of-scope |
+| [consider] Change detection between scheduled captures | Diff/comparison of captures from same schedule; when a user requests it | Phase 0059, out-of-scope |
+
 ### Billing (R29 shipped -- extensions)
 
 | Item | Condition | Source |
@@ -156,7 +164,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [consider] Scheduled captures (cron-style) | When a user requests recurring capture | MVP.md |
+| ~~[consider] Scheduled captures (cron-style)~~ | ~~When a user requests recurring capture~~ -- DONE (Phase 0059): CRUD API, Cron Trigger fan-out, per-tenant limits, web UI panel, 55 tests (Issue #107) | MVP.md |
 | [consider] Watch lists / bulk monitoring | Requires scheduling (also parked) | MVP.md |
 | [consider] Change detection / diffing | Requires multiple captures over time; no demand | MVP.md |
 | [consider] Notifications | When event-driven workflows needed | MVP.md |
@@ -236,6 +244,7 @@ Completed items removed from active tracking:
 - ~~R24: Self-serve signup (OAuth)~~ -- DONE (Phase 0055): GitHub OAuth 2.0 with PKCE, auto-tenant provisioning, first-key display, session management, account settings (key CRUD), ToS enforcement, 10 new routes (Issue #103)
 - ~~R26: Tenant Quotas~~ -- DONE (Phase 0056): free limit (100 captures/month without payment method, unlimited with card), pre-capture enforcement with 429 payment_required, per-tenant D1 overrides, web UI usage dashboard with progress bars (Issue #104). Note: updated 2026-03-23 from tier-based (free/pro) to usage-based pricing model.
 - ~~R29: Stripe usage-based billing~~ -- DONE (Phase 0058): Stripe API client (no SDK), webhook signature verification with event dedup, billing endpoints (checkout, portal, webhook), D1 billing columns, grace period on payment failure, free tier 200 captures/month (Issue #106)
+- ~~R28: Scheduled captures (cron)~~ -- DONE (Phase 0059): CRUD API (POST/GET/DELETE /v1/schedules), Cloudflare Cron Trigger fan-out every minute, per-tenant schedule limits (default 10, configurable), scheduleId capture linking, web UI schedule panel, 55 tests, `croner` library (Issue #107)
 
 ---
 
