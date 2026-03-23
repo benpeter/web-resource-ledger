@@ -38,7 +38,7 @@ import { getEffectiveLimit } from './rate-limits.js';
  * @param {object} env   - Cloudflare Worker env bindings
  * @param {object} ctx   - ExecutionContext
  * @param {object} auth  - Verified auth result from verifyApiKey
- * @param {string} origin - Request origin (e.g. 'https://wrl.benpeter.workers.dev')
+ * @param {string} origin - Request origin (e.g. 'https://api.webresourceledger.com')
  * @returns {McpServer}
  */
 function createMcpServer(env, ctx, auth, origin) {

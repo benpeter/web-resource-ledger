@@ -13,7 +13,7 @@
  *   To refresh the fixture:
  *     1. source ~/.secrets
  *     2. curl -s -H "Authorization: Bearer $WRL_CAPTURE_API_KEY" \
- *          "https://wrl.benpeter.workers.dev/v1/captures?status=complete&limit=50" \
+ *          "https://api.webresourceledger.com/v1/captures?status=complete&limit=50" \
  *          | jq '.data[].id'
  *     3. Find a capture with version=0.2.0 and rfc3161 signature.
  *     4. Download its WACZ and extract datapackage-digest.json.

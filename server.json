@@ -13,7 +13,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://wrl.benpeter.workers.dev/mcp",
+      "url": "https://api.webresourceledger.com/mcp",
       "headers": {
         "Authorization": "Bearer ${env:WRL_API_KEY}"
       }

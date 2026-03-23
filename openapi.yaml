@@ -13,8 +13,6 @@ servers:
     description: Production
   - url: https://staging.webresourceledger.com
     description: Staging
-  - url: https://wrl.benpeter.workers.dev
-    description: Production (legacy Workers subdomain)
 
 tags:
   - name: health
@@ -1025,10 +1023,10 @@ components:
             completedAt: '2026-03-22T12:05:00.312Z'
             renderQuality: full
             artifacts:
-              screenshot: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-              html: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-              headers: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
-            verifyUrl: https://wrl.benpeter.workers.dev/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+              screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+              html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+              headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+            verifyUrl: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
         - id: evt_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
           type: capture.failed
           createdAt: '2026-03-22T12:05:10.000Z'

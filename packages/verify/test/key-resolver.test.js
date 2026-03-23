@@ -43,11 +43,11 @@ async function makeTestKey() {
 describe('isWrlCaptureUrl', () => {
   it('returns true for valid WRL capture URLs', () => {
     assert.strictEqual(
-      isWrlCaptureUrl('https://wrl.benpeter.workers.dev/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'),
+      isWrlCaptureUrl('https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'),
       true
     );
     assert.strictEqual(
-      isWrlCaptureUrl('https://wrl.benpeter.workers.dev/v1/verify/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'),
+      isWrlCaptureUrl('https://api.webresourceledger.com/v1/verify/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'),
       true
     );
   });
@@ -61,12 +61,12 @@ describe('isWrlCaptureUrl', () => {
   it('returns false for WRL URLs with wrong path pattern', () => {
     // Missing cap_ prefix
     assert.strictEqual(
-      isWrlCaptureUrl('https://wrl.benpeter.workers.dev/v1/captures/eebc8b957ee542c7a9a4d8a0a33ae1c8'),
+      isWrlCaptureUrl('https://api.webresourceledger.com/v1/captures/eebc8b957ee542c7a9a4d8a0a33ae1c8'),
       false
     );
     // Too short ID
     assert.strictEqual(
-      isWrlCaptureUrl('https://wrl.benpeter.workers.dev/v1/captures/cap_abc123'),
+      isWrlCaptureUrl('https://api.webresourceledger.com/v1/captures/cap_abc123'),
       false
     );
   });
@@ -78,8 +78,8 @@ describe('isWrlCaptureUrl', () => {
 
 describe('originFromUrl', () => {
   it('extracts origin from HTTPS URL', () => {
-    const origin = originFromUrl('https://wrl.benpeter.workers.dev/v1/captures/cap_abc');
-    assert.strictEqual(origin, 'https://wrl.benpeter.workers.dev');
+    const origin = originFromUrl('https://api.webresourceledger.com/v1/captures/cap_abc');
+    assert.strictEqual(origin, 'https://api.webresourceledger.com');
   });
 
   it('extracts origin preserving port if present', () => {

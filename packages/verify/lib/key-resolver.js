@@ -407,7 +407,7 @@ export async function resolveKey(options) {
     `insecure -- an attacker who modifies the capture can also replace the\n` +
     `embedded key.\n\n` +
     `Specify one of:\n` +
-    `  --origin https://wrl.benpeter.workers.dev  Fetch key from the operator\n` +
+    `  --origin https://api.webresourceledger.com  Fetch key from the operator\n` +
     `  --key <base64>                             Provide key directly\n` +
     `  --key-file <path>                          Read key from file\n\n` +
     `The embedded keyId is: ${embeddedKeyId}`
