@@ -127,6 +127,15 @@ function buildMetadataSection(data) {
     addDataRow(grid, 'Failed', formatDatetime(data.failedAt));
   }
 
+  // Schedule association
+  if (data.scheduleId) {
+    var schedLink = document.createElement('a');
+    schedLink.href = '#/schedules';
+    schedLink.className = 'detail-url-link text-mono';
+    schedLink.textContent = data.scheduleId;
+    addDataRow(grid, 'Schedule', schedLink);
+  }
+
   // Render quality
   if (data.renderQuality) {
     addDataRow(grid, 'Render Quality', data.renderQuality);

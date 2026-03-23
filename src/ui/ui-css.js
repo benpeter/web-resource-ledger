@@ -297,6 +297,20 @@ input, select, textarea {
   align-items: center;
 }
 
+/* "Scheduled" label shown on captures that belong to a schedule */
+.capture-scheduled-label {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  margin-left: var(--space-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 /* Timeout note shown inside item */
 .capture-timeout-note {
   grid-column: 1 / -1;
@@ -809,6 +823,159 @@ input, select, textarea {
 .usage-refresh-btn:hover {
   background: var(--color-surface-muted);
   color: var(--color-text);
+}
+
+/* ---------------------------------------------------------------------------
+   Schedules view
+--------------------------------------------------------------------------- */
+
+.schedule-form-section {
+  margin-bottom: var(--space-4);
+}
+
+.schedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.schedule-field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.schedule-form-preview {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: calc(-1 * var(--space-1));
+}
+
+/* Shared column layout for header row and items */
+
+.schedule-header-row,
+.schedule-item {
+  display: grid;
+  grid-template-columns: 1fr 10rem 10rem 12rem;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Header row */
+
+.schedule-header-row {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+/* Schedule list */
+
+.schedule-list {
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+}
+
+.schedule-list:first-child {
+  border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* Individual schedule rows */
+
+.schedule-item {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.schedule-item:last-child {
+  border-bottom: none;
+}
+
+/* URL cell: stacked URL + name */
+
+.schedule-url-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow: hidden;
+}
+
+.schedule-url-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-base);
+  color: var(--color-primary);
+}
+
+.schedule-name-text {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-col-freq,
+.schedule-col-next {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Actions cell */
+
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Mobile: stacked layout (<640px) */
+
+@media (max-width: 640px) {
+  .schedule-header-row {
+    display: none;
+  }
+
+  .schedule-list {
+    border-top: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+
+  .schedule-item {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+
+  .schedule-col-url {
+    grid-column: 1;
+  }
+
+  .schedule-col-freq,
+  .schedule-col-next {
+    white-space: normal;
+  }
+
+  .schedule-actions {
+    flex-wrap: wrap;
+  }
 }
 
 /* ---------------------------------------------------------------------------

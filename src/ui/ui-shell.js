@@ -6,6 +6,7 @@ import { LOGIN_JS } from './ui-login.js';
 import { WELCOME_JS } from './ui-welcome.js';
 import { TOS_JS } from './ui-tos.js';
 import { SETTINGS_JS } from './ui-settings.js';
+import { SCHEDULES_JS } from './ui-schedules.js';
 import { SUBMIT_VIEW_JS } from './ui-submit.js';
 import { DETAIL_VIEW_JS } from './ui-detail.js';
 import { POLL_JS } from './ui-poll.js';
@@ -51,6 +52,9 @@ ${TOS_JS}
 // === SETTINGS ===
 ${SETTINGS_JS}
 
+// === SCHEDULES ===
+${SCHEDULES_JS}
+
 // === POLL ===
 ${POLL_JS}
 
@@ -66,6 +70,20 @@ ${DETAIL_VIEW_JS}
 
 var CAPTURE_RE = /^cap_[a-f0-9]{32}$/;
 
+function updateNavCurrent(activePath) {
+  var links = document.querySelectorAll('.nav-link');
+  for (var i = 0; i < links.length; i++) {
+    var linkPath = links[i].getAttribute('href') || '';
+    // Strip leading # for comparison
+    var linkRoute = linkPath.replace(/^#/, '');
+    if (linkRoute === activePath) {
+      links[i].setAttribute('aria-current', 'page');
+    } else {
+      links[i].removeAttribute('aria-current');
+    }
+  }
+}
+
 function route() {
   var hash = location.hash || '';
   // Strip leading #
@@ -78,6 +96,7 @@ function route() {
   }
 
   if (path === '/captures') {
+    updateNavCurrent('/captures');
     renderCaptures();
     mountCaptures();
     return;
@@ -85,8 +104,20 @@ function route() {
 
   if (path === '/settings') {
     if (_authMethod === 'session') {
+      updateNavCurrent('/settings');
       renderSettings();
       mountSettings();
+    } else {
+      location.replace('#/captures');
+    }
+    return;
+  }
+
+  if (path === '/schedules') {
+    if (_authMethod === 'session') {
+      updateNavCurrent('/schedules');
+      renderSchedules();
+      mountSchedules();
     } else {
       location.replace('#/captures');
     }
@@ -98,6 +129,7 @@ function route() {
   if (detailMatch) {
     var id = detailMatch[1];
     if (CAPTURE_RE.test(id)) {
+      updateNavCurrent('/captures');
       renderDetail(id);
       mountDetail(id);
       return;
