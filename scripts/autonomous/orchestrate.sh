@@ -169,6 +169,12 @@ for i in $(seq 0 $((PHASE_COUNT - 1))); do
   }
   git pull --quiet --rebase 2>/dev/null || true
 
+  # Re-source credentials (tokens may have been refreshed between phases)
+  if [[ -f ~/.wrlprofile ]]; then
+    # shellcheck source=/dev/null
+    source ~/.wrlprofile
+  fi
+
   # Notify start
   notify_started "$PHASE" "$TITLE"
 
