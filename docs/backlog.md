@@ -64,7 +64,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] Per-tenant rate limiting~~ | ~~R12 shipped~~ -- DONE: dual-layer enforcement (CF ceiling + KV counter + IP guard), admin config endpoints, X-RateLimit-* headers | Phase 0045 |
 | [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
 | [consider] Billing-tier-based limits | When monetization actively planned; deferred from R21 scope | Phase 0045 |
-| [consider] OAuth for web UI | R17 shipped with API key auth; upgrade when persistent auth and multi-user sessions needed | security-minion, kickoff, Phase 0049 |
+| ~~[consider] OAuth for web UI~~ | ~~R17 shipped with API key auth~~ -- DONE (Phase 0055): GitHub OAuth self-serve signup, dual-auth boot (session + API key), account settings with key CRUD | security-minion, kickoff, Phase 0049 |
 | [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
 
 ### Signing and Legal
@@ -157,7 +157,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |
 | [consider] E2E Playwright browser tests for Web UI | When client-side JS complexity grows beyond current 3-view scope | Phase 0049, test-minion |
 | [consider] AbortController for auth validation timeout | When auth UX polish is prioritized; currently low-risk race window | Phase 0049, code-review-minion |
-| [consider] OAuth for web UI (upgrade from API key input) | When persistent auth and multi-user sessions are needed | Phase 0049, security-minion |
+| ~~[consider] OAuth for web UI (upgrade from API key input)~~ | ~~Done~~ -- DONE (Phase 0055): GitHub OAuth self-serve signup | Phase 0049, security-minion |
+| [consider] Operator tenant linking (GitHub → existing tenant) | When an operator-managed tenant holder wants to use the web UI; manual D1 SQL available as workaround | Phase 0055, D9 |
+| [consider] E2E Playwright browser tests for OAuth flow | When OAuth UI complexity grows or regression risk increases | Phase 0055, test-minion |
+| [consider] Additional OAuth providers (Google, email/password) | When user demand for non-GitHub auth is demonstrated | Phase 0055, out-of-scope |
 | [consider] OG image for landing page | When landing page visual design is considered final; placeholder worse than none | Phase 0052 |
 | [consider] Fix --color-text-muted contrast on landing page | When a11y audit runs; apply local override (same pattern as docs site in Phase 0051) | Phase 0052 |
 
@@ -222,6 +225,7 @@ Completed items removed from active tracking:
 - ~~R23: Landing page~~ -- DONE (Phase 0052): static HTML/CSS at webresourceledger.com, zero JS, full SEO (JSON-LD, OG, sitemap), WCAG AA, Cloudflare Workers Static Assets (Issue #100)
 - ~~R25: Usage Metering~~ -- DONE (Phase 0053): D1 usage_counters table, per-tenant capture/storage/API counters via UPSERT, admin usage endpoint, waitUntil deferred writes (Issue #101)
 - ~~R27: Webhooks / outbound callbacks~~ -- DONE (Phase 0054): CRUD API (POST/GET/DELETE + ping), HMAC-SHA256 signing (Stripe model), Cloudflare Queue dispatch with exponential backoff retry, Coralogix delivery logging, 68 tests (Issue #102)
+- ~~R24: Self-serve signup (OAuth)~~ -- DONE (Phase 0055): GitHub OAuth 2.0 with PKCE, auto-tenant provisioning, first-key display, session management, account settings (key CRUD), ToS enforcement, 10 new routes (Issue #103)
 
 ---
 
