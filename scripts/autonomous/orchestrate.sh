@@ -30,14 +30,12 @@ if [[ -z "$PHASE" ]]; then
   exit 1
 fi
 
-# Source environment
-if [[ -f ~/.wrlprofile ]]; then
+# Source WRL secrets (API keys for wrangler, Stripe, etc.)
+# NOTE: Do NOT source ~/.wrlprofile here -- it exports CLAUDE_OAUTH_TOKEN
+# and CLAUDE_CONFIG_DIR which override the Claude CLI's own auth.
+if [[ -f ~/.wrl-keys ]]; then
   # shellcheck source=/dev/null
-  source ~/.wrlprofile
-fi
-if [[ -f ~/.secrets ]]; then
-  # shellcheck source=/dev/null
-  source ~/.secrets
+  source ~/.wrl-keys
 fi
 
 # Source libraries
