@@ -90,6 +90,12 @@ body {
   font-size: var(--text-md);
 }
 
+.btn--sm {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-sm);
+}
+
 /* Ghost button for dark backgrounds */
 .btn--inverse {
   background: transparent;
