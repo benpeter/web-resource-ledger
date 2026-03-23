@@ -572,22 +572,19 @@ components:
             Settings and metadata about how the capture was performed. Present when
             capture settings were recorded (e.g., consent handling was attempted).
         threatCheck:
-          type: string
-          enum: [pass, fail, unavailable]
-          nullable: true
+          type: ['string', 'null']
+          enum: [pass, fail, unavailable, null]
           description: >
             Result of URL threat screening. null for captures created before this
             feature was deployed.
         quarantineReason:
-          type: string
-          nullable: true
+          type: ['string', 'null']
           description: >
             Human-readable reason why the capture was quarantined. Present only
             when status is "quarantined".
         quarantinedAt:
-          type: string
+          type: ['string', 'null']
           format: date-time
-          nullable: true
           description: >
             ISO 8601 timestamp when the capture was quarantined. Present only
             when status is "quarantined".
@@ -646,22 +643,19 @@ components:
           type: boolean
           description: Present when status is "failed". True if submitting a new capture may succeed.
         threatCheck:
-          type: string
-          enum: [pass, fail, unavailable]
-          nullable: true
+          type: ['string', 'null']
+          enum: [pass, fail, unavailable, null]
           description: >
             Result of URL threat screening. null for captures created before this
             feature was deployed.
         quarantineReason:
-          type: string
-          nullable: true
+          type: ['string', 'null']
           description: >
             Human-readable reason why the capture was quarantined. Present only
             when status is "quarantined".
         quarantinedAt:
-          type: string
+          type: ['string', 'null']
           format: date-time
-          nullable: true
           description: >
             ISO 8601 timestamp when the capture was quarantined. Present only
             when status is "quarantined".
