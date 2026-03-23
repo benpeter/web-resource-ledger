@@ -369,9 +369,10 @@ async function getOrCreateSession(browserBinding) {
  * or at SETTLE_MAX_MS regardless of activity.
  *
  * @param {import('@cloudflare/playwright').Page} page
+ * @param {number} [maxMs] Hard cap in ms (defaults to SETTLE_MAX_MS)
  * @returns {Promise<{ settleMs: number, settleReason: 'idle'|'cap', pendingAtCap: number }>}
  */
-function waitForSettle(page) {
+function waitForSettle(page, maxMs = SETTLE_MAX_MS) {
   const IGNORED_TYPES = new Set(['websocket', 'eventsource']);
   let inFlight = 0;
   let quiescenceTimer = null;
@@ -390,7 +391,7 @@ function waitForSettle(page) {
       resolve({ settleMs: Date.now() - startMs, settleReason: reason, pendingAtCap: inFlight });
     };
 
-    const capTimer = setTimeout(() => finish('cap'), SETTLE_MAX_MS);
+    const capTimer = setTimeout(() => finish('cap'), maxMs);
 
     const checkQuiescence = () => {
       if (inFlight === 0 && quiescenceTimer === null) {
@@ -763,6 +764,10 @@ async function triggerLazyLoading(page) {
     const currentHeight = await page.evaluate(() => document.body.scrollHeight);
     if (currentHeight - initialHeight > MAX_SCROLL_HEIGHT) break;
   }
+
+  // Wait for lazy-loaded image requests triggered by scrolling to complete.
+  // Shorter cap than main settle (1.5s vs 3s) -- only draining image downloads.
+  await waitForSettle(page, 1500);
 
   // Scroll back to top before screenshots
   await page.evaluate(() => window.scrollTo(0, 0));
