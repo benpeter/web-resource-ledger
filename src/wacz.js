@@ -7,14 +7,16 @@
  *   3. Assembles datapackage.json with SHA-256 hashes
  *   4. Signs bundle hash with Ed25519 (signing.js)
  *   5. Requests RFC 3161 timestamp from TSA (rfc3161.js, optional)
- *   6. Assembles datapackage-digest.json with signatures array (v0.2.0)
- *   7. Zips all files with fflate (STORE mode, level 0)
+ *   6. Requests qualified RFC 3161 timestamp from eIDAS TSA (optional)
+ *   7. Assembles datapackage-digest.json with signatures array (v0.2.0)
+ *   8. Zips all files with fflate (STORE mode, level 0)
  *
  * datapackage-digest.json v0.2.0: signedData.signatures array with
- * type:"self" (Ed25519) and optional type:"rfc3161" (TSA timestamp).
+ * type:"self" (Ed25519), optional type:"rfc3161" (TSA timestamp), and
+ * optional type:"rfc3161_qualified" (eIDAS qualified TSA timestamp).
  *
  * Graceful degradation: returns null if signing key is unavailable.
- * TSA timestamp is optional -- capture succeeds without it.
+ * TSA timestamps are optional -- capture succeeds without them.
  *
  * Tests: test/wacz.test.js
  */ // tva
@@ -39,12 +41,14 @@ const enc = new TextEncoder();
  * @param {string} url Captured URL
  * @param {string} captureDate ISO 8601 capture timestamp
  * @param {{ screenshotBefore: Uint8Array, screenshotAfter: Uint8Array|null, html: string, headers: object|null, captureSettings: object|null }} artifacts
- * @param {{ SIGNING_KEY?: string }} env
+ * @param {{ SIGNING_KEY?: string, TSA_URL?: string, QUALIFIED_TSA_URL?: string, QUALIFIED_TSA_AUTH?: string }} env
+ * @param {{ qualifiedTimestamps?: boolean }} [options]
  * @returns {Promise<{ waczBytes: Uint8Array, waczHash: string, bundleHash: string,
  *                     publicKeyBase64: string, keyId: string,
- *                     timestampStatus: 'present'|'skipped'|'error' } | null>}
+ *                     timestampStatus: 'present'|'skipped'|'error',
+ *                     qualifiedTimestampStatus: 'present'|'skipped'|'error' } | null>}
  */
-export async function buildWacz(url, captureDate, artifacts, env) {
+export async function buildWacz(url, captureDate, artifacts, env, options = {}) {
   // Step 1: Get signing keys -- graceful degradation if not configured
   const keys = await getSigningKeys(env);
   if (!keys) return null;
@@ -121,6 +125,28 @@ export async function buildWacz(url, captureDate, artifacts, env) {
     }
   }
 
+  // Step 8.6: Request qualified RFC 3161 timestamp (eIDAS, optional)
+  let qtsaResult = null;
+  let qtsaError = false;
+  if (options.qualifiedTimestamps && env.QUALIFIED_TSA_URL) {
+    try {
+      qtsaResult = await requestTimestamp(
+        env.QUALIFIED_TSA_URL,
+        bundleHash,
+        5000,
+        env.QUALIFIED_TSA_AUTH ? { auth: env.QUALIFIED_TSA_AUTH } : {}
+      );
+    } catch (err) {
+      qtsaError = true;
+      await log(env, 4, 'capture', {
+        event: 'capture.qtsa_fail',
+        tsaUrl: env.QUALIFIED_TSA_URL,
+        errorName: err?.name,
+        errorMessage: String(err?.message ?? '').slice(0, 256),
+      });
+    }
+  }
+
   // Step 9: Assemble datapackage-digest.json
   // NOTE: publicKey is embedded for convenience only. Verifiers MUST pin against
   // an operator-published key, not trust the embedded key blindly.
@@ -131,6 +157,9 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   ];
   if (tsaResult) {
     signatures.push({ type: 'rfc3161', token: tsaResult.token, tsa: tsaResult.tsa });
+  }
+  if (qtsaResult) {
+    signatures.push({ type: 'rfc3161_qualified', token: qtsaResult.token, tsa: qtsaResult.tsa });
   }
 
   const digestDoc = {
@@ -159,5 +188,9 @@ export async function buildWacz(url, captureDate, artifacts, env) {
   // Step 11: Compute SHA-256 of the final WACZ bytes for content-addressed R2 key
   const waczHash = await sha256(waczBytes);
 
-  return { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'skipped') };
+  return {
+    waczBytes, waczHash, bundleHash, publicKeyBase64, keyId,
+    timestampStatus: tsaResult ? 'present' : (tsaError ? 'error' : 'skipped'),
+    qualifiedTimestampStatus: qtsaResult ? 'present' : (qtsaError ? 'error' : 'skipped'),
+  };
 }

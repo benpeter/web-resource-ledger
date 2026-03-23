@@ -2,17 +2,20 @@
  * verify.js -- WACZ verification module
  *
  * Pure function: takes WACZ bytes and a server public key, returns a
- * structured verification result with up to four checks:
- *   1. artifactHashes -- SHA-256 of each resource matches datapackage.json
- *   2. bundleHash     -- sha256(canonicalize(datapackage)) matches signedData.hash
- *   3. signature      -- Ed25519 signature over bundleHash bytes verifies
- *   4. timestamp      -- RFC 3161 messageImprint matches bundleHash (v0.2.0 only)
+ * structured verification result with up to five checks:
+ *   1. artifactHashes      -- SHA-256 of each resource matches datapackage.json
+ *   2. bundleHash          -- sha256(canonicalize(datapackage)) matches signedData.hash
+ *   3. signature           -- Ed25519 signature over bundleHash bytes verifies
+ *   4. timestamp           -- RFC 3161 messageImprint matches bundleHash (v0.2.0 only)
+ *   5. qualifiedTimestamp  -- qualified RFC 3161 messageImprint matches bundleHash
+ *                            (v0.2.0 only, omitted when not present in WACZ)
  *
  * Supports two digest formats:
  *   v0.1.0 (legacy): flat signedData with signature/publicKey at top level;
  *                    produces 3 checks (no timestamp check).
- *   v0.2.0 (new):    signedData.signatures array with type: "self" and
- *                    optional type: "rfc3161" entries; produces 4 checks.
+ *   v0.2.0 (new):    signedData.signatures array with type: "self",
+ *                    optional type: "rfc3161", and optional
+ *                    type: "rfc3161_qualified" entries; produces 4-5 checks.
  *
  * SECURITY:
  *   - publicKeyBytes comes from the server (getSigningKeys(env)) -- never from
@@ -20,8 +23,9 @@
  *     only, and is NEVER used for the verification decision.
  *   - Failed check details never include expected/actual hash values.
  *   - All checks always run -- no short-circuiting.
- *   - A present-but-invalid timestamp fails verification. An absent timestamp
- *     (TSA unreachable at capture time) is tolerated as status: 'skip'.
+ *   - A present-but-invalid timestamp (standard or qualified) fails verification.
+ *     An absent standard timestamp (TSA unreachable) is tolerated as status: 'skip'.
+ *     An absent qualified timestamp is silently omitted (no check entry).
  *
  * Tests: test/verify.test.js
  */ // tva
@@ -52,7 +56,8 @@ const enc = new TextEncoder();
  *     signature: string,
  *     publicKey: string,
  *     signedAt: string,
- *     timestamp?: { genTime: string, tsa: string }
+ *     timestamp?: { genTime: string, tsa: string },
+ *     qualifiedTimestamp?: { genTime: string, tsa: string }
  *   }
  * }>}
  */
@@ -215,6 +220,31 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
   // For v0.1.0: no timestamp check at all (3 checks, not 4)
 
   // ---------------------------------------------------------------------------
+  // Check 5: qualifiedTimestamp (v0.2.0 only, when present)
+  // ---------------------------------------------------------------------------
+  let qualifiedTimestampData = null;
+  if (version === '0.2.0') {
+    const sigs = signedData?.signatures ?? [];
+    const qtsEntry = sigs.find(s => s.type === 'rfc3161_qualified');
+
+    if (!qtsEntry) {
+      // Absent = not requested. Do NOT push a skip check -- simply omit.
+    } else {
+      try {
+        const result = verifyTimestamp(qtsEntry.token, signedData.hash);
+        if (result.valid) {
+          checks.push({ name: 'qualifiedTimestamp', status: 'pass' });
+          qualifiedTimestampData = { genTime: result.genTime, tsa: qtsEntry.tsa };
+        } else {
+          checks.push({ name: 'qualifiedTimestamp', status: 'fail', detail: 'Qualified timestamp structurally invalid' });
+        }
+      } catch {
+        checks.push({ name: 'qualifiedTimestamp', status: 'fail', detail: 'Qualified timestamp structurally invalid' });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Assemble result
   // ---------------------------------------------------------------------------
 
@@ -235,6 +265,9 @@ export async function verifyWacz(waczBytes, publicKeyBytes) {
     };
     if (timestampData) {
       result.capture.timestamp = timestampData;
+    }
+    if (qualifiedTimestampData) {
+      result.capture.qualifiedTimestamp = qualifiedTimestampData;
     }
   }
 
