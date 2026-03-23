@@ -387,7 +387,7 @@ WRL follows a three-act development plan:
 
 1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
 2. **Evidence-Grade** (in progress) -- RFC 3161 timestamps, per-tenant keys (complete), audit logging. Makes "evidence" independently verifiable.
-3. **Infrastructure** -- MCP server, web UI, batch capture. Expands WRL into a platform other tools build on.
+3. **Infrastructure** -- MCP server, web UI, batch capture, scheduled captures. Expands WRL into a platform other tools build on.
 
 See [`docs/backlog.md`](docs/backlog.md) for the full roadmap and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.
 
