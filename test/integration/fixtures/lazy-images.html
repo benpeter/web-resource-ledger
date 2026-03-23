@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lazy Images Test</title>
+  <style>
+    .spacer { height: 2000px; background: #eee; }
+    img { display: block; width: 200px; height: 200px; }
+  </style>
+</head>
+<body>
+  <h1>Lazy Images Test Page</h1>
+  <p id="above-fold">This content is above the fold.</p>
+  <div class="spacer"></div>
+  <p id="below-fold-marker">Below the fold content</p>
+  <!-- These images use loading="lazy" and won't load without scrolling -->
+  <img loading="lazy" src="/lazy-pixel.png" alt="lazy image 1" data-testid="lazy-1">
+  <img loading="lazy" src="/lazy-pixel.png" alt="lazy image 2" data-testid="lazy-2">
+</body>
+</html>

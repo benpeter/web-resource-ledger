@@ -73,3 +73,4 @@ software development.
 | [0061-content-security-scanning](0061-content-security-scanning/) | Content security scanning: Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement (Issue #109) |
 | [0062-capture-auth-gate](0062-capture-auth-gate/) | Capture auth gate for multi-tenant: tenant auth on retrieval endpoints, share tokens for delegated access, CLI token propagation (Issue #110) |
 | [0063-eidas-qualified-timestamps](0063-eidas-qualified-timestamps/) | eIDAS qualified timestamps: account-level opt-in, dual-TSA WACZ assembly, verification, Stripe billing, settings UI (Issue #138) |
+| [0059b-capture-quality](0059b-capture-quality/) | Capture quality improvements: error page detection, subresource limit 200→500, autoconsent v14.63.0, lazy-load scrolling, test battery |
