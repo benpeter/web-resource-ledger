@@ -80,7 +80,20 @@ Your workflow for each phase:
          docs/evolution/<PHASE>-*/process.md
       ```
       If any are missing, create them before proceeding.
-   e. **No dependabot / code scanning alerts** that could block future phases
+   e. **Custom domain routing** — if a phase touched Cloudflare custom
+      domains or routes, verify they point to the correct worker:
+      ```bash
+      source ~/.secrets
+      curl -s "https://api.cloudflare.com/client/v4/accounts/fdff9098bf43cc29335eee17a740677c/workers/domains" \
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | python3 -c "
+      import json,sys
+      for d in json.load(sys.stdin)['result']:
+        print(f\"{d['hostname']} -> {d['service']} ({d['environment']})\")"
+      ```
+      `api.webresourceledger.com` must point to `wrl` (production), not
+      `wrl-staging`. Phase 0071 got this wrong and it was caught by the
+      supervisor.
+   f. **No dependabot / code scanning alerts** that could block future phases
 
 4. **Self-heal if verification fails** — if any check in step 3 fails:
    - Diagnose the root cause (missing migration, empty config value,
@@ -138,6 +151,16 @@ Check the phase JSON for these patterns:
      wrangler.test.toml (copy without `[[queues.consumers]]` sections)
    - **Rate limit values changed**: wrangler.test.toml may have old values
    - **New binding not in test config**: add it to wrangler.test.toml
+   - **E2E specs in vitest runner**: vitest runs in workerd, which lacks
+     `node:child_process`. Playwright E2E specs must be excluded via
+     `vitest.config.js` exclude array (`test/e2e/**`). They run in their
+     own CI workflow (`e2e-tests.yml`).
+   - **Missing GitHub Actions secret**: if a new CI workflow needs a secret,
+     check `gh secret list --env <env>` and provision from `~/.wrl-keys`
+   - **Test assertions vs actual API**: nefario sessions often write test
+     assertions against assumed API response formats. When E2E tests fail
+     on response shape mismatches, read the actual API handler code to
+     determine the correct format — don't trust what the test expects.
 
 ### `failed_merge` — PR couldn't be merged
 
@@ -210,8 +233,11 @@ Then check each item. ALL must pass:
 2. **Secret scanning**: `gh api repos/benpeter/web-resource-ledger/secret-scanning/alerts --jq '.[] | select(.state=="open")'`
    — if any alerts are open, investigate immediately
 3. **Deploy workflows**: check staging and production deploy status
-4. **Dependabot / code scanning**: check for new alerts
-5. **Evolution log**: verify the phase directory has all four files:
+4. **E2E tests**: `gh run list --workflow "E2E Tests" --limit 1` — must
+   pass after staging deploy. If it fails, read the log and fix assertions
+   or infrastructure before proceeding.
+5. **Dependabot / code scanning**: check for new alerts
+6. **Evolution log**: verify the phase directory has all four files:
    ```bash
    ls docs/evolution/${PHASE}-*/prompt.md \
       docs/evolution/${PHASE}-*/decisions.md \
@@ -237,6 +263,37 @@ Send an ntfy notification and wait.
 - If the operator asks to pause, don't start the next phase
 - If the operator asks to skip a phase, mark it appropriately and move on
 
+## Credentials
+
+`~/.wrl-keys` is a shell-sourceable file (mode 600) with all WRL secrets
+for both staging and production, cached from the 1Password "WRL" vault.
+Variables are prefixed `WRL_STAGING_` and `WRL_PROD_`.
+
+```bash
+source ~/.wrl-keys
+echo $WRL_STAGING_ADMIN_KEY
+echo $WRL_PROD_CAPTURE_API_KEY
+```
+
+Use this file instead of `op` CLI whenever possible — it avoids Touch ID
+prompts that time out in automated sessions. The source of truth is
+1Password; regenerate the cache if keys are rotated.
+
+When a phase creates a **new CI workflow** that needs secrets (e.g.,
+`E2E_ADMIN_KEY`, `STRIPE_SECRET_KEY`), verify the secrets exist in the
+GitHub Actions environment **before** considering the phase done:
+
+```bash
+gh secret list --env staging
+gh secret list --env production
+```
+
+If a required secret is missing, provision it from `~/.wrl-keys`:
+```bash
+source ~/.wrl-keys
+echo -n "$WRL_STAGING_ADMIN_KEY" | gh secret set WRL_STAGING_ADMIN_KEY --env staging
+```
+
 ## Key paths
 
 | Path | Purpose |
@@ -244,6 +301,7 @@ Send an ntfy notification and wait.
 | `scripts/autonomous/orchestrate.sh` | Phase runner (one phase per invocation) |
 | `scripts/autonomous/manifest.json` | Phase definitions and dependencies |
 | `scripts/autonomous/logs/current/` | Session outputs, logs, status files |
+| `~/.wrl-keys` | Cached WRL secrets (staging + production) |
 
 ## Recovery after crash
 
