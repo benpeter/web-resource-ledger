@@ -169,6 +169,16 @@
       "act_last": false
     },
     {
+      "phase": "0071",
+      "item": "DOMAIN",
+      "issue": 134,
+      "title": "Replace worker URL with api.webresourceledger.com",
+      "act": 4,
+      "budget_usd": 15,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
       "phase": "0070",
       "item": "LEGAL",
       "issue": 131,
@@ -196,9 +206,9 @@
       "phase": "0058",
       "item": "R29",
       "issue": 106,
-      "title": "Stripe billing integration",
+      "title": "Stripe usage-based billing",
       "act": 5,
-      "budget_usd": 100,
+      "budget_usd": 80,
       "depends_on": [
         "0055",
         "0056",
@@ -223,9 +233,9 @@
       "phase": "0060",
       "item": "R31",
       "issue": 108,
-      "title": "Usage-based billing pipeline",
+      "title": "Capture metering to Stripe pipeline",
       "act": 5,
-      "budget_usd": 60,
+      "budget_usd": 50,
       "depends_on": [
         "0053",
         "0058"
@@ -261,12 +271,13 @@
       "phase": "0063",
       "item": "R36",
       "issue": 111,
-      "title": "Email notifications",
+      "title": "Email notifications (operational + billing)",
       "act": 5,
-      "budget_usd": 60,
+      "budget_usd": 70,
       "depends_on": [
         "0055",
         "0056",
+        "0058",
         "0059"
       ],
       "act_last": true

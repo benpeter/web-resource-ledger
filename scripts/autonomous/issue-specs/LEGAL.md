@@ -22,15 +22,16 @@ The business website must include:
 - [x] Description of goods/services (already on landing page)
 - [ ] Customer service contact details (phone, email, address, contact form, or messaging)
 - [ ] Refund and dispute policy
-- [ ] Cancelation policy
+- [ ] Cancelation policy (simplified: usage-based, no subscription to cancel)
 - [ ] Privacy policy (not listed by Stripe FAQ but required by Stripe Checkout and GDPR)
 
 ## Success Criteria
 
 1. `/privacy` serves a Privacy Policy page explaining what data WRL collects,
    how it's used, retention, GDPR rights, and contact for data requests
-2. `/refund-policy` serves a Refund, Cancelation & Dispute Policy page covering
-   subscription cancelation, refund eligibility, and how to dispute charges
+2. `/refund-policy` serves a Refund & Dispute Policy page covering
+   refund eligibility for usage-based charges and how to dispute charges
+   (no subscription cancelation -- usage-based model means tenants simply stop using the service)
 3. `/terms` serves the existing Terms of Service (currently only on GitHub)
 4. `/content-policy` serves the existing Content Policy (currently only on GitHub)
 5. All four pages use the same design system and layout as the landing page
@@ -48,7 +49,7 @@ The business website must include:
 ### In
 
 - Privacy Policy page (new content)
-- Refund, Cancelation & Dispute Policy page (new content)
+- Refund & Dispute Policy page (new content; cancelation is trivial under usage-based pricing)
 - Terms of Service page (render existing TERMS.md as HTML)
 - Content Policy page (render existing CONTENT-POLICY.md as HTML)
 - Landing page footer updates (links + contact email)

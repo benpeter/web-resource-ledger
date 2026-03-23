@@ -63,7 +63,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[must:multi-user] Tenant isolation / RBAC~~ | ~~Folded into R12~~ -- DONE: tenantId in KV records, capture list scoped to tenant | security-minion, kickoff |
 | ~~[consider] Per-tenant rate limiting~~ | ~~R12 shipped~~ -- DONE: dual-layer enforcement (CF ceiling + KV counter + IP guard), admin config endpoints, X-RateLimit-* headers | Phase 0045 |
 | [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
-| [consider] Billing-tier-based limits | When monetization actively planned; deferred from R21 scope | Phase 0045 |
+| ~~[consider] Billing-tier-based limits~~ | Superseded: usage-based pricing model adopted 2026-03-23 (no tiers). See R29/R31 for billing implementation. | Phase 0045 |
 | ~~[consider] OAuth for web UI~~ | ~~R17 shipped with API key auth~~ -- DONE (Phase 0055): GitHub OAuth self-serve signup, dual-auth boot (session + API key), account settings with key CRUD | security-minion, kickoff, Phase 0049 |
 | [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
 
@@ -153,7 +153,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Watch lists / bulk monitoring | Requires scheduling (also parked) | MVP.md |
 | [consider] Change detection / diffing | Requires multiple captures over time; no demand | MVP.md |
 | [consider] Notifications | When event-driven workflows needed | MVP.md |
-| ~~[consider] Billing and quotas~~ | ~~When monetization actively planned~~ -- DONE (Phase 0056): tier-based quotas (free/pro), pre-capture enforcement, usage dashboard, per-tenant D1 overrides (Issue #104) | MVP.md |
+| ~~[consider] Billing and quotas~~ | ~~When monetization actively planned~~ -- DONE (Phase 0056): usage-based free limit (100 captures/month without card, unlimited with card), pre-capture enforcement, usage dashboard, per-tenant D1 overrides (Issue #104). Pricing model: pure pay-per-capture, no subscriptions. | MVP.md |
 | ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |
 | [consider] E2E Playwright browser tests for Web UI | When client-side JS complexity grows beyond current 3-view scope | Phase 0049, test-minion |
 | [consider] AbortController for auth validation timeout | When auth UX polish is prioritized; currently low-risk race window | Phase 0049, code-review-minion |
@@ -226,7 +226,7 @@ Completed items removed from active tracking:
 - ~~R25: Usage Metering~~ -- DONE (Phase 0053): D1 usage_counters table, per-tenant capture/storage/API counters via UPSERT, admin usage endpoint, waitUntil deferred writes (Issue #101)
 - ~~R27: Webhooks / outbound callbacks~~ -- DONE (Phase 0054): CRUD API (POST/GET/DELETE + ping), HMAC-SHA256 signing (Stripe model), Cloudflare Queue dispatch with exponential backoff retry, Coralogix delivery logging, 68 tests (Issue #102)
 - ~~R24: Self-serve signup (OAuth)~~ -- DONE (Phase 0055): GitHub OAuth 2.0 with PKCE, auto-tenant provisioning, first-key display, session management, account settings (key CRUD), ToS enforcement, 10 new routes (Issue #103)
-- ~~R26: Tenant Quotas~~ -- DONE (Phase 0056): tier-based quotas (free: 100 captures/month, 1 GB; pro: 5000/month, 50 GB), pre-capture enforcement with 429 quota_exceeded, per-tenant D1 overrides, web UI usage dashboard with progress bars, tier field on tenant record (Issue #104)
+- ~~R26: Tenant Quotas~~ -- DONE (Phase 0056): free limit (100 captures/month without payment method, unlimited with card), pre-capture enforcement with 429 payment_required, per-tenant D1 overrides, web UI usage dashboard with progress bars (Issue #104). Note: updated 2026-03-23 from tier-based (free/pro) to usage-based pricing model.
 
 ---
 
