@@ -23,6 +23,29 @@ import { verifySession } from './session.js';
 
 // tva
 
+/**
+ * Dual auth: try session cookie first, then API key.
+ * Allows OAuth-authenticated users to use capture endpoints via the Web UI.
+ */
+async function verifyAuth(request, env, options) {
+  // Try session cookie first (Web UI users)
+  const cookieHeader = request.headers.get('Cookie');
+  if (cookieHeader && cookieHeader.includes('__Host-wrl_session')) {
+    const session = await verifySession(request, env);
+    if (session.ok) {
+      return {
+        ok: true,
+        tenantId: session.tenantId,
+        authMethod: 'session',
+        keyName: null,
+        keyHashPrefix: null,
+      };
+    }
+  }
+  // Fall back to API key
+  return verifyApiKey(request, env, options);
+}
+
 // Routes: [method, pattern, handler]
 // Order matters: most specific pattern first.
 // Add new routes as one-line tuples.
@@ -556,7 +579,7 @@ async function handleCreateCapture(request, env, ctx) {
   }
 
   // Step 2: Auth check
-  const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
+  const auth = await verifyAuth(request, env, { requiredScope: 'capture' });
   if (!auth.ok) {
     ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
@@ -743,7 +766,7 @@ async function handleBatchCapture(request, env, ctx) {
   }
 
   // Step 2: Auth check
-  const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
+  const auth = await verifyAuth(request, env, { requiredScope: 'capture' });
   if (!auth.ok) {
     ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;
@@ -995,7 +1018,7 @@ async function handleListCaptures(request, env, ctx) {
   const cip = await computeCip(env, clientIp);
 
   // Step 1: Auth check
-  const auth = await verifyApiKey(request, env, { requiredScope: 'read' });
+  const auth = await verifyAuth(request, env, { requiredScope: 'read' });
   if (!auth.ok) {
     ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
     return auth.response;

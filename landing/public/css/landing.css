@@ -265,8 +265,7 @@ body {
 .hero__hint {
   font-size: var(--text-sm);
   color: rgba(248, 248, 250, 0.6);
-  margin-top: var(--space-2);
-  text-align: center;
+  margin-top: var(--space-4);
   line-height: var(--leading-normal);
 }
 

@@ -198,7 +198,7 @@ function renderAppShell() {
     var disconnectBtn = document.createElement('button');
     disconnectBtn.type = 'button';
     disconnectBtn.className = 'btn btn--ghost btn--sm';
-    disconnectBtn.textContent = 'Disconnect';
+    disconnectBtn.textContent = 'Sign out';
     disconnectBtn.addEventListener('click', function() {
       sessionStorage.removeItem(AUTH_KEY);
       _authMethod = null;
