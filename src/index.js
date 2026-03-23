@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, getTenantConfig, setTenantConfig, incrementUsage } from './db.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage } from './db.js';
 import { rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
 import { performVerification } from './verify.js';
@@ -16,6 +16,7 @@ import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handle
 import { handleMcp } from './mcp.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
+import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage } from './account.js';
@@ -74,6 +75,11 @@ const routes = [
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
   ['DELETE', /^\/v1\/webhooks\/(whk_[a-f0-9]{32})$/, handleDeleteWebhook],
   ['POST',   /^\/v1\/webhooks\/(whk_[a-f0-9]{32})\/ping$/, handlePingWebhook],
+  // Schedule routes
+  ['POST',   /^\/v1\/schedules$/, handleCreateSchedule],
+  ['GET',    /^\/v1\/schedules$/, handleListSchedules],
+  ['GET',    /^\/v1\/schedules\/(sch_[a-f0-9]{32})$/, handleGetSchedule],
+  ['DELETE', /^\/v1\/schedules\/(sch_[a-f0-9]{32})$/, handleDeleteSchedule],
   // OAuth / session routes
   ['GET',    /^\/auth\/login$/, handleAuthLogin],
   ['GET',    /^\/auth\/callback$/, handleAuthCallback],
@@ -107,6 +113,7 @@ function getAllowedOrigin(request, env) {
 function getRateLimitGroup(method, pathname) {
   if (pathname.startsWith('/v1/admin/')) return 'admin';
   if (pathname === '/v1/captures' || pathname === '/v1/captures/batch') return 'capture';
+  if (pathname.startsWith('/v1/schedules')) return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
   if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'account';
   if (pathname.startsWith('/auth/')) return 'auth';
@@ -1146,6 +1153,16 @@ async function handleListCaptures(request, env, ctx) {
     sort = sortRaw;
   }
 
+  // schedule_id: optional exact filter; validated against SCHEDULE_ID_RE before use
+  let scheduleIdParam;
+  const scheduleIdRaw = params.get('schedule_id');
+  if (scheduleIdRaw !== null) {
+    if (!SCHEDULE_ID_RE.test(scheduleIdRaw)) {
+      return problemResponse(400, "Query parameter 'schedule_id' must be a valid schedule ID (sch_ followed by 32 hex characters).");
+    }
+    scheduleIdParam = scheduleIdRaw;
+  }
+
   // Step 4: Start timer
   const start = Date.now();
 
@@ -1160,6 +1177,7 @@ async function handleListCaptures(request, env, ctx) {
       created_after: createdAfter,
       created_before: createdBefore,
       sort,
+      schedule_id: scheduleIdParam,
     });
   } catch (err) {
     const durationMs = Date.now() - start;

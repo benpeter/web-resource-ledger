@@ -185,7 +185,8 @@ export async function getCapture(db, captureId) {
  *   url?: string,
  *   created_after?: string,
  *   created_before?: string,
- *   sort?: string
+ *   sort?: string,
+ *   schedule_id?: string
  * }} [opts]
  * @returns {Promise<{ data: object[], pagination: { total: number, offset: number, limit: number, hasMore: boolean } }>}
  */
@@ -197,6 +198,7 @@ export async function listCaptures(db, tenantId, {
   created_after,
   created_before,
   sort = '-created_at',
+  schedule_id,
 } = {}) {
   const conditions = ['tenant_id = ?'];
   const params = [tenantId];
@@ -221,6 +223,11 @@ export async function listCaptures(db, tenantId, {
   if (created_before) {
     conditions.push('created_at < ?');
     params.push(created_before);
+  }
+
+  if (schedule_id) {
+    conditions.push('schedule_id = ?');
+    params.push(schedule_id);
   }
 
   const where = 'WHERE ' + conditions.join(' AND ');
