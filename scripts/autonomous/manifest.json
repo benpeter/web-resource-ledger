@@ -269,6 +269,19 @@
     },
     {
       "phase": "0063",
+      "item": "R40",
+      "issue": 138,
+      "title": "eIDAS qualified timestamps (optional add-on)",
+      "act": 5,
+      "budget_usd": 50,
+      "depends_on": [
+        "0055",
+        "0058"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0072",
       "item": "R36",
       "issue": 111,
       "title": "Email notifications (operational + billing)",

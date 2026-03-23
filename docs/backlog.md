@@ -71,7 +71,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [consider] eIDAS Qualified TSA | 3+ QTSPs with published pricing and APIs; not before 2027 | gru, kickoff |
+| ~~[consider] eIDAS Qualified TSA~~ | Activated: moved to Act 5 as R40. Sectigo free qualified endpoint for launch, qtsa.eu prepaid for scale. Per-account opt-in, +$0.10/capture. | gru, kickoff |
 | [consider] WACZ-Auth full spec compliance | When a production toolchain consumes WACZ-Auth signatures | gru, kickoff |
 | [consider] Multiple TSAs for redundancy | 6+ months after R11 ships; based on observed TSA reliability | gru, kickoff |
 | [consider] HSM-backed key storage | When FIPS 140-2 Level 3 explicitly required or multi-tenant key management at scale | security-minion, kickoff |
