@@ -304,7 +304,7 @@ async function handleDlqMessage(msg, env, ctx) {
 
 export default {
   async scheduled(controller, env, ctx) {
-    if (controller.cron === '0 3 * * *' || controller.cron === '0 4 * * *') {
+    if (env.RESCAN_CRON && controller.cron === env.RESCAN_CRON) {
       const { handleRescanTick } = await import('./rescan.js');
       await handleRescanTick(controller, env, ctx);
       return;

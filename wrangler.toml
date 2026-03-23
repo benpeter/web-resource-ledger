@@ -146,17 +146,21 @@ max_retries = 0
 # Stripe secrets (set via wrangler secret put):
 #   STRIPE_SECRET_KEY    -- Stripe secret key (sk_live_...)
 #   STRIPE_WEBHOOK_SECRET -- Stripe webhook signing secret (whsec_...)
+# Threat check (set via wrangler secret put):
+#   GOOGLE_WEB_RISK_API_KEY -- Google Web Risk API key (without this, threat checks degrade gracefully)
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
-TSA_URL = "http://timestamp.digicert.com"
+TSA_URL = "https://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
 # Auth credential set via: wrangler secret put QUALIFIED_TSA_AUTH
 # (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
-QUALIFIED_TSA_URL = "http://timestamp.sectigo.com/qualified"
+QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23liIG5Of9wSbgcFqW"
 STRIPE_PUBLISHABLE_KEY = "pk_live_51TDsOBR6ZdLyu7lGn7qg5KGMLs2mcYvkV4GHrYvGymIMxABXUEJjVOdl8BHnUrLoHMvM9HH8FNenohLPZABdRA3X002Ajerxi0"
 STRIPE_CAPTURE_PRICE_ID = "price_1TE4aAR6ZdLyu7lGVLN895yU"
+# Cron expression for the nightly URL re-scan job. Must match the value in [triggers].crons.
+RESCAN_CRON = "0 3 * * *"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -288,14 +292,15 @@ max_retries = 0
 [env.staging.vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
-TSA_URL = "http://timestamp.digicert.com"
+TSA_URL = "https://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
 # Auth credential set via: wrangler secret put QUALIFIED_TSA_AUTH --env staging
 # (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
-QUALIFIED_TSA_URL = "http://timestamp.sectigo.com/qualified"
+QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
 STRIPE_PUBLISHABLE_KEY = "pk_test_51TDsOOJQK0cymoiEZrNp6PBKISzkLV3LCIxOIjQ2pkQdcDYtQRECpLiWUagaLe0PtE8Owu7x8bsu5gLemtHMj58G00PTk19u4B"
 STRIPE_CAPTURE_PRICE_ID = "price_1TE3yVJQK0cymoiEc5eoRpBv"
+RESCAN_CRON = "0 4 * * *"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"

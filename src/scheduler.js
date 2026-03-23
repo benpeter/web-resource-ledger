@@ -15,6 +15,7 @@
 
 import { getDueSchedules, advanceSchedule, createCapture, incrementUsage } from './db.js';
 import { checkQuota } from './quotas.js';
+import { checkUrl } from './threat-check.js';
 import { nextRunAfter } from './cron.js';
 import { log } from './log.js';
 
@@ -129,6 +130,22 @@ export async function handleScheduledTick(controller, env, ctx) {
     // Quota allowed: enqueue a capture for each schedule.
     for (const schedule of schedules) {
       let captureId, nextRunAt;
+
+      // Threat check: skip schedule if URL is flagged (fail-open on error/no key).
+      const threat = await checkUrl(schedule.url, env).catch(() => ({ safe: true, degraded: true }));
+      if (!threat.safe) {
+        nextRunAt = nextRunAfter(schedule.cron, new Date(controller.scheduledTime));
+        await advanceSchedule(env.DB, schedule.id, nextRunAt, null, 'blocked').catch(() => {});
+        ctx.waitUntil(log(env, 4, 'schedule', {
+          event: 'schedule.blocked_threat',
+          scheduleId: schedule.id,
+          tenantId,
+          url: schedule.url,
+          threatTypes: threat.threatTypes,
+        }) ?? Promise.resolve());
+        skippedCount++;
+        continue;
+      }
 
       try {
         captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');

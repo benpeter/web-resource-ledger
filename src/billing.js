@@ -71,14 +71,20 @@ export async function handleBillingCheckout(request, env, ctx) {
     return problemResponse(409, 'Payment method already configured. Use the billing portal to manage your subscription.', BILLING_CACHE);
   }
 
-  // Parse optional returnUrl from body
-  let returnUrl = `${new URL(request.url).origin}/ui`;
+  // Parse optional returnUrl from body -- restricted to same origin to prevent open redirect.
+  const requestOrigin = new URL(request.url).origin;
+  let returnUrl = `${requestOrigin}/ui`;
   const contentType = request.headers.get('Content-Type') || '';
   if (contentType.includes('application/json')) {
     try {
       const body = await request.json();
       if (body.returnUrl && typeof body.returnUrl === 'string') {
-        returnUrl = body.returnUrl;
+        try {
+          const parsed = new URL(body.returnUrl);
+          if (parsed.origin === requestOrigin) returnUrl = body.returnUrl;
+        } catch {
+          // Invalid URL -- use default
+        }
       }
     } catch {
       // Empty body or invalid JSON is fine -- use default returnUrl
@@ -155,13 +161,19 @@ export async function handleBillingPortal(request, env, ctx) {
     return problemResponse(400, 'No billing account found. Complete checkout first.', BILLING_CACHE);
   }
 
-  let returnUrl = `${new URL(request.url).origin}/ui`;
+  const portalRequestOrigin = new URL(request.url).origin;
+  let returnUrl = `${portalRequestOrigin}/ui`;
   const contentType = request.headers.get('Content-Type') || '';
   if (contentType.includes('application/json')) {
     try {
       const body = await request.json();
       if (body.returnUrl && typeof body.returnUrl === 'string') {
-        returnUrl = body.returnUrl;
+        try {
+          const parsed = new URL(body.returnUrl);
+          if (parsed.origin === portalRequestOrigin) returnUrl = body.returnUrl;
+        } catch {
+          // Invalid URL -- use default
+        }
       }
     } catch {
       // Empty body is fine
