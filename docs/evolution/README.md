@@ -63,3 +63,4 @@ software development.
 | [0053-usage-metering](0053-usage-metering/) | Per-tenant usage metering with D1 counters and admin endpoint (Issue #101) |
 | [0054-webhooks-outbound-callbacks](0054-webhooks-outbound-callbacks/) | Outbound webhook notifications for capture lifecycle events (Issue #102) |
 | [0055-self-serve-signup-oauth](0055-self-serve-signup-oauth/) | GitHub OAuth self-serve signup with auto-tenant provisioning, session management, account settings UI (Issue #103) |
+| [0056-tenant-quotas](0056-tenant-quotas/) | Per-tenant usage quotas with tier-based limits, pre-capture enforcement, web UI usage dashboard (Issue #104) |
