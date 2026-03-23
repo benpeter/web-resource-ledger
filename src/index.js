@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getEidasQualified } from './db.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck } from './db.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
@@ -848,8 +848,9 @@ async function handleCreateCapture(request, env, ctx) {
   }) ?? Promise.resolve());
 
   // Step 10a: Dispatch to queue
-  // Read eIDAS setting at enqueue time to capture tenant's intent at request time
-  const eidasQualified = await getEidasQualified(env.DB, tenantId);
+  // eIDAS setting captured at quota-check time (quotaCheck.eidasQualified) —
+  // no extra D1 round-trip. Legacy auth tenants cannot enable eIDAS (requires payment method).
+  const eidasQualified = quotaCheck?.eidasQualified ?? false;
   try {
     await env.CAPTURE_QUEUE.send({
       captureId, url: result.url, ip: result.ip, tenantId, cip,
