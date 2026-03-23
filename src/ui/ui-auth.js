@@ -1,6 +1,10 @@
 // tva
-// Auth gate, apiFetch wrapper, and disconnect logic.
+// Auth gate, apiFetch wrapper, dual-auth boot, and session management.
 // All functions are bundled as a JS string constant for inline use in the HTML shell.
+//
+// innerHTML usage note: innerHTML is used ONLY to clear the #app mount point
+// (app.innerHTML = ''). No user-supplied or external content is ever inserted
+// via innerHTML -- all dynamic content uses textContent and DOM construction.
 
 export const AUTH_JS = `
 // ---------------------------------------------------------------------------
@@ -10,16 +14,31 @@ export const AUTH_JS = `
 var AUTH_KEY = 'wrl_api_key';
 var FETCH_TIMEOUT_MS = 10000;
 
+// Auth state -- set during boot
+var _authMethod = null; // 'session' | 'apikey'
+var _wrlUser = null;    // { githubLogin, tenantId, tosAcceptedAt, githubId }
+
 // ---------------------------------------------------------------------------
-// apiFetch: adds auth header, timeout, and handles 401/429
+// apiFetch: dual-mode auth, timeout, 401/429 handling
 // ---------------------------------------------------------------------------
 
 function apiFetch(path, options) {
-  var key = sessionStorage.getItem(AUTH_KEY);
   var opts = Object.assign({}, options);
-  opts.headers = Object.assign({}, opts.headers, {
-    'Authorization': 'Bearer ' + key
-  });
+  opts.headers = Object.assign({}, opts.headers);
+
+  if (_authMethod === 'session') {
+    opts.credentials = 'same-origin';
+    // CSRF header for mutations
+    if (opts.method === 'POST' || opts.method === 'DELETE') {
+      opts.headers['X-WRL-CSRF'] = '1';
+    }
+    // No Authorization header -- cookie sent automatically
+  } else {
+    var key = sessionStorage.getItem(AUTH_KEY);
+    if (key) {
+      opts.headers['Authorization'] = 'Bearer ' + key;
+    }
+  }
 
   var fetchPromise = fetch(path, opts);
   var timeoutPromise = new Promise(function(_, reject) {
@@ -30,8 +49,16 @@ function apiFetch(path, options) {
 
   return Promise.race([fetchPromise, timeoutPromise]).then(function(res) {
     if (res.status === 401) {
-      sessionStorage.removeItem(AUTH_KEY);
-      renderAuthGate();
+      if (_authMethod === 'session') {
+        _authMethod = null;
+        _wrlUser = null;
+        renderLogin();
+        mountLogin();
+      } else {
+        sessionStorage.removeItem(AUTH_KEY);
+        renderLogin();
+        mountLogin();
+      }
       return res;
     }
     if (res.status === 429) {
@@ -45,69 +72,12 @@ function apiFetch(path, options) {
 }
 
 // ---------------------------------------------------------------------------
-// Auth gate rendering
+// Auth gate rendering (API key path -- kept for backward compat)
 // ---------------------------------------------------------------------------
 
 function renderAuthGate() {
-  var app = document.getElementById('app');
-  // Safe: clearing the mount point, not inserting user-supplied content
-  app.innerHTML = '';
-
-  var wrapper = document.createElement('div');
-  wrapper.className = 'auth-gate';
-
-  var card = document.createElement('div');
-  card.className = 'card auth-card';
-
-  var heading = document.createElement('h1');
-  heading.className = 'auth-wordmark';
-  heading.tabIndex = -1;
-  heading.textContent = 'Web Resource Ledger';
-  card.appendChild(heading);
-
-  var tagline = document.createElement('p');
-  tagline.className = 'auth-tagline';
-  tagline.textContent = 'Enter your API key to get started';
-  card.appendChild(tagline);
-
-  var form = document.createElement('form');
-  form.id = 'auth-form';
-  form.noValidate = true;
-
-  var input = document.createElement('input');
-  input.type = 'password';
-  input.id = 'auth-key-input';
-  input.className = 'input';
-  input.autocomplete = 'current-password';
-  input.placeholder = 'wrl_live_...';
-  input.required = true;
-  input.setAttribute('aria-label', 'API key');
-  form.appendChild(input);
-
-  var errorEl = document.createElement('div');
-  errorEl.id = 'auth-error';
-  errorEl.className = 'alert alert--error';
-  errorEl.setAttribute('role', 'alert');
-  errorEl.setAttribute('aria-live', 'polite');
-  errorEl.style.display = 'none';
-  form.appendChild(errorEl);
-
-  var btn = document.createElement('button');
-  btn.type = 'submit';
-  btn.className = 'btn btn--primary';
-  btn.textContent = 'Connect';
-  form.appendChild(btn);
-
-  card.appendChild(form);
-  wrapper.appendChild(card);
-  app.appendChild(wrapper);
-
-  heading.focus();
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    handleAuthSubmit(input, btn, errorEl);
-  });
+  renderLogin();
+  mountLogin();
 }
 
 function showAuthError(errorEl, message) {
@@ -141,6 +111,7 @@ function handleAuthSubmit(input, btn, errorEl) {
     btn.textContent = 'Connect';
     if (res.ok) {
       sessionStorage.setItem(AUTH_KEY, key);
+      _authMethod = 'apikey';
       renderAppShell();
     } else if (res.status === 401 || res.status === 403) {
       showAuthError(errorEl, 'Invalid API key. Check your key and try again.');
@@ -164,7 +135,7 @@ function handleAuthSubmit(input, btn, errorEl) {
 
 function renderAppShell() {
   var app = document.getElementById('app');
-  // Safe: clearing the mount point, not inserting user-supplied content
+  // Safe: clearing mount point only -- no user content inserted via innerHTML
   app.innerHTML = '';
 
   var nav = document.createElement('nav');
@@ -173,24 +144,70 @@ function renderAppShell() {
 
   var navLinks = document.createElement('div');
   navLinks.className = 'nav-links';
+
   var capturesLink = document.createElement('a');
   capturesLink.href = '#/captures';
   capturesLink.className = 'nav-link';
   capturesLink.textContent = 'Captures';
   navLinks.appendChild(capturesLink);
+
+  if (_authMethod === 'session') {
+    var settingsLink = document.createElement('a');
+    settingsLink.href = '#/settings';
+    settingsLink.className = 'nav-link';
+    settingsLink.textContent = 'Settings';
+    navLinks.appendChild(settingsLink);
+  }
+
   nav.appendChild(navLinks);
 
   var navActions = document.createElement('div');
   navActions.className = 'nav-actions';
-  var disconnectBtn = document.createElement('button');
-  disconnectBtn.type = 'button';
-  disconnectBtn.className = 'btn btn--ghost btn--sm';
-  disconnectBtn.textContent = 'Disconnect';
-  disconnectBtn.addEventListener('click', function() {
-    sessionStorage.removeItem(AUTH_KEY);
-    renderAuthGate();
-  });
-  navActions.appendChild(disconnectBtn);
+
+  if (_authMethod === 'session' && _wrlUser) {
+    var username = document.createElement('span');
+    username.className = 'nav-username text-muted';
+    username.textContent = _wrlUser.githubLogin;
+    navActions.appendChild(username);
+
+    var signOutBtn = document.createElement('button');
+    signOutBtn.type = 'button';
+    signOutBtn.className = 'btn btn--ghost btn--sm';
+    signOutBtn.textContent = 'Sign out';
+    signOutBtn.addEventListener('click', function() {
+      signOutBtn.disabled = true;
+      signOutBtn.textContent = 'Signing out...';
+      fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-WRL-CSRF': '1' }
+      }).then(function() {
+        _authMethod = null;
+        _wrlUser = null;
+        renderLogin();
+        mountLogin();
+      }).catch(function() {
+        _authMethod = null;
+        _wrlUser = null;
+        renderLogin();
+        mountLogin();
+      });
+    });
+    navActions.appendChild(signOutBtn);
+  } else {
+    var disconnectBtn = document.createElement('button');
+    disconnectBtn.type = 'button';
+    disconnectBtn.className = 'btn btn--ghost btn--sm';
+    disconnectBtn.textContent = 'Disconnect';
+    disconnectBtn.addEventListener('click', function() {
+      sessionStorage.removeItem(AUTH_KEY);
+      _authMethod = null;
+      renderLogin();
+      mountLogin();
+    });
+    navActions.appendChild(disconnectBtn);
+  }
+
   nav.appendChild(navActions);
 
   var main = document.createElement('main');
@@ -228,15 +245,71 @@ function showGlobalError(message) {
 }
 
 // ---------------------------------------------------------------------------
-// App boot
+// App boot -- dual-auth: session cookie first, API key fallback
 // ---------------------------------------------------------------------------
 
 function bootApp() {
+  var app = document.getElementById('app');
+
+  // Show loading indicator -- safe: clearing mount point only
+  app.innerHTML = '';
+  var loadingEl = document.createElement('div');
+  loadingEl.className = 'auth-gate';
+  var spinner = document.createElement('div');
+  spinner.className = 'loading-spinner';
+  spinner.setAttribute('aria-label', 'Loading');
+  loadingEl.appendChild(spinner);
+  app.appendChild(loadingEl);
+
+  // Check for OAuth error params
+  var params = new URLSearchParams(location.search);
+
+  // Try session auth first
+  fetch('/auth/session', { credentials: 'same-origin' }).then(function(res) {
+    if (!res.ok) throw new Error('session_check_failed');
+    return res.json();
+  }).then(function(data) {
+    if (data.authenticated && data.user) {
+      _authMethod = 'session';
+      _wrlUser = data.user;
+
+      // ToS gate
+      if (!data.user.tosAcceptedAt) {
+        renderTos();
+        mountTos();
+        return;
+      }
+
+      // Welcome flow (first sign-up)
+      if (params.get('flow') === 'welcome') {
+        // Clean URL
+        history.replaceState(null, '', location.pathname + location.hash);
+        renderWelcome();
+        mountWelcome();
+        return;
+      }
+
+      renderAppShell();
+      return;
+    }
+
+    // Not session-authenticated -- try API key
+    fallbackToApiKey(params);
+  }).catch(function() {
+    // Session check failed (network, server error) -- try API key
+    fallbackToApiKey(params);
+  });
+}
+
+function fallbackToApiKey(params) {
   var key = sessionStorage.getItem(AUTH_KEY);
   if (key) {
+    _authMethod = 'apikey';
     renderAppShell();
   } else {
-    renderAuthGate();
+    // Show login screen (with any OAuth error)
+    renderLogin();
+    mountLogin();
   }
 }
 `;

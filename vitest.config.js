@@ -39,6 +39,9 @@ export default defineWorkersConfig({
             CORS_ORIGINS: 'https://allowed.example.com,https://other-allowed.example.com',
             IP_HASH_SEED: 'test-ip-hash-seed-for-vitest',
             TSA_URL: 'http://timestamp.digicert.com',
+            GITHUB_CLIENT_ID: 'test-github-client-id',
+            GITHUB_CLIENT_SECRET: 'test-github-client-secret',
+            SESSION_SECRET: 'deadbeef'.repeat(8),
           },
           // Queue producers come from wrangler.test.toml; consumers are
           // omitted there to prevent auto-consumption during tests.

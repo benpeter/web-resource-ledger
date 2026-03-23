@@ -20,13 +20,15 @@
  *
  * NEVER LOG: raw API keys (tokens), raw ADMIN_KEY, raw IP addresses
  * (use computeCip), Authorization header values, full keyHash (use
- * keyHashPrefix: hash.slice(0, 8)), request/response objects, or
- * unvalidated request body content. Always destructure and pick
- * specific fields -- never pass auth result objects directly.
+ * keyHashPrefix: hash.slice(0, 8)), request/response objects,
+ * unvalidated request body content, raw GitHub access tokens,
+ * raw session cookie values, OAuth authorization codes, or raw
+ * state parameter values. Always destructure and pick specific
+ * fields -- never pass auth result objects directly.
  *
  * @param {object} env Worker env bindings
  * @param {number} severity Coralogix severity: 3=info, 4=warn, 5=error
- * @param {string} subsystem Module name: "capture", "security"
+ * @param {string} subsystem Module name: "capture", "security", "oauth"
  * @param {object} data Structured payload (event, captureId, stage, etc.)
  * @returns {Promise<void>|undefined}
  */

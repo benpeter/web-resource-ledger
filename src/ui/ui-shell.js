@@ -2,6 +2,10 @@
 import { DESIGN_SYSTEM_CSS } from '../design-system.js';
 import { UI_CSS } from './ui-css.js';
 import { AUTH_JS } from './ui-auth.js';
+import { LOGIN_JS } from './ui-login.js';
+import { WELCOME_JS } from './ui-welcome.js';
+import { TOS_JS } from './ui-tos.js';
+import { SETTINGS_JS } from './ui-settings.js';
 import { SUBMIT_VIEW_JS } from './ui-submit.js';
 import { DETAIL_VIEW_JS } from './ui-detail.js';
 import { POLL_JS } from './ui-poll.js';
@@ -35,6 +39,18 @@ ${UI_CSS}
 // === AUTH ===
 ${AUTH_JS}
 
+// === LOGIN ===
+${LOGIN_JS}
+
+// === WELCOME ===
+${WELCOME_JS}
+
+// === TOS ===
+${TOS_JS}
+
+// === SETTINGS ===
+${SETTINGS_JS}
+
 // === POLL ===
 ${POLL_JS}
 
@@ -64,6 +80,16 @@ function route() {
   if (path === '/captures') {
     renderCaptures();
     mountCaptures();
+    return;
+  }
+
+  if (path === '/settings') {
+    if (_authMethod === 'session') {
+      renderSettings();
+      mountSettings();
+    } else {
+      location.replace('#/captures');
+    }
     return;
   }
 

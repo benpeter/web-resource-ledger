@@ -53,6 +53,12 @@ type = "ratelimit"
 namespace_id = "1005"
 simple = { limit = 50, period = 60 }
 
+[[unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1006"
+simple = { limit = 10, period = 60 }
+
 [browser]
 binding = "BROWSER"
 
@@ -126,10 +132,14 @@ max_retries = 0
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 # IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
+# OAuth secrets (set via wrangler secret put):
+#   GITHUB_CLIENT_SECRET -- GitHub OAuth App client secret
+#   SESSION_SECRET       -- HMAC key for session cookie signing (32+ random bytes, hex)
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
 TSA_URL = "http://timestamp.digicert.com"
+GITHUB_CLIENT_ID = ""
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -194,6 +204,12 @@ type = "ratelimit"
 namespace_id = "2005"
 simple = { limit = 50, period = 60 }
 
+[[env.staging.unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "2006"
+simple = { limit = 10, period = 60 }
+
 [env.staging.browser]
 binding = "BROWSER"
 
@@ -252,6 +268,7 @@ max_retries = 0
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
 TSA_URL = "http://timestamp.digicert.com"
+GITHUB_CLIENT_ID = ""
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
