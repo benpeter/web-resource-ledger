@@ -94,7 +94,7 @@ function route() {
   }
 
   // /captures/:id
-  var detailMatch = path.match(/^\/captures\/([^/]+)$/);
+  var detailMatch = path.match(/^\\/captures\\/([^/]+)$/);
   if (detailMatch) {
     var id = detailMatch[1];
     if (CAPTURE_RE.test(id)) {
