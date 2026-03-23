@@ -77,331 +77,540 @@ function renderSettings() {
 }
 
 // ---------------------------------------------------------------------------
-// mountSettings() -- fetch data and wire events
+// mountSettings() -- fetch data and build full content
 // ---------------------------------------------------------------------------
 
 function mountSettings() {
-  var infoGrid = document.getElementById('settings-account-info');
-  var keysList = document.getElementById('settings-keys-list');
-  var keysCount = document.getElementById('settings-keys-count');
-  var createBtn = document.getElementById('settings-create-btn');
-  var createForm = document.getElementById('settings-create-form');
-  if (!infoGrid || !keysList || !createBtn || !createForm) return;
+  var view = document.getElementById('view');
+  var loadingEl = document.getElementById('settings-loading');
+  if (!view) return;
 
-  // Fetch account info from session
-  if (typeof _wrlUser !== 'undefined' && _wrlUser) {
-    renderAccountInfo(infoGrid, _wrlUser);
-  }
+  // Account info comes from _wrlUser (already fetched at boot via /auth/session)
+  var accountData = {
+    githubUsername: _wrlUser ? _wrlUser.githubLogin : '',
+    tenantId: _wrlUser ? _wrlUser.tenantId : '',
+    createdAt: _wrlUser ? _wrlUser.createdAt : ''
+  };
 
-  // Fetch keys
-  loadKeys(keysList, keysCount);
+  // Fetch keys list
+  apiFetch('/v1/account/keys', { credentials: 'same-origin' })
+  .then(function(keysRes) {
+    if (!keysRes) return; // 401 handled by apiFetch
 
-  // Create key toggle
-  createBtn.addEventListener('click', function() {
-    if (createForm.style.display === 'none') {
-      showCreateForm(createForm, keysList, keysCount, createBtn);
-    } else {
-      createForm.style.display = 'none';
-      createBtn.textContent = 'Create new key';
+    if (!keysRes.ok) {
+      if (loadingEl) loadingEl.remove();
+      var errEl = document.createElement('div');
+      errEl.className = 'alert alert--error';
+      errEl.setAttribute('role', 'alert');
+      errEl.textContent = 'Could not load account settings. Please try refreshing.';
+      view.appendChild(errEl);
+      return;
     }
-  });
-}
 
-function renderAccountInfo(container, user) {
-  container.innerHTML = '';
-
-  var fields = [
-    ['GitHub', user.githubLogin || 'Unknown'],
-    ['Tenant ID', user.tenantId || 'Unknown'],
-    ['Member since', user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown']
-  ];
-
-  for (var i = 0; i < fields.length; i++) {
-    var row = document.createElement('div');
-    row.className = 'data-row';
-    var label = document.createElement('div');
-    label.className = 'data-label';
-    label.textContent = fields[i][0];
-    var value = document.createElement('div');
-    value.className = 'data-value';
-    value.textContent = fields[i][1];
-    row.appendChild(label);
-    row.appendChild(value);
-    container.appendChild(row);
-  }
-}
-
-function loadKeys(container, countEl) {
-  apiFetch('/v1/account/keys').then(function(res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function(data) {
-    renderKeysList(container, data.data || [], 5, countEl);
+    return keysRes.json().then(function(keysBody) {
+      if (loadingEl) loadingEl.remove();
+      buildSettingsContent(view, accountData, keysBody || {});
+    });
   }).catch(function() {
-    container.innerHTML = '';
-    var err = document.createElement('p');
-    err.className = 'alert alert--error';
-    err.textContent = 'Failed to load API keys.';
-    container.appendChild(err);
+    if (loadingEl) loadingEl.remove();
+    var netErrEl = document.createElement('div');
+    netErrEl.className = 'alert alert--error';
+    netErrEl.setAttribute('role', 'alert');
+    netErrEl.textContent = 'Connection failed loading settings. Check your network.';
+    view.appendChild(netErrEl);
   });
 }
 
-function renderKeysList(container, keys, limit, countEl) {
-  container.innerHTML = '';
-  if (countEl) {
-    countEl.textContent = keys.length + ' of ' + limit + ' keys';
+// ---------------------------------------------------------------------------
+// buildSettingsContent -- render account info + keys after data loads
+// ---------------------------------------------------------------------------
+
+function buildSettingsContent(view, accountData, keysData) {
+  // --- Account info section ---
+  var accountSection = document.createElement('section');
+  accountSection.className = 'settings-section card';
+  accountSection.setAttribute('aria-labelledby', 'settings-account-heading');
+
+  var accountHeading = document.createElement('h2');
+  accountHeading.id = 'settings-account-heading';
+  accountHeading.className = 'settings-section-heading';
+  accountHeading.textContent = 'Account';
+  accountSection.appendChild(accountHeading);
+
+  var infoGrid = document.createElement('dl');
+  infoGrid.className = 'settings-info-grid';
+
+  function addInfoRow(labelText, valueText) {
+    var row = document.createElement('div');
+    row.className = 'settings-info-row';
+    var dt = document.createElement('dt');
+    dt.className = 'settings-info-label';
+    dt.textContent = labelText;
+    var dd = document.createElement('dd');
+    dd.className = 'settings-info-value';
+    dd.textContent = valueText || '\u2014';
+    row.appendChild(dt);
+    row.appendChild(dd);
+    infoGrid.appendChild(row);
   }
 
-  if (keys.length === 0) {
+  addInfoRow('GitHub username', accountData.githubUsername || '');
+  addInfoRow('Tenant ID', accountData.tenantId || '');
+  addInfoRow('Member since', formatDate(accountData.createdAt));
+
+  accountSection.appendChild(infoGrid);
+  view.appendChild(accountSection);
+
+  // --- API Keys section ---
+  var keys = (keysData && keysData.data) ? keysData.data : [];
+  var keyLimit = 5;
+
+  var keysSection = document.createElement('section');
+  keysSection.className = 'settings-section card settings-keys';
+  keysSection.id = 'settings-keys-section';
+  keysSection.setAttribute('aria-labelledby', 'settings-keys-heading');
+
+  var keysHeader = document.createElement('div');
+  keysHeader.className = 'settings-keys-header';
+
+  var keysHeading = document.createElement('h2');
+  keysHeading.id = 'settings-keys-heading';
+  keysHeading.className = 'settings-section-heading';
+  keysHeading.textContent = 'API Keys';
+  keysHeader.appendChild(keysHeading);
+
+  var limitEl = document.createElement('span');
+  limitEl.className = 'settings-keys-limit';
+  limitEl.id = 'settings-keys-limit';
+  limitEl.textContent = keys.length + ' of ' + keyLimit + ' keys';
+  keysHeader.appendChild(limitEl);
+
+  keysSection.appendChild(keysHeader);
+
+  // Key list container
+  var keyListEl = document.createElement('div');
+  keyListEl.className = 'settings-key-list';
+  keyListEl.id = 'settings-key-list';
+  keysSection.appendChild(keyListEl);
+
+  // Render current keys
+  renderKeyList(keyListEl, keys, keyLimit);
+
+  // --- Create new key form ---
+  var createSection = document.createElement('div');
+  createSection.className = 'settings-create';
+  createSection.id = 'settings-create-section';
+
+  var createHeading = document.createElement('h3');
+  createHeading.className = 'settings-create-heading';
+  createHeading.textContent = 'Create new key';
+  createSection.appendChild(createHeading);
+
+  var createForm = document.createElement('form');
+  createForm.id = 'settings-create-form';
+  createForm.noValidate = true;
+
+  var nameRow = document.createElement('div');
+  nameRow.className = 'settings-create-row';
+
+  var nameLabel = document.createElement('label');
+  nameLabel.htmlFor = 'settings-key-name';
+  nameLabel.className = 'settings-create-label';
+  nameLabel.textContent = 'Key name';
+  nameRow.appendChild(nameLabel);
+
+  var nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.id = 'settings-key-name';
+  nameInput.className = 'input';
+  nameInput.placeholder = 'e.g. My App';
+  nameInput.setAttribute('aria-label', 'New key name');
+  nameInput.maxLength = 64;
+  nameRow.appendChild(nameInput);
+
+  createForm.appendChild(nameRow);
+
+  // Scope checkboxes
+  var scopeRow = document.createElement('div');
+  scopeRow.className = 'settings-create-scopes';
+  scopeRow.setAttribute('role', 'group');
+  scopeRow.setAttribute('aria-labelledby', 'settings-scope-label');
+
+  var scopeLabel = document.createElement('span');
+  scopeLabel.id = 'settings-scope-label';
+  scopeLabel.className = 'settings-create-label';
+  scopeLabel.textContent = 'Scopes';
+  scopeRow.appendChild(scopeLabel);
+
+  var scopeOptions = ['capture', 'read'];
+  var scopeCheckboxes = {};
+  for (var s = 0; s < scopeOptions.length; s++) {
+    var scopeName = scopeOptions[s];
+    var scopeItem = document.createElement('label');
+    scopeItem.className = 'settings-scope-item';
+    var scopeChk = document.createElement('input');
+    scopeChk.type = 'checkbox';
+    scopeChk.value = scopeName;
+    scopeChk.checked = true;
+    scopeChk.setAttribute('aria-label', scopeName + ' scope');
+    scopeCheckboxes[scopeName] = scopeChk;
+    scopeItem.appendChild(scopeChk);
+    scopeItem.appendChild(document.createTextNode(' ' + scopeName));
+    scopeRow.appendChild(scopeItem);
+  }
+  createForm.appendChild(scopeRow);
+
+  // Create form error
+  var createErrorEl = document.createElement('div');
+  createErrorEl.id = 'settings-create-error';
+  createErrorEl.className = 'alert alert--error';
+  createErrorEl.setAttribute('role', 'alert');
+  createErrorEl.setAttribute('aria-live', 'polite');
+  createErrorEl.style.display = 'none';
+  createForm.appendChild(createErrorEl);
+
+  // Create button
+  var createBtn = document.createElement('button');
+  createBtn.type = 'submit';
+  createBtn.className = 'btn btn--primary';
+  createBtn.textContent = 'Create Key';
+  createBtn.id = 'settings-create-btn';
+  createForm.appendChild(createBtn);
+
+  createSection.appendChild(createForm);
+  keysSection.appendChild(createSection);
+
+  // New key display (hidden until a key is created)
+  var newKeyDisplay = document.createElement('div');
+  newKeyDisplay.id = 'settings-new-key-display';
+  newKeyDisplay.className = 'settings-new-key-display';
+  newKeyDisplay.style.display = 'none';
+  keysSection.appendChild(newKeyDisplay);
+
+  view.appendChild(keysSection);
+
+  // Wire the create form
+  createForm._nameInput = nameInput;
+  createForm._scopeCheckboxes = scopeCheckboxes;
+  createForm._createBtn = createBtn;
+  createForm._createErrorEl = createErrorEl;
+  createForm._keys = keys;
+  createForm._keyLimit = keyLimit;
+  createForm._keyListEl = keyListEl;
+  createForm._limitEl = limitEl;
+  createForm._newKeyDisplay = newKeyDisplay;
+
+  createForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    handleCreateKey(createForm);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// renderKeyList -- populate key rows
+// ---------------------------------------------------------------------------
+
+function renderKeyList(keyListEl, keys, keyLimit) {
+  // Safe: clearing the static key list container before re-render
+  keyListEl.innerHTML = '';
+
+  if (!keys || keys.length === 0) {
     var empty = document.createElement('p');
-    empty.className = 'text-muted';
-    empty.textContent = 'No API keys yet.';
-    container.appendChild(empty);
+    empty.className = 'settings-keys-empty';
+    empty.textContent = 'No API keys. Create one below.';
+    keyListEl.appendChild(empty);
     return;
   }
 
-  var table = document.createElement('table');
-  table.className = 'table settings-keys-table';
-
-  var thead = document.createElement('thead');
-  var headRow = document.createElement('tr');
-  ['Name', 'Created', 'Scopes', ''].forEach(function(h) {
-    var th = document.createElement('th');
-    th.textContent = h;
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-
-  var tbody = document.createElement('tbody');
-  tbody.id = 'settings-keys-tbody';
-
   for (var i = 0; i < keys.length; i++) {
-    var key = keys[i];
-    var tr = document.createElement('tr');
-    tr.setAttribute('data-key-hash', key.keyHash || '');
-
-    var tdName = document.createElement('td');
-    tdName.textContent = key.name || 'Unnamed';
-    tr.appendChild(tdName);
-
-    var tdCreated = document.createElement('td');
-    tdCreated.textContent = key.createdAt ? new Date(key.createdAt).toLocaleDateString() : '';
-    tr.appendChild(tdCreated);
-
-    var tdScopes = document.createElement('td');
-    var scopes = key.scopes || [];
-    for (var s = 0; s < scopes.length; s++) {
-      var badge = document.createElement('span');
-      badge.className = 'badge scope-badge';
-      badge.textContent = scopes[s];
-      tdScopes.appendChild(badge);
-    }
-    tr.appendChild(tdScopes);
-
-    var tdAction = document.createElement('td');
-    var revokeBtn = document.createElement('button');
-    revokeBtn.type = 'button';
-    revokeBtn.className = 'btn btn--ghost btn--sm settings-revoke-btn';
-    revokeBtn.textContent = 'Revoke';
-    revokeBtn.setAttribute('data-key-hash', key.keyHash || '');
-    revokeBtn.setAttribute('data-key-name', key.name || 'Unnamed');
-    if (keys.length <= 1) {
-      revokeBtn.setAttribute('aria-disabled', 'true');
-      revokeBtn.setAttribute('title', 'Cannot revoke your only key');
-    }
-    revokeBtn.addEventListener('click', function(e) {
-      var btn = e.currentTarget;
-      if (btn.getAttribute('aria-disabled') === 'true') return;
-      showRevokeConfirm(btn, container, countEl);
-    });
-    tdAction.appendChild(revokeBtn);
-    tr.appendChild(tdAction);
-
-    tbody.appendChild(tr);
+    keyListEl.appendChild(buildKeyRow(keys[i], keys.length, keyLimit, keyListEl, keys));
   }
-
-  table.appendChild(tbody);
-  container.appendChild(table);
 }
 
-function showRevokeConfirm(revokeBtn, container, countEl) {
-  var keyHash = revokeBtn.getAttribute('data-key-hash');
-  var keyName = revokeBtn.getAttribute('data-key-name');
-  var row = revokeBtn.closest('tr');
-  if (!row) return;
+// ---------------------------------------------------------------------------
+// buildKeyRow -- single key row with revoke inline confirmation
+// ---------------------------------------------------------------------------
 
-  // Remove any existing confirm
-  var existing = row.querySelector('.settings-confirm');
-  if (existing) { existing.remove(); return; }
+function buildKeyRow(key, totalKeys, keyLimit, keyListEl, allKeys) {
+  var row = document.createElement('div');
+  row.className = 'settings-key-row';
+  row.dataset.keyHash = key.keyHash || '';
 
-  var confirmDiv = document.createElement('div');
-  confirmDiv.className = 'settings-confirm';
+  // Key info
+  var info = document.createElement('div');
+  info.className = 'settings-key-info';
 
-  var msg = document.createElement('span');
-  msg.className = 'settings-confirm-text';
-  msg.textContent = 'Revoke \\'' + keyName + '\\'? This cannot be undone.';
-  confirmDiv.appendChild(msg);
+  var nameEl = document.createElement('span');
+  nameEl.className = 'settings-key-name';
+  nameEl.textContent = key.name || 'Unnamed key';
+  info.appendChild(nameEl);
 
-  var cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'btn btn--ghost btn--sm';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', function() { confirmDiv.remove(); });
-  confirmDiv.appendChild(cancelBtn);
+  var metaEl = document.createElement('span');
+  metaEl.className = 'settings-key-meta';
+  metaEl.textContent = 'Created ' + formatDate(key.createdAt);
+  info.appendChild(metaEl);
+
+  if (key.scopes && key.scopes.length) {
+    var scopesEl = document.createElement('div');
+    scopesEl.className = 'settings-key-scopes';
+    scopesEl.appendChild(buildScopeBadges(key.scopes));
+    info.appendChild(scopesEl);
+  }
+
+  row.appendChild(info);
+
+  // Revoke action area
+  var actionArea = document.createElement('div');
+  actionArea.className = 'settings-key-actions';
+
+  var isLastKey = (totalKeys <= 1);
+
+  var revokeBtn = document.createElement('button');
+  revokeBtn.type = 'button';
+  revokeBtn.className = 'btn btn--ghost btn--sm settings-revoke-btn';
+  revokeBtn.textContent = 'Revoke';
+  revokeBtn.dataset.keyHash = key.keyHash || '';
+
+  if (isLastKey) {
+    revokeBtn.setAttribute('aria-disabled', 'true');
+    revokeBtn.setAttribute('title', 'Cannot revoke your last API key');
+  } else {
+    revokeBtn.setAttribute('aria-disabled', 'false');
+  }
+
+  // Inline confirmation area (hidden until Revoke is clicked)
+  var confirmArea = document.createElement('div');
+  confirmArea.className = 'settings-confirm';
+  confirmArea.style.display = 'none';
+  confirmArea.setAttribute('role', 'group');
+  confirmArea.setAttribute('aria-label', 'Confirm key revocation');
+
+  var confirmText = document.createElement('span');
+  confirmText.className = 'settings-confirm-text';
+  confirmText.textContent = 'Revoke this key?';
+  confirmArea.appendChild(confirmText);
 
   var confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn btn--primary btn--sm settings-confirm-revoke';
   confirmBtn.textContent = 'Confirm';
+  confirmArea.appendChild(confirmBtn);
+
+  var cancelConfirmBtn = document.createElement('button');
+  cancelConfirmBtn.type = 'button';
+  cancelConfirmBtn.className = 'btn btn--ghost btn--sm settings-cancel-revoke';
+  cancelConfirmBtn.textContent = 'Cancel';
+  confirmArea.appendChild(cancelConfirmBtn);
+
+  // Revoke button shows confirmation inline
+  revokeBtn.addEventListener('click', function() {
+    if (revokeBtn.getAttribute('aria-disabled') === 'true') return;
+    revokeBtn.style.display = 'none';
+    confirmArea.style.display = '';
+    // Focus Cancel by default -- safer action gets focus
+    cancelConfirmBtn.focus();
+  });
+
+  // Cancel hides confirmation
+  cancelConfirmBtn.addEventListener('click', function() {
+    confirmArea.style.display = 'none';
+    revokeBtn.style.display = '';
+    revokeBtn.focus();
+  });
+
+  // Confirm revoke
   confirmBtn.addEventListener('click', function() {
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Revoking...';
+    cancelConfirmBtn.disabled = true;
 
-    apiFetch('/v1/account/keys/' + keyHash, {
-      method: 'DELETE'
+    var keyHash = key.keyHash || '';
+    apiFetch('/v1/account/keys/' + encodeURIComponent(keyHash), {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'X-WRL-CSRF': '1' }
     }).then(function(res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      loadKeys(container, countEl);
+      if (!res) return; // 401 handled
+
+      if (res.ok || res.status === 204) {
+        // Remove from allKeys array
+        for (var k = 0; k < allKeys.length; k++) {
+          if (allKeys[k].keyHash === keyHash) {
+            allKeys.splice(k, 1);
+            break;
+          }
+        }
+        // Re-render key list
+        renderKeyList(keyListEl, allKeys, keyLimit);
+        // Update limit indicator
+        var limitEl = document.getElementById('settings-keys-limit');
+        if (limitEl) limitEl.textContent = allKeys.length + ' of ' + keyLimit + ' keys';
+        settingsAnnounce('API key revoked.');
+        return;
+      }
+
+      // Error
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirm';
+      cancelConfirmBtn.disabled = false;
+      settingsAnnounce('Could not revoke key (HTTP ' + res.status + '). Try again.');
     }).catch(function() {
       confirmBtn.disabled = false;
       confirmBtn.textContent = 'Confirm';
-      msg.textContent = 'Failed to revoke key. Try again.';
+      cancelConfirmBtn.disabled = false;
+      settingsAnnounce('Connection failed revoking key. Check your network.');
     });
   });
-  confirmDiv.appendChild(confirmBtn);
 
-  // Insert confirm row
-  var tdAction = revokeBtn.closest('td');
-  if (tdAction) {
-    tdAction.appendChild(confirmDiv);
-    cancelBtn.focus();
-  }
+  actionArea.appendChild(revokeBtn);
+  actionArea.appendChild(confirmArea);
+  row.appendChild(actionArea);
+  return row;
 }
 
-function showCreateForm(formEl, keysContainer, countEl, toggleBtn) {
-  formEl.style.display = '';
-  formEl.innerHTML = '';
-  toggleBtn.textContent = 'Cancel';
+// ---------------------------------------------------------------------------
+// handleCreateKey -- submit create key form
+// ---------------------------------------------------------------------------
 
-  var nameLabel = document.createElement('label');
-  nameLabel.className = 'settings-create-label';
-  nameLabel.textContent = 'Key name';
-  var nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'input settings-create-input';
-  nameInput.placeholder = 'e.g. my-app';
-  nameInput.maxLength = 64;
-  nameLabel.appendChild(nameInput);
-  formEl.appendChild(nameLabel);
+function handleCreateKey(createForm) {
+  var nameInput = createForm._nameInput;
+  var scopeCheckboxes = createForm._scopeCheckboxes;
+  var createBtn = createForm._createBtn;
+  var createErrorEl = createForm._createErrorEl;
+  var keys = createForm._keys;
+  var keyLimit = createForm._keyLimit;
+  var keyListEl = createForm._keyListEl;
+  var limitEl = createForm._limitEl;
+  var newKeyDisplay = createForm._newKeyDisplay;
 
-  // Scope checkboxes
-  var scopeFieldset = document.createElement('fieldset');
-  scopeFieldset.className = 'settings-create-scopes';
-  var legend = document.createElement('legend');
-  legend.textContent = 'Scopes';
-  scopeFieldset.appendChild(legend);
+  createErrorEl.style.display = 'none';
 
-  ['capture', 'read'].forEach(function(scope) {
-    var scopeLabel = document.createElement('label');
-    scopeLabel.className = 'settings-scope-label';
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.value = scope;
-    cb.checked = true;
-    cb.className = 'settings-scope-cb';
-    scopeLabel.appendChild(cb);
-    scopeLabel.appendChild(document.createTextNode(' ' + scope));
-    scopeFieldset.appendChild(scopeLabel);
-  });
-  formEl.appendChild(scopeFieldset);
+  var name = nameInput.value.trim();
+  if (!name) {
+    createErrorEl.textContent = 'Key name is required.';
+    createErrorEl.style.display = '';
+    nameInput.focus();
+    return;
+  }
 
-  var submitBtn = document.createElement('button');
-  submitBtn.type = 'button';
-  submitBtn.className = 'btn btn--primary';
-  submitBtn.textContent = 'Create';
-  formEl.appendChild(submitBtn);
-
-  var resultArea = document.createElement('div');
-  resultArea.id = 'settings-create-result';
-  formEl.appendChild(resultArea);
-
-  nameInput.focus();
-
-  submitBtn.addEventListener('click', function() {
-    var name = nameInput.value.trim();
-    if (!name) { nameInput.focus(); return; }
-
-    var scopes = [];
-    var checkboxes = scopeFieldset.querySelectorAll('.settings-scope-cb:checked');
-    for (var i = 0; i < checkboxes.length; i++) {
-      scopes.push(checkboxes[i].value);
+  var scopes = [];
+  var scopeNames = Object.keys(scopeCheckboxes);
+  for (var i = 0; i < scopeNames.length; i++) {
+    if (scopeCheckboxes[scopeNames[i]].checked) {
+      scopes.push(scopeNames[i]);
     }
-    if (scopes.length === 0) scopes = ['capture', 'read'];
+  }
 
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
+  if (scopes.length === 0) {
+    createErrorEl.textContent = 'Select at least one scope.';
+    createErrorEl.style.display = '';
+    return;
+  }
 
-    apiFetch('/v1/account/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, scopes: scopes })
-    }).then(function(res) {
-      if (!res.ok) {
-        return res.json().then(function(err) {
-          throw new Error(err.detail || 'Failed to create key');
-        });
-      }
-      return res.json();
-    }).then(function(data) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Create';
+  if (keys.length >= keyLimit) {
+    createErrorEl.textContent = 'Key limit reached (' + keyLimit + '). Revoke an existing key first.';
+    createErrorEl.style.display = '';
+    return;
+  }
 
-      // Show the raw key
-      resultArea.innerHTML = '';
-      var keyAlert = document.createElement('div');
-      keyAlert.className = 'alert alert--warning';
-      keyAlert.textContent = 'Copy this key now. It will not be shown again.';
-      resultArea.appendChild(keyAlert);
+  createBtn.disabled = true;
+  createBtn.textContent = 'Creating...';
 
-      var keyRow = document.createElement('div');
-      keyRow.className = 'welcome-key-row';
+  apiFetch('/v1/account/keys', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-WRL-CSRF': '1'
+    },
+    body: JSON.stringify({ name: name, scopes: scopes })
+  }).then(function(res) {
+    if (!res) return; // 401 handled
 
-      var keyInput = document.createElement('input');
-      keyInput.type = 'text';
-      keyInput.readOnly = true;
-      keyInput.className = 'input text-mono welcome-key-input';
-      keyInput.value = data.key;
-      keyInput.setAttribute('aria-label', 'New API key');
-      keyRow.appendChild(keyInput);
+    createBtn.disabled = false;
+    createBtn.textContent = 'Create Key';
 
-      var copyBtn = document.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'btn btn--secondary';
-      copyBtn.textContent = 'Copy';
-      copyBtn.setAttribute('aria-label', 'Copy API key');
-      copyBtn.addEventListener('click', function() {
-        copyToClipboard(data.key, copyBtn);
+    if (res.status === 201) {
+      return res.json().then(function(data) {
+        var rawKey = (data && data.key) ? data.key : '';
+        var newKeyMeta = {
+          name: name,
+          keyHash: (data && data.keyHash) ? data.keyHash : '',
+          createdAt: new Date().toISOString(),
+          scopes: scopes
+        };
+
+        // Add to keys array and re-render list
+        keys.push(newKeyMeta);
+        renderKeyList(keyListEl, keys, keyLimit);
+        if (limitEl) limitEl.textContent = keys.length + ' of ' + keyLimit + ' keys';
+
+        // Show the raw key with copy button
+        showNewKeyDisplay(newKeyDisplay, rawKey);
+
+        // Reset form
+        nameInput.value = '';
+        settingsAnnounce('New API key created. Copy it now.');
       });
-      keyRow.appendChild(copyBtn);
+    }
 
-      resultArea.appendChild(keyRow);
-      copyBtn.focus();
-
-      // Refresh the key list
-      loadKeys(keysContainer, countEl);
-
-      // Reset form
-      nameInput.value = '';
-    }).catch(function(err) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Create';
-      resultArea.innerHTML = '';
-      var errEl = document.createElement('div');
-      errEl.className = 'alert alert--error';
-      errEl.textContent = err.message || 'Failed to create key.';
-      resultArea.appendChild(errEl);
+    return res.json().then(function(data) {
+      var detail = (data && data.detail) ? data.detail : 'Could not create key (HTTP ' + res.status + ').';
+      createErrorEl.textContent = detail.length > 200 ? detail.slice(0, 200) + '...' : detail;
+      createErrorEl.style.display = '';
+    }).catch(function() {
+      createErrorEl.textContent = 'Could not create key (HTTP ' + res.status + ').';
+      createErrorEl.style.display = '';
     });
+  }).catch(function() {
+    createBtn.disabled = false;
+    createBtn.textContent = 'Create Key';
+    createErrorEl.textContent = 'Connection failed. Check your network.';
+    createErrorEl.style.display = '';
   });
+}
+
+// ---------------------------------------------------------------------------
+// showNewKeyDisplay -- reveal raw key after creation with copy button
+// ---------------------------------------------------------------------------
+
+function showNewKeyDisplay(container, rawKey) {
+  // Safe: clearing the new-key display container before re-render
+  container.innerHTML = '';
+  container.style.display = '';
+
+  var warning = document.createElement('div');
+  warning.className = 'alert alert--warning welcome-warning';
+  warning.setAttribute('role', 'alert');
+  warning.textContent = 'This key will only be shown once. Copy it now.';
+  container.appendChild(warning);
+
+  var keyRow = document.createElement('div');
+  keyRow.className = 'welcome-key-row';
+
+  var keyInput = document.createElement('input');
+  keyInput.type = 'text';
+  keyInput.readOnly = true;
+  keyInput.className = 'input welcome-key-input';
+  keyInput.value = rawKey;
+  keyInput.setAttribute('aria-label', 'New API key');
+  keyInput.setAttribute('autocomplete', 'off');
+  keyRow.appendChild(keyInput);
+
+  var copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'btn btn--ghost btn--sm';
+  copyBtn.textContent = 'Copy';
+  copyBtn.setAttribute('aria-label', 'Copy API key');
+  copyBtn.addEventListener('click', function() {
+    copyToClipboard(rawKey, copyBtn);
+    settingsAnnounce('API key copied to clipboard.');
+  });
+  keyRow.appendChild(copyBtn);
+
+  container.appendChild(keyRow);
+
+  // Focus copy button after creation
+  copyBtn.focus();
 }
 `;
