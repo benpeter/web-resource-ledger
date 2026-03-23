@@ -141,6 +141,43 @@ Check the phase JSON for these patterns:
 | Too short (<5 turns) | `jq '.num_turns' phase-NNNN.json` < 5 | Likely transient. Just retry. |
 | Planning only | Many turns but no PR, `failed_no_pr` | Session did planning but never executed. Retry with reinforcement. |
 
+### Stalled session — process alive but no file changes
+
+If the Claude process is alive but no files have been modified for >15 minutes,
+the session is likely stuck in a nefario agent coordination loop (e.g., waiting
+for a subagent shutdown acknowledgment that will never arrive).
+
+**Diagnostic steps:**
+
+1. Find the session JSONL:
+   ```bash
+   find ~/.claude/projects -path "*<worktree-name>*" -name "*.jsonl" | head -5
+   ```
+
+2. Parse the last 20 messages to see where the session is stuck:
+   ```bash
+   python3 -c "
+   import json
+   with open('<path-to-session>.jsonl') as f:
+       lines = f.readlines()
+   for i, line in enumerate(lines[-20:], len(lines)-20):
+       d = json.loads(line)
+       if d.get('type') == 'assistant':
+           for c in d.get('message',{}).get('content',[]):
+               if isinstance(c,dict) and c.get('type')=='text':
+                   print(f'[{i}] {c[\"text\"][:200]}')
+   "
+   ```
+
+3. Common patterns:
+   - "Waiting for T<N>..." → subagent shutdown handshake lost. Kill and restart.
+   - "Compaction checkpoint" → session stopped at nefario compaction. Kill and restart.
+   - SendMessage loops with no responses → dead subagent. Kill and restart.
+
+4. **Action**: Kill the session (`kill <pid>`), save any partial work in the
+   worktree, then restart with a focused direct prompt (skip nefario) to complete
+   the remaining work (commit, PR, evolution log).
+
 ### `failed_ci` — Tests failed after PR creation
 
 1. `gh pr checks <N>` to see which check failed

@@ -205,7 +205,7 @@ ${ISSUE_CONTEXT:-No issue body available. Refer to the issue title and manifest 
     --dangerously-skip-permissions \
     --worktree \
     --model "$CLAUDE_MODEL" \
-    --max-budget-usd "$BUDGET" \
+    \
     --output-format json \
     --append-system-prompt "$SESSION_PROMPT" \
     -p "/nefario #${ISSUE:-$TITLE}" \
