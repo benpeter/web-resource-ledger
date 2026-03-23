@@ -254,8 +254,9 @@ export async function handleStripeWebhook(request, env, ctx) {
     return problemResponse(500, 'Webhook handler failed');
   }
 
-  // Mark processed after successful handling
-  ctx.waitUntil(markEventProcessed(env.KV, event.id));
+  // Mark processed before returning -- must complete before Stripe sees the 200,
+  // otherwise a retry during KV write latency could bypass the dedup check.
+  await markEventProcessed(env.KV, event.id);
 
   return jsonResponse({ received: true });
 }

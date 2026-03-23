@@ -653,6 +653,7 @@ async function checkCaptureRateLimit(env, auth, clientIp, group, count = 1) {
 // Only called when quotaCheck.allowed is true -- callers must guard.
 function buildQuotaHeaders(quotaCheck) {
   if (!quotaCheck?.allowed) return {};
+  if (quotaCheck.quota?.capturesPerMonth === Infinity) return {};
   return {
     'X-Quota-Limit': String(quotaCheck.quota.capturesPerMonth),
     'X-Quota-Used': String(quotaCheck.captureCount),
