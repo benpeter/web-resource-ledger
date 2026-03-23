@@ -181,31 +181,44 @@ export async function handleScheduledTick(controller, env, ctx) {
   }
 
   // Send all queued messages in chunks of BATCH_SIZE.
+  // Increment usage per-chunk so partial failures still count successful sends.
   if (queueMessages.length > 0) {
-    try {
-      for (let i = 0; i < queueMessages.length; i += BATCH_SIZE) {
-        await env.CAPTURE_QUEUE.sendBatch(queueMessages.slice(i, i + BATCH_SIZE));
+    let sentCount = 0;
+    for (let i = 0; i < queueMessages.length; i += BATCH_SIZE) {
+      const chunk = queueMessages.slice(i, i + BATCH_SIZE);
+      try {
+        await env.CAPTURE_QUEUE.sendBatch(chunk);
+        sentCount += chunk.length;
+      } catch (err) {
+        ctx.waitUntil(log(env, 5, 'schedule', {
+          event: 'schedule.batch_enqueue_fail',
+          triggerTime: asOf,
+          messageCount: chunk.length,
+          sentSoFar: sentCount,
+          errorMessage: String(err?.message ?? '').slice(0, 128),
+        }) ?? Promise.resolve());
+        break; // Stop sending further chunks after a failure.
       }
+    }
 
-      // Increment usage only after sendBatch succeeds.
+    // Increment usage for successfully sent messages only.
+    if (sentCount > 0) {
+      // Recompute per-tenant counts proportionally if partial send.
+      const ratio = sentCount / queueMessages.length;
       for (const [tenantId, count] of usageByTenant) {
-        incrementUsage(env.DB, tenantId, { captures: count }).catch((err) => {
-          console.warn('wrl:schedule_usage_increment_fail', {
-            tenantId,
-            count,
-            errorMessage: String(err?.message ?? '').slice(0, 128),
+        const actualCount = sentCount === queueMessages.length
+          ? count
+          : Math.round(count * ratio);
+        if (actualCount > 0) {
+          incrementUsage(env.DB, tenantId, { captures: actualCount }).catch((err) => {
+            console.warn('wrl:schedule_usage_increment_fail', {
+              tenantId,
+              count: actualCount,
+              errorMessage: String(err?.message ?? '').slice(0, 128),
+            });
           });
-        });
+        }
       }
-    } catch (err) {
-      // sendBatch failed. Captures are already 'pending' in D1 -- they're orphans
-      // but won't double-count usage since we increment only on success.
-      ctx.waitUntil(log(env, 5, 'schedule', {
-        event: 'schedule.batch_enqueue_fail',
-        triggerTime: asOf,
-        messageCount: queueMessages.length,
-        errorMessage: String(err?.message ?? '').slice(0, 128),
-      }) ?? Promise.resolve());
     }
   }
 

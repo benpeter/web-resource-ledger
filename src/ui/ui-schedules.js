@@ -58,7 +58,7 @@ function scheduleStatusBadge(schedule) {
   var badge = document.createElement('span');
   badge.className = 'badge';
 
-  if (!schedule.active) {
+  if (schedule.paused) {
     badge.classList.add('badge--skip');
     badge.textContent = 'Paused';
     return badge;
