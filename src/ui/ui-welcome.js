@@ -128,7 +128,7 @@ function mountWelcome() {
       continueBtn.setAttribute('aria-disabled', 'false');
       continueBtn.addEventListener('click', function() {
         if (continueBtn.getAttribute('aria-disabled') === 'true') return;
-        location.hash = '#/settings';
+        renderAppShell();
       });
       return;
     }
@@ -188,10 +188,10 @@ function mountWelcome() {
           credentials: 'same-origin',
           headers: { 'X-WRL-CSRF': '1' }
         }).then(function() {
-          location.hash = '#/captures';
+          renderAppShell();
         }).catch(function() {
           // Non-fatal: navigate even if ack fails
-          location.hash = '#/captures';
+          renderAppShell();
         });
       });
 

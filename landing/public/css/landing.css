@@ -265,7 +265,9 @@ body {
 .hero__hint {
   font-size: var(--text-sm);
   color: rgba(248, 248, 250, 0.6);
-  margin-top: calc(-1 * var(--space-2));
+  margin-top: var(--space-2);
+  text-align: center;
+  line-height: var(--leading-normal);
 }
 
 /* Hero button colors: primary on dark bg becomes an inverted solid */
