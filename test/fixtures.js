@@ -223,6 +223,7 @@ export const TEST_ADMIN_KEY = 'test-admin-key-for-vitest';
 export const TEST_TENANT_KEY = 'wrl_live_' + 'a'.repeat(43);
 export const TEST_WEBHOOK_URL = 'https://hooks.example.com/webhook';
 export const TEST_WEBHOOK_SECRET = 'wrlsec_' + 'b'.repeat(64);
+export const TEST_SCHEDULE_ID = 'sch_' + 'c'.repeat(32);
 
 /**
  * Seed a D1-backed API key record for use in tests.
@@ -255,6 +256,51 @@ export async function seedApiKey(db, rawKey, {
     ),
   ]);
   return keyHash;
+}
+
+/**
+ * Seed a schedule registration directly into D1 for use in tests.
+ * Also ensures the tenant row exists.
+ *
+ * @param {D1Database} db
+ * @param {string} id  schedule ID (must match sch_[a-f0-9]{32})
+ * @param {object} overrides  column overrides
+ */
+export async function seedSchedule(db, id, {
+  tenantId = 'default',
+  url = 'https://example.com',
+  name = 'Test Schedule',
+  cron = '0 * * * *',
+  nextRunAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  paused = 0,
+  lastRunAt = null,
+  lastCaptureId = null,
+  lastCaptureStatus = null,
+  createdAt = new Date().toISOString(),
+  updatedAt = null,
+} = {}) {
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT OR IGNORE INTO schedules
+         (id, tenant_id, url, name, cron, next_run_at, paused,
+          last_run_at, last_capture_id, last_capture_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      id,
+      tenantId,
+      url,
+      name,
+      cron,
+      nextRunAt,
+      paused,
+      lastRunAt,
+      lastCaptureId,
+      lastCaptureStatus,
+      createdAt,
+      updatedAt,
+    ),
+  ]);
 }
 
 /**
@@ -297,6 +343,11 @@ export async function seedWebhook(db, id, {
 
 /**
  * Truncate all metadata tables in FK-safe order (children first, then parents).
+ *
+ * FK ordering:
+ *   captures.schedule_id -> schedules.id    => delete captures before schedules
+ *   webhooks.tenant_id   -> tenants.id      => delete webhooks before tenants
+ *   schedules.tenant_id  -> tenants.id      => delete schedules before tenants
  */
 export async function cleanDb(db) {
   await db.batch([
@@ -305,6 +356,7 @@ export async function cleanDb(db) {
     db.prepare('DELETE FROM webhooks'),
     db.prepare('DELETE FROM usage_counters'),
     db.prepare('DELETE FROM captures'),
+    db.prepare('DELETE FROM schedules'),
     db.prepare('DELETE FROM api_keys'),
     db.prepare('DELETE FROM signing_keys'),
     db.prepare('DELETE FROM tenants'),
@@ -358,14 +410,15 @@ export async function seedCapture(db, id, {
   wacz = null,
   render = null,
   captureSettings = null,
+  scheduleId = null,
 } = {}) {
   await db.batch([
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
     db.prepare(
       `INSERT OR IGNORE INTO captures
          (id, tenant_id, url, ip, status, created_at, completed_at, failed_at,
-          error, retryable, render_quality, artifacts, wacz, render, capture_settings)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          error, retryable, render_quality, artifacts, wacz, render, capture_settings, schedule_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       id, tenantId, url, ip, status, createdAt, completedAt, failedAt,
       error,
@@ -375,6 +428,7 @@ export async function seedCapture(db, id, {
       wacz ? JSON.stringify(wacz) : null,
       render ? JSON.stringify(render) : null,
       captureSettings ? JSON.stringify(captureSettings) : null,
+      scheduleId,
     ),
   ]);
 }

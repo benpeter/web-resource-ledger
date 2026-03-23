@@ -1148,6 +1148,7 @@ const DEFAULT_SCHEDULE_LIMIT = 10;
 function rowToSchedule(row) {
   return {
     id: row.id,
+    tenant_id: row.tenant_id,
     url: row.url,
     name: row.name,
     cron: row.cron,
