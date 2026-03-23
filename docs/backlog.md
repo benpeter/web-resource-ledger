@@ -185,6 +185,7 @@ Removed from active backlog. Rationale preserved here.
 | 404 rate limiting | Theoretical log amplification with no evidence of scanning |
 | Coralogix Send Key IP allowlisting | Blast radius reduction for a key that hasn't leaked |
 | Nonce-based CSP | Template doesn't use server-side dynamic data in scripts |
+| SevDesk/lexoffice bookkeeping integration (#112) | Stripe Invoices + Stripe Tax handle legally compliant German Rechnungen. At current volume, Steuerberater works from Stripe exports directly. Revisit: when transaction volume makes manual DATEV import painful, evaluate Fizard (Stripe → DATEV bridge app, usage-based, German-hosted) before building custom integration. |
 | HTML error pages for 404/429/503 | "Acceptable for MVP"; fix opportunistically |
 | S3 Object Lock (WORM-certified) | For regulated customers who don't exist |
 | Full HTTP exchange capture | Forensic-grade; far beyond current scope. HAR recording evaluated (Phase 0016-advisory) — Playwright `recordHar()` non-functional on Workers (3 independent blockers). Application-level serializer via existing route interceptor is viable future path if demand emerges. |
