@@ -66,3 +66,4 @@ software development.
 | [0056-tenant-quotas](0056-tenant-quotas/) | Per-tenant usage quotas with tier-based limits, pre-capture enforcement, web UI usage dashboard (Issue #104) |
 | [0070-stripe-legal-pages](0070-stripe-legal-pages/) | Stripe-required legal pages: privacy, refund, terms, content policy (Issue #131) |
 | [0071-replace-worker-url-with-custom-domain](0071-replace-worker-url-with-custom-domain/) | Replace wrl.benpeter.workers.dev with api.webresourceledger.com across code, config, and docs (Issue #134) |
+| [0057-e2e-test-suite-playwright](0057-e2e-test-suite-playwright/) | Playwright e2e test suite: 10 tests across 6 specs, CI workflow, staging tenant provisioning (Issue #105) |
