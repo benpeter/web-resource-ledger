@@ -139,7 +139,7 @@ max_retries = 0
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
 TSA_URL = "http://timestamp.digicert.com"
-GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_ID = "Ov23liIG5Of9wSbgcFqW"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -268,7 +268,7 @@ max_retries = 0
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
 TSA_URL = "http://timestamp.digicert.com"
-GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"

@@ -110,7 +110,7 @@ queue = "wrl-webhooks-dlq"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
 TSA_URL = "http://timestamp.digicert.com"
-GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_ID = "test-client-id"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -203,7 +203,7 @@ queue = "wrl-webhooks-staging-dlq"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
 TSA_URL = "http://timestamp.digicert.com"
-GITHUB_CLIENT_ID = ""
+GITHUB_CLIENT_ID = "test-client-id"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
