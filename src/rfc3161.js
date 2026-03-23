@@ -185,10 +185,12 @@ function encodeUnsignedInteger(bytes) {
  * @param {string} tsaUrl       TSA HTTP endpoint
  * @param {string} bundleHash   Hash string "sha256:<64 hex chars>"
  * @param {number} [timeoutMs]  Request timeout in milliseconds
+ * @param {{ auth?: string }} [options]  Optional request options.
+ *   auth: pre-encoded base64 "user:pass" for HTTP Basic auth (NOT decoded/re-encoded here).
  * @returns {Promise<{ token: string, genTime: string, tsa: string }>}
  * @throws On network error, timeout, parse error, or validation failure
  */
-export async function requestTimestamp(tsaUrl, bundleHash, timeoutMs = TSA_TIMEOUT_MS) {
+export async function requestTimestamp(tsaUrl, bundleHash, timeoutMs = TSA_TIMEOUT_MS, options = {}) {
   if (!bundleHash.startsWith('sha256:')) throw new Error('bundleHash must start with "sha256:"');
   const hexHash = bundleHash.slice(7);
   if (hexHash.length !== 64) throw new Error('bundleHash SHA-256 hex must be 64 characters');
@@ -204,9 +206,14 @@ export async function requestTimestamp(tsaUrl, bundleHash, timeoutMs = TSA_TIMEO
 
   const reqDer = buildTimeStampReq(hashBytes, nonceBytes);
 
+  const headers = { 'Content-Type': 'application/timestamp-query' };
+  if (options.auth) {
+    headers['Authorization'] = `Basic ${options.auth}`;
+  }
+
   const resp = await fetch(tsaUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/timestamp-query' },
+    headers,
     body: reqDer,
     signal: AbortSignal.timeout(timeoutMs),
   });

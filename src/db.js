@@ -760,7 +760,7 @@ export function computePeriod(date = new Date()) {
  *
  * @param {D1Database} db
  * @param {string} tenantId
- * @param {{ captures?: number, storageBytes?: number, apiCalls?: number }} deltas
+ * @param {{ captures?: number, storageBytes?: number, apiCalls?: number, eidasCaptures?: number }} deltas
  * @returns {Promise<void>}
  */
 export async function incrementUsage(db, tenantId, deltas) {
@@ -768,18 +768,20 @@ export async function incrementUsage(db, tenantId, deltas) {
   const captures = deltas.captures ?? 0;
   const storageBytes = deltas.storageBytes ?? 0;
   const apiCalls = deltas.apiCalls ?? 0;
+  const eidasCaptures = deltas.eidasCaptures ?? 0;
 
-  if (captures === 0 && storageBytes === 0 && apiCalls === 0) return;
+  if (captures === 0 && storageBytes === 0 && apiCalls === 0 && eidasCaptures === 0) return;
 
   await db.prepare(
-    `INSERT INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count, eidas_capture_count)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(tenant_id, period) DO UPDATE SET
        capture_count = capture_count + excluded.capture_count,
        storage_bytes = storage_bytes + excluded.storage_bytes,
        api_call_count = api_call_count + excluded.api_call_count,
+       eidas_capture_count = eidas_capture_count + excluded.eidas_capture_count,
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
-  ).bind(tenantId, period, captures, storageBytes, apiCalls).run();
+  ).bind(tenantId, period, captures, storageBytes, apiCalls, eidasCaptures).run();
 }
 
 /**
@@ -804,6 +806,7 @@ export async function getUsage(db, tenantId, period) {
       captureCount: 0,
       storageBytes: 0,
       apiCallCount: 0,
+      eidasCaptureCount: 0,
       updatedAt: null,
     };
   }
@@ -814,6 +817,7 @@ export async function getUsage(db, tenantId, period) {
     captureCount: row.capture_count,
     storageBytes: row.storage_bytes,
     apiCallCount: row.api_call_count,
+    eidasCaptureCount: row.eidas_capture_count ?? 0,
     updatedAt: row.updated_at ?? null,
   };
 }
@@ -1052,6 +1056,42 @@ export async function getTenantBilling(db, tenantId) {
     gracePeriodEnd: row.grace_period_end ?? null,
     paymentMethodAddedAt: row.payment_method_added_at ?? null,
   };
+}
+
+/**
+ * Set the eidas_qualified flag for a tenant. Creates the tenant row if absent.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {boolean} enabled
+ * @returns {Promise<void>}
+ */
+export async function setEidasQualified(db, tenantId, enabled) {
+  if (!TENANT_ID_RE.test(tenantId)) {
+    throw new Error(`Invalid tenantId: ${tenantId}`);
+  }
+  const updatedAt = new Date().toISOString();
+  await db.prepare(
+    `INSERT INTO tenants (id, eidas_qualified, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       eidas_qualified = excluded.eidas_qualified,
+       updated_at = excluded.updated_at`,
+  ).bind(tenantId, enabled ? 1 : 0, updatedAt).run();
+}
+
+/**
+ * Read the eidas_qualified flag for a tenant.
+ * Returns false if the tenant row does not exist.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<boolean>}
+ */
+export async function getEidasQualified(db, tenantId) {
+  const row = await db.prepare(
+    'SELECT eidas_qualified FROM tenants WHERE id = ?',
+  ).bind(tenantId).first();
+  return Boolean(row?.eidas_qualified);
 }
 
 /**
