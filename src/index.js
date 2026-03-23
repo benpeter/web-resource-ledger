@@ -16,6 +16,9 @@ import { handleMcp } from './mcp.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
+import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
+import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos } from './account.js';
+import { verifySession } from './session.js';
 
 // tva
 
@@ -46,6 +49,18 @@ const routes = [
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
   ['DELETE', /^\/v1\/webhooks\/(whk_[a-f0-9]{32})$/, handleDeleteWebhook],
   ['POST',   /^\/v1\/webhooks\/(whk_[a-f0-9]{32})\/ping$/, handlePingWebhook],
+  // OAuth / session routes
+  ['GET',    /^\/auth\/login$/, handleAuthLogin],
+  ['GET',    /^\/auth\/callback$/, handleAuthCallback],
+  ['POST',   /^\/auth\/logout$/, handleAuthLogout],
+  ['GET',    /^\/auth\/session$/, handleAuthSession],
+  // Account self-serve routes (session-gated in fetch handler)
+  ['GET',    /^\/v1\/account\/first-key$/, handleFirstKey],
+  ['POST',   /^\/v1\/account\/first-key\/ack$/, handleFirstKeyAck],
+  ['GET',    /^\/v1\/account\/keys$/, handleAccountListKeys],
+  ['POST',   /^\/v1\/account\/keys$/, handleAccountCreateKey],
+  ['DELETE', /^\/v1\/account\/keys\/([a-f0-9]{64})$/, handleAccountRevokeKey],
+  ['POST',   /^\/v1\/account\/tos$/, handleAccountAcceptTos],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -62,6 +77,8 @@ function getRateLimitGroup(method, pathname) {
   if (pathname.startsWith('/v1/admin/')) return 'admin';
   if (pathname === '/v1/captures' || pathname === '/v1/captures/batch') return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
+  if (pathname.startsWith('/v1/account/')) return 'account';
+  if (pathname.startsWith('/auth/')) return 'auth';
   return null;
 }
 
@@ -318,6 +335,52 @@ export default {
             const cip = await computeCip(env, clientIp);
             ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
             response = auth.response;
+          }
+        }
+      }
+
+      // Auth rate limit for /auth/* routes
+      const isAuthRoute = pathname.startsWith('/auth/');
+      if (!response && isAuthRoute && env.AUTH_RATE_LIMITER) {
+        const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const { success } = await env.AUTH_RATE_LIMITER.limit({ key: clientIp });
+        if (!success) {
+          response = problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+        }
+      }
+
+      // Session auth gate for /v1/account/* routes
+      const isAccountRoute = pathname.startsWith('/v1/account/');
+      if (!response && isAccountRoute) {
+        // Rate limit: per-IP using AUTH_RATE_LIMITER
+        if (env.AUTH_RATE_LIMITER) {
+          const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+          const { success } = await env.AUTH_RATE_LIMITER.limit({ key: clientIp });
+          if (!success) {
+            response = problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+          }
+        }
+
+        // Session auth
+        if (!response) {
+          const session = await verifySession(request, env);
+          if (!session.ok) {
+            response = session.response;
+          } else {
+            // ToS enforcement: 403 if ToS not accepted (exempt /v1/account/tos itself)
+            if (!session.tosAcceptedAt && !pathname.startsWith('/v1/account/tos')) {
+              response = problemResponse(403, 'You must accept the Terms of Service before using account endpoints.');
+            }
+            // CSRF check for mutations
+            if (!response && (request.method === 'POST' || request.method === 'DELETE')) {
+              if (!request.headers.has('X-WRL-CSRF')) {
+                response = problemResponse(403, 'CSRF header X-WRL-CSRF is required for mutations');
+              }
+            }
+            // Attach session to request for handlers
+            if (!response) {
+              env._session = session;
+            }
           }
         }
       }
