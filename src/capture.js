@@ -765,9 +765,19 @@ async function triggerLazyLoading(page) {
     if (currentHeight - initialHeight > MAX_SCROLL_HEIGHT) break;
   }
 
-  // Wait for lazy-loaded image requests triggered by scrolling to complete.
-  // Shorter cap than main settle (1.5s vs 3s) -- only draining image downloads.
-  await waitForSettle(page, 1500);
+  // Force-load all lazy images: switch loading="lazy" to "eager" so the
+  // browser fetches them immediately regardless of viewport position.
+  // Scrolling alone doesn't reliably trigger lazy images -- the browser
+  // cancels fetches for elements that leave the viewport too quickly.
+  await page.evaluate(() => {
+    document.querySelectorAll('img[loading="lazy"]').forEach(img => {
+      img.loading = 'eager';
+      if (img.dataset.src && !img.src) img.src = img.dataset.src;
+    });
+  });
+
+  // Settle: wait for the force-loaded image requests to complete
+  await waitForSettle(page, 3000);
 
   // Scroll back to top before screenshots
   await page.evaluate(() => window.scrollTo(0, 0));
