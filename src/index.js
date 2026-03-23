@@ -22,6 +22,7 @@ import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSessio
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage } from './account.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
+import { handleScheduledTick } from './scheduler.js';
 
 // tva
 
@@ -125,7 +126,7 @@ function getRateLimitGroup(method, pathname) {
 // ---------------------------------------------------------------------------
 
 async function handleCaptureMessage(msg, env, ctx) {
-  const { url, ip, captureId, tenantId, cip, enqueuedAt } = msg.body ?? {};
+  const { url, ip, captureId, tenantId, cip, enqueuedAt, scheduleId } = msg.body ?? {};
 
   // Defense-in-depth: validate message structure before trusting it
   const valid =
@@ -174,6 +175,7 @@ async function handleCaptureMessage(msg, env, ctx) {
     url,
     attempt: msg.attempts,
     queueTimeMs,
+    scheduleId: scheduleId ?? null,
   }) ?? Promise.resolve());
 
   let result;
@@ -247,6 +249,7 @@ async function handleCaptureMessage(msg, env, ctx) {
       tenantId,
       attempt: msg.attempts,
       retryDelaySeconds: delay,
+      scheduleId: scheduleId ?? null,
       retryReason: result.error,
     }) ?? Promise.resolve());
     msg.retry({ delaySeconds: delay });
@@ -291,6 +294,10 @@ async function handleDlqMessage(msg, env, ctx) {
 // ---------------------------------------------------------------------------
 
 export default {
+  async scheduled(controller, env, ctx) {
+    await handleScheduledTick(controller, env, ctx);
+  },
+
   async queue(batch, env, ctx) {
     for (const msg of batch.messages) {
       const q = batch.queue;

@@ -68,6 +68,14 @@ binding = "BROWSER"
 [limits]
 cpu_ms = 60000
 
+# --- Cron Triggers ---
+# Fires every minute to evaluate tenant-defined capture schedules.
+# The scheduled() handler queries D1 for due schedules, then enqueues
+# capture jobs onto the existing wrl-captures queue.
+# NOTE: cron triggers are non-inheritable -- each environment must declare its own [triggers].
+[triggers]
+crons = ["*/1 * * * *"]
+
 # --- Custom domain ---
 # Cloudflare auto-provisions DNS records when custom_domain = true.
 # NOTE: routes use inline array syntax to prevent inheritance into staging env.
@@ -222,6 +230,10 @@ binding = "BROWSER"
 
 [env.staging.limits]
 cpu_ms = 60000
+
+# Cron triggers are non-inheritable -- staging must declare its own [triggers].
+[env.staging.triggers]
+crons = ["*/1 * * * *"]
 
 # Queues are non-inheritable -- staging must declare its own producers and
 # consumers with -staging suffixed queue names.
