@@ -451,6 +451,7 @@ async function defaultRenderer(browserBinding, url) {
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 2,
     serviceWorkers: 'block',
   });
 
