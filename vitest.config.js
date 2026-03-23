@@ -42,6 +42,10 @@ export default defineWorkersConfig({
             GITHUB_CLIENT_ID: 'test-github-client-id',
             GITHUB_CLIENT_SECRET: 'test-github-client-secret',
             SESSION_SECRET: 'deadbeef'.repeat(8),
+            STRIPE_SECRET_KEY: 'sk_test_placeholder_for_testing',
+            STRIPE_WEBHOOK_SECRET: 'whsec_test_placeholder_for_testing',
+            STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder_for_testing',
+            STRIPE_CAPTURE_PRICE_ID: 'price_test_placeholder_for_testing',
           },
           // Queue producers come from wrangler.test.toml; consumers are
           // omitted there to prevent auto-consumption during tests.

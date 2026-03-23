@@ -4,8 +4,8 @@
 import { env } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
-  TIER_QUOTAS,
-  DEFAULT_TIER,
+  FREE_CAPTURE_LIMIT,
+  FREE_STORAGE_LIMIT,
   getEffectiveQuota,
   checkQuota,
   computeQuotaReset,
@@ -21,46 +21,40 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('getEffectiveQuota', () => {
-  it('returns free tier defaults when no config overrides', () => {
-    const quota = getEffectiveQuota('free', null);
-    expect(quota.capturesPerMonth).toBe(TIER_QUOTAS.free.capturesPerMonth);
-    expect(quota.storageBytes).toBe(TIER_QUOTAS.free.storageBytes);
+  it('returns free tier defaults when no payment method and no config overrides', () => {
+    const quota = getEffectiveQuota(false, null);
+    expect(quota.capturesPerMonth).toBe(FREE_CAPTURE_LIMIT);
+    expect(quota.storageBytes).toBe(FREE_STORAGE_LIMIT);
   });
 
-  it('returns pro tier defaults when no config overrides', () => {
-    const quota = getEffectiveQuota('pro', null);
-    expect(quota.capturesPerMonth).toBe(TIER_QUOTAS.pro.capturesPerMonth);
-    expect(quota.storageBytes).toBe(TIER_QUOTAS.pro.storageBytes);
+  it('returns unlimited when payment method exists and no config overrides', () => {
+    const quota = getEffectiveQuota(true, null);
+    expect(quota.capturesPerMonth).toBe(Infinity);
+    expect(quota.storageBytes).toBe(Infinity);
   });
 
-  it('falls back to free tier for unknown tier names', () => {
-    const quota = getEffectiveQuota('enterprise', null);
-    expect(quota.capturesPerMonth).toBe(TIER_QUOTAS.free.capturesPerMonth);
-    expect(quota.storageBytes).toBe(TIER_QUOTAS.free.storageBytes);
-  });
-
-  it('merges capturesPerMonth override with tier defaults', () => {
-    const quota = getEffectiveQuota('free', { quotas: { capturesPerMonth: 999 } });
+  it('merges capturesPerMonth override with free tier defaults', () => {
+    const quota = getEffectiveQuota(false, { quotas: { capturesPerMonth: 999 } });
     expect(quota.capturesPerMonth).toBe(999);
-    expect(quota.storageBytes).toBe(TIER_QUOTAS.free.storageBytes);
+    expect(quota.storageBytes).toBe(FREE_STORAGE_LIMIT);
   });
 
-  it('merges storageBytes override with tier defaults', () => {
-    const quota = getEffectiveQuota('pro', { quotas: { storageBytes: 12345 } });
+  it('merges storageBytes override with paid tier defaults', () => {
+    const quota = getEffectiveQuota(true, { quotas: { storageBytes: 12345 } });
     expect(quota.storageBytes).toBe(12345);
-    expect(quota.capturesPerMonth).toBe(TIER_QUOTAS.pro.capturesPerMonth);
+    expect(quota.capturesPerMonth).toBe(Infinity);
   });
 
   it('merges both overrides simultaneously', () => {
-    const quota = getEffectiveQuota('free', { quotas: { capturesPerMonth: 50, storageBytes: 500 } });
+    const quota = getEffectiveQuota(false, { quotas: { capturesPerMonth: 50, storageBytes: 500 } });
     expect(quota.capturesPerMonth).toBe(50);
     expect(quota.storageBytes).toBe(500);
   });
 
   it('returns defaults when tenantConfig has no quotas key', () => {
-    const quota = getEffectiveQuota('pro', { rateLimit: { capture: { limit: 5 } } });
-    expect(quota.capturesPerMonth).toBe(TIER_QUOTAS.pro.capturesPerMonth);
-    expect(quota.storageBytes).toBe(TIER_QUOTAS.pro.storageBytes);
+    const quota = getEffectiveQuota(true, { rateLimit: { capture: { limit: 5 } } });
+    expect(quota.capturesPerMonth).toBe(Infinity);
+    expect(quota.storageBytes).toBe(Infinity);
   });
 });
 
@@ -99,10 +93,10 @@ describe('computeQuotaReset', () => {
 // checkQuota -- helpers to seed tenant and usage rows directly
 // ---------------------------------------------------------------------------
 
-async function seedTenant(db, tenantId, { tier = 'free', config = null } = {}) {
+async function seedTenant(db, tenantId, { config = null, paymentMethodAddedAt = null } = {}) {
   await db.prepare(
-    `INSERT OR IGNORE INTO tenants (id, tier, config) VALUES (?, ?, ?)`,
-  ).bind(tenantId, tier, config ? JSON.stringify(config) : null).run();
+    `INSERT OR IGNORE INTO tenants (id, config, payment_method_added_at) VALUES (?, ?, ?)`,
+  ).bind(tenantId, config ? JSON.stringify(config) : null, paymentMethodAddedAt).run();
 }
 
 async function seedUsage(db, tenantId, period, { captureCount = 0, storageBytes = 0 } = {}) {
@@ -123,37 +117,37 @@ function currentPeriod() {
 describe('checkQuota', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('returns allowed:true when under limits', async () => {
+  it('returns allowed:true when under limits (free tier)', async () => {
     await seedTenant(env.DB, 'test-t1');
     await seedUsage(env.DB, 'test-t1', currentPeriod(), { captureCount: 10, storageBytes: 100 });
     const result = await checkQuota(env.DB, 'test-t1');
     expect(result.allowed).toBe(true);
-    expect(result.tier).toBe('free');
+    expect(result.hasPaymentMethod).toBe(false);
     expect(result.captureCount).toBe(10);
     expect(result.storageBytes).toBe(100);
     expect(result.period).toBe(currentPeriod());
   });
 
-  it('returns allowed:false with capture_limit reason when at/over capture count', async () => {
+  it('returns allowed:false with payment_required reason when at/over capture count (free tier)', async () => {
     await seedTenant(env.DB, 'test-t2');
     // captureCount === capturesPerMonth means the next capture (count=1) pushes it over
-    await seedUsage(env.DB, 'test-t2', currentPeriod(), { captureCount: TIER_QUOTAS.free.capturesPerMonth });
+    await seedUsage(env.DB, 'test-t2', currentPeriod(), { captureCount: FREE_CAPTURE_LIMIT });
     const result = await checkQuota(env.DB, 'test-t2');
     expect(result.allowed).toBe(false);
-    expect(result.reason).toBe('capture_limit');
-    expect(result.limit).toBe(TIER_QUOTAS.free.capturesPerMonth);
-    expect(result.used).toBe(TIER_QUOTAS.free.capturesPerMonth);
+    expect(result.reason).toBe('payment_required');
+    expect(result.limit).toBe(FREE_CAPTURE_LIMIT);
+    expect(result.used).toBe(FREE_CAPTURE_LIMIT);
     expect(result.requested).toBe(1);
   });
 
   it('returns allowed:false with storage_limit reason when at/over storage', async () => {
     await seedTenant(env.DB, 'test-t3');
-    await seedUsage(env.DB, 'test-t3', currentPeriod(), { storageBytes: TIER_QUOTAS.free.storageBytes });
+    await seedUsage(env.DB, 'test-t3', currentPeriod(), { storageBytes: FREE_STORAGE_LIMIT });
     const result = await checkQuota(env.DB, 'test-t3');
     expect(result.allowed).toBe(false);
     expect(result.reason).toBe('storage_limit');
-    expect(result.limit).toBe(TIER_QUOTAS.free.storageBytes);
-    expect(result.used).toBe(TIER_QUOTAS.free.storageBytes);
+    expect(result.limit).toBe(FREE_STORAGE_LIMIT);
+    expect(result.used).toBe(FREE_STORAGE_LIMIT);
   });
 
   it('handles missing usage_counters row -- defaults to 0', async () => {
@@ -177,7 +171,7 @@ describe('checkQuota', () => {
     await seedUsage(env.DB, 'test-t5', currentPeriod(), { captureCount: 197 });
     const result = await checkQuota(env.DB, 'test-t5', 5);
     expect(result.allowed).toBe(false);
-    expect(result.reason).toBe('capture_limit');
+    expect(result.reason).toBe('payment_required');
     expect(result.requested).toBe(5);
     expect(result.used).toBe(197);
   });
@@ -204,7 +198,7 @@ describe('checkQuota', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-03-10T08:00:00Z'));
     await seedTenant(env.DB, 'test-t7');
-    await seedUsage(env.DB, 'test-t7', '2026-03', { captureCount: TIER_QUOTAS.free.capturesPerMonth });
+    await seedUsage(env.DB, 'test-t7', '2026-03', { captureCount: FREE_CAPTURE_LIMIT });
     const result = await checkQuota(env.DB, 'test-t7');
     expect(result.allowed).toBe(false);
     const d = new Date(result.resetsAt);
@@ -223,19 +217,22 @@ describe('checkQuota', () => {
     expect(result.storageBytes).toBe(0);
   });
 
-  it('uses pro tier quota for pro tenants', async () => {
-    await seedTenant(env.DB, 'test-t9', { tier: 'pro' });
-    // 200 captures -- fine for pro (limit 5000), would fail for free (limit 100)
+  it('paid tenant has unlimited captures', async () => {
+    await seedTenant(env.DB, 'test-t9', { paymentMethodAddedAt: new Date().toISOString() });
+    // 200 captures -- free tier would block, but paid tenant has unlimited
     await seedUsage(env.DB, 'test-t9', currentPeriod(), { captureCount: 200 });
     const result = await checkQuota(env.DB, 'test-t9');
     expect(result.allowed).toBe(true);
-    expect(result.tier).toBe('pro');
-    expect(result.quota.capturesPerMonth).toBe(TIER_QUOTAS.pro.capturesPerMonth);
+    expect(result.hasPaymentMethod).toBe(true);
+    expect(result.quota.capturesPerMonth).toBe(Infinity);
   });
 
   it('respects per-tenant quota overrides in config', async () => {
-    // Override capturesPerMonth to 5 -- even free tenant
-    await seedTenant(env.DB, 'test-t10', { config: { quotas: { capturesPerMonth: 5 } } });
+    // Override capturesPerMonth to 5 with payment method (so it's capture_limit not payment_required)
+    await seedTenant(env.DB, 'test-t10', {
+      config: { quotas: { capturesPerMonth: 5 } },
+      paymentMethodAddedAt: new Date().toISOString(),
+    });
     await seedUsage(env.DB, 'test-t10', currentPeriod(), { captureCount: 5 });
     const result = await checkQuota(env.DB, 'test-t10');
     expect(result.allowed).toBe(false);

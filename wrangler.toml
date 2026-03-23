@@ -135,11 +135,18 @@ max_retries = 0
 # OAuth secrets (set via wrangler secret put):
 #   GITHUB_CLIENT_SECRET -- GitHub OAuth App client secret
 #   SESSION_SECRET       -- HMAC key for session cookie signing (32+ random bytes, hex)
+# Stripe secrets (set via wrangler secret put):
+#   STRIPE_SECRET_KEY    -- Stripe secret key (sk_live_...)
+#   STRIPE_WEBHOOK_SECRET -- Stripe webhook signing secret (whsec_...)
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
 TSA_URL = "http://timestamp.digicert.com"
 GITHUB_CLIENT_ID = "Ov23liIG5Of9wSbgcFqW"
+# TODO: replace with live publishable key from Stripe Dashboard
+STRIPE_PUBLISHABLE_KEY = "pk_live_placeholder"
+# TODO: replace with price ID for capture_volume_monthly lookup key (production)
+STRIPE_CAPTURE_PRICE_ID = "price_placeholder"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -269,6 +276,10 @@ CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
 TSA_URL = "http://timestamp.digicert.com"
 GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
+# TODO: replace with test publishable key from Stripe Dashboard (pk_test_...)
+STRIPE_PUBLISHABLE_KEY = "pk_test_placeholder"
+# TODO: replace with price ID for capture_volume_monthly lookup key (sandbox/test)
+STRIPE_CAPTURE_PRICE_ID = "price_test_placeholder"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"

@@ -6,8 +6,9 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { cleanDb, createTestSession, seedUsageCounter } from './fixtures.js';
-import { TIER_QUOTAS, DEFAULT_TIER } from '../src/quotas.js';
+import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT } from '../src/quotas.js';
 import { computePeriod } from '../src/db.js';
+import { setPaymentMethodAdded } from '../src/db.js';
 
 const USAGE_URL = 'https://worker.test/v1/account/usage';
 
@@ -99,7 +100,7 @@ describe('GET /v1/account/usage -- response shape', () => {
     });
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(
-      ['captures', 'period', 'resetsAt', 'storageBytes', 'tenantId', 'tierDisplay'].sort(),
+      ['billingStatus', 'captures', 'gracePeriodEnd', 'hasPaymentMethod', 'period', 'resetsAt', 'storageBytes', 'tenantId'].sort(),
     );
   });
 
@@ -136,29 +137,30 @@ describe('GET /v1/account/usage -- response shape', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tier display and quota limits
+// Billing status display
 // ---------------------------------------------------------------------------
 
-describe('GET /v1/account/usage -- tier display', () => {
+describe('GET /v1/account/usage -- billing status', () => {
   const ip = nextIp();
 
-  it('free tenant shows tierDisplay "Starter"', async () => {
+  it('free tenant (no payment method) shows billingStatus "free"', async () => {
     const { cookie } = await createTosSession();
     const res = await SELF.fetch(USAGE_URL, {
       headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
     });
     const body = await res.json();
-    expect(body.tierDisplay).toBe('Starter');
+    expect(body.billingStatus).toBe('free');
+    expect(body.hasPaymentMethod).toBe(false);
   });
 
-  it('does not expose the internal tier name in the response', async () => {
+  it('does not expose internal tier name in the response', async () => {
     const { cookie } = await createTosSession();
     const res = await SELF.fetch(USAGE_URL, {
       headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
     });
     const body = await res.json();
-    // 'free' or 'pro' should not appear as a top-level field
     expect(Object.keys(body)).not.toContain('tier');
+    expect(Object.keys(body)).not.toContain('tierDisplay');
   });
 
   it('captures.limit equals free tier quota for free tenant', async () => {
@@ -167,7 +169,7 @@ describe('GET /v1/account/usage -- tier display', () => {
       headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
     });
     const body = await res.json();
-    expect(body.captures.limit).toBe(TIER_QUOTAS.free.capturesPerMonth);
+    expect(body.captures.limit).toBe(FREE_CAPTURE_LIMIT);
   });
 
   it('storageBytes.limit equals free tier quota for free tenant', async () => {
@@ -176,21 +178,22 @@ describe('GET /v1/account/usage -- tier display', () => {
       headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
     });
     const body = await res.json();
-    expect(body.storageBytes.limit).toBe(TIER_QUOTAS.free.storageBytes);
+    expect(body.storageBytes.limit).toBe(FREE_STORAGE_LIMIT);
   });
 
-  it('pro tenant shows tierDisplay "Pro" with pro quota limits', async () => {
+  it('paid tenant shows billingStatus "active" with null limits (unlimited)', async () => {
     const { cookie, tenantId } = await createTosSession();
-    // Upgrade tenant to pro
-    await env.DB.prepare('UPDATE tenants SET tier = ? WHERE id = ?').bind('pro', tenantId).run();
+    await setPaymentMethodAdded(env.DB, tenantId);
 
     const res = await SELF.fetch(USAGE_URL, {
       headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
     });
     const body = await res.json();
-    expect(body.tierDisplay).toBe('Pro');
-    expect(body.captures.limit).toBe(TIER_QUOTAS.pro.capturesPerMonth);
-    expect(body.storageBytes.limit).toBe(TIER_QUOTAS.pro.storageBytes);
+    expect(body.billingStatus).toBe('active');
+    expect(body.hasPaymentMethod).toBe(true);
+    // Paid tenants have unlimited captures -- limit and remaining are null
+    expect(body.captures.limit).toBeNull();
+    expect(body.captures.remaining).toBeNull();
   });
 });
 
@@ -259,7 +262,7 @@ describe('GET /v1/account/usage -- usage data', () => {
       headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
     });
     const body = await res.json();
-    expect(body.captures.remaining).toBe(TIER_QUOTAS.free.capturesPerMonth - 30);
+    expect(body.captures.remaining).toBe(FREE_CAPTURE_LIMIT - 30);
   });
 
   it('remaining is 0 (not negative) when usage exceeds the limit', async () => {
@@ -267,7 +270,7 @@ describe('GET /v1/account/usage -- usage data', () => {
     const period = computePeriod();
 
     // Seed usage beyond the free tier capture limit
-    const overLimit = TIER_QUOTAS.free.capturesPerMonth + 10;
+    const overLimit = FREE_CAPTURE_LIMIT + 10;
     await seedUsageCounter(env.DB, { tenantId, period, captureCount: overLimit });
 
     const res = await SELF.fetch(USAGE_URL, {
@@ -284,7 +287,7 @@ describe('GET /v1/account/usage -- usage data', () => {
     await seedUsageCounter(env.DB, {
       tenantId,
       period,
-      storageBytes: TIER_QUOTAS.free.storageBytes,
+      storageBytes: FREE_STORAGE_LIMIT,
     });
 
     const res = await SELF.fetch(USAGE_URL, {
@@ -293,8 +296,8 @@ describe('GET /v1/account/usage -- usage data', () => {
     const body = await res.json();
     expect(body.storageBytes.remaining).toBe(0);
     // used and limit should still be accurate
-    expect(body.storageBytes.used).toBe(TIER_QUOTAS.free.storageBytes);
-    expect(body.storageBytes.limit).toBe(TIER_QUOTAS.free.storageBytes);
+    expect(body.storageBytes.used).toBe(FREE_STORAGE_LIMIT);
+    expect(body.storageBytes.limit).toBe(FREE_STORAGE_LIMIT);
   });
 
   it('tenantId in response matches the session tenant', async () => {

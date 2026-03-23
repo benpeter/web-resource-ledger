@@ -19,6 +19,7 @@ import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePin
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage } from './account.js';
+import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
 
 // tva
@@ -86,6 +87,11 @@ const routes = [
   ['DELETE', /^\/v1\/account\/keys\/([a-f0-9]{64})$/, handleAccountRevokeKey],
   ['POST',   /^\/v1\/account\/tos$/, handleAccountAcceptTos],
   ['GET',    /^\/v1\/account\/usage$/, handleAccountGetUsage],
+  // Billing routes (session-gated in fetch handler via /v1/account/ prefix check)
+  ['POST',   /^\/v1\/billing\/checkout$/, handleBillingCheckout],
+  ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
+  // Stripe webhook (public -- signature-verified internally)
+  ['POST',   /^\/v1\/stripe\/webhook$/, handleStripeWebhook],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -102,7 +108,7 @@ function getRateLimitGroup(method, pathname) {
   if (pathname.startsWith('/v1/admin/')) return 'admin';
   if (pathname === '/v1/captures' || pathname === '/v1/captures/batch') return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
-  if (pathname.startsWith('/v1/account/')) return 'account';
+  if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'account';
   if (pathname.startsWith('/auth/')) return 'auth';
   return null;
 }
@@ -374,8 +380,8 @@ export default {
         }
       }
 
-      // Session auth gate for /v1/account/* routes
-      const isAccountRoute = pathname.startsWith('/v1/account/');
+      // Session auth gate for /v1/account/* and /v1/billing/* routes
+      const isAccountRoute = pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/');
       if (!response && isAccountRoute) {
         // Rate limit: per-IP using AUTH_RATE_LIMITER
         if (env.AUTH_RATE_LIMITER) {
@@ -639,16 +645,19 @@ async function handleCreateCapture(request, env, ctx) {
         'Retry-After': retryAfterDate,
         ...rlHeaders,
       };
-      const detail = quotaCheck.reason === 'capture_limit'
-        ? `Monthly capture quota reached (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
-        : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+      const isCaptureLimit = quotaCheck.reason === 'capture_limit' || quotaCheck.reason === 'payment_required';
+      const detail = quotaCheck.reason === 'payment_required'
+        ? `Free tier limit reached (${quotaCheck.used}/${quotaCheck.limit}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`
+        : isCaptureLimit
+          ? `Monthly capture quota reached (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
+          : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
 
       return problemResponse(429, detail, quotaHeaders, {
         limitType: 'quota',
         quota: {
           limit: quotaCheck.limit,
           used: quotaCheck.used,
-          resource: quotaCheck.reason === 'capture_limit' ? 'captures' : 'storage',
+          resource: isCaptureLimit ? 'captures' : 'storage',
           resetsAt: quotaCheck.resetsAt,
         },
       });
@@ -848,9 +857,12 @@ async function handleBatchCapture(request, env, ctx) {
         'Retry-After': retryAfterDate,
         ...rlHeaders,
       };
-      const detail = quotaCheck.reason === 'capture_limit'
-        ? `Batch of ${body.urls.length} captures would exceed monthly quota (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
-        : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+      const isCaptureLimit = quotaCheck.reason === 'capture_limit' || quotaCheck.reason === 'payment_required';
+      const detail = quotaCheck.reason === 'payment_required'
+        ? `Batch of ${body.urls.length} captures would exceed free tier limit (${quotaCheck.used}/${quotaCheck.limit}). Add a payment method to continue capturing.`
+        : isCaptureLimit
+          ? `Batch of ${body.urls.length} captures would exceed monthly quota (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
+          : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
 
       return problemResponse(429, detail, quotaHeaders, {
         limitType: 'quota',
@@ -858,7 +870,7 @@ async function handleBatchCapture(request, env, ctx) {
           limit: quotaCheck.limit,
           used: quotaCheck.used,
           requested: body.urls.length,
-          resource: quotaCheck.reason === 'capture_limit' ? 'captures' : 'storage',
+          resource: isCaptureLimit ? 'captures' : 'storage',
           resetsAt: quotaCheck.resetsAt,
         },
       });

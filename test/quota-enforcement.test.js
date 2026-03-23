@@ -5,7 +5,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { seedApiKey, cleanDb, TEST_TENANT_KEY } from './fixtures.js';
-import { TIER_QUOTAS } from '../src/quotas.js';
+import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT } from '../src/quotas.js';
 import { computePeriod } from '../src/db.js';
 
 const AUTH = `Bearer ${TEST_TENANT_KEY}`;
@@ -83,12 +83,12 @@ beforeEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Single capture -- quota exceeded (capture_limit)
+// Single capture -- quota exceeded (payment_required for free tier)
 // ---------------------------------------------------------------------------
 
-describe('POST /v1/captures -- quota enforcement (capture_limit)', () => {
+describe('POST /v1/captures -- quota enforcement (payment_required)', () => {
   it('returns 429 with limitType quota when capture count is at the monthly limit', async () => {
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth });
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT });
 
     const res = await singleCapture();
     expect(res.status).toBe(429);
@@ -99,13 +99,13 @@ describe('POST /v1/captures -- quota enforcement (capture_limit)', () => {
     expect(body.limitType).toBe('quota');
     expect(body.quota).toBeDefined();
     expect(body.quota.resource).toBe('captures');
-    expect(body.quota.limit).toBe(TIER_QUOTAS.free.capturesPerMonth);
-    expect(body.quota.used).toBe(TIER_QUOTAS.free.capturesPerMonth);
+    expect(body.quota.limit).toBe(FREE_CAPTURE_LIMIT);
+    expect(body.quota.used).toBe(FREE_CAPTURE_LIMIT);
     expect(body.quota.resetsAt).toBeDefined();
   });
 
   it('returns Retry-After header set to the quota reset date', async () => {
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth });
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT });
 
     const res = await singleCapture();
     expect(res.status).toBe(429);
@@ -116,13 +116,13 @@ describe('POST /v1/captures -- quota enforcement (capture_limit)', () => {
     expect(retryDate.getTime()).toBeGreaterThan(Date.now());
   });
 
-  it('detail message mentions quota and resetsAt', async () => {
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth });
+  it('detail message mentions free tier limit', async () => {
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT });
 
     const res = await singleCapture();
     const body = await res.json();
-    expect(body.detail).toContain('Monthly capture quota reached');
-    expect(body.detail).toContain(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(body.detail).toContain('Free tier limit reached');
+    expect(body.detail).toContain(String(FREE_CAPTURE_LIMIT));
   });
 });
 
@@ -132,7 +132,7 @@ describe('POST /v1/captures -- quota enforcement (capture_limit)', () => {
 
 describe('POST /v1/captures -- quota enforcement (storage_limit)', () => {
   it('returns 429 with resource:storage when storage is at limit', async () => {
-    await seedUsage({ storageBytes: TIER_QUOTAS.free.storageBytes });
+    await seedUsage({ storageBytes: FREE_STORAGE_LIMIT });
 
     const res = await singleCapture();
     expect(res.status).toBe(429);
@@ -140,12 +140,12 @@ describe('POST /v1/captures -- quota enforcement (storage_limit)', () => {
     const body = await res.json();
     expect(body.limitType).toBe('quota');
     expect(body.quota.resource).toBe('storage');
-    expect(body.quota.limit).toBe(TIER_QUOTAS.free.storageBytes);
-    expect(body.quota.used).toBe(TIER_QUOTAS.free.storageBytes);
+    expect(body.quota.limit).toBe(FREE_STORAGE_LIMIT);
+    expect(body.quota.used).toBe(FREE_STORAGE_LIMIT);
   });
 
   it('detail message mentions storage quota', async () => {
-    await seedUsage({ storageBytes: TIER_QUOTAS.free.storageBytes });
+    await seedUsage({ storageBytes: FREE_STORAGE_LIMIT });
 
     const res = await singleCapture();
     const body = await res.json();
@@ -164,10 +164,10 @@ describe('POST /v1/captures -- X-Quota-* headers on 202', () => {
     const res = await singleCapture();
     expect(res.status).toBe(202);
 
-    expect(res.headers.get('X-Quota-Limit')).toBe(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(res.headers.get('X-Quota-Limit')).toBe(String(FREE_CAPTURE_LIMIT));
     expect(res.headers.get('X-Quota-Used')).toBe('10');
     expect(res.headers.get('X-Quota-Remaining')).toBe(
-      String(TIER_QUOTAS.free.capturesPerMonth - 10),
+      String(FREE_CAPTURE_LIMIT - 10),
     );
   });
 
@@ -176,15 +176,15 @@ describe('POST /v1/captures -- X-Quota-* headers on 202', () => {
     const res = await singleCapture();
     expect(res.status).toBe(202);
 
-    expect(res.headers.get('X-Quota-Limit')).toBe(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(res.headers.get('X-Quota-Limit')).toBe(String(FREE_CAPTURE_LIMIT));
     expect(res.headers.get('X-Quota-Used')).toBe('0');
-    expect(res.headers.get('X-Quota-Remaining')).toBe(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(res.headers.get('X-Quota-Remaining')).toBe(String(FREE_CAPTURE_LIMIT));
   });
 
   it('X-Quota-Remaining is never negative (clamped to 0)', async () => {
     // Edge case: usage slightly above limit shouldn't produce a negative remaining
     // (This shouldn't happen in normal operation, but guard against it defensively.)
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth - 1 });
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT - 1 });
 
     const res = await singleCapture();
     expect(res.status).toBe(202);
@@ -200,8 +200,8 @@ describe('POST /v1/captures -- X-Quota-* headers on 202', () => {
 
 describe('POST /v1/captures/batch -- quota enforcement (batch rejection)', () => {
   it('returns 429 with limitType quota when batch would exceed monthly limit', async () => {
-    // 98 used, limit 100: a batch of 5 would push to 103
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth - 2 });
+    // 198 used, limit 200: a batch of 5 would push to 203
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT - 2 });
 
     const urls = Array.from({ length: 5 }, (_, i) => ({ url: `https://example.com/page${i}` }));
     const res = await batchCapture(urls);
@@ -212,22 +212,22 @@ describe('POST /v1/captures/batch -- quota enforcement (batch rejection)', () =>
     expect(body.limitType).toBe('quota');
     expect(body.quota.resource).toBe('captures');
     expect(body.quota.requested).toBe(5);
-    expect(body.quota.limit).toBe(TIER_QUOTAS.free.capturesPerMonth);
-    expect(body.quota.used).toBe(TIER_QUOTAS.free.capturesPerMonth - 2);
+    expect(body.quota.limit).toBe(FREE_CAPTURE_LIMIT);
+    expect(body.quota.used).toBe(FREE_CAPTURE_LIMIT - 2);
   });
 
-  it('detail message names the batch size and the quota for a capture_limit rejection', async () => {
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth - 2 });
+  it('detail message names the batch size for a payment_required rejection', async () => {
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT - 2 });
 
     const urls = [{ url: 'https://example.com/a' }, { url: 'https://example.com/b' }, { url: 'https://example.com/c' }];
     const res = await batchCapture(urls);
     const body = await res.json();
     expect(body.detail).toContain('Batch of 3');
-    expect(body.detail).toContain('monthly quota');
+    expect(body.detail).toContain('free tier limit');
   });
 
   it('returns 429 with resource:storage when storage quota is already at limit', async () => {
-    await seedUsage({ storageBytes: TIER_QUOTAS.free.storageBytes });
+    await seedUsage({ storageBytes: FREE_STORAGE_LIMIT });
 
     const urls = [{ url: 'https://example.com' }];
     const res = await batchCapture(urls);
@@ -239,8 +239,8 @@ describe('POST /v1/captures/batch -- quota enforcement (batch rejection)', () =>
   });
 
   it('allows batch when count does not push over limit (boundary: exactly at limit is fine)', async () => {
-    // 97 used, limit 100: batch of 3 pushes to exactly 100 -- allowed (> not >=)
-    await seedUsage({ captureCount: TIER_QUOTAS.free.capturesPerMonth - 3 });
+    // 197 used, limit 200: batch of 3 pushes to exactly 200 -- allowed (> not >=)
+    await seedUsage({ captureCount: FREE_CAPTURE_LIMIT - 3 });
 
     const urls = Array.from({ length: 3 }, (_, i) => ({ url: `https://example.com/page${i}` }));
     const res = await batchCapture(urls);
@@ -260,10 +260,10 @@ describe('POST /v1/captures/batch -- X-Quota-* headers on 207', () => {
     const res = await batchCapture(urls);
     expect(res.status).toBe(207);
 
-    expect(res.headers.get('X-Quota-Limit')).toBe(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(res.headers.get('X-Quota-Limit')).toBe(String(FREE_CAPTURE_LIMIT));
     expect(res.headers.get('X-Quota-Used')).toBe('20');
     expect(res.headers.get('X-Quota-Remaining')).toBe(
-      String(TIER_QUOTAS.free.capturesPerMonth - 20),
+      String(FREE_CAPTURE_LIMIT - 20),
     );
   });
 
@@ -272,8 +272,8 @@ describe('POST /v1/captures/batch -- X-Quota-* headers on 207', () => {
     const res = await batchCapture(urls);
     expect(res.status).toBe(207);
 
-    expect(res.headers.get('X-Quota-Limit')).toBe(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(res.headers.get('X-Quota-Limit')).toBe(String(FREE_CAPTURE_LIMIT));
     expect(res.headers.get('X-Quota-Used')).toBe('0');
-    expect(res.headers.get('X-Quota-Remaining')).toBe(String(TIER_QUOTAS.free.capturesPerMonth));
+    expect(res.headers.get('X-Quota-Remaining')).toBe(String(FREE_CAPTURE_LIMIT));
   });
 });

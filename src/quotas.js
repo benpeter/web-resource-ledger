@@ -1,21 +1,24 @@
-// Quota configuration for tenant tiers.
-// Tier defaults define monthly capture and storage limits.
-// Per-tenant overrides live in tenants.config JSON under the 'quotas' key.
+// Quota configuration for usage-based billing.
+// Free tier: first FREE_CAPTURE_LIMIT captures/month at no charge.
+// Paid tier: unlimited captures once a payment method is added (Stripe meters usage).
+// Per-tenant config overrides remain available via tenants.config JSON.
 // tva
 
-import { computePeriod } from './db.js';
+import { computePeriod, setBillingStatus } from './db.js';
 
-export const TIER_QUOTAS = {
-  free: { capturesPerMonth: 200,  storageBytes: 1  * 1024 * 1024 * 1024 },  // 1 GB
-  pro:  { capturesPerMonth: 5000, storageBytes: 50 * 1024 * 1024 * 1024 },  // 50 GB
-};
+export const FREE_CAPTURE_LIMIT = 200;
+export const FREE_STORAGE_LIMIT = 1 * 1024 * 1024 * 1024; // 1 GB
 
+/** @deprecated Use FREE_CAPTURE_LIMIT instead. Kept for test backward compatibility until Phase 6. */
 export const DEFAULT_TIER = 'free';
 
-// UI display names -- internal code uses 'free'/'pro', UI shows these
-export const TIER_DISPLAY_NAMES = {
-  free: 'Starter',
-  pro:  'Pro',
+/**
+ * @deprecated Use FREE_CAPTURE_LIMIT instead.
+ * Kept for test backward compatibility until Phase 6.
+ */
+export const TIER_QUOTAS = {
+  free: { capturesPerMonth: FREE_CAPTURE_LIMIT, storageBytes: FREE_STORAGE_LIMIT },
+  pro:  { capturesPerMonth: 5000, storageBytes: 10 * 1024 * 1024 * 1024 },
 };
 
 /**
@@ -30,17 +33,17 @@ export function computeQuotaReset() {
 }
 
 /**
- * Return the effective quota for a tenant by merging tier defaults with any
- * per-tenant overrides from tenantConfig.quotas.
+ * Return the effective quota for a tenant by merging payment-method-based
+ * defaults with any per-tenant overrides from tenantConfig.quotas.
  *
- * Pattern mirrors getEffectiveLimit() in rate-limits.js.
- *
- * @param {string} tier  'free' | 'pro' (unknown value falls back to DEFAULT_TIER)
+ * @param {boolean} hasPaymentMethod  true if payment_method_added_at is non-null
  * @param {object|null} tenantConfig  From getTenantConfig(), may be null
  * @returns {{ capturesPerMonth: number, storageBytes: number }}
  */
-export function getEffectiveQuota(tier, tenantConfig) {
-  const defaults = TIER_QUOTAS[tier] || TIER_QUOTAS[DEFAULT_TIER];
+export function getEffectiveQuota(hasPaymentMethod, tenantConfig) {
+  const defaults = hasPaymentMethod
+    ? { capturesPerMonth: Infinity, storageBytes: Infinity }
+    : { capturesPerMonth: FREE_CAPTURE_LIMIT, storageBytes: FREE_STORAGE_LIMIT };
   if (!tenantConfig?.quotas) return { ...defaults };
   return {
     capturesPerMonth: tenantConfig.quotas.capturesPerMonth ?? defaults.capturesPerMonth,
@@ -52,7 +55,10 @@ export function getEffectiveQuota(tier, tenantConfig) {
  * Check whether a tenant has remaining quota for a capture operation.
  *
  * Performs a single D1 batch (two prepared statements, one round-trip) to read
- * tenant tier+config and current-period usage simultaneously.
+ * tenant billing state + config and current-period usage simultaneously.
+ *
+ * Grace period expiry is evaluated in JS (new Date comparison), NOT via
+ * SQL strftime, so that vi.useFakeTimers() in tests controls the clock.
  *
  * @param {D1Database} db
  * @param {string} tenantId
@@ -63,7 +69,9 @@ export async function checkQuota(db, tenantId, count = 1) {
   const period = computePeriod();
 
   const [tenantResult, usageResult] = await db.batch([
-    db.prepare('SELECT tier, config FROM tenants WHERE id = ?').bind(tenantId),
+    db.prepare(
+      'SELECT tier, config, payment_method_added_at, billing_status, grace_period_end FROM tenants WHERE id = ?',
+    ).bind(tenantId),
     db.prepare(
       'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
     ).bind(tenantId, period),
@@ -72,20 +80,49 @@ export async function checkQuota(db, tenantId, count = 1) {
   const tenant = tenantResult.results?.[0];
   if (!tenant) return { allowed: false, reason: 'tenant_not_found' };
 
-  const tier   = tenant.tier || DEFAULT_TIER;
-  const config = tenant.config ? JSON.parse(tenant.config) : null;
-  const quota  = getEffectiveQuota(tier, config);
+  const billingStatus        = tenant.billing_status ?? 'active';
+  const gracePeriodEnd       = tenant.grace_period_end ?? null;
+  const hasPaymentMethod     = tenant.payment_method_added_at != null;
+  const config               = tenant.config ? JSON.parse(tenant.config) : null;
 
+  // Hard block: tenant has been cut off from captures.
+  if (billingStatus === 'blocked') {
+    return { allowed: false, reason: 'billing_blocked' };
+  }
+
+  // Grace period check: evaluate expiry in JS, not SQL, for fake timer support.
+  if (billingStatus === 'grace_period') {
+    if (gracePeriodEnd && new Date(gracePeriodEnd) < new Date()) {
+      // Grace period expired -- lazily transition to blocked.
+      await setBillingStatus(db, tenantId, 'blocked');
+      return { allowed: false, reason: 'billing_blocked' };
+    }
+    // Still within grace period -- allow unlimited captures (no cap).
+    const usage        = usageResult.results?.[0];
+    const captureCount = usage?.capture_count ?? 0;
+    const storageBytes = usage?.storage_bytes ?? 0;
+    return {
+      allowed:       true,
+      billingStatus,
+      hasPaymentMethod,
+      captureCount,
+      storageBytes,
+      period,
+    };
+  }
+
+  const quota        = getEffectiveQuota(hasPaymentMethod, config);
   const usage        = usageResult.results?.[0];
   const captureCount = usage?.capture_count ?? 0;
   const storageBytes = usage?.storage_bytes ?? 0;
 
-  // Capture limit: check whether adding `count` would exceed the monthly cap.
-  // Uses > (not >=) so that count>1 batch checks work correctly.
-  if (captureCount + count > quota.capturesPerMonth) {
+  // Capture limit check.
+  // Infinity check avoids the > comparison misfiring for paid tenants.
+  if (quota.capturesPerMonth !== Infinity && captureCount + count > quota.capturesPerMonth) {
+    const reason = hasPaymentMethod ? 'capture_limit' : 'payment_required';
     return {
       allowed:   false,
-      reason:    'capture_limit',
+      reason,
       limit:     quota.capturesPerMonth,
       used:      captureCount,
       requested: count,
@@ -94,9 +131,8 @@ export async function checkQuota(db, tenantId, count = 1) {
     };
   }
 
-  // Storage limit: check whether the tenant is already at or over their quota.
-  // We cannot know the size of the incoming capture in advance.
-  if (storageBytes >= quota.storageBytes) {
+  // Storage limit check.
+  if (quota.storageBytes !== Infinity && storageBytes >= quota.storageBytes) {
     return {
       allowed:  false,
       reason:   'storage_limit',
@@ -108,11 +144,12 @@ export async function checkQuota(db, tenantId, count = 1) {
   }
 
   return {
-    allowed:      true,
+    allowed:         true,
     quota,
     captureCount,
     storageBytes,
-    tier,
+    billingStatus,
+    hasPaymentMethod,
     period,
   };
 }
