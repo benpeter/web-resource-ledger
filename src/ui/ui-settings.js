@@ -415,7 +415,7 @@ function buildSettingsContent(view, accountData, keysData, usageData, settingsDa
 
     var addonCost = document.createElement('span');
     addonCost.className = 'settings-addon-cost';
-    addonCost.textContent = '+EUR 0.10 per capture';
+    addonCost.textContent = 'First 50/month free, then EUR 0.10/capture';
     addonTextWrap.appendChild(addonCost);
 
     toggleWrap.appendChild(addonTextWrap);
@@ -431,7 +431,7 @@ function buildSettingsContent(view, accountData, keysData, usageData, settingsDa
 
     var addonConfirmText = document.createElement('span');
     addonConfirmText.className = 'settings-confirm-text';
-    addonConfirmText.textContent = 'This adds EUR 0.10 per capture to your bill. Enable?';
+    addonConfirmText.textContent = 'Enable qualified timestamps? First 50/month are free.';
     addonConfirm.appendChild(addonConfirmText);
 
     var addonConfirmBtn = document.createElement('button');
@@ -457,7 +457,7 @@ function buildSettingsContent(view, accountData, keysData, usageData, settingsDa
         // Show inline confirmation before applying
         toggleInput.checked = false; // revert visually until confirmed
         addonConfirm.style.display = '';
-        addonConfirmText.textContent = 'This adds EUR 0.10 per capture to your bill. Enable?';
+        addonConfirmText.textContent = 'Enable qualified timestamps? First 50/month are free.';
         addonConfirmBtn.style.display = '';
         addonCancelBtn.style.display = '';
         addonCancelBtn.focus();
@@ -501,40 +501,6 @@ function buildSettingsContent(view, accountData, keysData, usageData, settingsDa
           toggleInput.checked = newValue;
           addonConfirm.style.display = 'none';
           settingsAnnounce(newValue ? 'Qualified Timestamps enabled.' : 'Qualified Timestamps disabled.');
-          return;
-        }
-
-        if (res.status === 402) {
-          addonConfirmText.textContent = '';
-          addonConfirmBtn.style.display = 'none';
-          addonCancelBtn.style.display = 'none';
-          // Build message with billing portal link using safe DOM methods
-          var payMsg = document.createElement('span');
-          payMsg.textContent = 'A payment method is required to enable this add-on. ';
-          var payLink = document.createElement('a');
-          payLink.href = '/billing';
-          payLink.className = 'settings-addon-billing-link';
-          payLink.textContent = 'Add a payment method';
-          addonConfirmText.appendChild(payMsg);
-          addonConfirmText.appendChild(payLink);
-          addonConfirm.style.display = '';
-          // Add a standalone close button for the 402 state
-          var dismissBtn = document.createElement('button');
-          dismissBtn.type = 'button';
-          dismissBtn.className = 'btn btn--ghost btn--sm';
-          dismissBtn.textContent = 'Dismiss';
-          dismissBtn.addEventListener('click', function() {
-            addonConfirm.style.display = 'none';
-            toggleInput.checked = false;
-            // Restore confirm/cancel buttons for future use
-            addonConfirmText.textContent = 'This adds EUR 0.10 per capture to your bill. Enable?';
-            addonConfirmBtn.style.display = '';
-            addonCancelBtn.style.display = '';
-            addonConfirm.removeChild(dismissBtn);
-            toggleInput.focus();
-          });
-          addonConfirm.appendChild(dismissBtn);
-          settingsAnnounce('Payment method required to enable qualified timestamps.');
           return;
         }
 

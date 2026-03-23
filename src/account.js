@@ -661,10 +661,9 @@ export async function handleUpdateSettings(request, env, _ctx, _match) {
   const previousValue = Boolean(row?.eidas_qualified);
   const hasPaymentMethod = row?.payment_method_added_at != null;
 
-  // Payment method required to enable qualified timestamps
-  if (body.qualifiedTimestamps === true && !hasPaymentMethod) {
-    return problemResponse(402, 'A payment method is required to enable qualified timestamps. Add a payment method via the billing portal.', ACCOUNT_CACHE);
-  }
+  // eIDAS is available to all tenants -- first 50 qualified timestamps/month are
+  // free (no payment method required). Billing enforcement happens at capture time
+  // via the metering pipeline, same as regular captures.
 
   // Write the new setting
   await setEidasQualified(env.DB, tenantId, body.qualifiedTimestamps);
