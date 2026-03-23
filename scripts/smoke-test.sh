@@ -118,7 +118,8 @@ else
     ELAPSED=0
     STATUS=""
     while [ "$ELAPSED" -lt "$SMOKE_TIMEOUT" ]; do
-      POLL=$(curl -sf "${SMOKE_URL}/v1/captures/${CAPTURE_ID}/status" 2>/dev/null) || true
+      POLL=$(curl -sf -H "Authorization: Bearer ${SMOKE_API_KEY}" \
+        "${SMOKE_URL}/v1/captures/${CAPTURE_ID}/status" 2>/dev/null) || true
       STATUS=$(echo "$POLL" | jq -r '.status // empty' 2>/dev/null)
 
       if [ "$STATUS" = "complete" ] || [ "$STATUS" = "failed" ]; then
