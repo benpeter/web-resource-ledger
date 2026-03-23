@@ -46,6 +46,11 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `security.ssrf_block` | security | 5 (error) | URL blocked by SSRF prevention |
 | `security.legacy_auth_used` | security | 4 (warn) | Legacy single-key auth used |
 | `signing.key_unavailable` | security | 5 (error) | Signing key missing or invalid |
+| `threatcheck.pass` | security | 3 (info) | Pre-capture URL threat check passed; capture proceeds |
+| `threatcheck.block` | security | 5 (error) | Pre-capture URL threat check failed; capture rejected. Severity 5 reflects the security significance of the block — this is the system working correctly, not a failure |
+| `threatcheck.quarantine` | security | 4 (warn) | Existing capture quarantined during daily re-scan; URL now listed by threat feed |
+| `threatcheck.rescan_tick` | security | 3 (info) | Daily re-scan batch completed; see `scannedCount`, `flaggedCount`, `skippedCount` |
+| `threatcheck.api_fail` | security | 5 (error) for `context:"pre_capture"`, 4 (warn) for `context:"rescan"` | Web Risk API error or timeout; `context` field distinguishes pre-capture (user-facing) from rescan (background) failures |
 | `webhook.create` | webhooks | 3 (info) | Webhook registered |
 | `webhook.list` | webhooks | 6 (verbose) | Webhooks list request |
 | `webhook.delete` | webhooks | 3 (info) | Webhook deleted |
@@ -86,6 +91,11 @@ fewer fields.
 | `attemptNumber` | number | Delivery attempt count (1-indexed) |
 | `deliveryStatus` | number | HTTP status code from endpoint (delivery events) |
 | `deliveryLatencyMs` | number | Round-trip latency in ms (delivery events) |
+| `threatTypes` | string[] | Threat categories returned by the Web Risk API (e.g., `['MALWARE']`, `['SOCIAL_ENGINEERING']`); present on `threatcheck.block` and `threatcheck.quarantine` events |
+| `context` | string | Execution context for `threatcheck.api_fail`: `'pre_capture'` (user-facing, blocking) or `'rescan'` (background, non-blocking) |
+| `scannedCount` | number | Number of captures scanned in a re-scan batch (`threatcheck.rescan_tick`) |
+| `flaggedCount` | number | Number of captures quarantined in a re-scan batch (`threatcheck.rescan_tick`) |
+| `skippedCount` | number | Number of captures skipped in a re-scan batch due to API errors (`threatcheck.rescan_tick`) |
 
 ## Severity mapping
 
@@ -146,4 +156,29 @@ applicationName:wrl AND webhookId:"whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
 **SSRF blocks on webhook delivery:**
 ```
 applicationName:wrl AND event:webhook.deliver_ssrf_block
+```
+
+**All URLs blocked by threat check (pre-capture):**
+```
+applicationName:wrl AND event:threatcheck.block
+```
+
+**Captures quarantined in last 24 hours:**
+```
+applicationName:wrl AND event:threatcheck.quarantine
+```
+
+**Web Risk API failures during pre-capture (user-facing):**
+```
+applicationName:wrl AND event:threatcheck.api_fail AND context:pre_capture
+```
+
+**Daily re-scan batch summaries:**
+```
+applicationName:wrl AND event:threatcheck.rescan_tick
+```
+
+**All threat check events for a specific URL:**
+```
+applicationName:wrl AND event:threatcheck.* AND url:"https://example.com"
 ```
