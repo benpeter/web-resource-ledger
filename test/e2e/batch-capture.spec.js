@@ -36,10 +36,11 @@ test('submits a batch of URLs and all complete', async () => {
   ];
 
   // --- 1. Submit batch ---
+  // API expects { urls: [{ url: "..." }, ...] }, not plain strings
   const submitRes = await apiFetch('/v1/captures/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ urls }),
+    body: JSON.stringify({ urls: urls.map(url => ({ url })) }),
   });
 
   expect(

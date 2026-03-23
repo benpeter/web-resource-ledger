@@ -115,15 +115,13 @@ test('enforces capture quota limits', async () => {
       'This means either the usage counter was not incremented or the quota check is not enforced.'
     ).toBe(429);
 
-    // --- 6. Validate 429 response body structure ---
+    // --- 6. Validate 429 response body structure (RFC 7807 Problem Details) ---
     const body = await secondRes.json();
 
-    // error.code
-    expect(body, '429 response must include error object').toHaveProperty('error');
-    expect(
-      body.error.code,
-      `error.code must be 'capture_limit' (got '${body.error?.code}')`
-    ).toBe('capture_limit');
+    // RFC 7807 fields
+    expect(body, '429 response must include status field').toHaveProperty('status', 429);
+    expect(body, '429 response must include title field').toHaveProperty('title');
+    expect(body, '429 response must include limitType field').toHaveProperty('limitType', 'quota');
 
     // quota object
     expect(body, '429 response must include quota object').toHaveProperty('quota');

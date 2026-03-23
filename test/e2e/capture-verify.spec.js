@@ -65,7 +65,8 @@ test('captures a URL and verifies the result', async () => {
 
   // Core fields
   expect(detail, 'detail must include url').toHaveProperty('url');
-  expect(detail.url, 'url must match the submitted URL').toBe(captureUrl);
+  // URL normalization may add a trailing slash before query params
+  expect(detail.url, 'url must match the submitted URL').toBe(new URL(captureUrl).href);
 
   expect(detail, 'detail must include status').toHaveProperty('status');
   expect(detail.status, 'detail status must be complete').toBe('complete');
