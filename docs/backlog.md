@@ -252,6 +252,7 @@ Completed items removed from active tracking:
 - ~~R28: Scheduled captures (cron)~~ -- DONE (Phase 0059): CRUD API (POST/GET/DELETE /v1/schedules), Cloudflare Cron Trigger fan-out every minute, per-tenant schedule limits (default 10, configurable), scheduleId capture linking, web UI schedule panel, 55 tests, `croner` library (Issue #107)
 - ~~R31: Capture metering to Stripe pipeline~~ -- DONE (Phase 0060): hourly batch meter event reporting with idempotency, graduated pricing module (4 tiers), billing sub-object on GET /v1/account/usage, D1 watermark tracking, 32 new tests (Issue #108)
 - ~~R32: Content security scanning~~ -- DONE (Phase 0061): Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement with 451 responses, 2 Coralogix alerts, fail-open degradation (Issue #109)
+- ~~R33: Capture auth gate~~ -- DONE (Phase 0062): tenant auth on all capture retrieval endpoints, share tokens (wrl_share_ prefix, 256-bit, time-limited or permanent), tenant isolation with 404, CLI token propagation, SECURITY.md access model (Issue #110)
 
 ---
 
