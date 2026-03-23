@@ -116,8 +116,8 @@ APPLICATION_NAME = "wrl"
 TSA_URL = "http://timestamp.digicert.com"
 QUALIFIED_TSA_URL = "http://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "test-client-id"
-STRIPE_PUBLISHABLE_KEY = "pk_test_placeholder"
-STRIPE_CAPTURE_PRICE_ID = "price_test_placeholder"
+STRIPE_PUBLISHABLE_KEY = "pk_test_for_vitest"
+STRIPE_CAPTURE_PRICE_ID = "price_test_for_vitest"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -212,8 +212,8 @@ APPLICATION_NAME = "wrl-staging"
 TSA_URL = "http://timestamp.digicert.com"
 QUALIFIED_TSA_URL = "http://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "test-client-id"
-STRIPE_PUBLISHABLE_KEY = "pk_test_placeholder"
-STRIPE_CAPTURE_PRICE_ID = "price_test_placeholder"
+STRIPE_PUBLISHABLE_KEY = "pk_test_for_vitest"
+STRIPE_CAPTURE_PRICE_ID = "price_test_for_vitest"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"

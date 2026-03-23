@@ -155,10 +155,8 @@ TSA_URL = "http://timestamp.digicert.com"
 # (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
 QUALIFIED_TSA_URL = "http://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23liIG5Of9wSbgcFqW"
-# TODO: replace with live publishable key from Stripe Dashboard
-STRIPE_PUBLISHABLE_KEY = "pk_live_placeholder"
-# TODO: replace with price ID for capture_volume_monthly lookup key (production)
-STRIPE_CAPTURE_PRICE_ID = "price_placeholder"
+STRIPE_PUBLISHABLE_KEY = "pk_live_51TDsOBR6ZdLyu7lGn7qg5KGMLs2mcYvkV4GHrYvGymIMxABXUEJjVOdl8BHnUrLoHMvM9HH8FNenohLPZABdRA3X002Ajerxi0"
+STRIPE_CAPTURE_PRICE_ID = "price_1TE4aAR6ZdLyu7lGVLN895yU"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
@@ -296,10 +294,8 @@ TSA_URL = "http://timestamp.digicert.com"
 # (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
 QUALIFIED_TSA_URL = "http://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
-# TODO: replace with test publishable key from Stripe Dashboard (pk_test_...)
-STRIPE_PUBLISHABLE_KEY = "pk_test_placeholder"
-# TODO: replace with price ID for capture_volume_monthly lookup key (sandbox/test)
-STRIPE_CAPTURE_PRICE_ID = "price_test_placeholder"
+STRIPE_PUBLISHABLE_KEY = "pk_test_51TDsOOJQK0cymoiEZrNp6PBKISzkLV3LCIxOIjQ2pkQdcDYtQRECpLiWUagaLe0PtE8Owu7x8bsu5gLemtHMj58G00PTk19u4B"
+STRIPE_CAPTURE_PRICE_ID = "price_1TE3yVJQK0cymoiEc5eoRpBv"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"
