@@ -28,6 +28,7 @@ import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRec
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 import { checkQuota, getEffectiveQuota, computeQuotaReset } from './quotas.js';
+import { calculateCharges, INVOICE_THRESHOLD_EUR } from './pricing.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 
@@ -520,6 +521,21 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     ? null
     : (quota?.capturesPerMonth ?? null);
 
+  const charges = calculateCharges(captureCount);
+  const billing = {
+    currentCharges: {
+      amount:   charges.amount,
+      currency: charges.currency,
+    },
+    tier:  charges.currentTier,
+    tiers: charges.tiers,
+    invoiceThreshold: {
+      amount:   INVOICE_THRESHOLD_EUR,
+      currency: 'EUR',
+      met:      charges.amount >= INVOICE_THRESHOLD_EUR,
+    },
+  };
+
   ctx.waitUntil(log(env, 3, 'oauth', {
     event: 'oauth.usage_view',
     cip,
@@ -547,5 +563,6 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
         : Math.max(0, (quota?.storageBytes ?? 0) - storageBytes),
     },
     resetsAt: computeQuotaReset(),
+    billing,
   }, 200, ACCOUNT_CACHE);
 }

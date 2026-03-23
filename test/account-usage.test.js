@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { cleanDb, createTestSession, seedUsageCounter } from './fixtures.js';
 import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT } from '../src/quotas.js';
 import { computePeriod } from '../src/db.js';
-import { setPaymentMethodAdded } from '../src/db.js';
+import { setPaymentMethodAdded, setStripeCustomerId } from '../src/db.js';
 
 const USAGE_URL = 'https://worker.test/v1/account/usage';
 
@@ -100,7 +100,7 @@ describe('GET /v1/account/usage -- response shape', () => {
     });
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(
-      ['billingStatus', 'captures', 'gracePeriodEnd', 'hasPaymentMethod', 'period', 'resetsAt', 'storageBytes', 'tenantId'].sort(),
+      ['billing', 'billingStatus', 'captures', 'gracePeriodEnd', 'hasPaymentMethod', 'period', 'resetsAt', 'storageBytes', 'tenantId'].sort(),
     );
   });
 
@@ -337,5 +337,90 @@ describe('GET /v1/account/usage -- resetsAt', () => {
     expect(d.getUTCHours()).toBe(0);
     expect(d.getUTCMinutes()).toBe(0);
     expect(d.getUTCSeconds()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Billing data
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/account/usage -- billing data', () => {
+  const ip = nextIp();
+  const period = computePeriod();
+
+  it('free tenant with 0 captures: amount 0, tier_0, threshold not met', async () => {
+    const { cookie } = await createTosSession();
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
+    });
+    const { billing } = await res.json();
+    expect(billing.currentCharges.amount).toBe(0);
+    expect(billing.currentCharges.currency).toBe('EUR');
+    expect(billing.tier.id).toBe('tier_0');
+    expect(billing.invoiceThreshold.met).toBe(false);
+  });
+
+  it('free tenant with 150 captures: amount 0, tier_0, threshold not met', async () => {
+    const { cookie, tenantId } = await createTosSession();
+    await seedUsageCounter(env.DB, { tenantId, period, captureCount: 150 });
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
+    });
+    const { billing } = await res.json();
+    expect(billing.currentCharges.amount).toBe(0);
+    expect(billing.tier.id).toBe('tier_0');
+    expect(billing.invoiceThreshold.met).toBe(false);
+  });
+
+  it('paid tenant with 250 captures: amount 2.50, tier_1, threshold not met', async () => {
+    const { cookie, tenantId } = await createTosSession();
+    await setStripeCustomerId(env.DB, tenantId, 'cus_billing_250');
+    await setPaymentMethodAdded(env.DB, tenantId);
+    await seedUsageCounter(env.DB, { tenantId, period, captureCount: 250 });
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
+    });
+    const { billing } = await res.json();
+    // tiers 1-200 free (tier_0), 201-250 = 50 * 0.05 = 2.50
+    expect(billing.currentCharges.amount).toBe(2.50);
+    expect(billing.currentCharges.currency).toBe('EUR');
+    expect(billing.tier.id).toBe('tier_1');
+    expect(billing.invoiceThreshold.met).toBe(false);
+  });
+
+  it('paid tenant with 10500 captures: amount 507.50, tier_2, threshold met', async () => {
+    const { cookie, tenantId } = await createTosSession();
+    await setStripeCustomerId(env.DB, tenantId, 'cus_billing_10500');
+    await setPaymentMethodAdded(env.DB, tenantId);
+    await seedUsageCounter(env.DB, { tenantId, period, captureCount: 10500 });
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
+    });
+    const { billing } = await res.json();
+    // 1-200 free, 201-10000 = 9800 * 0.05 = 490, 10001-10500 = 500 * 0.035 = 17.50
+    // total = 507.50
+    expect(billing.currentCharges.amount).toBe(507.50);
+    expect(billing.tier.id).toBe('tier_2');
+    expect(billing.invoiceThreshold.met).toBe(true);
+  });
+
+  it('billing.tiers is always an array of 4 tiers', async () => {
+    const { cookie } = await createTosSession();
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
+    });
+    const { billing } = await res.json();
+    expect(Array.isArray(billing.tiers)).toBe(true);
+    expect(billing.tiers).toHaveLength(4);
+  });
+
+  it('billing.invoiceThreshold.amount is 5.00', async () => {
+    const { cookie } = await createTosSession();
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: { Cookie: cookie, 'CF-Connecting-IP': ip },
+    });
+    const { billing } = await res.json();
+    expect(billing.invoiceThreshold.amount).toBe(5.00);
+    expect(billing.invoiceThreshold.currency).toBe('EUR');
   });
 });

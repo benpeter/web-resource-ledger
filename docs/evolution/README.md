@@ -69,3 +69,4 @@ software development.
 | [0057-e2e-test-suite-playwright](0057-e2e-test-suite-playwright/) | Playwright e2e test suite: 10 tests across 6 specs, CI workflow, staging tenant provisioning (Issue #105) |
 | [0058-stripe-usage-billing](0058-stripe-usage-billing/) | Stripe usage-based billing: checkout, portal, webhook handlers, D1 billing columns, grace period logic (Issue #106) |
 | [0059-scheduled-captures-cron](0059-scheduled-captures-cron/) | Scheduled captures with Cron Triggers: CRUD API, fan-out handler, per-tenant limits, web UI panel (Issue #107) |
+| [0060-capture-metering-stripe-pipeline](0060-capture-metering-stripe-pipeline/) | Capture metering to Stripe pipeline: hourly batch reporter, graduated pricing, billing dashboard endpoint (Issue #108) |
