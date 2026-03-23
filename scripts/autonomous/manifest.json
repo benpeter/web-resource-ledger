@@ -281,6 +281,32 @@
       "act_last": false
     },
     {
+      "phase": "0073",
+      "item": "R41",
+      "issue": 141,
+      "title": "FRE 902(13) certification document",
+      "act": 5,
+      "budget_usd": 40,
+      "depends_on": [
+        "0047",
+        "0049"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0074",
+      "item": "R42",
+      "issue": 142,
+      "title": "Legal-evidence positioning (landing + docs)",
+      "act": 5,
+      "budget_usd": 30,
+      "depends_on": [
+        "0051",
+        "0052"
+      ],
+      "act_last": false
+    },
+    {
       "phase": "0072",
       "item": "R36",
       "issue": 111,
