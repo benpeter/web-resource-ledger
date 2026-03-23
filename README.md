@@ -65,15 +65,17 @@ Your captures are always accessible. Use `GET /v1/captures` to list them, or sav
 #### Step 2: Poll for completion
 
 ```bash
-curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status \
+  -H "Authorization: Bearer $WRL_API_KEY"
 ```
 
-No auth required -- the capture ID acts as the access secret. Poll until `status` is `complete` or `failed`. The response includes a `captureUrl` when complete.
+Poll until `status` is `complete` or `failed`. The response includes a `captureUrl` when complete.
 
 #### Step 3: Retrieve artifacts
 
 ```bash
-curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
+  -H "Authorization: Bearer $WRL_API_KEY"
 ```
 
 Returns metadata and signed artifact URLs (screenshot, html, headers, wacz) plus a `verifyUrl`.
@@ -86,7 +88,28 @@ curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b
 
 Returns a JSON verification result with up to four checks: `artifactHashes`, `bundleHash`, `signature`, and (for new captures) `timestamp`. The timestamp check verifies an RFC 3161 independent timestamp obtained at capture time. Legacy captures return three checks. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
 
-The `verifyUrl` is safe to share publicly. The capture ID grants full access to all artifacts without authentication -- treat it as a secret. Anyone with the ID can view the capture.
+The `verifyUrl` is safe to share publicly. To share artifact access with others, use share tokens (see [Sharing captures](#sharing-captures) below) rather than distributing your API key.
+
+#### Sharing captures
+
+Share tokens provide delegated read-only access to a specific capture without exposing your API key. Generate a share link with an expiry:
+
+```bash
+curl -X POST https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/share \
+  -H "Authorization: Bearer $WRL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"expiresIn": 86400}'
+```
+
+```json
+{
+  "token": "wrl_share_...",
+  "shareUrl": "https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6?token=wrl_share_...",
+  "expiresAt": "2024-01-16T10:30:00.000Z"
+}
+```
+
+Omit `expiresIn` to create a permanent token. Share the `shareUrl` directly -- recipients can access the capture and all its artifacts without an API key. For public proof-of-authenticity links, share the `verifyUrl` instead (no token needed; verify is always public).
 
 #### Offline verification
 
@@ -100,7 +123,7 @@ See [`packages/verify/`](packages/verify/) for details.
 
 #### Finding and sharing captures
 
-**Finding captures:** `GET /v1/captures` lists your captures (requires your API key). Use it to browse and recover capture IDs. **Sharing captures:** The capture ID in any URL works without authentication. Share verification URLs freely.
+**Finding captures:** `GET /v1/captures` lists your captures (requires your API key). Use it to browse and recover capture IDs.
 
 ```bash
 curl https://api.webresourceledger.com/v1/captures \

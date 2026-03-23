@@ -65,7 +65,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
 | ~~[consider] Billing-tier-based limits~~ | Superseded: usage-based pricing model adopted 2026-03-23 (no tiers). See R29/R31 for billing implementation. | Phase 0045 |
 | ~~[consider] OAuth for web UI~~ | ~~R17 shipped with API key auth~~ -- DONE (Phase 0055): GitHub OAuth self-serve signup, dual-auth boot (session + API key), account settings with key CRUD | security-minion, kickoff, Phase 0049 |
-| [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
+| ~~[should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant~~ | ~~When a second tenant is onboarded~~ -- DONE: retrieval endpoints now require tenant auth or share token; cross-tenant returns 404; SECURITY.md updated | security-minion, Phase 0037 |
+| [consider] Share token revocation API | When tenants report needing to invalidate a shared link before expiry | Phase 0062, out-of-scope |
+| [consider] Share token access analytics (access counts, last-used tracking) | When tenants need visibility into how shared links are being used | Phase 0062, out-of-scope |
+| [consider] Auto-share tenant configuration (auto-generate share token on capture complete) | When tenants want capture results shared externally without a manual step | Phase 0062, out-of-scope |
 
 ### Signing and Legal
 
