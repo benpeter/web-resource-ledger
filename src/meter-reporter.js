@@ -39,12 +39,13 @@ export async function reportPendingMeterEvents(env, ctx) {
   // Query paid tenants with unreported usage in the two most recent periods.
   const { results } = await env.DB.prepare(`
     SELECT uc.tenant_id, uc.period, uc.capture_count, uc.reported_capture_count,
+           uc.eidas_capture_count, uc.reported_eidas_count,
            t.stripe_customer_id
     FROM usage_counters uc
     JOIN tenants t ON t.id = uc.tenant_id
     WHERE t.stripe_customer_id IS NOT NULL
       AND t.payment_method_added_at IS NOT NULL
-      AND uc.capture_count > uc.reported_capture_count
+      AND (uc.capture_count > uc.reported_capture_count OR uc.eidas_capture_count > uc.reported_eidas_count)
       AND uc.period IN (?, ?)
   `).bind(current, prev).all();
 
@@ -58,54 +59,112 @@ export async function reportPendingMeterEvents(env, ctx) {
   let failedCount = 0;
 
   for (const row of results) {
-    const { tenant_id: tenantId, period, capture_count: captureCount, reported_capture_count: reportedCaptureCount, stripe_customer_id: stripeCustomerId } = row;
-    const delta = captureCount - reportedCaptureCount;
-    if (delta <= 0) continue;
+    const {
+      tenant_id: tenantId,
+      period,
+      capture_count: captureCount,
+      reported_capture_count: reportedCaptureCount,
+      eidas_capture_count: eidasCaptureCount,
+      reported_eidas_count: reportedEidasCount,
+      stripe_customer_id: stripeCustomerId,
+    } = row;
 
-    // Idempotency key encodes the exact snapshot -- safe to retry with the same key.
-    const identifier = `wrl-meter:${tenantId}:${period}:${captureCount}`;
+    // --- captures meter ---
+    const captureDelta = captureCount - reportedCaptureCount;
+    if (captureDelta > 0) {
+      const identifier = `wrl-meter:${tenantId}:${period}:captures:${captureCount}`;
+      try {
+        await reportMeterEvent(env, {
+          event_name: 'captures',
+          payload: {
+            stripe_customer_id: stripeCustomerId,
+            value: String(captureDelta),
+          },
+          identifier,
+          timestamp: Math.floor(Date.now() / 1000),
+        });
 
-    try {
-      await reportMeterEvent(env, {
-        event_name: 'captures',
-        payload: {
-          stripe_customer_id: stripeCustomerId,
-          value: String(delta),
-        },
-        identifier,
-        timestamp: Math.floor(Date.now() / 1000),
-      });
+        const now = new Date().toISOString();
+        await env.DB.prepare(
+          `UPDATE usage_counters
+           SET reported_capture_count = ?, last_reported_at = ?
+           WHERE tenant_id = ? AND period = ?`,
+        ).bind(captureCount, now, tenantId, period).run();
 
-      // Advance the watermark to the snapshot value used for this event.
-      const now = new Date().toISOString();
-      await env.DB.prepare(
-        `UPDATE usage_counters
-         SET reported_capture_count = ?, last_reported_at = ?
-         WHERE tenant_id = ? AND period = ?`,
-      ).bind(captureCount, now, tenantId, period).run();
+        log(env, 3, 'meter', {
+          event: 'meter.report_success',
+          meter: 'captures',
+          tenantId,
+          period,
+          delta: captureDelta,
+          identifier,
+          previousWatermark: reportedCaptureCount,
+        });
 
-      log(env, 3, 'meter', {
-        event: 'meter.report_success',
-        tenantId,
-        period,
-        delta,
-        identifier,
-        previousWatermark: reportedCaptureCount,
-      });
+        reportedCount++;
+      } catch (err) {
+        log(env, 5, 'meter', {
+          event: 'meter.report_fail',
+          meter: 'captures',
+          tenantId,
+          period,
+          errorMessage: String(err?.message ?? '').slice(0, 256),
+          httpStatus: err?.status ?? null,
+          stripeErrorType: err?.stripeErrorType ?? null,
+          captureCount,
+          reportedCaptureCount,
+        });
+        failedCount++;
+      }
+    }
 
-      reportedCount++;
-    } catch (err) {
-      log(env, 5, 'meter', {
-        event: 'meter.report_fail',
-        tenantId,
-        period,
-        errorMessage: String(err?.message ?? '').slice(0, 256),
-        httpStatus: err?.status ?? null,
-        stripeErrorType: err?.stripeErrorType ?? null,
-        captureCount,
-        reportedCaptureCount,
-      });
-      failedCount++;
+    // --- eidas_timestamps meter ---
+    const eidasDelta = eidasCaptureCount - reportedEidasCount;
+    if (eidasDelta > 0) {
+      const identifier = `wrl-meter:${tenantId}:${period}:eidas:${eidasCaptureCount}`;
+      try {
+        await reportMeterEvent(env, {
+          event_name: 'eidas_timestamps',
+          payload: {
+            stripe_customer_id: stripeCustomerId,
+            value: String(eidasDelta),
+          },
+          identifier,
+          timestamp: Math.floor(Date.now() / 1000),
+        });
+
+        const now = new Date().toISOString();
+        await env.DB.prepare(
+          `UPDATE usage_counters
+           SET reported_eidas_count = ?, last_reported_at = ?
+           WHERE tenant_id = ? AND period = ?`,
+        ).bind(eidasCaptureCount, now, tenantId, period).run();
+
+        log(env, 3, 'meter', {
+          event: 'meter.report_success',
+          meter: 'eidas_timestamps',
+          tenantId,
+          period,
+          delta: eidasDelta,
+          identifier,
+          previousWatermark: reportedEidasCount,
+        });
+
+        reportedCount++;
+      } catch (err) {
+        log(env, 5, 'meter', {
+          event: 'meter.report_fail',
+          meter: 'eidas_timestamps',
+          tenantId,
+          period,
+          errorMessage: String(err?.message ?? '').slice(0, 256),
+          httpStatus: err?.status ?? null,
+          stripeErrorType: err?.stripeErrorType ?? null,
+          eidasCaptureCount,
+          reportedEidasCount,
+        });
+        failedCount++;
+      }
     }
   }
 

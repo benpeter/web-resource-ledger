@@ -70,7 +70,7 @@ export async function checkQuota(db, tenantId, count = 1) {
 
   const [tenantResult, usageResult] = await db.batch([
     db.prepare(
-      'SELECT tier, config, payment_method_added_at, billing_status, grace_period_end FROM tenants WHERE id = ?',
+      'SELECT tier, config, payment_method_added_at, billing_status, grace_period_end, eidas_qualified FROM tenants WHERE id = ?',
     ).bind(tenantId),
     db.prepare(
       'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
@@ -83,6 +83,7 @@ export async function checkQuota(db, tenantId, count = 1) {
   const billingStatus        = tenant.billing_status ?? 'active';
   const gracePeriodEnd       = tenant.grace_period_end ?? null;
   const hasPaymentMethod     = tenant.payment_method_added_at != null;
+  const eidasQualified       = Boolean(tenant.eidas_qualified);
   const config               = tenant.config ? JSON.parse(tenant.config) : null;
 
   // Hard block: tenant has been cut off from captures.
@@ -102,9 +103,10 @@ export async function checkQuota(db, tenantId, count = 1) {
     const captureCount = usage?.capture_count ?? 0;
     const storageBytes = usage?.storage_bytes ?? 0;
     return {
-      allowed:       true,
+      allowed:         true,
       billingStatus,
       hasPaymentMethod,
+      eidasQualified,
       captureCount,
       storageBytes,
       period,
@@ -150,6 +152,7 @@ export async function checkQuota(db, tenantId, count = 1) {
     storageBytes,
     billingStatus,
     hasPaymentMethod,
+    eidasQualified,
     period,
   };
 }

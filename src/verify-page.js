@@ -328,19 +328,21 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
   var SVG_CHECK_SM = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" clip-rule="evenodd"/></svg>';
 
   var CHECK_LABELS = {
-    artifactHashes:  'File integrity',
-    bundleHash:      'Bundle integrity',
-    signature:       'Digital signature',
-    timestamp:       'Independent time verification',
-    consentHandling: 'Cookie consent handled',
+    artifactHashes:     'File integrity',
+    bundleHash:         'Bundle integrity',
+    signature:          'Digital signature',
+    timestamp:          'Independent time verification',
+    qualifiedTimestamp: 'Qualified timestamp (eIDAS)',
+    consentHandling:    'Cookie consent handled',
   };
 
   var CHECK_DESCS = {
-    artifactHashes:  'Confirms individual captured files have not been modified.',
-    bundleHash:      'Confirms the overall archive bundle has not been altered.',
-    signature:       'Confirms the bundle was signed by the capture service.',
-    timestamp:       'Time was recorded by an independent authority (not verified cryptographically).',
-    consentHandling: 'The capture dismissed a cookie consent banner to reveal the page content.',
+    artifactHashes:     'Confirms individual captured files have not been modified.',
+    bundleHash:         'Confirms the overall archive bundle has not been altered.',
+    signature:          'Confirms the bundle was signed by the capture service.',
+    timestamp:          'Time was recorded by an independent authority (not verified cryptographically).',
+    qualifiedTimestamp: 'Qualified electronic timestamp from an EU Trusted List TSA (eIDAS Art. 41).',
+    consentHandling:    'The capture dismissed a cookie consent banner to reveal the page content.',
   };
 
   function safeUrl(raw) {

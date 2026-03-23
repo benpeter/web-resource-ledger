@@ -277,7 +277,7 @@ describe('idempotency key format', () => {
 
     const [[, opts]] = mock.mock.calls.filter(([u]) => String(u).includes('meter_events'));
     const body = new URLSearchParams(opts.body);
-    expect(body.get('identifier')).toBe(`wrl-meter:${tenantId}:${period}:77`);
+    expect(body.get('identifier')).toBe(`wrl-meter:${tenantId}:${period}:captures:77`);
   });
 });
 

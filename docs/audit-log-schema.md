@@ -34,6 +34,8 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `capture.key_archive_fail` | capture | 4 (warn) | Signing key archive failed |
 | `capture.consent_error` | capture | 4 (warn) | Cookie consent dismissal error |
 | `capture.tsa_fail` | capture | 4 (warn) | RFC 3161 timestamp request failed |
+| `capture.qtsa_fail` | capture | 4 (warn) | Qualified (eIDAS) RFC 3161 timestamp request failed; capture completes with `qualifiedTimestampStatus: 'error'` |
+| `tenant.settings_change` | admin | 3 (info) | Tenant settings updated (e.g., `eidas_qualified` toggled); `changedFields` lists modified keys |
 | `admin.key_create` | admin | 3 (info) | API key provisioned |
 | `admin.key_create_fail` | admin | 5 (error) | Key creation failed (hash collision) |
 | `admin.key_list` | admin | 3 (info) | Admin listed API keys |
@@ -92,6 +94,7 @@ fewer fields.
 | `deliveryStatus` | number | HTTP status code from endpoint (delivery events) |
 | `deliveryLatencyMs` | number | Round-trip latency in ms (delivery events) |
 | `threatTypes` | string[] | Threat categories returned by the Web Risk API (e.g., `['MALWARE']`, `['SOCIAL_ENGINEERING']`); present on `threatcheck.block` and `threatcheck.quarantine` events |
+| `qualifiedTimestampStatus` | string | Status of the qualified (eIDAS) timestamp attempt: `'ok'`, `'error'`, or `'skipped'` (tenant does not have `eidas_qualified` enabled) |
 | `context` | string | Execution context for `threatcheck.api_fail`: `'pre_capture'` (user-facing, blocking) or `'rescan'` (background, non-blocking) |
 | `scannedCount` | number | Number of captures scanned in a re-scan batch (`threatcheck.rescan_tick`) |
 | `flaggedCount` | number | Number of captures quarantined in a re-scan batch (`threatcheck.rescan_tick`) |

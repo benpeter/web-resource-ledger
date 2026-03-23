@@ -30,6 +30,12 @@ export const VOLUME_TIERS = [
  */
 export const INVOICE_THRESHOLD_EUR = 5.00;
 
+/** eIDAS qualified timestamp add-on: flat rate per capture after free tier */
+export const EIDAS_UNIT_PRICE_EUR = 0.10;
+
+/** Free eIDAS timestamp allowance (matches Stripe graduated pricing: first 50 free) */
+export const EIDAS_FREE_LIMIT = 50;
+
 /**
  * @typedef {Object} ChargeResult
  * @property {number} amount       - Total charge in EUR, rounded to 2 decimal places.

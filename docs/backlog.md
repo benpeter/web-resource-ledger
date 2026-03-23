@@ -74,13 +74,16 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| ~~[consider] eIDAS Qualified TSA~~ | Activated: moved to Act 5 as R40. Sectigo free qualified endpoint for launch, qtsa.eu prepaid for scale. Per-account opt-in, +$0.10/capture. | gru, kickoff |
+| ~~[consider] eIDAS Qualified TSA~~ | ~~Activated: moved to Act 5 as R40~~ -- DONE (Phase 0063): account-level opt-in, dual-TSA WACZ assembly, verification, Stripe billing meter, settings API + UI (Issue #138) | gru, kickoff |
 | [consider] WACZ-Auth full spec compliance | When a production toolchain consumes WACZ-Auth signatures | gru, kickoff |
 | [consider] Multiple TSAs for redundancy | 6+ months after R11 ships; based on observed TSA reliability | gru, kickoff |
 | [consider] HSM-backed key storage | When FIPS 140-2 Level 3 explicitly required or multi-tenant key management at scale | security-minion, kickoff |
 | [consider] CRL/OCSP revocation checking in CLI verify | When a TSA certificate revocation incident occurs or compliance requires it; offline requirement conflicts | security-minion, 0034-cli-verify-tool |
 | ~~[should] Publish @w-r-l/verify to npm~~ | ~~Done: CI automation in place (#98, 0050)~~ | ~~devx-minion, 0034-cli-verify-tool~~ |
 | [consider] OIDC Trusted Publishing for npm | When Node 24+ ships npm 11+; eliminates token rotation | security-minion, 0050-npm-publish-ci-automation |
+| [consider] Verify Sectigo qualified TSA endpoint URL | Before production eIDAS rollout; placeholder URL may need correction | Phase 0063, gru |
+| [consider] Provision QUALIFIED_TSA_AUTH secrets (staging + production) | Before production eIDAS rollout; manual ops step via wrangler secret put | Phase 0063, iac-minion |
+| [consider] Dedicated eIDAS integration test suite | When eIDAS feature is production-ready; mock qualified TSA responses | Phase 0063, test-minion |
 
 ### Capture Fidelity
 

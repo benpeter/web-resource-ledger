@@ -20,7 +20,7 @@ import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePin
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
-import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage } from './account.js';
+import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage, handleGetSettings, handleUpdateSettings } from './account.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
@@ -98,6 +98,8 @@ const routes = [
   ['DELETE', /^\/v1\/account\/keys\/([a-f0-9]{64})$/, handleAccountRevokeKey],
   ['POST',   /^\/v1\/account\/tos$/, handleAccountAcceptTos],
   ['GET',    /^\/v1\/account\/usage$/, handleAccountGetUsage],
+  ['GET',    /^\/v1\/account\/settings$/, handleGetSettings],
+  ['PATCH',  /^\/v1\/account\/settings$/, handleUpdateSettings],
   // Billing routes (session-gated in fetch handler via /v1/account/ prefix check)
   ['POST',   /^\/v1\/billing\/checkout$/, handleBillingCheckout],
   ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
@@ -130,7 +132,7 @@ function getRateLimitGroup(method, pathname) {
 // ---------------------------------------------------------------------------
 
 async function handleCaptureMessage(msg, env, ctx) {
-  const { url, ip, captureId, tenantId, cip, enqueuedAt, scheduleId } = msg.body ?? {};
+  const { url, ip, captureId, tenantId, cip, enqueuedAt, scheduleId, qualifiedTimestamps } = msg.body ?? {};
 
   // Defense-in-depth: validate message structure before trusting it
   const valid =
@@ -184,7 +186,7 @@ async function handleCaptureMessage(msg, env, ctx) {
 
   let result;
   try {
-    result = await performCapture(env, url, ip, captureId, tenantId, cip, undefined, msg.attempts);
+    result = await performCapture(env, url, ip, captureId, tenantId, cip, undefined, msg.attempts, qualifiedTimestamps);
   } catch (err) {
     // Catastrophic error (OOM, binding failure, etc.)
     // max_retries=3 in wrangler.toml → up to 4 deliveries (attempts 1-4)
@@ -203,10 +205,12 @@ async function handleCaptureMessage(msg, env, ctx) {
   }
 
   if (result.ok === true) {
+    const eidasCaptures = result.qualifiedTimestampStatus === 'present' ? 1 : 0;
     ctx.waitUntil(
       incrementUsage(env.DB, tenantId, {
         captures: 1,
         storageBytes: result.storedBytes || 0,
+        eidasCaptures,
       }).then(() =>
         log(env, 3, 'usage', {
           event: 'usage.counter_incremented',
@@ -214,6 +218,7 @@ async function handleCaptureMessage(msg, env, ctx) {
           captureId,
           captures: 1,
           storageBytes: result.storedBytes || 0,
+          eidasCaptures,
         })
       ).catch((err) => {
         console.warn('wrl:usage_increment_fail', { captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
@@ -434,7 +439,7 @@ export default {
               response = problemResponse(403, 'You must accept the Terms of Service before using account endpoints.');
             }
             // CSRF check for mutations
-            if (!response && (request.method === 'POST' || request.method === 'DELETE')) {
+            if (!response && (request.method === 'POST' || request.method === 'DELETE' || request.method === 'PATCH')) {
               if (!request.headers.has('X-WRL-CSRF')) {
                 response = problemResponse(403, 'CSRF header X-WRL-CSRF is required for mutations');
               }
@@ -843,10 +848,14 @@ async function handleCreateCapture(request, env, ctx) {
   }) ?? Promise.resolve());
 
   // Step 10a: Dispatch to queue
+  // eIDAS setting captured at quota-check time (quotaCheck.eidasQualified) —
+  // no extra D1 round-trip. Legacy auth tenants cannot enable eIDAS (requires payment method).
+  const eidasQualified = quotaCheck?.eidasQualified ?? false;
   try {
     await env.CAPTURE_QUEUE.send({
       captureId, url: result.url, ip: result.ip, tenantId, cip,
       enqueuedAt: Date.now(),
+      qualifiedTimestamps: eidasQualified,
     });
   } catch (err) {
     await failCapture(env.DB, captureId, 'Queue dispatch failed', true);
@@ -1347,6 +1356,12 @@ async function handleListCaptures(request, env, ctx) {
     if (r.status === 'complete') {
       summary.completedAt = r.completedAt;
       summary.renderQuality = r.renderQuality ?? 'full';
+      if (r.wacz) {
+        summary.timestamps = {
+          standard: r.wacz.timestampStatus === 'present',
+          qualified: r.wacz.qualifiedTimestampStatus === 'present',
+        };
+      }
     } else if (r.status === 'failed') {
       summary.failedAt = r.failedAt;
       summary.error = r.error;
@@ -1528,6 +1543,10 @@ async function handleGetCapture(request, env, ctx, match) {
       bundleHash: record.wacz.bundleHash,
     };
     body.verifyUrl = `${base}/v1/verify/${captureId}`;
+    body.timestamps = {
+      standard: record.wacz.timestampStatus === 'present',
+      qualified: record.wacz.qualifiedTimestampStatus === 'present',
+    };
   }
 
   return jsonResponse(body, 200, {

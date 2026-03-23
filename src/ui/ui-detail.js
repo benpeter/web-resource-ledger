@@ -141,6 +141,21 @@ function buildMetadataSection(data) {
     addDataRow(grid, 'Render Quality', data.renderQuality);
   }
 
+  // Timestamp status (only when WACZ is present and timestamps field exists)
+  if (data.wacz && data.timestamps) {
+    var tsSpan = document.createElement('span');
+    if (data.timestamps.qualified === true) {
+      tsSpan.textContent = 'Qualified (eIDAS)';
+      tsSpan.className = 'text-success';
+    } else if (data.timestamps.standard === true) {
+      tsSpan.textContent = 'Standard (RFC 3161)';
+    } else {
+      tsSpan.textContent = 'Not available';
+      tsSpan.className = 'text-muted';
+    }
+    addDataRow(grid, 'Timestamp', tsSpan);
+  }
+
   section.appendChild(grid);
   return section;
 }

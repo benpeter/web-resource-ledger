@@ -1,6 +1,6 @@
 # Coralogix Alert Rules
 
-WRL uses six Coralogix alert rules to monitor production health.
+WRL uses seven Coralogix alert rules to monitor production health.
 All alerts send email notifications to bp@ben-peter.com with a 60-minute
 retriggering suppression window (one email per hour maximum during sustained issues).
 
@@ -49,6 +49,28 @@ blip. P3 priority because the operator's response is "wait and monitor" — ther
 is nothing to fix on the WRL side.
 
 **Runbook:** [tsa-failures.md](runbooks/tsa-failures.md)
+
+---
+
+### [WRL] Qualified TSA Failures
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"capture.qtsa_fail"` (app: wrl, subsystem: capture) |
+| **Threshold** | > 2 events in 10 minutes |
+| **Priority** | P2 (Medium) |
+
+**What it monitors:** Failures from the Sectigo qualified (eIDAS) TSA endpoint.
+eIDAS-enabled captures complete but without a qualified timestamp, recording
+`qualifiedTimestampStatus: 'error'`. No capture data is lost but the legal
+evidentiary value of the timestamp is degraded.
+
+**Threshold rationale:** Mirrors the standard TSA alert — two failures in 10
+minutes rules out a transient network blip. P2 (not P3) because qualified
+timestamps are a tenant-facing feature commitment; degraded timestamps affect
+tenants who have paid for eIDAS-level compliance.
+
+**Runbook:** [qualified-tsa-failures.md](runbooks/qualified-tsa-failures.md)
 
 ---
 

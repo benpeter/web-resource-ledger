@@ -39,6 +39,7 @@ export default defineWorkersConfig({
             CORS_ORIGINS: 'https://allowed.example.com,https://other-allowed.example.com',
             IP_HASH_SEED: 'test-ip-hash-seed-for-vitest',
             TSA_URL: 'http://timestamp.digicert.com',
+            QUALIFIED_TSA_URL: 'https://qualified-tsa.test.invalid',
             GITHUB_CLIENT_ID: 'test-github-client-id',
             GITHUB_CLIENT_SECRET: 'test-github-client-secret',
             SESSION_SECRET: 'deadbeef'.repeat(8),
