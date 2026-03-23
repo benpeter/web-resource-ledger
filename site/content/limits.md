@@ -26,7 +26,7 @@ Each tenant is assigned a tier that determines their monthly limits.
 
 | Tier | Captures / month | Storage |
 |---|---|---|
-| Starter (free) | 100 | 1 GB |
+| Starter (free) | 200 | 1 GB |
 | Pro | 5,000 | 50 GB |
 
 ### Checking Usage
@@ -71,8 +71,8 @@ Content-Type: application/json
   "limitType": "quota",
   "quota": {
     "resource": "captures",
-    "limit": 100,
-    "used": 100,
+    "limit": 200,
+    "used": 200,
     "remaining": 0,
     "resetsAt": "2026-04-01T00:00:00.000Z"
   }

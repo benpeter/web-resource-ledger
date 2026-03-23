@@ -6,7 +6,7 @@
 import { computePeriod } from './db.js';
 
 export const TIER_QUOTAS = {
-  free: { capturesPerMonth: 100,  storageBytes: 1  * 1024 * 1024 * 1024 },  // 1 GB
+  free: { capturesPerMonth: 200,  storageBytes: 1  * 1024 * 1024 * 1024 },  // 1 GB
   pro:  { capturesPerMonth: 5000, storageBytes: 50 * 1024 * 1024 * 1024 },  // 50 GB
 };
 
