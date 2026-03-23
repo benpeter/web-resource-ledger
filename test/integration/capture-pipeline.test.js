@@ -251,8 +251,75 @@ describe('integration: timeout budget and stage timings', () => {
     expect(record.render?.stages).toBeDefined();
     expect(record.render.stages.navigationMs).toBeDefined();
     expect(record.render.stages.settleMs).toBeDefined();
+    expect(record.render.stages.scrollMs).toBeDefined();
     expect(record.render.stages.consentMs).toBeDefined();
     expect(record.render.stages.screenshotMs).toBeDefined();
     expect(record.render.stages.contentMs).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error page detection: Chromium error page fixture
+// ---------------------------------------------------------------------------
+
+describe('integration: error page detection', () => {
+  const captureId = 'cap_inttest00000000000000000000a7';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('fails capture when page contains Chromium error interstitial', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/error-page.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(false);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('failed');
+    expect(record.error).toContain('chromium-error-page');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lazy-load triggering: below-fold images
+// ---------------------------------------------------------------------------
+
+describe('integration: lazy-load triggering', () => {
+  const captureId = 'cap_inttest00000000000000000000a8';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('captures page with lazy images and includes scrollMs in stages', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/lazy-images.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('full');
+    expect(record.render?.stages?.scrollMs).toBeDefined();
+    expect(record.render.stages.scrollMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('rendered HTML contains below-fold content', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/lazy-images.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    const htmlObj = await env.BUCKET.get(record.artifacts.html);
+    const html = await htmlObj.text();
+    expect(html).toContain('below-fold-marker');
   });
 });

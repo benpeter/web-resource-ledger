@@ -210,8 +210,10 @@ function updateCount() {
   var shown = _captures.length;
   if (_totalCount > 0) {
     _countEl.textContent = 'Showing ' + shown + ' of ' + _totalCount + ' capture' + (_totalCount !== 1 ? 's' : '');
+    _countEl.style.display = '';
   } else {
     _countEl.textContent = '';
+    _countEl.style.display = 'none';
   }
 }
 

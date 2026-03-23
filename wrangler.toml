@@ -254,7 +254,9 @@ max_batch_size = 1
 max_batch_timeout = 5
 max_retries = 3
 dead_letter_queue = "wrl-captures-staging-dlq"
-max_concurrency = 5
+# Match browser session pool limit -- queue holds excess messages instead of
+# delivering work that fails with "session pool at capacity"
+max_concurrency = 2
 
 [[env.staging.queues.producers]]
 binding = "CAPTURE_DLQ"

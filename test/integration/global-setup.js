@@ -28,11 +28,24 @@ export async function setup({ provide }) {
       return;
     }
 
+    // 1x1 transparent PNG for lazy-image tests
+    if (url.pathname === '/lazy-pixel.png') {
+      const pixel = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        'base64',
+      );
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': pixel.length });
+      res.end(pixel);
+      return;
+    }
+
     const fixtureMap = {
       '/fast.html': 'fast.html',
       '/never-settle.html': 'never-settle.html',
       '/cookie-banner.html': 'cookie-banner.html',
       '/with-iframe.html': 'with-iframe.html',
+      '/error-page.html': 'error-page.html',
+      '/lazy-images.html': 'lazy-images.html',
     };
 
     const filename = fixtureMap[url.pathname];

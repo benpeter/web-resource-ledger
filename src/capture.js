@@ -12,7 +12,7 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. Consent has a 2s hard timeout within the
- *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle(max) + 2s consent + 2s post ≈ 27s worst-case; in practice load fires in 2-5s).
+ *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle(max) + 2.5s scroll + 2s consent + 2s post ≈ 29.5s worst-case; in practice load fires in 2-5s).
  *   Partial captures skip consent entirely.
  *
  * Called from queue consumer. For retryable errors, does NOT write KV
@@ -81,7 +81,7 @@ import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_SUBRESOURCES = 200;
+const MAX_SUBRESOURCES = 500;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_PAGE_HEIGHT = 8000;
 const NAV_TIMEOUT_MS = 20000;
@@ -369,9 +369,10 @@ async function getOrCreateSession(browserBinding) {
  * or at SETTLE_MAX_MS regardless of activity.
  *
  * @param {import('@cloudflare/playwright').Page} page
+ * @param {number} [maxMs] Hard cap in ms (defaults to SETTLE_MAX_MS)
  * @returns {Promise<{ settleMs: number, settleReason: 'idle'|'cap', pendingAtCap: number }>}
  */
-function waitForSettle(page) {
+function waitForSettle(page, maxMs = SETTLE_MAX_MS) {
   const IGNORED_TYPES = new Set(['websocket', 'eventsource']);
   let inFlight = 0;
   let quiescenceTimer = null;
@@ -390,7 +391,7 @@ function waitForSettle(page) {
       resolve({ settleMs: Date.now() - startMs, settleReason: reason, pendingAtCap: inFlight });
     };
 
-    const capTimer = setTimeout(() => finish('cap'), SETTLE_MAX_MS);
+    const capTimer = setTimeout(() => finish('cap'), maxMs);
 
     const checkQuiescence = () => {
       if (inFlight === 0 && quiescenceTimer === null) {
@@ -450,6 +451,7 @@ async function defaultRenderer(browserBinding, url) {
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 2,
     serviceWorkers: 'block',
   });
 
@@ -597,6 +599,16 @@ async function defaultRenderer(browserBinding, url) {
     if (limitExceeded) throw new Error(limitExceeded);
     const tSettle = Date.now();
 
+    // Validate rendered page is actual content (not Chromium error / blank)
+    const renderCheck = await detectRenderFailure(page);
+    if (renderCheck.failed) {
+      throw new Error(`Captured page is not target content (${renderCheck.reason})`);
+    }
+
+    // Trigger lazy-loaded images by scrolling the viewport
+    const scrollMs = await triggerLazyLoading(page);
+    const tScroll = Date.now();
+
     // Cap screenshot height to prevent memory exhaustion
     const pageHeight = await page.evaluate(() => document.body.scrollHeight);
     if (pageHeight > MAX_PAGE_HEIGHT) {
@@ -660,8 +672,9 @@ async function defaultRenderer(browserBinding, url) {
           contextSetupMs: tContext - tSession,
           navigationMs: tNav - tContext,
           settleMs: tSettle - tNav,
+          scrollMs: tScroll - tSettle,
           consentMs: tConsent - tPreConsent,
-          screenshotMs: (tPreConsent - tSettle) + (tScreenshot - tConsent),
+          screenshotMs: (tPreConsent - tScroll) + (tScreenshot - tConsent),
           contentMs: tContent - tScreenshot,
         },
       },
@@ -682,6 +695,98 @@ async function defaultRenderer(browserBinding, url) {
 }
 
 /**
+ * Checks whether the rendered page is actual content or a browser error /
+ * blank page. Called after navigation + settle, before screenshots.
+ *
+ * Returns { failed: false } for normal pages, or { failed: true, reason }
+ * for error pages that should abort the capture as non-retryable.
+ *
+ * Bot-protection pages (Cloudflare challenge, generic "Access Denied") are
+ * NOT detected here — heuristics false-positive too easily. Those are logged
+ * as warnings by the caller if needed.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<{ failed: boolean, reason?: string }>}
+ */
+async function detectRenderFailure(page) {
+  return page.evaluate(() => {
+    // Chromium error interstitial (dino game page)
+    if (document.querySelector('.interstitial-wrapper')) {
+      return { failed: true, reason: 'chromium-error-page' };
+    }
+    // Chromium network error (ERR_* pages)
+    const mainMsg = document.querySelector('#main-message h1');
+    if (mainMsg) {
+      return { failed: true, reason: `chromium-error: ${mainMsg.textContent.trim().slice(0, 100)}` };
+    }
+    // about: or chrome-error: URL (shouldn't happen but defensive)
+    if (location.protocol === 'about:' || location.protocol === 'chrome-error:') {
+      return { failed: true, reason: 'browser-error-url' };
+    }
+    // Blank page (no meaningful content)
+    const text = document.body?.innerText?.trim() || '';
+    if (text.length === 0 && document.querySelectorAll('img, video, canvas, svg').length === 0) {
+      return { failed: true, reason: 'blank-page' };
+    }
+    return { failed: false };
+  });
+}
+
+/**
+ * Scrolls the page in viewport-height increments to trigger lazy-loaded images
+ * (loading="lazy" and IntersectionObserver-based). Called after settle + error
+ * detection, before the before-screenshot.
+ *
+ * Skipped for partial captures (they already timed out on navigation).
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<number>} scrollMs — time spent scrolling
+ */
+async function triggerLazyLoading(page) {
+  const STEP_PX = 720;
+  const STEP_PAUSE_MS = 150;
+  const MAX_SCROLL_HEIGHT = 12000;
+
+  const start = Date.now();
+  const initialHeight = await page.evaluate(() => document.body.scrollHeight);
+
+  // Skip if page is already short enough to fit in viewport
+  if (initialHeight <= STEP_PX) return Date.now() - start;
+
+  let scrollY = 0;
+  const scrollLimit = Math.min(initialHeight, MAX_SCROLL_HEIGHT);
+
+  while (scrollY < scrollLimit) {
+    scrollY += STEP_PX;
+    await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+    await new Promise((r) => setTimeout(r, STEP_PAUSE_MS));
+
+    // Infinite scroll protection: if document grew beyond threshold, stop
+    const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+    if (currentHeight - initialHeight > MAX_SCROLL_HEIGHT) break;
+  }
+
+  // Force-load all lazy images: switch loading="lazy" to "eager" so the
+  // browser fetches them immediately regardless of viewport position.
+  // Scrolling alone doesn't reliably trigger lazy images -- the browser
+  // cancels fetches for elements that leave the viewport too quickly.
+  await page.evaluate(() => {
+    document.querySelectorAll('img[loading="lazy"]').forEach(img => {
+      img.loading = 'eager';
+      if (img.dataset.src && !img.src) img.src = img.dataset.src;
+    });
+  });
+
+  // Settle: wait for the force-loaded image requests to complete
+  await waitForSettle(page, 3000);
+
+  // Scroll back to top before screenshots
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  return Date.now() - start;
+}
+
+/**
  * Maps an error to a user-facing message and retryable flag.
  * SECURITY: Never expose stack traces or internal error details.
  *
@@ -691,6 +796,9 @@ async function defaultRenderer(browserBinding, url) {
 export function categorizeError(error) {
   const msg = error?.message ?? '';
 
+  if (msg.includes('not target content')) {
+    return { message: msg, retryable: false };
+  }
   if (msg.includes('did not respond')) {
     return { message: 'Target site did not respond (possible bot protection or geo-restriction)', retryable: false };
   }
