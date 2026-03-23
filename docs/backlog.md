@@ -65,7 +65,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
 | ~~[consider] Billing-tier-based limits~~ | Superseded: usage-based pricing model adopted 2026-03-23 (no tiers). See R29/R31 for billing implementation. | Phase 0045 |
 | ~~[consider] OAuth for web UI~~ | ~~R17 shipped with API key auth~~ -- DONE (Phase 0055): GitHub OAuth self-serve signup, dual-auth boot (session + API key), account settings with key CRUD | security-minion, kickoff, Phase 0049 |
-| [should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant | When a second tenant is onboarded; current ID-as-secret model reviewed in SECURITY.md | security-minion, Phase 0037 |
+| ~~[should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant~~ | ~~When a second tenant is onboarded~~ -- DONE: retrieval endpoints now require tenant auth or share token; cross-tenant returns 404; SECURITY.md updated | security-minion, Phase 0037 |
+| [consider] Share token revocation API | When tenants report needing to invalidate a shared link before expiry | Phase 0062, out-of-scope |
+| [consider] Share token access analytics (access counts, last-used tracking) | When tenants need visibility into how shared links are being used | Phase 0062, out-of-scope |
+| [consider] Auto-share tenant configuration (auto-generate share token on capture complete) | When tenants want capture results shared externally without a manual step | Phase 0062, out-of-scope |
 
 ### Signing and Legal
 
@@ -249,6 +252,7 @@ Completed items removed from active tracking:
 - ~~R28: Scheduled captures (cron)~~ -- DONE (Phase 0059): CRUD API (POST/GET/DELETE /v1/schedules), Cloudflare Cron Trigger fan-out every minute, per-tenant schedule limits (default 10, configurable), scheduleId capture linking, web UI schedule panel, 55 tests, `croner` library (Issue #107)
 - ~~R31: Capture metering to Stripe pipeline~~ -- DONE (Phase 0060): hourly batch meter event reporting with idempotency, graduated pricing module (4 tiers), billing sub-object on GET /v1/account/usage, D1 watermark tracking, 32 new tests (Issue #108)
 - ~~R32: Content security scanning~~ -- DONE (Phase 0061): Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement with 451 responses, 2 Coralogix alerts, fail-open degradation (Issue #109)
+- ~~R33: Capture auth gate~~ -- DONE (Phase 0062): tenant auth on all capture retrieval endpoints, share tokens (wrl_share_ prefix, 256-bit, time-limited or permanent), tenant isolation with 404, CLI token propagation, SECURITY.md access model (Issue #110)
 
 ---
 

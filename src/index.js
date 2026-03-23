@@ -25,6 +25,7 @@ import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from 
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
+import { generateShareToken, hashShareToken, createShareToken, getShareTokenByHash, deleteExpiredShareTokens } from './share-tokens.js';
 
 // tva
 
@@ -65,6 +66,7 @@ const routes = [
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
+  ['POST',   /^\/v1\/captures\/(cap_[a-f0-9]{32})\/share$/, handleCreateShare],
   ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',    /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',    /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
@@ -305,6 +307,9 @@ export default {
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
+      ctx.waitUntil(deleteExpiredShareTokens(env.DB).catch((err) => {
+        console.warn('wrl:share_token_cleanup_fail', { errorMessage: String(err?.message ?? '').slice(0, 128) });
+      }));
     }
   },
 
@@ -438,6 +443,58 @@ export default {
             if (!response) {
               env._session = session;
             }
+          }
+        }
+      }
+
+      // Auth gate for capture GET routes (retrieval, status, artifacts).
+      // CRITICAL: /v1/verify/ must NOT be gated -- verify is public by design.
+      // /v1/verify/ uses a different path prefix and is naturally excluded here.
+      const isCaptureGetRoute = (
+        request.method === 'GET' && (
+          pathname.startsWith('/v1/captures/') || pathname === '/v1/captures'
+        )
+      );
+      if (!response && isCaptureGetRoute) {
+        const shareToken = url.searchParams.get('token');
+
+        if (shareToken) {
+          // Share token auth path -- mutually exclusive with API key auth
+          if (!shareToken.trim()) {
+            response = problemResponse(401, 'Invalid or missing authentication');
+          } else {
+            const tokenHash = await hashShareToken(shareToken);
+            const tokenRecord = await getShareTokenByHash(env.DB, tokenHash);
+
+            if (!tokenRecord) {
+              response = problemResponse(401, 'Invalid or missing authentication');
+            } else if (tokenRecord.expiresAt && new Date(tokenRecord.expiresAt) < new Date()) {
+              // Expired tokens return 410 -- token was intentionally shared so Gone is appropriate
+              response = problemResponse(410, 'Share token has expired');
+            } else if (pathname === '/v1/captures') {
+              // Share tokens do not grant list access -- only single-capture access
+              response = problemResponse(401, 'Invalid or missing authentication');
+            } else {
+              // Valid share token -- attach auth context for handler use
+              env._captureAuth = {
+                tenantId: tokenRecord.tenantId,
+                authMethod: 'share_token',
+                scopedCaptureId: tokenRecord.captureId,
+              };
+            }
+          }
+        } else {
+          // Standard tenant auth (API key or session)
+          const auth = await verifyAuth(request, env, { requiredScope: 'read' });
+          if (!auth.ok) {
+            // Propagate the original auth failure response (includes WWW-Authenticate header)
+            response = auth.response;
+          } else {
+            env._captureAuth = {
+              tenantId: auth.tenantId,
+              authMethod: auth.authMethod,
+              scopedCaptureId: null, // tenant can access all their captures
+            };
           }
         }
       }
@@ -1129,13 +1186,14 @@ async function handleListCaptures(request, env, ctx) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
 
-  // Step 1: Auth check
-  const auth = await verifyAuth(request, env, { requiredScope: 'read' });
-  if (!auth.ok) {
-    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: auth.reason, keyHashPrefix: auth.keyHashPrefix || null, responseStatus: auth.response.status, cip }) ?? Promise.resolve());
-    return auth.response;
-  }
-  const { tenantId, keyName, keyHashPrefix, authMethod } = auth;
+  // Step 1: Auth -- provided by the capture GET auth gate in fetch().
+  // Share tokens do not grant list access; the gate rejects them before here.
+  const captureAuth = env._captureAuth;
+  const { tenantId, authMethod } = captureAuth;
+  const keyName = null;
+  const keyHashPrefix = null;
+  // Re-assemble auth-like shape for checkCaptureRateLimit compatibility
+  const auth = { ok: true, tenantId, authMethod, keyName, keyHashPrefix, scopes: ['read'] };
 
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
@@ -1372,18 +1430,40 @@ async function handlePutTenantConfig(request, env, ctx, match) {
   return jsonResponse(saved);
 }
 
-// SECURITY: No authentication required -- capture ID acts as the access secret.
+// SECURITY: Authentication required -- tenant must own the capture.
+// Share tokens grant read-only access to a specific capture via ?token=.
 // Response MUST NOT include: ip, raw R2 keys (artifacts.* values, wacz.key).
 // Static 404 message for all non-200 cases -- no enumeration of ID existence.
-// Cache-Control: private, no-store prevents caching of access-secret responses.
+// Cross-tenant access returns 404 (identical to not-found) to prevent enumeration.
+// Cache-Control: private, no-store prevents caching of authenticated responses.
 async function handleGetCapture(request, env, ctx, match) {
   const captureId = match[1];
+  const captureAuth = env._captureAuth;
 
   const record = await getCapture(env.DB, captureId);
 
-  if (!record || (record.status !== 'complete' && record.status !== 'quarantined')) {
+  // Tenant isolation: check ownership before revealing existence.
+  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
+  if (!record) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
+  if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+  if (record.tenantId !== captureAuth.tenantId) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  if (record.status !== 'complete' && record.status !== 'quarantined') {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  // When accessed via share token, artifact URLs must include the token as a query param
+  // so callers can fetch artifacts without needing a separate API key.
+  const rawToken = captureAuth.authMethod === 'share_token'
+    ? new URL(request.url).searchParams.get('token')
+    : null;
+  const tokenSuffix = rawToken ? `?token=${encodeURIComponent(rawToken)}` : '';
 
   // Quarantined captures: return metadata without artifact URLs
   if (record.status === 'quarantined') {
@@ -1409,14 +1489,14 @@ async function handleGetCapture(request, env, ctx, match) {
   const artifactBase = `${base}/v1/captures/${captureId}/artifacts`;
 
   const artifacts = {
-    screenshot: `${artifactBase}/screenshot`,
-    html: `${artifactBase}/html`,
+    screenshot: `${artifactBase}/screenshot${tokenSuffix}`,
+    html: `${artifactBase}/html${tokenSuffix}`,
   };
   if (record.artifacts?.headers) {
-    artifacts.headers = `${artifactBase}/headers`;
+    artifacts.headers = `${artifactBase}/headers${tokenSuffix}`;
   }
   if (record.artifacts?.screenshotBefore) {
-    artifacts.screenshotBefore = `${artifactBase}/screenshot-before`;
+    artifacts.screenshotBefore = `${artifactBase}/screenshot-before${tokenSuffix}`;
   }
 
   const body = {
@@ -1443,7 +1523,7 @@ async function handleGetCapture(request, env, ctx, match) {
 
   if (record.wacz) {
     body.wacz = {
-      url: `${artifactBase}/wacz`,
+      url: `${artifactBase}/wacz${tokenSuffix}`,
       size: record.wacz.size,
       bundleHash: record.wacz.bundleHash,
     };
@@ -1459,11 +1539,24 @@ async function handleGetCapture(request, env, ctx, match) {
 async function handleGetCaptureArtifact(request, env, ctx, match) {
   const captureId = match[1];
   const artifactName = match[2];
+  const captureAuth = env._captureAuth;
 
   const record = await getCapture(env.DB, captureId);
 
+  // Tenant isolation: check ownership before revealing existence.
+  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
+  if (!record) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+  if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+  if (record.tenantId !== captureAuth.tenantId) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
   // Quarantined captures: return 451 before the generic status check
-  if (record && record.status === 'quarantined') {
+  if (record.status === 'quarantined') {
     return problemResponse(451, 'Capture artifacts restricted due to content security policy', {
       'Cache-Control': 'no-store',
     }, {
@@ -1473,7 +1566,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   }
 
   // SECURITY ADVISORY: check status === 'complete' same as metadata endpoint
-  if (!record || record.status !== 'complete') {
+  if (record.status !== 'complete') {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
 
@@ -1679,11 +1772,19 @@ async function handleGetSigningKeys(request, env, ctx) {
 async function handleCaptureStatus(request, env, ctx, match) {
   // match[1] is validated by regex: cap_[a-f0-9]{32}
   const captureId = match[1];
+  const captureAuth = env._captureAuth;
 
   const record = await getCapture(env.DB, captureId);
 
-  // SECURITY: Static string -- do NOT echo captureId back in response body
+  // Tenant isolation: check ownership before revealing existence.
+  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
   if (!record) return problemResponse(404, 'Capture not found');
+  if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
+    return problemResponse(404, 'Capture not found');
+  }
+  if (record.tenantId !== captureAuth.tenantId) {
+    return problemResponse(404, 'Capture not found');
+  }
 
   const headers = { 'Cache-Control': 'private, no-store' };
 
@@ -1704,7 +1805,13 @@ async function handleCaptureStatus(request, env, ctx, match) {
   }
 
   if (record.status === 'complete') {
-    const captureUrl = new URL(`/v1/captures/${captureId}`, request.url).href;
+    // When accessed via share token, captureUrl must include the token so the caller
+    // can follow it without needing a separate API key.
+    const rawToken = captureAuth.authMethod === 'share_token'
+      ? new URL(request.url).searchParams.get('token')
+      : null;
+    const captureUrl = new URL(`/v1/captures/${captureId}`, request.url).href
+      + (rawToken ? `?token=${encodeURIComponent(rawToken)}` : '');
     return jsonResponse({ id: captureId, status: 'complete', captureUrl }, 200, headers);
   }
 
@@ -1715,4 +1822,90 @@ async function handleCaptureStatus(request, env, ctx, match) {
     error: record.error,
     retryable: record.retryable,
   }, 200, headers);
+}
+
+async function handleCreateShare(request, env, ctx, match) {
+  const captureId = match[1];
+
+  // Auth: tenant must own the capture. Share tokens cannot create other share tokens.
+  const auth = await verifyAuth(request, env, { requiredScope: 'read' });
+  if (!auth.ok) {
+    return problemResponse(401, 'Authentication required to create share links.');
+  }
+
+  // Parse request body (optional -- body may be absent or empty for permanent tokens)
+  let body = {};
+  const rawBody = await request.text().catch(() => '');
+  if (rawBody.trim()) {
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return problemResponse(400, 'Request body must be valid JSON');
+    }
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      return problemResponse(400, 'Request body must be a JSON object');
+    }
+  }
+
+  // Validate expiresIn if provided
+  let expiresAt = null;
+  if (body.expiresIn !== undefined) {
+    const expiresIn = body.expiresIn;
+    if (!Number.isInteger(expiresIn)) {
+      return problemResponse(400, "'expiresIn' must be an integer number of seconds");
+    }
+    if (expiresIn < 300) {
+      return problemResponse(400, "'expiresIn' must be at least 300 seconds (5 minutes)");
+    }
+    if (expiresIn > 31536000) {
+      return problemResponse(400, "'expiresIn' must be at most 31536000 seconds (365 days)");
+    }
+    expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+  }
+
+  // Look up the capture -- must exist and be owned by the requesting tenant
+  const record = await getCapture(env.DB, captureId);
+  if (!record || record.tenantId !== auth.tenantId) {
+    return problemResponse(404, 'Capture not found');
+  }
+
+  // Only allow share creation for captures that are pending or complete
+  if (record.status === 'failed' || record.status === 'quarantined') {
+    return problemResponse(404, 'Capture not found');
+  }
+
+  // Generate and store the share token
+  const rawToken = generateShareToken();
+  const tokenHash = await hashShareToken(rawToken);
+
+  try {
+    await createShareToken(env.DB, {
+      tokenHash,
+      captureId,
+      tenantId: auth.tenantId,
+      expiresAt,
+    });
+  } catch (err) {
+    ctx.waitUntil(log(env, 5, 'capture', {
+      event: 'capture.share_token_create_fail',
+      captureId,
+      tenantId: auth.tenantId,
+      tokenHashPrefix: tokenHash.slice(0, 8),
+      errorMessage: String(err?.message ?? '').slice(0, 256),
+    }) ?? Promise.resolve());
+    return problemResponse(500, 'Could not create share token');
+  }
+
+  const origin = new URL(request.url).origin;
+  const shareUrl = `${origin}/v1/captures/${captureId}?token=${encodeURIComponent(rawToken)}`;
+
+  ctx.waitUntil(log(env, 3, 'capture', {
+    event: 'capture.share_token_created',
+    captureId,
+    tenantId: auth.tenantId,
+    tokenHashPrefix: tokenHash.slice(0, 8),
+    expiresAt,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({ token: rawToken, shareUrl, expiresAt }, 201);
 }

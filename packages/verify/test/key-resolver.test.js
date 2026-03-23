@@ -18,6 +18,8 @@ import {
   resolveKey,
   isWrlCaptureUrl,
   originFromUrl,
+  shareTokenFromUrl,
+  fetchWaczFromCaptureUrl,
 } from '../lib/key-resolver.js';
 
 // ---------------------------------------------------------------------------
@@ -52,6 +54,17 @@ describe('isWrlCaptureUrl', () => {
     );
   });
 
+  it('returns true for WRL capture URLs with query parameters', () => {
+    assert.strictEqual(
+      isWrlCaptureUrl('https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8?token=wrl_share_abc'),
+      true
+    );
+    assert.strictEqual(
+      isWrlCaptureUrl('https://api.webresourceledger.com/v1/verify/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8?token=wrl_share_xyz'),
+      true
+    );
+  });
+
   it('returns false for non-WRL URLs', () => {
     assert.strictEqual(isWrlCaptureUrl('https://example.com/file.wacz'), false);
     assert.strictEqual(isWrlCaptureUrl('/local/path/file.wacz'), false);
@@ -69,6 +82,30 @@ describe('isWrlCaptureUrl', () => {
       isWrlCaptureUrl('https://api.webresourceledger.com/v1/captures/cap_abc123'),
       false
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// shareTokenFromUrl
+// ---------------------------------------------------------------------------
+
+describe('shareTokenFromUrl', () => {
+  it('extracts token from share URL', () => {
+    assert.strictEqual(
+      shareTokenFromUrl('https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8?token=wrl_share_abc123'),
+      'wrl_share_abc123'
+    );
+  });
+
+  it('returns null when no token present', () => {
+    assert.strictEqual(
+      shareTokenFromUrl('https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'),
+      null
+    );
+  });
+
+  it('returns null for invalid URLs', () => {
+    assert.strictEqual(shareTokenFromUrl('not-a-url'), null);
   });
 });
 
@@ -256,6 +293,133 @@ describe('resolveKey -- HTTPS enforcement', () => {
         return true;
       }
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchWaczFromCaptureUrl -- token propagation
+// ---------------------------------------------------------------------------
+
+describe('fetchWaczFromCaptureUrl -- token propagation', () => {
+  let originalFetch;
+
+  function mockFetch(handler) {
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = handler;
+  }
+
+  function restoreFetch() {
+    globalThis.fetch = originalFetch;
+  }
+
+  it('propagates ?token= to the artifact URL', async () => {
+    let capturedUrl;
+    mockFetch(async (url) => {
+      capturedUrl = url;
+      // Return a minimal valid response so fetchBytes doesn't throw
+      const body = new Uint8Array(4);
+      return {
+        ok: true,
+        body: {
+          getReader() {
+            let done = false;
+            return {
+              read() {
+                if (done) return Promise.resolve({ done: true });
+                done = true;
+                return Promise.resolve({ done: false, value: body });
+              },
+              cancel() {},
+            };
+          },
+        },
+      };
+    });
+
+    try {
+      const origWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = () => true;
+      try {
+        await fetchWaczFromCaptureUrl(
+          'https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8?token=wrl_share_abc123'
+        );
+      } finally {
+        process.stderr.write = origWrite;
+      }
+    } finally {
+      restoreFetch();
+    }
+
+    assert.ok(capturedUrl, 'fetch should have been called');
+    assert.match(capturedUrl, /\/v1\/captures\/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8\/artifacts\/wacz/);
+    assert.match(capturedUrl, /token=wrl_share_abc123/);
+  });
+
+  it('constructs artifact URL without token when none present', async () => {
+    let capturedUrl;
+    mockFetch(async (url) => {
+      capturedUrl = url;
+      const body = new Uint8Array(4);
+      return {
+        ok: true,
+        body: {
+          getReader() {
+            let done = false;
+            return {
+              read() {
+                if (done) return Promise.resolve({ done: true });
+                done = true;
+                return Promise.resolve({ done: false, value: body });
+              },
+              cancel() {},
+            };
+          },
+        },
+      };
+    });
+
+    try {
+      const origWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = () => true;
+      try {
+        await fetchWaczFromCaptureUrl(
+          'https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'
+        );
+      } finally {
+        process.stderr.write = origWrite;
+      }
+    } finally {
+      restoreFetch();
+    }
+
+    assert.ok(capturedUrl, 'fetch should have been called');
+    assert.match(capturedUrl, /\/v1\/captures\/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8\/artifacts\/wacz/);
+    assert.doesNotMatch(capturedUrl, /token=/);
+  });
+
+  it('throws actionable error message on 401', async () => {
+    mockFetch(async () => ({
+      ok: false,
+      status: 401,
+      body: { getReader() { return { read() { return Promise.resolve({ done: true }); }, cancel() {} }; } },
+    }));
+
+    try {
+      const origWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = () => true;
+      try {
+        await assert.rejects(
+          () => fetchWaczFromCaptureUrl(
+            'https://api.webresourceledger.com/v1/captures/cap_eebc8b957ee542c7a9a4d8a0a33ae1c8'
+          ),
+          /share token/
+        );
+      } finally {
+        process.stderr.write = origWrite;
+      }
+    } finally {
+      restoreFetch();
+    }
   });
 });
 

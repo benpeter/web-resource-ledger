@@ -38,9 +38,10 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `POST /v1/captures` | `capture` |
 | `POST /v1/captures/batch` | `capture` |
 | `GET /v1/captures` | `read` |
-| `GET /v1/captures/{id}` | None (capture ID acts as access secret) |
-| `GET /v1/captures/{id}/status` | None (capture ID acts as access secret) |
-| `GET /v1/captures/{id}/artifacts/*` | None (capture ID acts as access secret) |
+| `GET /v1/captures/{id}` | `read` (or share token) |
+| `GET /v1/captures/{id}/status` | `read` (or share token) |
+| `GET /v1/captures/{id}/artifacts/*` | `read` (or share token) |
+| `POST /v1/captures/{id}/share` | `read` |
 | `GET /v1/verify/{id}` | None (public endpoint) |
 | `GET /.well-known/signing-key` | None (public endpoint) |
 | `GET /.well-known/signing-keys` | None (public endpoint) |
@@ -52,7 +53,7 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `GET /v1/admin/keys` | Admin credential |
 | `DELETE /v1/admin/keys/{keyHash}` | Admin credential |
 
-> **Note:** Artifact URLs and the verification endpoint are unauthenticated by design. The capture ID itself acts as the access secret -- treat it like a password. Anyone with the ID can view the capture and all its artifacts.
+> **Note:** The verification endpoint (`GET /v1/verify/{id}`) is public by design -- anyone can confirm authenticity without credentials. Capture retrieval endpoints require your API key or a share token. Use `POST /v1/captures/{id}/share` to generate a time-limited link for sharing access without exposing your API key.
 
 ---
 

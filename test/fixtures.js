@@ -221,6 +221,7 @@ export async function createTestSession(db, env, {
 
 export const TEST_ADMIN_KEY = 'test-admin-key-for-vitest';
 export const TEST_TENANT_KEY = 'wrl_live_' + 'a'.repeat(43);
+export const TEST_TENANT_KEY_B = 'wrl_live_' + 'b'.repeat(43);
 export const TEST_WEBHOOK_URL = 'https://hooks.example.com/webhook';
 export const TEST_WEBHOOK_SECRET = 'wrlsec_' + 'b'.repeat(64);
 export const TEST_SCHEDULE_ID = 'sch_' + 'c'.repeat(32);
@@ -342,9 +343,32 @@ export async function seedWebhook(db, id, {
 }
 
 /**
+ * Seed a share token directly into D1 for use in tests.
+ * The raw token is hashed before storage (same as production).
+ *
+ * @param {D1Database} db
+ * @param {object} opts
+ * @param {string} opts.captureId
+ * @param {string} opts.tenantId
+ * @param {string} opts.rawToken    The raw token string to seed
+ * @param {string|null} [opts.expiresAt]  ISO 8601 expiry or null
+ */
+export async function seedShareToken(db, { captureId, tenantId, rawToken, expiresAt = null }) {
+  const { hashShareToken } = await import('../src/share-tokens.js');
+  const tokenHash = await hashShareToken(rawToken);
+  const createdAt = new Date().toISOString();
+  await db.prepare(
+    `INSERT OR IGNORE INTO share_tokens (token_hash, capture_id, tenant_id, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).bind(tokenHash, captureId, tenantId, createdAt, expiresAt).run();
+  return tokenHash;
+}
+
+/**
  * Truncate all metadata tables in FK-safe order (children first, then parents).
  *
  * FK ordering:
+ *   share_tokens.capture_id -> captures.id  => delete share_tokens before captures
  *   captures.schedule_id -> schedules.id    => delete captures before schedules
  *   webhooks.tenant_id   -> tenants.id      => delete webhooks before tenants
  *   schedules.tenant_id  -> tenants.id      => delete schedules before tenants
@@ -355,6 +379,7 @@ export async function cleanDb(db) {
     db.prepare('DELETE FROM github_users'),
     db.prepare('DELETE FROM webhooks'),
     db.prepare('DELETE FROM usage_counters'),
+    db.prepare('DELETE FROM share_tokens'),
     db.prepare('DELETE FROM captures'),
     db.prepare('DELETE FROM schedules'),
     db.prepare('DELETE FROM api_keys'),

@@ -43,7 +43,8 @@ The capture runs in the background. WRL takes a screenshot, saves the rendered H
 Wait a few seconds, then fetch the capture record using the ID.
 
 ```bash
-curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
 When the capture is complete, the response includes all artifact links and a verification URL.
@@ -70,7 +71,7 @@ When the capture is complete, the response includes all artifact links and a ver
 }
 ```
 
-> **Note:** The capture ID acts as the access secret for retrieving artifacts. No Authorization header is required when you have the ID. Share the `verifyUrl` freely -- it renders as a human-readable verification page in any browser.
+> **Note:** Share the `verifyUrl` freely -- it renders as a human-readable verification page in any browser and requires no authentication. To share full artifact access with others, use `POST /v1/captures/{id}/share` to generate a time-limited share link.
 
 If the status is still `pending` when you check, wait a few more seconds and try again. The status URL in the Step 1 response is a convenient shortcut for checking just the lifecycle state. For full polling details and status values, see the [API Reference](/api-reference/).
 

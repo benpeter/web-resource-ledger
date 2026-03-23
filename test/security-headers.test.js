@@ -33,9 +33,10 @@ describe('Security headers -- present on all routes', () => {
     expectSecurityHeaders(res);
   });
 
-  it('GET /v1/captures/{id} not found -- 404 response has security headers', async () => {
+  it('GET /v1/captures/{id} unauthenticated -- 401 response has security headers', async () => {
+    // Capture retrieval now requires auth. Unauthenticated request returns 401 (not 404).
     const res = await SELF.fetch('https://worker.test/v1/captures/cap_00000000000000000000000000000000');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
     expectSecurityHeaders(res);
   });
 

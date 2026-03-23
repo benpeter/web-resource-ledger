@@ -267,7 +267,9 @@ describe('GET /v1/captures/{id}/status', () => {
     expect(createRes.status).toBe(202);
     const { id, statusUrl } = await createRes.json();
 
-    const statusRes = await SELF.fetch(statusUrl);
+    const statusRes = await SELF.fetch(statusUrl, {
+      headers: { Authorization: AUTH },
+    });
     expect(statusRes.status).toBe(200);
     expect(statusRes.headers.get('Content-Type')).toContain('application/json');
     expect(statusRes.headers.get('Cache-Control')).toBe('private, no-store');
@@ -282,19 +284,21 @@ describe('GET /v1/captures/{id}/status', () => {
     const { statusUrl } = await createRes.json();
 
     // Status is checked right after 202 -- background task may not have run
-    const statusRes = await SELF.fetch(statusUrl);
+    const statusRes = await SELF.fetch(statusUrl, {
+      headers: { Authorization: AUTH },
+    });
     const body = await statusRes.json();
     // pending is the expected initial state; complete is acceptable if task ran
     expect(['pending', 'complete', 'failed']).toContain(body.status);
   });
 
-  it('no auth required on status endpoint', async () => {
+  it('unauthenticated status request returns 401', async () => {
     const createRes = await postCapture({ url: VALID_URL });
     const { statusUrl } = await createRes.json();
 
-    // Fetch without Authorization header
+    // Fetch without Authorization header -- must now require auth
     const statusRes = await SELF.fetch(statusUrl);
-    expect(statusRes.status).toBe(200);
+    expect(statusRes.status).toBe(401);
   });
 });
 
@@ -302,6 +306,7 @@ describe('GET /v1/captures/{id}/status -- not found / malformed', () => {
   it('returns 404 with RFC 9457 shape for valid-format but unknown ID', async () => {
     const res = await SELF.fetch(
       'https://worker.test/v1/captures/cap_aaaabbbbccccddddaaaabbbbccccdddd/status',
+      { headers: { Authorization: AUTH } },
     );
 
     expect(res.status).toBe(404);
@@ -314,9 +319,11 @@ describe('GET /v1/captures/{id}/status -- not found / malformed', () => {
     expect(body.detail).not.toContain('cap_aaaabbbbccccddddaaaabbbbccccdddd');
   });
 
-  it('returns 404 for malformed ID (route does not match)', async () => {
+  it('returns 401 for malformed ID path under /v1/captures/ (auth gate fires before route dispatch)', async () => {
+    // The auth gate checks for /v1/captures/ prefix, so malformed paths still require auth.
+    // An authenticated request with a malformed ID would then get 404 from the route dispatch.
     const res = await SELF.fetch('https://worker.test/v1/captures/badid/status');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
   });
 });
 
@@ -334,7 +341,9 @@ describe('lifecycle smoke test', () => {
     expect(createRes.status).toBe(202);
     const { id, statusUrl } = await createRes.json();
 
-    const statusRes = await SELF.fetch(statusUrl);
+    const statusRes = await SELF.fetch(statusUrl, {
+      headers: { Authorization: AUTH },
+    });
     expect(statusRes.status).toBe(200);
     const statusBody = await statusRes.json();
     expect(statusBody.id).toBe(id);
@@ -352,12 +361,17 @@ describe('lifecycle smoke test', () => {
       size:       1024,
     });
 
-    const completedStatusRes = await SELF.fetch(statusUrl);
+    const completedStatusRes = await SELF.fetch(statusUrl, {
+      headers: { Authorization: AUTH },
+    });
     const completedStatusBody = await completedStatusRes.json();
     expect(completedStatusBody.status).toBe('complete');
     expect(completedStatusBody.captureUrl).toContain(id);
 
-    const captureRes = await SELF.fetch(`https://worker.test/v1/captures/${id}`);
+    // Step 3: GET /v1/captures/{id} -- requires auth
+    const captureRes = await SELF.fetch(`https://worker.test/v1/captures/${id}`, {
+      headers: { Authorization: AUTH },
+    });
     expect(captureRes.status).toBe(200);
     const captureBody = await captureRes.json();
     expect(captureBody.id).toBe(id);
