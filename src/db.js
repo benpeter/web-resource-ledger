@@ -35,6 +35,9 @@ export const VALID_BILLING_STATUSES = ['active', 'grace_period', 'blocked'];
 /** Regex for valid webhook IDs: whk_ + 32 lowercase hex chars (total 36 chars) */
 export const WEBHOOK_ID_RE = /^whk_[a-f0-9]{32}$/;
 
+/** Regex for valid schedule IDs: sch_ + 32 lowercase hex chars (total 36 chars) */
+export const SCHEDULE_ID_RE = /^sch_[a-f0-9]{32}$/;
+
 const SHA256HEX_RE = /^[a-f0-9]{64}$/;
 
 // ---------------------------------------------------------------------------
@@ -55,6 +58,7 @@ function rowToCapture(row) {
     url: row.url,
     ip: row.ip,
     tenantId: row.tenant_id,
+    scheduleId: row.schedule_id ?? null,
     createdAt: row.created_at,
     completedAt: row.completed_at ?? null,
     artifacts: row.artifacts ? JSON.parse(row.artifacts) : null,
@@ -81,14 +85,15 @@ function rowToCapture(row) {
  * @param {string} url
  * @param {string} ip
  * @param {string} tenantId
+ * @param {string|null} [scheduleId]  Optional originating schedule ID
  */
-export async function createCapture(db, captureId, url, ip, tenantId) {
+export async function createCapture(db, captureId, url, ip, tenantId, scheduleId = null) {
   const createdAt = new Date().toISOString();
   await db.batch([
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
     db.prepare(
-      'INSERT INTO captures (id, tenant_id, url, ip, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    ).bind(captureId, tenantId, url, ip, 'pending', createdAt),
+      'INSERT INTO captures (id, tenant_id, url, ip, status, created_at, schedule_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    ).bind(captureId, tenantId, url, ip, 'pending', createdAt, scheduleId),
   ]);
 }
 
@@ -180,7 +185,8 @@ export async function getCapture(db, captureId) {
  *   url?: string,
  *   created_after?: string,
  *   created_before?: string,
- *   sort?: string
+ *   sort?: string,
+ *   schedule_id?: string
  * }} [opts]
  * @returns {Promise<{ data: object[], pagination: { total: number, offset: number, limit: number, hasMore: boolean } }>}
  */
@@ -192,6 +198,7 @@ export async function listCaptures(db, tenantId, {
   created_after,
   created_before,
   sort = '-created_at',
+  schedule_id,
 } = {}) {
   const conditions = ['tenant_id = ?'];
   const params = [tenantId];
@@ -216,6 +223,11 @@ export async function listCaptures(db, tenantId, {
   if (created_before) {
     conditions.push('created_at < ?');
     params.push(created_before);
+  }
+
+  if (schedule_id) {
+    conditions.push('schedule_id = ?');
+    params.push(schedule_id);
   }
 
   const where = 'WHERE ' + conditions.join(' AND ');
@@ -305,6 +317,20 @@ export async function setTenantConfig(db, tenantId, config, updatedBy) {
           config.quotas.storageBytes < 1 ||
           !Number.isInteger(config.quotas.storageBytes)) {
         throw new Error('quotas.storageBytes must be a positive integer');
+      }
+    }
+  }
+
+  // Validate per-tenant schedule limit overrides if present
+  if (config.schedules) {
+    if (config.schedules.maxSchedules !== undefined) {
+      if (typeof config.schedules.maxSchedules !== 'number' ||
+          config.schedules.maxSchedules < 1 ||
+          !Number.isInteger(config.schedules.maxSchedules)) {
+        throw new Error('schedules.maxSchedules must be a positive integer');
+      }
+      if (config.schedules.maxSchedules > 100) {
+        throw new Error('schedules.maxSchedules cannot exceed 100');
       }
     }
   }
@@ -1103,4 +1129,192 @@ export async function deleteExpiredSessions(db) {
  */
 export async function deleteSessionsForUser(db, githubId) {
   await db.prepare('DELETE FROM sessions WHERE github_id = ?').bind(githubId).run();
+}
+
+// ---------------------------------------------------------------------------
+// Schedule operations
+// ---------------------------------------------------------------------------
+
+/** Default maximum number of schedules per tenant (no config override present). */
+const DEFAULT_SCHEDULE_LIMIT = 10;
+
+/**
+ * Transform a D1 schedules row into the canonical camelCase shape.
+ * Converts paused INTEGER to boolean.
+ *
+ * @param {object} row
+ * @returns {object}
+ */
+function rowToSchedule(row) {
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    url: row.url,
+    name: row.name,
+    cron: row.cron,
+    paused: Boolean(row.paused),
+    nextRunAt: row.next_run_at,
+    lastRunAt: row.last_run_at ?? null,
+    lastCaptureId: row.last_capture_id ?? null,
+    lastCaptureStatus: row.last_capture_status ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
+  };
+}
+
+/**
+ * Insert a new schedule and ensure the tenant row exists.
+ * Both statements run atomically via db.batch().
+ *
+ * @param {D1Database} db
+ * @param {string} id          Schedule ID (sch_ + 32 hex chars)
+ * @param {string} tenantId
+ * @param {string} url
+ * @param {string} name
+ * @param {string} cron        Cron expression string
+ * @param {string} nextRunAt   ISO 8601 timestamp of first scheduled run
+ * @returns {Promise<object>}  The created schedule record
+ */
+export async function createSchedule(db, id, tenantId, url, name, cron, nextRunAt) {
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT INTO schedules (id, tenant_id, url, name, cron, next_run_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).bind(id, tenantId, url, name, cron, nextRunAt),
+  ]);
+
+  const row = await db.prepare('SELECT * FROM schedules WHERE id = ?').bind(id).first();
+  return rowToSchedule(row);
+}
+
+/**
+ * Read a single schedule by ID, scoped to tenantId for authorization (IDOR protection).
+ * Returns null if not found or tenant does not match.
+ *
+ * @param {D1Database} db
+ * @param {string} id
+ * @param {string} tenantId
+ * @returns {Promise<object|null>}
+ */
+export async function getSchedule(db, id, tenantId) {
+  const row = await db.prepare(
+    'SELECT * FROM schedules WHERE id = ? AND tenant_id = ?',
+  ).bind(id, tenantId).first();
+  if (!row) return null;
+  return rowToSchedule(row);
+}
+
+/**
+ * List all schedules for a tenant, ordered by created_at descending.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<object[]>}
+ */
+export async function listSchedules(db, tenantId) {
+  const rows = await db.prepare(
+    'SELECT * FROM schedules WHERE tenant_id = ? ORDER BY created_at DESC',
+  ).bind(tenantId).all();
+  return (rows.results ?? []).map(rowToSchedule);
+}
+
+/**
+ * Delete a schedule by ID, scoped to tenantId for authorization.
+ * Nulls out schedule_id on any captures referencing this schedule before deleting,
+ * both operations in a single db.batch() round-trip.
+ * Returns { deleted: true } on success, null if not found or wrong tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} id
+ * @param {string} tenantId
+ * @returns {Promise<{ deleted: true }|null>}
+ */
+export async function deleteSchedule(db, id, tenantId) {
+  // Verify ownership first to distinguish "not found / wrong tenant" from "found and deleted".
+  const existing = await db.prepare(
+    'SELECT id FROM schedules WHERE id = ? AND tenant_id = ?',
+  ).bind(id, tenantId).first();
+  if (!existing) return null;
+
+  await db.batch([
+    db.prepare(
+      'UPDATE captures SET schedule_id = NULL WHERE schedule_id = ?',
+    ).bind(id),
+    db.prepare(
+      'DELETE FROM schedules WHERE id = ? AND tenant_id = ?',
+    ).bind(id, tenantId),
+  ]);
+
+  return { deleted: true };
+}
+
+/**
+ * Count all schedules for a tenant.
+ * Used to enforce the per-tenant schedule limit.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<number>}
+ */
+export async function countSchedules(db, tenantId) {
+  const row = await db.prepare(
+    'SELECT COUNT(*) AS total FROM schedules WHERE tenant_id = ?',
+  ).bind(tenantId).first();
+  return row?.total ?? 0;
+}
+
+/**
+ * Fetch all unpaused schedules whose next_run_at is at or before the given timestamp.
+ * Used by the Cron Trigger handler to find work due for execution.
+ * Results are ordered by tenant_id for deterministic processing.
+ *
+ * @param {D1Database} db
+ * @param {string} asOf  ISO 8601 timestamp (e.g. new Date().toISOString())
+ * @returns {Promise<object[]>}
+ */
+export async function getDueSchedules(db, asOf) {
+  const rows = await db.prepare(
+    `SELECT * FROM schedules WHERE paused = 0 AND next_run_at <= ? ORDER BY tenant_id`,
+  ).bind(asOf).all();
+  return (rows.results ?? []).map(rowToSchedule);
+}
+
+/**
+ * Advance a schedule after a successful run. CAS-style: only updates if the
+ * schedule is still unpaused (guards against a race where the schedule was
+ * paused between getDueSchedules and the worker completing).
+ *
+ * Updates next_run_at, last_run_at, last_capture_id, last_capture_status, and updated_at.
+ *
+ * @param {D1Database} db
+ * @param {string} id               Schedule ID
+ * @param {string} nextRunAt        ISO 8601 timestamp of the next run
+ * @param {string} lastCaptureId    Capture ID that was just dispatched
+ * @param {string} lastCaptureStatus  Status at dispatch time (typically 'pending')
+ * @returns {Promise<number>}  Rows affected -- 0 means the schedule was paused or deleted
+ */
+export async function advanceSchedule(db, id, nextRunAt, lastCaptureId, lastCaptureStatus) {
+  const result = await db.prepare(
+    `UPDATE schedules
+     SET next_run_at = ?,
+         last_run_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+         last_capture_id = ?,
+         last_capture_status = ?,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE id = ? AND paused = 0`,
+  ).bind(nextRunAt, lastCaptureId, lastCaptureStatus, id).run();
+  return result.meta.changes ?? 0;
+}
+
+/**
+ * Return the effective maximum number of schedules a tenant may create.
+ * Reads the per-tenant config override when present; falls back to the
+ * module-level DEFAULT_SCHEDULE_LIMIT. Pure function -- no DB call.
+ *
+ * @param {object|null} tenantConfig  From getTenantConfig(), may be null
+ * @returns {number}
+ */
+export function getEffectiveScheduleLimit(tenantConfig) {
+  return tenantConfig?.schedules?.maxSchedules ?? DEFAULT_SCHEDULE_LIMIT;
 }

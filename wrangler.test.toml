@@ -1,5 +1,6 @@
-# Auto-generated from wrangler.toml -- omits [[queues.consumers]]
+# Auto-generated from wrangler.toml -- omits [[queues.consumers]] sections
 # to prevent miniflare auto-consuming messages during tests.
+# Also omits [triggers] sections (cron triggers do not apply in tests).
 # Regenerate: see vitest.config.js comment.
 
 #:schema node_modules/wrangler/config-schema.json

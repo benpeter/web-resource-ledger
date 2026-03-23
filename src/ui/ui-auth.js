@@ -152,6 +152,12 @@ function renderAppShell() {
   navLinks.appendChild(capturesLink);
 
   if (_authMethod === 'session') {
+    var schedulesLink = document.createElement('a');
+    schedulesLink.href = '#/schedules';
+    schedulesLink.className = 'nav-link';
+    schedulesLink.textContent = 'Schedules';
+    navLinks.appendChild(schedulesLink);
+
     var settingsLink = document.createElement('a');
     settingsLink.href = '#/settings';
     settingsLink.className = 'nav-link';

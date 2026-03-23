@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCapture, completeCapture } from '../src/db.js';
+import { seedSchedule, TEST_SCHEDULE_ID } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Partial capture seed IDs (outside main beforeEach to avoid conflicts)
@@ -239,5 +240,42 @@ describe('GET /v1/captures/{id}/artifacts/{name}', () => {
 
     const res = await SELF.fetch(`https://worker.test/v1/captures/${noHeadersId}/artifacts/headers`);
     expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures/{id} -- capture linked to a schedule
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures/{id} -- schedule linkage', () => {
+  const SCHED_CAP_ID = 'cap_' + '2'.repeat(32);
+  const SCHED_ARTIFACTS = {
+    screenshot: `captures/${SCHED_CAP_ID}/screenshot.png`,
+    html: `captures/${SCHED_CAP_ID}/rendered.html`,
+  };
+
+  beforeEach(async () => {
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(SCHED_CAP_ID).run();
+    // Ensure the schedule FK target exists
+    await seedSchedule(env.DB, TEST_SCHEDULE_ID, { tenantId: 'default' });
+    // Create a capture linked to the schedule
+    await createCapture(env.DB, SCHED_CAP_ID, 'https://example.com/sched', '1.2.3.4', 'default', TEST_SCHEDULE_ID);
+    await completeCapture(env.DB, SCHED_CAP_ID, SCHED_ARTIFACTS);
+    await env.BUCKET.put(SCHED_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71]));
+    await env.BUCKET.put(SCHED_ARTIFACTS.html, '<html>scheduled</html>');
+  });
+
+  it('returns 200 for a capture with a schedule_id', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${SCHED_CAP_ID}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe(SCHED_CAP_ID);
+    expect(body.status).toBe('complete');
+  });
+
+  it('ip field is absent from response for scheduled capture', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${SCHED_CAP_ID}`);
+    const body = await res.json();
+    expect(body.ip).toBeUndefined();
   });
 });

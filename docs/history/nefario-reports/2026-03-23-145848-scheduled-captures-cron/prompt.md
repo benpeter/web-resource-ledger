@@ -1,0 +1,22 @@
+**Outcome**: Tenants can schedule recurring captures via a cron-style API, with Cloudflare Cron Triggers executing captures on schedule. Capture results are linked to the originating schedule for grouping and review. Per-tenant schedule limits prevent abuse.
+
+**Success criteria**:
+- POST /v1/schedules creates a schedule with URL and cron expression; returns schedule ID
+- GET /v1/schedules lists all schedules for the authenticated tenant with next-run time
+- DELETE /v1/schedules/{id} removes a schedule
+- Minimum cron granularity is hourly (rejects sub-hour expressions)
+- Cloudflare Cron Trigger invokes the Worker on schedule; Worker executes pending captures
+- Capture results include `scheduleId` field for grouping in list responses
+- Per-tenant schedule limit enforced (e.g., 10 for free users, configurable for paying tenants); exceeded limit returns 429 with clear message
+- Schedule management visible in web UI (schedule list, create, delete)
+- Coralogix logs for each schedule execution: scheduleId, URL, outcome, duration
+
+**Scope**:
+- In: CRUD API for schedule management, Cron Trigger integration, schedule-to-capture linking, per-tenant limits, web UI schedule panel, execution logging
+- Out: Sub-hourly schedules, change detection / diff between scheduled captures, schedule pause/resume, schedule-specific webhook events
+
+**Constraints**:
+- Depends on R24 (tenant identity) for tenant-scoped schedule ownership
+- Depends on R26 (quotas) for per-tenant schedule limit enforcement
+- Cron Trigger configuration is per-Worker; schedule dispatch must fan out from a single trigger to per-tenant schedules stored in D1
+- Each scheduled capture counts against the tenant's capture quota

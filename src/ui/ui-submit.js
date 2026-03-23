@@ -96,8 +96,19 @@ function buildCaptureItem(capture) {
   // URL cell
   var urlCell = document.createElement('span');
   urlCell.className = 'capture-url';
-  urlCell.textContent = capture.url || '(unknown URL)';
   urlCell.title = capture.url || '';
+
+  var urlSpan = document.createElement('span');
+  urlSpan.textContent = capture.url || '(unknown URL)';
+  urlCell.appendChild(urlSpan);
+
+  if (capture.scheduleId) {
+    var scheduledLabel = document.createElement('span');
+    scheduledLabel.className = 'capture-scheduled-label';
+    scheduledLabel.textContent = 'Scheduled';
+    urlCell.appendChild(scheduledLabel);
+  }
+
   item.appendChild(urlCell);
 
   // Time cell

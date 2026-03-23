@@ -1,7 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { createCapture, completeCapture, failCapture } from '../src/db.js';
-import { cleanDb } from './fixtures.js';
+import { cleanDb, seedSchedule, TEST_SCHEDULE_ID } from './fixtures.js';
 
 const AUTH = 'Bearer test-api-key-for-vitest';
 const TENANT_ID = 'default';
@@ -607,5 +607,53 @@ describe('GET /v1/captures -- renderQuality in CaptureSummary', () => {
     const item = body.data.find(d => d.id === partialId);
     expect(item).toBeDefined();
     expect(item.renderQuality).toBe('partial');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures -- schedule_id filter
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures -- schedule_id filter', () => {
+  const CAP_SCHED = 'cap_' + 'b'.repeat(32);
+  const CAP_NO_SCHED = 'cap_' + '5'.repeat(32);
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-23T10:00:00.000Z'));
+
+    // Seed the schedule itself so the FK is satisfied
+    await seedSchedule(env.DB, TEST_SCHEDULE_ID, { tenantId: TENANT_ID });
+
+    // Capture linked to a schedule
+    await createCapture(env.DB, CAP_SCHED, 'https://example.com/sched', '1.2.3.4', TENANT_ID, TEST_SCHEDULE_ID);
+
+    vi.setSystemTime(new Date('2026-03-23T10:00:01.000Z'));
+    // Capture with no schedule
+    await createCapture(env.DB, CAP_NO_SCHED, 'https://example.com/nosched', '1.2.3.4', TENANT_ID);
+  });
+
+  it('?schedule_id= filters to only captures from that schedule', async () => {
+    const res = await listCaptures({ schedule_id: TEST_SCHEDULE_ID });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].id).toBe(CAP_SCHED);
+  });
+
+  it('?schedule_id= returns empty array when schedule has no captures', async () => {
+    const otherId = 'sch_' + 'd'.repeat(32);
+    await seedSchedule(env.DB, otherId, { tenantId: TENANT_ID });
+    const res = await listCaptures({ schedule_id: otherId });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.length).toBe(0);
+  });
+
+  it('?schedule_id= with invalid format returns 400', async () => {
+    const res = await listCaptures({ schedule_id: 'not-a-schedule-id' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.detail).toContain('schedule_id');
   });
 });
