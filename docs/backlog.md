@@ -129,7 +129,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [should] Content security scanning (Safe Browsing) | When WRL serves text/html content or multi-user opens public submission | security-minion, kickoff |
+| ~~[should] Content security scanning (Safe Browsing)~~ | ~~When WRL serves text/html content or multi-user opens public submission~~ -- DONE (Phase 0061): Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement, Coralogix alerting (Issue #109) | security-minion, kickoff |
+| [consider] Un-quarantine workflow (operator appeal) | When a tenant disputes a quarantine or a URL is confirmed clean | Phase 0061, out-of-scope |
+| [consider] Web Risk Update API with local cache | When pre-capture latency from Lookup API exceeds 200ms at scale | Phase 0061, performance |
 
 ### Storage
 
@@ -246,6 +248,7 @@ Completed items removed from active tracking:
 - ~~R29: Stripe usage-based billing~~ -- DONE (Phase 0058): Stripe API client (no SDK), webhook signature verification with event dedup, billing endpoints (checkout, portal, webhook), D1 billing columns, grace period on payment failure, free tier 200 captures/month (Issue #106)
 - ~~R28: Scheduled captures (cron)~~ -- DONE (Phase 0059): CRUD API (POST/GET/DELETE /v1/schedules), Cloudflare Cron Trigger fan-out every minute, per-tenant schedule limits (default 10, configurable), scheduleId capture linking, web UI schedule panel, 55 tests, `croner` library (Issue #107)
 - ~~R31: Capture metering to Stripe pipeline~~ -- DONE (Phase 0060): hourly batch meter event reporting with idempotency, graduated pricing module (4 tiers), billing sub-object on GET /v1/account/usage, D1 watermark tracking, 32 new tests (Issue #108)
+- ~~R32: Content security scanning~~ -- DONE (Phase 0061): Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement with 451 responses, 2 Coralogix alerts, fail-open degradation (Issue #109)
 
 ---
 

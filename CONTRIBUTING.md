@@ -28,6 +28,9 @@ IP_HASH_SEED=<any random string, used for privacy-safe IP hashing>
 # Optional -- structured log ingestion; omit to log to console only
 CORALOGIX_SEND_KEY=<your Coralogix send key>
 
+# Optional -- URL threat screening; omit for graceful degradation
+GOOGLE_WEB_RISK_API_KEY=<your api key>
+
 # Optional -- only needed when testing browser clients with CORS
 CORS_ORIGINS=http://localhost:3000
 ```

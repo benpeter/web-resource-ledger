@@ -26,7 +26,7 @@ import { signWebhookPayload, SIGNATURE_HEADER, TIMESTAMP_HEADER } from './webhoo
 import { classifyDeliveryError } from './webhook-dispatch.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
-const VALID_EVENTS = ['capture.complete', 'capture.failed'];
+const VALID_EVENTS = ['capture.complete', 'capture.failed', 'capture.quarantined'];
 const ALLOWED_CREATE_FIELDS = new Set(['url', 'events', 'name']);
 const WEBHOOK_CACHE = { 'Cache-Control': 'private, no-store' };
 
@@ -116,7 +116,7 @@ export async function handleCreateWebhook(request, env, ctx, _match) {
   }
   for (const evt of body.events) {
     if (!VALID_EVENTS.includes(evt)) {
-      return problemResponse(400, `Field 'events' contains invalid value '${evt}'; must be one of: capture.complete, capture.failed`);
+      return problemResponse(400, `Field 'events' contains invalid value '${evt}'; must be one of: capture.complete, capture.failed, capture.quarantined`);
     }
   }
 

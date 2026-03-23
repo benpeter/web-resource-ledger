@@ -114,6 +114,86 @@ tsa_failures_payload() {
 ALERT_JSON
 }
 
+threat_check_quarantines_payload() {
+  cat <<'ALERT_JSON'
+{
+  "alertDefProperties": {
+    "name": "[WRL] Threat Check Quarantines",
+    "description": "More than 5 URL quarantine events in 24 hours. Indicates the daily re-scan is finding previously-captured URLs that have since been flagged as threats. High volume may indicate a targeted campaign or systematic abuse of a tenant.",
+    "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
+    "enabled": true,
+    "priority": "ALERT_DEF_PRIORITY_P3",
+    "logsThreshold": {
+      "logsFilter": {
+        "simpleFilter": {
+          "luceneQuery": "event:\"threatcheck.quarantine\"",
+          "labelFilters": {
+            "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
+            "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "security"}]
+          }
+        }
+      },
+      "rules": [{
+        "condition": {
+          "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
+          "threshold": 5,
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_HOURS_24"}
+        },
+        "override": {"priority": "ALERT_DEF_PRIORITY_P3"}
+      }]
+    },
+    "notificationGroup": {
+      "webhooks": [{
+        "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
+        "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
+        "minutes": 60
+      }]
+    }
+  }
+}
+ALERT_JSON
+}
+
+threat_check_api_failures_payload() {
+  cat <<'ALERT_JSON'
+{
+  "alertDefProperties": {
+    "name": "[WRL] Threat Check API Failures",
+    "description": "More than 2 Web Risk API failures in 10 minutes during pre-capture checks. Pre-capture failures cause captures to be rejected with an error response. Excludes rescan-context failures (those degrade silently and are lower severity).",
+    "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
+    "enabled": true,
+    "priority": "ALERT_DEF_PRIORITY_P2",
+    "logsThreshold": {
+      "logsFilter": {
+        "simpleFilter": {
+          "luceneQuery": "event:\"threatcheck.api_fail\" AND context:\"pre_capture\"",
+          "labelFilters": {
+            "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
+            "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "security"}]
+          }
+        }
+      },
+      "rules": [{
+        "condition": {
+          "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
+          "threshold": 2,
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_10"}
+        },
+        "override": {"priority": "ALERT_DEF_PRIORITY_P2"}
+      }]
+    },
+    "notificationGroup": {
+      "webhooks": [{
+        "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
+        "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
+        "minutes": 60
+      }]
+    }
+  }
+}
+ALERT_JSON
+}
+
 auth_failure_spike_payload() {
   cat <<'ALERT_JSON'
 {
@@ -318,17 +398,19 @@ main() {
 
   local failed=0
 
-  upsert_alert "[WRL] Capture Failures"      capture_failures_payload     "$existing_alerts" || ((failed++))
-  upsert_alert "[WRL] TSA Failures"           tsa_failures_payload         "$existing_alerts" || ((failed++))
-  upsert_alert "[WRL] Auth Failure Spike"     auth_failure_spike_payload   "$existing_alerts" || ((failed++))
-  upsert_alert "[WRL] Worker Errors (5xx)"    worker_errors_payload        "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Capture Failures"           capture_failures_payload          "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] TSA Failures"               tsa_failures_payload              "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Auth Failure Spike"         auth_failure_spike_payload        "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Worker Errors (5xx)"        worker_errors_payload             "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Threat Check Quarantines"   threat_check_quarantines_payload  "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Threat Check API Failures"  threat_check_api_failures_payload "$existing_alerts" || ((failed++))
 
   log ""
   if [ "$failed" -gt 0 ]; then
     err "$failed alert(s) failed to provision"
     exit 1
   fi
-  log "All 4 alerts provisioned successfully."
+  log "All 6 alerts provisioned successfully."
 }
 
 main

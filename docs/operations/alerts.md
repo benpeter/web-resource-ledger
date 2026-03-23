@@ -1,6 +1,6 @@
 # Coralogix Alert Rules
 
-WRL uses four Coralogix alert rules to monitor production health.
+WRL uses six Coralogix alert rules to monitor production health.
 All alerts send email notifications to bp@ben-peter.com with a 60-minute
 retriggering suppression window (one email per hour maximum during sustained issues).
 
@@ -90,6 +90,61 @@ itself is broken, not that a target URL is flaky. Queue-consumer failures are
 captured separately by the Capture Failures alert.
 
 **Runbook:** [worker-errors.md](runbooks/worker-errors.md)
+
+---
+
+### [WRL] Threat Check Quarantines
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"threatcheck.quarantine"` (app: wrl, subsystem: security) |
+| **Threshold** | > 5 events in 24 hours |
+| **Priority** | P3 (Low) |
+
+**What it monitors:** URLs in existing captures that were flagged as threats
+during the daily re-scan. A `threatcheck.quarantine` event fires when a
+previously-accepted capture is marked for quarantine after its URL was later
+listed by the Google Web Risk API.
+
+**Threshold rationale:** A small number of quarantines per day is expected
+operational noise — threat feeds update constantly and minor churn is normal.
+Five quarantines in 24 hours is the threshold for a pattern that warrants
+investigation: it may indicate a tenant capturing URLs from a known-bad domain,
+a threat feed false-positive cluster, or systematic abuse. P3 because quarantined
+captures are already isolated; this is an audit signal, not an outage.
+
+**Policy note:** `threatcheck.block` events (severity 5 / error) indicate the
+system correctly rejected a pre-capture URL. That severity reflects the security
+significance of the event, not a system failure. No alert is defined for
+`threatcheck.block` because individual blocks are expected and correct behaviour.
+
+**Runbook:** [threat-check-quarantines.md](runbooks/threat-check-quarantines.md)
+
+---
+
+### [WRL] Threat Check API Failures
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"threatcheck.api_fail" AND context:"pre_capture"` (app: wrl, subsystem: security) |
+| **Threshold** | > 2 events in 10 minutes |
+| **Priority** | P2 (Medium) |
+
+**What it monitors:** Google Web Risk API errors or timeouts during pre-capture
+URL checks. When this alert fires, captures are proceeding without URL screening
+(fail-open design), recording `threatCheck: "unavailable"` in metadata.
+
+**Threshold rationale:** Two failures in 10 minutes rules out a single transient
+timeout. At that rate, a meaningful fraction of captures are unscreened.
+P2 (not P1) because captures continue to work — the safety gate is non-functional
+but the daily re-scan cron provides a safety net for the degraded window.
+
+**Scope:** The query filters to `context:"pre_capture"` only. Rescan-context
+`threatcheck.api_fail` events (severity 4 / warn) do not block user-facing
+requests and are not covered by this alert. Rescan failures appear in
+`threatcheck.rescan_tick` log entries as skipped URLs.
+
+**Runbook:** [threat-check-api-failures.md](runbooks/threat-check-api-failures.md)
 
 ---
 

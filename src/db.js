@@ -54,7 +54,8 @@ const SHA256HEX_RE = /^[a-f0-9]{64}$/;
 function rowToCapture(row) {
   return {
     captureId: row.id,
-    status: row.status,
+    // Quarantined captures remain status='complete' in the DB; map to 'quarantined' in responses.
+    status: row.quarantined ? 'quarantined' : row.status,
     url: row.url,
     ip: row.ip,
     tenantId: row.tenant_id,
@@ -69,6 +70,11 @@ function rowToCapture(row) {
     failedAt: row.failed_at ?? null,
     error: row.error ?? null,
     retryable: row.retryable != null ? Boolean(row.retryable) : false,
+    quarantined: Boolean(row.quarantined),
+    quarantineReason: row.quarantine_reason ?? null,
+    quarantinedAt: row.quarantined_at ?? null,
+    lastThreatCheckAt: row.last_threat_check_at ?? null,
+    threatCheck: row.threat_check ?? null,
   };
 }
 
@@ -204,8 +210,20 @@ export async function listCaptures(db, tenantId, {
   const params = [tenantId];
 
   if (status) {
-    conditions.push('status = ?');
-    params.push(status);
+    if (status === 'quarantined') {
+      // 'quarantined' is a virtual status: DB stores status='complete' + quarantined=1.
+      conditions.push('status = ?');
+      params.push('complete');
+      conditions.push('quarantined = 1');
+    } else if (status === 'complete') {
+      // Exclude quarantined captures from the normal 'complete' bucket.
+      conditions.push('status = ?');
+      params.push('complete');
+      conditions.push('quarantined = 0');
+    } else {
+      conditions.push('status = ?');
+      params.push(status);
+    }
   }
 
   if (url) {
@@ -1317,4 +1335,163 @@ export async function advanceSchedule(db, id, nextRunAt, lastCaptureId, lastCapt
  */
 export function getEffectiveScheduleLimit(tenantConfig) {
   return tenantConfig?.schedules?.maxSchedules ?? DEFAULT_SCHEDULE_LIMIT;
+}
+
+// ---------------------------------------------------------------------------
+// Threat intelligence / quarantine operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the threat_check result on a capture (called during capture creation).
+ * Also stamps last_threat_check_at so the re-scan cron ignores this capture
+ * until the check interval has elapsed.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {'pass'|'unavailable'} value
+ * @returns {Promise<void>}
+ */
+export async function setCaptureThreatCheck(db, captureId, value) {
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE captures
+     SET threat_check = ?, last_threat_check_at = ?
+     WHERE id = ?`,
+  ).bind(value, now, captureId).run();
+}
+
+/**
+ * Quarantine a single complete, non-quarantined capture by ID.
+ * Sets quarantined=1, quarantine_reason, quarantined_at, and inserts an
+ * audit row into threat_checks. Both writes run atomically via db.batch().
+ * The WHERE clause is idempotent: a second call on an already-quarantined
+ * capture produces zero changes and no duplicate audit row.
+ *
+ * Used by the re-scan handler when quarantining by URL is not desired
+ * (e.g. when only a specific snapshot needs to be blocked).
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {string} reason        Threat type string (e.g. 'MALWARE')
+ * @param {string|null} threatTypes  Raw threat type string(s) from provider
+ * @returns {Promise<number>}  Rows affected on the captures UPDATE (0 = no-op)
+ */
+export async function quarantineCapture(db, captureId, reason, threatTypes) {
+  const now = new Date().toISOString();
+  const [captureResult] = await db.batch([
+    db.prepare(
+      `UPDATE captures
+       SET quarantined = 1, quarantine_reason = ?, quarantined_at = ?
+       WHERE id = ? AND status = 'complete' AND quarantined = 0`,
+    ).bind(reason, now, captureId),
+    db.prepare(
+      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types)
+       VALUES (?, ?, 'threat', ?)`,
+    ).bind(captureId, now, threatTypes ?? null),
+  ]);
+  return captureResult.meta.changes ?? 0;
+}
+
+/**
+ * Quarantine ALL complete, non-quarantined captures sharing a given URL.
+ * Returns an array of { captureId, tenantId } objects for every row that was
+ * updated -- callers use this to dispatch quarantine webhooks per tenant.
+ * Uses db.batch() for atomicity: SELECT + batch of UPDATE/INSERT statements.
+ *
+ * @param {D1Database} db
+ * @param {string} url
+ * @param {string} reason        Threat type string (e.g. 'MALWARE')
+ * @param {string|null} threatTypes  Raw threat type string(s) from provider
+ * @returns {Promise<Array<{ captureId: string, tenantId: string }>>}
+ */
+export async function quarantineCapturesByUrl(db, url, reason, threatTypes) {
+  // Fetch the captures to quarantine first so we can return tenantId per capture
+  // and build the batch update list.
+  const { results } = await db.prepare(
+    `SELECT id, tenant_id FROM captures
+     WHERE url = ? AND status = 'complete' AND quarantined = 0`,
+  ).bind(url).all();
+
+  if (!results || results.length === 0) return [];
+
+  const now = new Date().toISOString();
+  const statements = [];
+
+  for (const row of results) {
+    statements.push(
+      db.prepare(
+        `UPDATE captures
+         SET quarantined = 1, quarantine_reason = ?, quarantined_at = ?
+         WHERE id = ? AND status = 'complete' AND quarantined = 0`,
+      ).bind(reason, now, row.id),
+    );
+    statements.push(
+      db.prepare(
+        `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types)
+         VALUES (?, ?, 'threat', ?)`,
+      ).bind(row.id, now, threatTypes ?? null),
+    );
+  }
+
+  await db.batch(statements);
+
+  return results.map(row => ({ captureId: row.id, tenantId: row.tenant_id }));
+}
+
+/**
+ * Record a completed threat check for a capture and advance its last_threat_check_at
+ * timestamp. Both the audit insert and the timestamp update run atomically via
+ * db.batch(). Called for 'safe' and 'threat' verdicts alike.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {'safe'|'threat'} verdict
+ * @param {string|null} threatTypes  Raw threat type string(s); NULL on 'safe'
+ * @returns {Promise<void>}
+ */
+export async function recordThreatCheck(db, captureId, verdict, threatTypes) {
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare(
+      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types)
+       VALUES (?, ?, ?, ?)`,
+    ).bind(captureId, now, verdict, threatTypes ?? null),
+    db.prepare(
+      `UPDATE captures SET last_threat_check_at = ? WHERE id = ?`,
+    ).bind(now, captureId),
+  ]);
+}
+
+/**
+ * Return captures that need a threat re-scan.
+ * Selects complete, non-quarantined captures whose last_threat_check_at is
+ * either NULL (never checked) or older than the given olderThan timestamp.
+ * Results are de-duplicated by URL so the cron handler checks each URL once
+ * regardless of how many captures share it.
+ *
+ * SQLite ASC ordering puts NULLs first, so never-checked captures are always
+ * processed before recently-checked ones.
+ *
+ * @param {D1Database} db
+ * @param {string} olderThan  ISO 8601 timestamp -- captures checked before this are included
+ * @param {number} [limit=500]  Maximum rows to return (API call budget control)
+ * @returns {Promise<Array<{ captureId: string, url: string, tenantId: string }>>}
+ */
+export async function listCapturesNeedingThreatCheck(db, olderThan, limit = 500) {
+  const { results } = await db.prepare(
+    `SELECT MIN(id) AS capture_id, url, MIN(tenant_id) AS tenant_id
+     FROM captures
+     WHERE status = 'complete'
+       AND quarantined = 0
+       AND (last_threat_check_at IS NULL OR last_threat_check_at < ?)
+     GROUP BY url
+     ORDER BY MIN(last_threat_check_at) ASC
+     LIMIT ?`,
+  ).bind(olderThan, limit).all();
+
+  return (results ?? []).map(row => ({
+    captureId: row.capture_id,
+    url: row.url,
+    tenantId: row.tenant_id,
+  }));
 }

@@ -21,6 +21,16 @@ A single API call produces:
 - **Signed WACZ bundle** -- all artifacts packaged, hashed, and signed with Ed25519
 - **Verification URL** -- a shareable link anyone can use to confirm authenticity
 
+## Content Security
+
+WRL screens every submitted URL against threat intelligence databases before capture begins:
+
+- URLs identified as threats (malware, phishing, etc.) are rejected at submission time with a 422 response.
+- Existing captures are re-scanned daily. Captures that fail re-screening are quarantined: metadata remains accessible, artifact downloads return 451.
+- Screening degrades gracefully -- if the threat intelligence service is unavailable, captures proceed normally. The `threatCheck` field on a capture record reflects the outcome: `pass`, `fail`, or `unavailable`.
+
+Configure the service via `GOOGLE_WEB_RISK_API_KEY` in your environment (see [step 8b](#8b-configure-content-security-screening-optional) below). The key is optional; omitting it disables screening and all captures report `threatCheck: unavailable`.
+
 ## Usage
 
 Requires a running WRL instance. See [Setup](#setup) below.
@@ -116,7 +126,7 @@ curl https://api.webresourceledger.com/v1/captures \
 }
 ```
 
-Optional query parameters: `limit` (1-100, default 20), `cursor` (for paging), `status` (`pending`, `complete`, or `failed`).
+Optional query parameters: `limit` (1-100, default 20), `cursor` (for paging), `status` (`pending`, `complete`, `failed`, or `quarantined`).
 
 Captures are rate-limited to 10 per minute per IP. Verification is limited to 60 per minute per IP. Error responses use RFC 9457 `application/problem+json` format. For full details, see [`openapi.yaml`](openapi.yaml).
 
@@ -299,6 +309,24 @@ curl -X POST https://api.webresourceledger.com/v1/admin/keys \
 ```
 
 Use the returned `key` value as `$WRL_API_KEY` going forward. See [OPERATIONS.md](OPERATIONS.md#multi-tenant-key-migration) for the full migration runbook.
+
+**Security:** Never commit this value to version control. `.dev.vars` is already in `.gitignore`.
+
+### 8b. Configure content security screening (optional)
+
+`GOOGLE_WEB_RISK_API_KEY` enables URL threat screening before capture and during daily re-scans. Without it, all captures report `threatCheck: unavailable` and no URLs are blocked.
+
+Obtain a key from the Google Cloud Console with the Web Risk API enabled, then set the production secret:
+
+```bash
+wrangler secret put GOOGLE_WEB_RISK_API_KEY
+```
+
+For local dev, add to `.dev.vars`:
+
+```
+GOOGLE_WEB_RISK_API_KEY=<your api key>
+```
 
 **Security:** Never commit this value to version control. `.dev.vars` is already in `.gitignore`.
 
