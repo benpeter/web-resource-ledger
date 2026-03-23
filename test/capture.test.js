@@ -151,7 +151,7 @@ describe('performCapture -- renderer failure: timeout', () => {
 
 describe('performCapture -- renderer failure: subresource limit', () => {
   const subresourceLimitRenderer = async () => {
-    throw new Error('Page exceeded 200 subresource limit');
+    throw new Error('Page exceeded 500 subresource limit');
   };
 
   it('transitions KV to failed with retryable=false', async () => {
@@ -178,7 +178,7 @@ describe('performCapture -- renderer failure: subresource limit', () => {
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, subresourceLimitRenderer);
 
     const record = await getCapture(env.DB, TEST_ID);
-    expect(record.error).toBe('Page exceeded 200 subresource limit');
+    expect(record.error).toBe('Page exceeded 500 subresource limit');
     expect(record.error).not.toContain('at ');
   });
 });
@@ -989,8 +989,52 @@ describe('categorizeError -- is a named export from capture.js', () => {
   });
 
   it('returns retryable: false for non-retryable errors', () => {
-    const result = categorizeError(new Error('Page exceeded 200 subresource limit'));
+    const result = categorizeError(new Error('Page exceeded 500 subresource limit'));
     expect(result.retryable).toBe(false);
     expect(typeof result.message).toBe('string');
+  });
+
+  it('returns retryable: false for render failure (error page detection)', () => {
+    const result = categorizeError(new Error('Captured page is not target content (chromium-error-page)'));
+    expect(result.retryable).toBe(false);
+    expect(result.message).toContain('not target content');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performCapture -- error page detection
+// ---------------------------------------------------------------------------
+
+describe('performCapture -- error page detection (render failure)', () => {
+  const chromiumErrorRenderer = async () => {
+    throw new Error('Captured page is not target content (chromium-error-page)');
+  };
+
+  const blankPageRenderer = async () => {
+    throw new Error('Captured page is not target content (blank-page)');
+  };
+
+  it('fails capture as non-retryable for chromium error page', async () => {
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    const result = await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, chromiumErrorRenderer);
+
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(false);
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.error).toContain('chromium-error-page');
+  });
+
+  it('fails capture as non-retryable for blank page', async () => {
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    const result = await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, blankPageRenderer);
+
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(false);
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.status).toBe('failed');
+    expect(record.error).toContain('blank-page');
   });
 });

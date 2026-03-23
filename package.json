@@ -22,7 +22,8 @@
     "lint:api": "redocly lint openapi.yaml",
     "smoke": "./scripts/smoke-test.sh",
     "test:e2e": "npx playwright test --config=test/e2e/playwright.config.js",
-    "build:docs": "cd site && npm run build"
+    "build:docs": "cd site && npm run build",
+    "test:battery": "node scripts/test-battery.js"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.12.21",
@@ -34,7 +35,7 @@
   },
   "dependencies": {
     "@cloudflare/playwright": "^1.1.2",
-    "@duckduckgo/autoconsent": "^14.59.0",
+    "@duckduckgo/autoconsent": "^14.63.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "croner": "^10.0.1",
     "fflate": "^0.8.2",

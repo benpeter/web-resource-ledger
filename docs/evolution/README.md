@@ -71,3 +71,4 @@ software development.
 | [0059-scheduled-captures-cron](0059-scheduled-captures-cron/) | Scheduled captures with Cron Triggers: CRUD API, fan-out handler, per-tenant limits, web UI panel (Issue #107) |
 | [0060-capture-metering-stripe-pipeline](0060-capture-metering-stripe-pipeline/) | Capture metering to Stripe pipeline: hourly batch reporter, graduated pricing, billing dashboard endpoint (Issue #108) |
 | [0061-content-security-scanning](0061-content-security-scanning/) | Content security scanning: Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement (Issue #109) |
+| [0059b-capture-quality](0059b-capture-quality/) | Capture quality improvements: error page detection, subresource limit 200→500, autoconsent v14.63.0, lazy-load scrolling, test battery |
