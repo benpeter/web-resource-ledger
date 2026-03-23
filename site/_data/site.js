@@ -6,6 +6,7 @@ export default {
     { title: "Authentication", url: "/authentication/" },
     { title: "Verification", url: "/verification/" },
     { title: "Batch Captures", url: "/batch/" },
+    { title: "Limits & Quotas", url: "/limits/" },
     { title: "Webhooks", url: "/webhooks/" },
     { title: "MCP Server", url: "/mcp/" },
     { title: "API Reference", url: "/api-reference/" },

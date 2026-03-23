@@ -8,6 +8,7 @@ import {
   createCapture, completeCapture, failCapture, getCapture, listCaptures,
   createApiKeyRecord, getApiKeyRecord, revokeApiKeyRecord, listApiKeyRecords,
   getTenantConfig, setTenantConfig,
+  setTenantTier, VALID_TIERS,
   archiveSigningKey, getArchivedSigningKey,
 } from '../src/db.js';
 import { rateLimitWindowId, rateLimitCounter } from '../src/kv.js';
@@ -615,6 +616,121 @@ describe('setTenantConfig', () => {
 
   it('throws on invalid tenantId', async () => {
     await expect(setTenantConfig(env.DB, 'BAD:ID', {}, 'admin')).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setTenantConfig -- quotas validation
+// ---------------------------------------------------------------------------
+
+describe('setTenantConfig -- quotas validation', () => {
+  const TID = 'cfg-quotas-test';
+
+  it('accepts valid quota overrides', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { capturesPerMonth: 250, storageBytes: 2 * 1024 * 1024 * 1024 } }, 'admin'),
+    ).resolves.not.toThrow();
+    const config = await (await env.DB.prepare('SELECT config FROM tenants WHERE id = ?').bind(TID).first());
+    const parsed = JSON.parse(config.config);
+    expect(parsed.quotas.capturesPerMonth).toBe(250);
+  });
+
+  it('throws when quotas.capturesPerMonth is not a positive integer (float)', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { capturesPerMonth: 1.5 } }, 'admin'),
+    ).rejects.toThrow('quotas.capturesPerMonth must be a positive integer');
+  });
+
+  it('throws when quotas.capturesPerMonth is zero', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { capturesPerMonth: 0 } }, 'admin'),
+    ).rejects.toThrow('quotas.capturesPerMonth must be a positive integer');
+  });
+
+  it('throws when quotas.capturesPerMonth is negative', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { capturesPerMonth: -10 } }, 'admin'),
+    ).rejects.toThrow('quotas.capturesPerMonth must be a positive integer');
+  });
+
+  it('throws when quotas.storageBytes is not a positive integer (float)', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { storageBytes: 1.1 } }, 'admin'),
+    ).rejects.toThrow('quotas.storageBytes must be a positive integer');
+  });
+
+  it('throws when quotas.storageBytes is zero', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { storageBytes: 0 } }, 'admin'),
+    ).rejects.toThrow('quotas.storageBytes must be a positive integer');
+  });
+
+  it('accepts config without quotas key', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { rateLimit: { capture: { limit: 10 } } }, 'admin'),
+    ).resolves.not.toThrow();
+  });
+
+  it('accepts quotas with only capturesPerMonth set', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { capturesPerMonth: 500 } }, 'admin'),
+    ).resolves.not.toThrow();
+  });
+
+  it('accepts quotas with only storageBytes set', async () => {
+    await expect(
+      setTenantConfig(env.DB, TID, { quotas: { storageBytes: 10 * 1024 * 1024 * 1024 } }, 'admin'),
+    ).resolves.not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setTenantTier
+// ---------------------------------------------------------------------------
+
+describe('setTenantTier', () => {
+  const TID = 'tier-test';
+
+  beforeEach(async () => {
+    // Ensure the tenant row exists before each tier test
+    await env.DB.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(TID).run();
+  });
+
+  it('VALID_TIERS exports the allowed tier values', () => {
+    expect(VALID_TIERS).toContain('free');
+    expect(VALID_TIERS).toContain('pro');
+  });
+
+  it('updates the tier column to pro', async () => {
+    await setTenantTier(env.DB, TID, 'pro', 'admin');
+    const row = await env.DB.prepare('SELECT tier FROM tenants WHERE id = ?').bind(TID).first();
+    expect(row.tier).toBe('pro');
+  });
+
+  it('updates the tier column back to free', async () => {
+    await setTenantTier(env.DB, TID, 'pro', 'admin');
+    await setTenantTier(env.DB, TID, 'free', 'admin');
+    const row = await env.DB.prepare('SELECT tier FROM tenants WHERE id = ?').bind(TID).first();
+    expect(row.tier).toBe('free');
+  });
+
+  it('throws when tier is an unknown value', async () => {
+    await expect(setTenantTier(env.DB, TID, 'enterprise', 'admin')).rejects.toThrow(
+      "Invalid tier 'enterprise'",
+    );
+  });
+
+  it('throws when tier is an empty string', async () => {
+    await expect(setTenantTier(env.DB, TID, '', 'admin')).rejects.toThrow();
+  });
+
+  it('throws on invalid tenantId', async () => {
+    await expect(setTenantTier(env.DB, 'BAD:ID', 'pro', 'admin')).rejects.toThrow('Invalid tenantId');
+  });
+
+  it('accepts both free and pro without throwing', async () => {
+    await expect(setTenantTier(env.DB, TID, 'free', 'admin')).resolves.not.toThrow();
+    await expect(setTenantTier(env.DB, TID, 'pro', 'admin')).resolves.not.toThrow();
   });
 });
 

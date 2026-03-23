@@ -10,6 +10,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
+import { checkQuota } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage } from './admin.js';
 import { handleMcp } from './mcp.js';
@@ -17,7 +18,7 @@ import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
-import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos } from './account.js';
+import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage } from './account.js';
 import { verifySession } from './session.js';
 
 // tva
@@ -61,6 +62,7 @@ const routes = [
   ['POST',   /^\/v1\/account\/keys$/, handleAccountCreateKey],
   ['DELETE', /^\/v1\/account\/keys\/([a-f0-9]{64})$/, handleAccountRevokeKey],
   ['POST',   /^\/v1\/account\/tos$/, handleAccountAcceptTos],
+  ['GET',    /^\/v1\/account\/usage$/, handleAccountGetUsage],
 ];
 
 function getAllowedOrigin(request, env) {
@@ -425,8 +427,9 @@ export default {
     // X-RateLimit headers: authenticated handlers set their own (Limit/Remaining/Reset);
     // fall back to static Limit for unauthenticated endpoints (verify, admin)
     const rateLimitGroup = getRateLimitGroup(request.method, pathname);
-    if (rateLimitGroup && response.status !== 503 && !response.headers.has('X-RateLimit-Limit')) {
-      response.headers.set('X-RateLimit-Limit', String(RATE_LIMITS[rateLimitGroup].limit));
+    const rateLimitConfig = RATE_LIMITS[rateLimitGroup];
+    if (rateLimitConfig && response.status !== 503 && !response.headers.has('X-RateLimit-Limit')) {
+      response.headers.set('X-RateLimit-Limit', String(rateLimitConfig.limit));
     }
 
     response.headers.set('Referrer-Policy', 'no-referrer');
@@ -531,6 +534,17 @@ async function checkCaptureRateLimit(env, auth, clientIp, group, count = 1) {
   };
 }
 
+// Build X-Quota-* headers for successful capture responses.
+// Only called when quotaCheck.allowed is true -- callers must guard.
+function buildQuotaHeaders(quotaCheck) {
+  if (!quotaCheck?.allowed) return {};
+  return {
+    'X-Quota-Limit': String(quotaCheck.quota.capturesPerMonth),
+    'X-Quota-Used': String(quotaCheck.captureCount),
+    'X-Quota-Remaining': String(Math.max(0, quotaCheck.quota.capturesPerMonth - quotaCheck.captureCount)),
+  };
+}
+
 async function handleCreateCapture(request, env, ctx) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
@@ -580,6 +594,42 @@ async function handleCreateCapture(request, env, ctx) {
     rlHeaders['X-RateLimit-Limit'] = String(rl.limit);
     rlHeaders['X-RateLimit-Remaining'] = String(rl.remaining);
     rlHeaders['X-RateLimit-Reset'] = String(rl.resetIn);
+  }
+
+  // Step 3b: Monthly quota check (KV auth only -- legacy auth has no D1 tenant record)
+  let quotaCheck = null;
+  if (authMethod !== 'legacy') {
+    quotaCheck = await checkQuota(env.DB, tenantId);
+    if (!quotaCheck.allowed) {
+      ctx.waitUntil(log(env, 4, 'security', {
+        event: 'security.quota_exceeded',
+        tenantId, keyName, keyHashPrefix, authMethod,
+        reason: quotaCheck.reason,
+        limit: quotaCheck.limit,
+        used: quotaCheck.used,
+        responseStatus: 429,
+        cip,
+      }) ?? Promise.resolve());
+
+      const retryAfterDate = new Date(quotaCheck.resetsAt).toUTCString();
+      const quotaHeaders = {
+        'Retry-After': retryAfterDate,
+        ...rlHeaders,
+      };
+      const detail = quotaCheck.reason === 'capture_limit'
+        ? `Monthly capture quota reached (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
+        : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+
+      return problemResponse(429, detail, quotaHeaders, {
+        limitType: 'quota',
+        quota: {
+          limit: quotaCheck.limit,
+          used: quotaCheck.used,
+          resource: quotaCheck.reason === 'capture_limit' ? 'captures' : 'storage',
+          resetsAt: quotaCheck.resetsAt,
+        },
+      });
+    }
   }
 
   // Global rate limit check (service capacity protection)
@@ -679,7 +729,7 @@ async function handleCreateCapture(request, env, ctx) {
     id: captureId,
     statusUrl,
     note: 'Use GET /v1/captures to list and search your captures.',
-  }, 202, { 'Retry-After': '10', ...rlHeaders });
+  }, 202, { 'Retry-After': '10', ...rlHeaders, ...buildQuotaHeaders(quotaCheck) });
 }
 
 async function handleBatchCapture(request, env, ctx) {
@@ -752,6 +802,44 @@ async function handleBatchCapture(request, env, ctx) {
     rlHeaders['X-RateLimit-Limit'] = String(rl.limit);
     rlHeaders['X-RateLimit-Remaining'] = String(rl.remaining);
     rlHeaders['X-RateLimit-Reset'] = String(rl.resetIn);
+  }
+
+  // Step 5b: Monthly quota check -- entire batch (KV auth only -- legacy has no D1 tenant record)
+  let quotaCheck = null;
+  if (authMethod !== 'legacy') {
+    quotaCheck = await checkQuota(env.DB, tenantId, body.urls.length);
+    if (!quotaCheck.allowed) {
+      ctx.waitUntil(log(env, 4, 'security', {
+        event: 'security.quota_exceeded',
+        tenantId, keyName, keyHashPrefix, authMethod,
+        reason: quotaCheck.reason,
+        limit: quotaCheck.limit,
+        used: quotaCheck.used,
+        requested: body.urls.length,
+        responseStatus: 429,
+        cip,
+      }) ?? Promise.resolve());
+
+      const retryAfterDate = new Date(quotaCheck.resetsAt).toUTCString();
+      const quotaHeaders = {
+        'Retry-After': retryAfterDate,
+        ...rlHeaders,
+      };
+      const detail = quotaCheck.reason === 'capture_limit'
+        ? `Batch of ${body.urls.length} captures would exceed monthly quota (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
+        : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+
+      return problemResponse(429, detail, quotaHeaders, {
+        limitType: 'quota',
+        quota: {
+          limit: quotaCheck.limit,
+          used: quotaCheck.used,
+          requested: body.urls.length,
+          resource: quotaCheck.reason === 'capture_limit' ? 'captures' : 'storage',
+          resetsAt: quotaCheck.resetsAt,
+        },
+      });
+    }
   }
 
   // Step 6: Global capacity pre-check
@@ -899,7 +987,7 @@ async function handleBatchCapture(request, env, ctx) {
   }) ?? Promise.resolve());
 
   // Step 10: Return 207
-  return jsonResponse({ items, summary: { total: items.length, accepted, failed } }, 207, rlHeaders);
+  return jsonResponse({ items, summary: { total: items.length, accepted, failed } }, 207, { ...rlHeaders, ...buildQuotaHeaders(quotaCheck) });
 }
 
 async function handleListCaptures(request, env, ctx) {
@@ -1122,7 +1210,7 @@ async function handlePutTenantConfig(request, env, ctx, match) {
   try {
     saved = await setTenantConfig(env.DB, tenantId, body, 'admin_key');
   } catch (err) {
-    if (err.message && (err.message.startsWith('rateLimit.') || err.message.startsWith('Invalid tenantId'))) {
+    if (err.message && (err.message.startsWith('rateLimit.') || err.message.startsWith('quotas.') || err.message.startsWith('Invalid tenantId'))) {
       return problemResponse(400, err.message);
     }
     throw err;

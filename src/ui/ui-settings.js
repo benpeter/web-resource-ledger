@@ -28,6 +28,27 @@ function formatDate(isoStr) {
   }
 }
 
+// Format bytes as SI units (1000-based): KB, MB, GB.
+function formatBytes(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0 B';
+  if (n < 1000) return n + ' B';
+  if (n < 1000000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + ' KB';
+  if (n < 1000000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + ' MB';
+  return (n / 1000000000).toFixed(n % 1000000000 === 0 ? 0 : 1) + ' GB';
+}
+
+// Format a "YYYY-MM" period string as a human-readable month label.
+function formatPeriod(period) {
+  if (!period) return '';
+  try {
+    // Append day so Date parsing is unambiguous UTC
+    var d = new Date(period + '-01T00:00:00Z');
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', timeZone: 'UTC' });
+  } catch (e) {
+    return period;
+  }
+}
+
 function buildScopeBadges(scopes) {
   var frag = document.createDocumentFragment();
   if (!scopes || !scopes.length) return frag;
@@ -92,9 +113,20 @@ function mountSettings() {
     createdAt: _wrlUser ? _wrlUser.createdAt : ''
   };
 
-  // Fetch keys list
-  apiFetch('/v1/account/keys', { credentials: 'same-origin' })
-  .then(function(keysRes) {
+  // Fetch keys and usage in parallel. Usage failure must not block keys section.
+  var keysPromise = apiFetch('/v1/account/keys', { credentials: 'same-origin' });
+  var usagePromise = apiFetch('/v1/account/usage', { credentials: 'same-origin' })
+    .then(function(res) {
+      if (!res || !res.ok) return null;
+      return res.json();
+    })
+    .catch(function() { return null; });
+
+  Promise.all([keysPromise, usagePromise])
+  .then(function(results) {
+    var keysRes = results[0];
+    var usageData = results[1]; // null on failure
+
     if (!keysRes) return; // 401 handled by apiFetch
 
     if (!keysRes.ok) {
@@ -109,7 +141,7 @@ function mountSettings() {
 
     return keysRes.json().then(function(keysBody) {
       if (loadingEl) loadingEl.remove();
-      buildSettingsContent(view, accountData, keysBody || {});
+      buildSettingsContent(view, accountData, keysBody || {}, usageData);
     });
   }).catch(function() {
     if (loadingEl) loadingEl.remove();
@@ -122,10 +154,170 @@ function mountSettings() {
 }
 
 // ---------------------------------------------------------------------------
+// buildUsageMetric -- single progress bar row (captures or storage)
+// ---------------------------------------------------------------------------
+
+function buildUsageMetric(labelText, used, limit, ariaLabel) {
+  var pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+
+  var metric = document.createElement('div');
+  metric.className = 'usage-metric';
+
+  // Header row: label + "N of M" value
+  var header = document.createElement('div');
+  header.className = 'usage-metric-header';
+
+  var label = document.createElement('span');
+  label.className = 'usage-metric-label';
+  label.textContent = labelText;
+  header.appendChild(label);
+
+  var value = document.createElement('span');
+  value.className = 'usage-metric-value';
+  value.textContent = used + ' of ' + limit;
+  header.appendChild(value);
+
+  metric.appendChild(header);
+
+  // Progress bar
+  var bar = document.createElement('div');
+  bar.className = 'usage-bar';
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-valuenow', String(used));
+  bar.setAttribute('aria-valuemin', '0');
+  bar.setAttribute('aria-valuemax', String(limit));
+  bar.setAttribute('aria-label', ariaLabel);
+
+  var fill = document.createElement('div');
+  var fillClass = 'usage-bar-fill';
+  if (pct >= 95) {
+    fillClass += ' usage-bar-fill--critical';
+  } else if (pct >= 80) {
+    fillClass += ' usage-bar-fill--warning';
+  }
+  fill.className = fillClass;
+  fill.style.width = pct + '%';
+  bar.appendChild(fill);
+
+  metric.appendChild(bar);
+  return metric;
+}
+
+// ---------------------------------------------------------------------------
+// buildUsageSection -- construct the Usage card (or error state)
+// ---------------------------------------------------------------------------
+
+function buildUsageSection(usageData) {
+  var section = document.createElement('section');
+  section.className = 'settings-section card';
+  section.id = 'settings-usage-section';
+  section.setAttribute('aria-labelledby', 'settings-usage-heading');
+
+  // Section heading row with period label
+  var headingRow = document.createElement('div');
+  headingRow.className = 'settings-keys-header';
+
+  var heading = document.createElement('h2');
+  heading.id = 'settings-usage-heading';
+  heading.className = 'settings-section-heading';
+  heading.textContent = 'Usage';
+  headingRow.appendChild(heading);
+
+  if (usageData && usageData.period) {
+    var periodEl = document.createElement('span');
+    periodEl.className = 'settings-keys-limit';
+    periodEl.textContent = formatPeriod(usageData.period);
+    headingRow.appendChild(periodEl);
+  }
+
+  section.appendChild(headingRow);
+
+  if (!usageData) {
+    // Error state: fetch failed
+    var errEl = document.createElement('p');
+    errEl.className = 'alert alert--error';
+    errEl.setAttribute('role', 'alert');
+    errEl.textContent = 'Could not load usage data.';
+    section.appendChild(errEl);
+    settingsAnnounce('Usage data could not be loaded.');
+    return section;
+  }
+
+  // Captures metric
+  var captures = usageData.captures || { used: 0, limit: 0, remaining: 0 };
+  var capturesAriaLabel = captures.used + ' of ' + captures.limit + ' captures used this month';
+  section.appendChild(buildUsageMetric('Captures', captures.used, captures.limit, capturesAriaLabel));
+
+  // Storage metric
+  var storage = usageData.storageBytes || { used: 0, limit: 0, remaining: 0 };
+  var storageUsedFmt = formatBytes(storage.used);
+  var storageLimitFmt = formatBytes(storage.limit);
+  var storageAriaLabel = storageUsedFmt + ' of ' + storageLimitFmt + ' storage used this month';
+
+  // Override the value text to show formatted bytes
+  var storageMetric = buildUsageMetric('Storage', storage.used, storage.limit, storageAriaLabel);
+  var storageValue = storageMetric.querySelector('.usage-metric-value');
+  if (storageValue) storageValue.textContent = storageUsedFmt + ' of ' + storageLimitFmt;
+
+  section.appendChild(storageMetric);
+
+  // Footer: plan name, reset date, refresh button
+  var footer = document.createElement('div');
+  footer.className = 'usage-footer';
+
+  var footerLeft = document.createElement('span');
+  var tierText = usageData.tierDisplay ? 'Plan: ' + usageData.tierDisplay : '';
+  var resetText = usageData.resetsAt ? 'Resets ' + formatDate(usageData.resetsAt) : '';
+  footerLeft.textContent = [tierText, resetText].filter(Boolean).join('  \u00b7  ');
+  footer.appendChild(footerLeft);
+
+  var refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.className = 'usage-refresh-btn';
+  refreshBtn.textContent = '\u21bb';
+  refreshBtn.setAttribute('aria-label', 'Refresh usage data');
+  refreshBtn.addEventListener('click', function() {
+    refreshUsageSection();
+  });
+  footer.appendChild(refreshBtn);
+
+  section.appendChild(footer);
+
+  settingsAnnounce('Usage data loaded.');
+  return section;
+}
+
+// ---------------------------------------------------------------------------
+// refreshUsageSection -- re-fetch usage and replace card in place
+// ---------------------------------------------------------------------------
+
+function refreshUsageSection() {
+  var existing = document.getElementById('settings-usage-section');
+  if (!existing) return;
+
+  // Show a simple loading state on the heading
+  var headingEl = existing.querySelector('#settings-usage-heading');
+  if (headingEl) headingEl.textContent = 'Usage \u2026';
+
+  apiFetch('/v1/account/usage', { credentials: 'same-origin' })
+    .then(function(res) {
+      if (!res || !res.ok) return null;
+      return res.json();
+    })
+    .catch(function() { return null; })
+    .then(function(usageData) {
+      var current = document.getElementById('settings-usage-section');
+      if (!current) return;
+      var fresh = buildUsageSection(usageData);
+      current.parentNode.replaceChild(fresh, current);
+    });
+}
+
+// ---------------------------------------------------------------------------
 // buildSettingsContent -- render account info + keys after data loads
 // ---------------------------------------------------------------------------
 
-function buildSettingsContent(view, accountData, keysData) {
+function buildSettingsContent(view, accountData, keysData, usageData) {
   // --- Account info section ---
   var accountSection = document.createElement('section');
   accountSection.className = 'settings-section card';
@@ -160,6 +352,9 @@ function buildSettingsContent(view, accountData, keysData) {
 
   accountSection.appendChild(infoGrid);
   view.appendChild(accountSection);
+
+  // --- Usage section ---
+  view.appendChild(buildUsageSection(usageData));
 
   // --- API Keys section ---
   var keys = (keysData && keysData.data) ? keysData.data : [];

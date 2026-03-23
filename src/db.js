@@ -26,6 +26,9 @@
 /** Regex for valid tenant IDs -- single source of truth, also exported from kv.js */
 export const TENANT_ID_RE = /^[a-z0-9_-]{1,64}$/;
 
+/** Allowed tier values. Application-layer validation (D1 ALTER TABLE has no CHECK support). */
+export const VALID_TIERS = ['free', 'pro'];
+
 /** Regex for valid webhook IDs: whk_ + 32 lowercase hex chars (total 36 chars) */
 export const WEBHOOK_ID_RE = /^whk_[a-f0-9]{32}$/;
 
@@ -285,6 +288,24 @@ export async function setTenantConfig(db, tenantId, config, updatedBy) {
     }
   }
 
+  // Validate per-tenant quota overrides if present
+  if (config.quotas) {
+    if (config.quotas.capturesPerMonth !== undefined) {
+      if (typeof config.quotas.capturesPerMonth !== 'number' ||
+          config.quotas.capturesPerMonth < 1 ||
+          !Number.isInteger(config.quotas.capturesPerMonth)) {
+        throw new Error('quotas.capturesPerMonth must be a positive integer');
+      }
+    }
+    if (config.quotas.storageBytes !== undefined) {
+      if (typeof config.quotas.storageBytes !== 'number' ||
+          config.quotas.storageBytes < 1 ||
+          !Number.isInteger(config.quotas.storageBytes)) {
+        throw new Error('quotas.storageBytes must be a positive integer');
+      }
+    }
+  }
+
   const updatedAt = new Date().toISOString();
   const record = {
     ...config,
@@ -301,6 +322,29 @@ export async function setTenantConfig(db, tenantId, config, updatedBy) {
   ).bind(tenantId, JSON.stringify(record), updatedAt, updatedBy).run();
 
   return record;
+}
+
+/**
+ * Update the tier for a tenant. The tenant row must already exist.
+ * Validates the tier value against VALID_TIERS before writing.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} tier  'free' | 'pro'
+ * @param {string} updatedBy
+ * @returns {Promise<void>}
+ */
+export async function setTenantTier(db, tenantId, tier, updatedBy) {
+  if (!TENANT_ID_RE.test(tenantId)) {
+    throw new Error(`Invalid tenantId: ${tenantId}`);
+  }
+  if (!VALID_TIERS.includes(tier)) {
+    throw new Error(`Invalid tier '${tier}'; must be one of: ${VALID_TIERS.join(', ')}`);
+  }
+  const updatedAt = new Date().toISOString();
+  await db.prepare(
+    `UPDATE tenants SET tier = ?, updated_at = ?, updated_by = ? WHERE id = ?`,
+  ).bind(tier, updatedAt, updatedBy, tenantId).run();
 }
 
 // ---------------------------------------------------------------------------

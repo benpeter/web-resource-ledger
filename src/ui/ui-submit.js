@@ -16,6 +16,15 @@ function safeUrl(urlStr) {
   }
 }
 
+function formatDate(isoStr) {
+  if (!isoStr) return '';
+  try {
+    return new Date(isoStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (e) {
+    return isoStr;
+  }
+}
+
 function relativeTime(isoStr) {
   if (!isoStr) return '';
   var diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
@@ -383,7 +392,16 @@ function handleSubmit(urlInput, submitBtn, formErrorEl) {
 
     // Error response: show detail from Problem Details JSON
     return res.json().then(function(data) {
-      var detail = (data && data.detail) ? truncate(data.detail, 200) : 'Request failed (HTTP ' + res.status + ').';
+      var detail;
+      // 429 with limitType: 'quota' means monthly capture limit reached
+      if (res.status === 429 && data && data.limitType === 'quota') {
+        var resetDate = data.resetsAt ? formatDate(data.resetsAt) : '';
+        detail = 'Monthly capture limit reached.' +
+          (resetDate ? ' Your quota resets on ' + resetDate + '.' : '') +
+          ' View usage in Settings.';
+      } else {
+        detail = (data && data.detail) ? truncate(data.detail, 200) : 'Request failed (HTTP ' + res.status + ').';
+      }
       formErrorEl.textContent = detail;
       formErrorEl.style.display = '';
       urlInput.focus();

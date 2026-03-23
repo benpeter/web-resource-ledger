@@ -752,6 +752,66 @@ input, select, textarea {
 }
 
 /* ---------------------------------------------------------------------------
+   Usage section
+--------------------------------------------------------------------------- */
+
+.usage-metric { margin-bottom: var(--space-4); }
+.usage-metric:last-of-type { margin-bottom: 0; }
+.usage-metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-1);
+}
+.usage-metric-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.usage-metric-value {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.usage-bar {
+  height: 8px;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+}
+.usage-bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-sm);
+  transition: width 0.2s ease;
+  min-width: 0;
+}
+.usage-bar-fill--warning { background: var(--color-warning); }
+.usage-bar-fill--critical { background: var(--color-error); }
+.usage-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.usage-refresh-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: var(--text-sm);
+}
+.usage-refresh-btn:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+/* ---------------------------------------------------------------------------
    Reduced motion
 --------------------------------------------------------------------------- */
 

@@ -155,8 +155,12 @@ The entire batch fails (not 207) in these cases:
 | `401` | Missing or invalid `Authorization` header. |
 | `503` | Service is at capacity. Retry after the `Retry-After` header value (seconds). |
 
-### Rate limits
+### Rate limits and quotas
 
 Rate limits apply per URL, not per request. Submitting a batch of 10 URLs consumes 10 tokens from your rate limit. If you are near the limit, some items may return `429` while others are accepted. The `summary.failed` count will reflect this.
 
 When you receive `429` items, wait for the window to reset (indicated by the `Retry-After` header on rate-limited responses) and resubmit only the rejected URLs.
+
+Monthly quota checks work differently: the entire batch is rejected upfront if it would exceed the remaining quota. In that case, the response is a single `429` with `limitType: 'quota'` -- not a `207` with per-item errors.
+
+For detailed information about rate limits and monthly quotas, see [Limits & Quotas](/limits/).

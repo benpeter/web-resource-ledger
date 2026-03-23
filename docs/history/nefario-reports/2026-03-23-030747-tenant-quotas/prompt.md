@@ -1,0 +1,20 @@
+**Outcome**: Tenants are subject to usage quotas (captures/month, storage GB) based on their tier. Quota checks happen before expensive operations (browser launch), and tenants can see their usage in the web UI.
+
+**Success criteria**:
+- Default quotas defined per tier: free (e.g., 100 captures/month, 1 GB storage), pro (e.g., 5000 captures/month, 50 GB)
+- Quota check runs before browser session creation in the capture pipeline
+- Exceeding quota returns 429 with `{ "error": "quota_exceeded", "detail": "monthly capture limit reached", "limit": N, "used": N }`
+- Per-tenant quota overrides stored in D1 (operator can grant custom limits)
+- Web UI usage dashboard shows current period usage vs. quota with a progress bar per metric
+- Usage dashboard updates on page load (not real-time; reads from D1 usage counters)
+- Quota enforcement is best-effort (eventual consistency of usage counters means slight overages are acceptable)
+- Tier assignment is stored per tenant in D1 and defaults to "free" on auto-provisioning
+
+**Scope**:
+- In: Tier-based default quotas, pre-capture quota check, 429 quota_exceeded response, per-tenant D1 overrides, web UI usage dashboard, tier field on tenant record
+- Out: Automatic tier upgrades (manual or via billing), storage cleanup/eviction on quota breach, per-endpoint API call quotas (only captures and storage for now), quota alerts/notifications
+
+**Constraints**:
+- Depends on R25 (usage metering) for counter data and R21 (per-tenant rate limiting) for the rate limit infrastructure
+- Quota check must not add >10ms latency to the capture request (single D1 read, cached if possible)
+- Must handle race conditions gracefully -- two concurrent captures from the same tenant near quota limit may both proceed; slight overages are acceptable

@@ -29,6 +29,8 @@ tags:
     description: API key management (admin-only)
   - name: webhooks
     description: Outbound webhook registration and management
+  - name: account
+    description: Tenant account information and usage
 
 components:
   securitySchemes:
@@ -89,6 +91,21 @@ components:
       schema:
         type: string
         example: '<https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md>; rel="terms-of-service"'
+    XQuotaLimit:
+      description: Maximum captures allowed in the current billing period.
+      schema:
+        type: integer
+        example: 100
+    XQuotaUsed:
+      description: Captures used in the current billing period.
+      schema:
+        type: integer
+        example: 42
+    XQuotaRemaining:
+      description: Captures remaining in the current billing period.
+      schema:
+        type: integer
+        example: 58
 
   schemas:
     CaptureId:
@@ -1092,6 +1109,87 @@ components:
             Last time counters were updated. Null if no activity in the period.
           example: '2026-03-22T14:30:00.000Z'
 
+    QuotaDetail:
+      type: object
+      description: Detail about which quota was exceeded and current usage at time of rejection.
+      properties:
+        limit:
+          type: integer
+          description: Maximum allowed for this resource in the current period.
+          example: 100
+        used:
+          type: integer
+          description: Current usage count.
+          example: 100
+        resource:
+          type: string
+          enum: [captures, storage]
+          description: Which resource quota was exceeded.
+          example: captures
+        resetsAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the quota resets (first of next month).
+          example: "2026-04-01T00:00:00.000Z"
+        requested:
+          type: integer
+          description: Number of items requested (present only for batch requests).
+          example: 10
+
+    UsageMetric:
+      type: object
+      description: Current usage, limit, and remaining allowance for a single resource.
+      required: [used, limit, remaining]
+      properties:
+        used:
+          type: integer
+          minimum: 0
+          description: Units consumed in the current billing period.
+          example: 42
+        limit:
+          type: integer
+          minimum: 0
+          description: Maximum units allowed in the current billing period.
+          example: 100
+        remaining:
+          type: integer
+          minimum: 0
+          description: Units remaining before the quota is reached.
+          example: 58
+
+    AccountUsageResponse:
+      type: object
+      description: >
+        Current-period usage and quota summary for the authenticated tenant.
+        Values reflect the tenant's effective quotas (tier defaults unless an
+        admin override is in effect).
+      required: [tenantId, period, tierDisplay, captures, storageBytes, resetsAt]
+      properties:
+        tenantId:
+          type: string
+          description: Tenant identifier.
+          example: "gh-12345"
+        period:
+          type: string
+          pattern: '^\d{4}-\d{2}$'
+          description: Billing period in YYYY-MM format.
+          example: "2026-03"
+        tierDisplay:
+          type: string
+          description: Human-readable tier name for UI display.
+          example: "Starter"
+        captures:
+          $ref: '#/components/schemas/UsageMetric'
+          description: Capture count usage and quota for the current period.
+        storageBytes:
+          $ref: '#/components/schemas/UsageMetric'
+          description: Storage byte usage and quota for the current period.
+        resetsAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the current period quotas reset (first of next month).
+          example: "2026-04-01T00:00:00.000Z"
+
     VerificationCheck:
       type: object
       description: Result of a single cryptographic check within a WACZ verification.
@@ -1297,7 +1395,17 @@ components:
               value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
 
     Problem429:
-      description: Too Many Requests — rate limit exceeded.
+      description: >
+        Too Many Requests — rate limit or monthly quota exceeded.
+
+        The response body includes a `limitType` extension field that distinguishes
+        the specific 429 variant:
+
+        - `limitType` absent: IP-based rate limit exceeded. Retry after `Retry-After` seconds.
+        - `limitType: 'tenant'`: Per-tenant rate limit exceeded. Retry after `Retry-After` seconds.
+        - `limitType: 'quota'`: Monthly capture quota exhausted. A `quota` extension object
+          is present with `limit`, `used`, `resource`, `resetsAt`, and (for batch) `requested`.
+          Retrying before `resetsAt` will continue to fail.
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
@@ -1319,8 +1427,21 @@ components:
             $ref: '#/components/schemas/ProblemDetail'
           examples:
             rateLimited:
-              summary: Caller exceeded allowed request rate
+              summary: IP-based rate limit exceeded
               value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again later.}
+            quotaExceeded:
+              summary: Monthly capture quota exhausted
+              value:
+                type: about:blank
+                status: 429
+                title: Too Many Requests
+                detail: Monthly capture quota exhausted. Quota resets on 2026-04-01.
+                limitType: quota
+                quota:
+                  limit: 100
+                  used: 100
+                  resource: captures
+                  resetsAt: "2026-04-01T00:00:00.000Z"
 
     Problem503:
       description: Service Unavailable -- required configuration is missing or service is at capacity.
@@ -1636,6 +1757,11 @@ paths:
         Enqueues a headless-browser capture of the given URL. Returns immediately with a capture
         ID; poll the status URL to determine when the capture is complete.
 
+        Monthly quota: each accepted capture counts against the tenant's monthly capture quota.
+        When the quota is exhausted the endpoint returns 429 with `limitType: 'quota'` in the
+        response body. Quota headers (`X-Quota-Limit`, `X-Quota-Used`, `X-Quota-Remaining`) are
+        present on successful 202 responses.
+
         CORS: This endpoint supports cross-origin requests from allowed origins. Preflight
         (OPTIONS) is handled automatically. Configure allowed origins via the CORS_ORIGINS
         environment variable.
@@ -1679,6 +1805,12 @@ paths:
                 example: 5
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            X-Quota-Limit:
+              $ref: '#/components/headers/XQuotaLimit'
+            X-Quota-Used:
+              $ref: '#/components/headers/XQuotaUsed'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/XQuotaRemaining'
             Access-Control-Allow-Origin:
               description: Echoes the requesting origin when it matches the configured allowlist.
               schema:
@@ -1841,7 +1973,10 @@ paths:
                   summary: Double-encoded characters in URL
                   value: {type: about:blank, status: 422, title: Unprocessable Content, detail: URL contains double-encoded characters.}
         '429':
-          description: Too Many Requests — rate limit exceeded.
+          description: >
+            Too Many Requests — rate limit or monthly quota exceeded. See `limitType` in the
+            response body to distinguish rate limiting (`limitType` absent or `'tenant'`) from
+            quota exhaustion (`limitType: 'quota'`).
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -1872,8 +2007,21 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
               examples:
                 rateLimited:
-                  summary: Caller exceeded allowed request rate
+                  summary: IP-based rate limit exceeded
                   value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again later.}
+                quotaExceeded:
+                  summary: Monthly capture quota exhausted
+                  value:
+                    type: about:blank
+                    status: 429
+                    title: Too Many Requests
+                    detail: Monthly capture quota exhausted. Quota resets on 2026-04-01.
+                    limitType: quota
+                    quota:
+                      limit: 100
+                      used: 100
+                      resource: captures
+                      resetsAt: "2026-04-01T00:00:00.000Z"
         '503':
           description: Service Unavailable -- service is at capacity.
           headers:
@@ -1920,6 +2068,13 @@ paths:
         validation or hits a per-item rate limit does not affect other items in
         the batch. Rate-limit tokens are consumed per URL, not per request.
 
+        Monthly quota: each accepted URL counts against the tenant's monthly capture quota.
+        When the quota is exhausted mid-batch, remaining items receive per-item 429 errors
+        with `limitType: 'quota'`. If the quota is exhausted before processing begins
+        (e.g., zero remaining), a top-level 429 is returned with `limitType: 'quota'` and a
+        `quota.requested` field indicating how many captures were requested. Quota headers
+        (`X-Quota-Limit`, `X-Quota-Used`, `X-Quota-Remaining`) are present on 207 responses.
+
         The response is always 207 Multi-Status when the batch structure itself
         is valid (non-empty urls array, within size limits). Top-level 400, 401,
         429, and 503 are returned when the entire request cannot be processed
@@ -1962,6 +2117,12 @@ paths:
               $ref: '#/components/headers/TermsLink'
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            X-Quota-Limit:
+              $ref: '#/components/headers/XQuotaLimit'
+            X-Quota-Used:
+              $ref: '#/components/headers/XQuotaUsed'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/XQuotaRemaining'
           content:
             application/json:
               schema:
@@ -2082,7 +2243,11 @@ paths:
                   summary: Text/plain submitted instead of JSON
                   value: {type: about:blank, status: 415, title: Unsupported Media Type, detail: Content-Type must be application/json}
         '429':
-          description: Too Many Requests — pre-flight rate limit exceeded before any item was processed.
+          description: >
+            Too Many Requests — pre-flight rate limit or monthly quota exceeded before any item
+            was processed. See `limitType` in the response body: absent means rate limit,
+            `'quota'` means monthly quota exhausted. When `limitType` is `'quota'`, the `quota`
+            object includes a `requested` field with the batch size that was attempted.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -2104,8 +2269,22 @@ paths:
                 $ref: '#/components/schemas/ProblemDetail'
               examples:
                 rateLimited:
-                  summary: Caller exceeded allowed request rate
+                  summary: IP-based rate limit exceeded before processing
                   value: {type: about:blank, status: 429, title: Too Many Requests, detail: Rate limit exceeded. Try again later.}
+                quotaExceeded:
+                  summary: Monthly quota exhausted before batch could be processed
+                  value:
+                    type: about:blank
+                    status: 429
+                    title: Too Many Requests
+                    detail: Monthly capture quota exhausted. Quota resets on 2026-04-01.
+                    limitType: quota
+                    quota:
+                      limit: 100
+                      used: 100
+                      resource: captures
+                      resetsAt: "2026-04-01T00:00:00.000Z"
+                      requested: 5
         '503':
           description: Service Unavailable — service is at capacity.
           headers:
@@ -3502,5 +3681,92 @@ paths:
                 status: 404
                 title: Not Found
                 detail: "Tenant 'nonexistent' not found"
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/account/usage:
+    get:
+      operationId: getAccountUsage
+      summary: Get current usage and quota
+      description: >
+        Returns the authenticated tenant's current-period usage against their effective quotas.
+        Quotas reflect tier defaults unless an admin override is in effect for this tenant.
+
+        Use this endpoint to build quota-aware UIs or to check remaining capacity before
+        submitting large batches.
+      tags: [account]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current-period usage and quota for the authenticated tenant.
+          headers:
+            Referrer-Policy:
+              $ref: '#/components/headers/ReferrerPolicy'
+            X-Content-Type-Options:
+              $ref: '#/components/headers/XContentTypeOptions'
+            X-Frame-Options:
+              $ref: '#/components/headers/XFrameOptions'
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Cache-Control:
+              description: Prevents caching of tenant-scoped usage responses.
+              schema:
+                type: string
+                enum: ['private, no-store']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountUsageResponse'
+              examples:
+                withUsage:
+                  summary: Tenant with active usage this period
+                  value:
+                    tenantId: gh-12345
+                    period: "2026-03"
+                    tierDisplay: "Starter"
+                    captures:
+                      used: 42
+                      limit: 100
+                      remaining: 58
+                    storageBytes:
+                      used: 157286400
+                      limit: 1073741824
+                      remaining: 916455424
+                    resetsAt: "2026-04-01T00:00:00.000Z"
+                atLimit:
+                  summary: Tenant at capture quota limit
+                  value:
+                    tenantId: gh-12345
+                    period: "2026-03"
+                    tierDisplay: "Starter"
+                    captures:
+                      used: 100
+                      limit: 100
+                      remaining: 0
+                    storageBytes:
+                      used: 204800
+                      limit: 1073741824
+                      remaining: 1073536024
+                    resetsAt: "2026-04-01T00:00:00.000Z"
+                fresh:
+                  summary: Tenant with no usage this period
+                  value:
+                    tenantId: gh-12345
+                    period: "2026-03"
+                    tierDisplay: "Starter"
+                    captures:
+                      used: 0
+                      limit: 100
+                      remaining: 100
+                    storageBytes:
+                      used: 0
+                      limit: 1073741824
+                      remaining: 1073741824
+                    resetsAt: "2026-04-01T00:00:00.000Z"
+        '401':
+          $ref: '#/components/responses/Problem401'
         '429':
           $ref: '#/components/responses/Problem429'
