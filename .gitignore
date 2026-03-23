@@ -29,3 +29,8 @@ site/node_modules/
 # Environment
 .env
 .env.*
+
+# E2E test artifacts
+test/e2e/.auth-state.json
+test-results/
+playwright-report/
