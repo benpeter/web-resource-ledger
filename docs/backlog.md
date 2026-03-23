@@ -122,7 +122,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [should] Wire Stripe meter event reporting into capture pipeline | When first paying tenant onboards; `reportMeterEvent()` exists but is not called from the post-capture success path | Phase 0058 |
+| ~~[should] Wire Stripe meter event reporting into capture pipeline~~ | ~~When first paying tenant onboards~~ -- DONE (Phase 0060): hourly batch reporter with idempotency keys, graduated pricing module, billing dashboard endpoint (Issue #108) | Phase 0058 |
 | [consider] Stripe Checkout returnUrl from client config | Currently defaults to `/ui`; make configurable when billing UI exists | Phase 0058 |
 
 ### Security
@@ -245,6 +245,7 @@ Completed items removed from active tracking:
 - ~~R26: Tenant Quotas~~ -- DONE (Phase 0056): free limit (100 captures/month without payment method, unlimited with card), pre-capture enforcement with 429 payment_required, per-tenant D1 overrides, web UI usage dashboard with progress bars (Issue #104). Note: updated 2026-03-23 from tier-based (free/pro) to usage-based pricing model.
 - ~~R29: Stripe usage-based billing~~ -- DONE (Phase 0058): Stripe API client (no SDK), webhook signature verification with event dedup, billing endpoints (checkout, portal, webhook), D1 billing columns, grace period on payment failure, free tier 200 captures/month (Issue #106)
 - ~~R28: Scheduled captures (cron)~~ -- DONE (Phase 0059): CRUD API (POST/GET/DELETE /v1/schedules), Cloudflare Cron Trigger fan-out every minute, per-tenant schedule limits (default 10, configurable), scheduleId capture linking, web UI schedule panel, 55 tests, `croner` library (Issue #107)
+- ~~R31: Capture metering to Stripe pipeline~~ -- DONE (Phase 0060): hourly batch meter event reporting with idempotency, graduated pricing module (4 tiers), billing sub-object on GET /v1/account/usage, D1 watermark tracking, 32 new tests (Issue #108)
 
 ---
 
