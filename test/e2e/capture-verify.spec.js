@@ -71,32 +71,38 @@ test('captures a URL and verifies the result', async () => {
   expect(detail, 'detail must include status').toHaveProperty('status');
   expect(detail.status, 'detail status must be complete').toBe('complete');
 
-  // Verification
-  expect(detail, 'detail must include verification object').toHaveProperty('verification');
-  expect(detail.verification.verified, 'verification.verified must be true').toBe(true);
+  // Verification -- detail includes a verifyUrl; call it for verification results
+  expect(detail, 'detail must include verifyUrl').toHaveProperty('verifyUrl');
+  expect(typeof detail.verifyUrl, 'verifyUrl must be a string').toBe('string');
+
+  const verifyRes = await fetch(detail.verifyUrl);
+  expect(verifyRes.status, `GET verifyUrl should return 200 (got ${verifyRes.status})`).toBe(200);
+  const verification = await verifyRes.json();
+  expect(verification, 'verification response must have verified field').toHaveProperty('verified');
+  expect(verification.verified, 'verification.verified must be true').toBe(true);
   expect(
-    Array.isArray(detail.verification.checks),
+    Array.isArray(verification.checks),
     'verification.checks must be an array'
   ).toBe(true);
   expect(
-    detail.verification.checks.length,
+    verification.checks.length,
     'verification.checks must contain at least one check'
   ).toBeGreaterThan(0);
 
   // WACZ storage
   expect(detail, 'detail must include wacz object').toHaveProperty('wacz');
-  expect(detail.wacz, 'wacz must have a key field').toHaveProperty('key');
+  expect(detail.wacz, 'wacz must have a url field').toHaveProperty('url');
   expect(
-    typeof detail.wacz.key,
-    'wacz.key must be a string'
+    typeof detail.wacz.url,
+    'wacz.url must be a string'
   ).toBe('string');
   expect(
-    detail.wacz.key.length,
-    'wacz.key must not be empty'
+    detail.wacz.url.length,
+    'wacz.url must not be empty'
   ).toBeGreaterThan(0);
 
   // --- 4. Download the WACZ archive (validates R2 storage end-to-end) ---
-  const downloadRes = await apiFetch(`/v1/captures/${captureId}/download`);
+  const downloadRes = await fetch(detail.wacz.url);
 
   expect(
     downloadRes.status,
