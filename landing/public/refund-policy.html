@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refund Policy -- Web Resource Ledger</title>
+  <meta name="description" content="Refund and dispute policy for Web Resource Ledger paid plans.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webresourceledger.com/refund-policy">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/landing.css">
+</head>
+<body>
+
+  <a class="sr-only skip-link" href="#content">Skip to content</a>
+
+  <!-- Shared header: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <header class="site-header" role="banner">
+    <div class="container">
+      <a href="/" class="site-header__logo" aria-label="Web Resource Ledger home">
+        <img src="/assets/logo-w-check.svg" width="28" height="28" alt="" aria-hidden="true">
+        <span class="site-header__wordmark">Web Resource Ledger</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/#use-cases">Use Cases</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="https://docs.webresourceledger.com">Docs</a>
+        <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <div class="container">
+      <article class="article">
+        <h1>Refund &amp; Dispute Policy</h1>
+        <p class="article__meta">Effective: 2026-03-23</p>
+
+        <h2>How WRL Billing Works</h2>
+        <p>Web Resource Ledger is a <strong>usage-based API service</strong>. You pay per capture. There are no subscriptions, recurring charges, or long-term commitments.</p>
+        <ul>
+          <li><strong>Free tier</strong>: A limited number of captures per month at no cost. If you are on the free tier, there is nothing to refund.</li>
+          <li><strong>Paid usage</strong>: When you exceed the free tier, you pay only for the captures you use. Each capture consumes compute resources (headless browser rendering, cryptographic signing, storage) immediately and irreversibly.</li>
+        </ul>
+        <p>Payment is processed by <strong>Stripe</strong>. WRL does not store your credit card number or payment details &mdash; Stripe handles all payment data.</p>
+
+        <h2>Refund Eligibility</h2>
+        <p>Because each capture consumes resources immediately upon submission, <strong>completed captures are non-refundable</strong>. Once a capture request is processed, the resources have been consumed and the artifacts (screenshot, HTML, signed WACZ bundle) have been generated and stored.</p>
+        <p>You <strong>may</strong> be eligible for a refund or credit in the following cases:</p>
+        <ul>
+          <li><strong>Service error</strong>: Your capture failed due to a WRL system error (not a target website error) and was charged. We will credit your account or issue a refund for failed captures that were incorrectly billed.</li>
+          <li><strong>Duplicate charges</strong>: You were charged twice for the same capture or billing period. We will refund the duplicate.</li>
+          <li><strong>Billing error</strong>: The amount charged does not match your actual usage. We will investigate and correct the discrepancy.</li>
+        </ul>
+
+        <h2>How to Request a Refund</h2>
+        <p>Email <strong><a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></strong> with:</p>
+        <ul>
+          <li>Your tenant ID or GitHub username</li>
+          <li>The capture ID(s) or billing period in question</li>
+          <li>A description of the issue</li>
+        </ul>
+        <p>We aim to acknowledge refund requests within <strong>3 business days</strong> and resolve them within <strong>10 business days</strong>.</p>
+
+        <h2>Disputes</h2>
+        <p>If you believe a charge is incorrect, please contact us <strong>before</strong> opening a dispute with your payment provider. We can usually resolve billing issues faster through direct communication.</p>
+        <p><strong>Direct dispute window</strong>: Contact us within <strong>30 days</strong> of the charge in question. We will investigate and respond with a resolution.</p>
+        <p>If we cannot reach a satisfactory resolution, or if you prefer, you may open a dispute through Stripe&rsquo;s standard process. Note that payment provider disputes may take longer to resolve.</p>
+
+        <h2>Cancellation</h2>
+        <p>There is nothing to cancel. WRL has no subscriptions or recurring charges. To stop using the service, simply stop making API requests. You will not be charged for anything you do not use.</p>
+        <p>If you want to close your account entirely, you may request account deletion by emailing <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a>. See our <a href="/privacy">Privacy Policy</a> for details on what data is removed.</p>
+
+        <h2>Contact</h2>
+        <p>For any billing questions or disputes:</p>
+        <p>Email: <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a><br>
+        Subject line: &ldquo;Billing&rdquo; or &ldquo;Refund Request&rdquo;</p>
+        <p>Include your tenant ID or GitHub username so we can locate your account quickly.</p>
+
+        <h2>Disclaimer</h2>
+        <p>This document is a reasonable-effort policy for a small, early-stage project. It is not professional legal advice. If your situation requires legal certainty, consult a qualified attorney.</p>
+
+      </article>
+    </div>
+  </main>
+
+  <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <div class="site-footer__inner">
+        <div>
+          <div class="site-footer__brand">
+            <img src="/assets/logo-w-check-light.svg" width="28" height="28" alt="" aria-hidden="true">
+            <span class="site-footer__wordmark">Web Resource Ledger</span>
+          </div>
+          <p class="site-footer__tagline">Open source under Apache 2.0. Independently verifiable by design.</p>
+        </div>
+
+        <div class="site-footer__links">
+          <nav aria-label="Product">
+            <h4 class="site-footer__heading">Product</h4>
+            <a href="https://docs.webresourceledger.com">Docs</a>
+            <a href="https://api.webresourceledger.com/ui">Web UI</a>
+            <a href="https://docs.webresourceledger.com/api-reference/">API Reference</a>
+            <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
+          </nav>
+          <nav aria-label="Legal">
+            <h4 class="site-footer__heading">Legal</h4>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/refund-policy">Refund Policy</a>
+            <a href="/content-policy">Content Policy</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="site-footer__bottom">
+        <p class="site-footer__operator">Gerhard Benjamin Peter &middot; Weidenh&auml;user Str. 73, 35037 Marburg &middot; <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></p>
+        <p>&copy; 2026 Web Resource Ledger</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

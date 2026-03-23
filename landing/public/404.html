@@ -13,12 +13,11 @@
 
   <a class="sr-only skip-link" href="#content">Skip to content</a>
 
+  <!-- Shared header: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
   <header class="site-header" role="banner">
     <div class="container">
       <a href="/" class="site-header__logo" aria-label="Web Resource Ledger home">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#2a3444" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="4,7 10,23 16,11 22,23 25,26 29,9" stroke-width="2.5"/>
-        </svg>
+        <img src="/assets/logo-w-check.svg" width="28" height="28" alt="" aria-hidden="true">
         <span class="site-header__wordmark">Web Resource Ledger</span>
       </a>
       <nav aria-label="Main">
@@ -26,6 +25,7 @@
         <a href="/#use-cases">Use Cases</a>
         <a href="/#pricing">Pricing</a>
         <a href="https://docs.webresourceledger.com">Docs</a>
+        <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
       </nav>
     </div>
   </header>
@@ -45,24 +45,38 @@
     </section>
   </main>
 
+  <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
   <footer class="site-footer" role="contentinfo">
     <div class="container">
       <div class="site-footer__inner">
         <div>
           <div class="site-footer__brand">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#f8f8fa" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="4,7 10,23 16,11 22,23 25,26 29,9" stroke-width="2.5"/>
-            </svg>
+            <img src="/assets/logo-w-check-light.svg" width="28" height="28" alt="" aria-hidden="true">
             <span class="site-footer__wordmark">Web Resource Ledger</span>
           </div>
           <p class="site-footer__tagline">Open source under Apache 2.0. Independently verifiable by design.</p>
         </div>
-        <nav aria-label="Footer">
-          <a href="https://docs.webresourceledger.com">Docs</a>
-          <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
-        </nav>
+
+        <div class="site-footer__links">
+          <nav aria-label="Product">
+            <h4 class="site-footer__heading">Product</h4>
+            <a href="https://docs.webresourceledger.com">Docs</a>
+            <a href="https://api.webresourceledger.com/ui">Web UI</a>
+            <a href="https://docs.webresourceledger.com/api-reference/">API Reference</a>
+            <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
+          </nav>
+          <nav aria-label="Legal">
+            <h4 class="site-footer__heading">Legal</h4>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/refund-policy">Refund Policy</a>
+            <a href="/content-policy">Content Policy</a>
+          </nav>
+        </div>
       </div>
+
       <div class="site-footer__bottom">
+        <p class="site-footer__operator">Gerhard Benjamin Peter &middot; Weidenh&auml;user Str. 73, 35037 Marburg &middot; <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></p>
         <p>&copy; 2026 Web Resource Ledger</p>
       </div>
     </div>
