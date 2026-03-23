@@ -40,7 +40,7 @@ test.beforeAll(async () => {
   }
 
   const created = await createRes.json();
-  captureId = created.captureId;
+  captureId = created.id;
 
   // Wait for the capture to reach a terminal state before any tests run.
   // Timeout: 120s -- captures are real headless-browser jobs; CI can be slow.

@@ -164,9 +164,8 @@ test('registers a webhook and validates ping delivery', async () => {
   // that exposes the signature for this ping attempt.
   //
   // As a result, HMAC verification cannot be performed from the ping API
-  // response alone. The skip below makes this gap explicit rather than
-  // silently omitting the assertion.
-  test.skip('ping response does not expose signature headers -- HMAC cannot be verified via ping API response alone');
+  // response alone. This gap is documented here rather than silently
+  // omitting the assertion. See decisions.md D3 "Webhook retry narrowed".
 
   // --- 5. Delete webhook ---
   await deleteWebhook(apiFetch, webhookId);
