@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Policy -- Web Resource Ledger</title>
+  <meta name="description" content="Acceptable use policy for content captured through Web Resource Ledger.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webresourceledger.com/content-policy">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/landing.css">
+</head>
+<body>
+
+  <a class="sr-only skip-link" href="#content">Skip to content</a>
+
+  <!-- Shared header: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <header class="site-header" role="banner">
+    <div class="container">
+      <a href="/" class="site-header__logo" aria-label="Web Resource Ledger home">
+        <img src="/assets/logo-w-check.svg" width="28" height="28" alt="" aria-hidden="true">
+        <span class="site-header__wordmark">Web Resource Ledger</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/#use-cases">Use Cases</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="https://docs.webresourceledger.com">Docs</a>
+        <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <div class="container">
+      <article class="article">
+        <h1>Content Policy</h1>
+        <p class="article__meta">Effective: 2026-03-16</p>
+
+        <h2>What WRL Stores</h2>
+        <p>Web Resource Ledger captures publicly accessible web pages and stores: a full-page screenshot, rendered HTML, HTTP response headers, and a cryptographically signed WACZ bundle. These artifacts are retained indefinitely unless removed by the operator.</p>
+        <p>WRL does not crawl the web. Every capture is initiated by an authenticated API request. The operator does not select, curate, or endorse the content at captured URLs.</p>
+
+        <h2>Content Standards</h2>
+        <p>WRL archives web content as-is. The presence of a capture does not imply endorsement, verification, or approval of the content at the captured URL.</p>
+        <p>The operator does not pre-screen captured content. Captures that violate this policy may be removed after the fact.</p>
+
+        <h2>Prohibited Content</h2>
+        <p>The following captures may be removed at the operator&rsquo;s discretion:</p>
+        <ul>
+          <li><strong>Harassment material</strong> &mdash; captures made to stalk, harass, intimidate, or build dossiers on individuals without their consent.</li>
+          <li><strong>Child sexual abuse material (CSAM)</strong> &mdash; any capture containing CSAM will be removed immediately and reported to the appropriate authorities.</li>
+          <li><strong>Unlawful content</strong> &mdash; captures of content whose possession or distribution violates applicable law.</li>
+          <li><strong>Access-controlled content</strong> &mdash; captures of non-public content obtained by circumventing authentication or access controls.</li>
+        </ul>
+
+        <h2>Abuse Reporting</h2>
+        <p>If you believe a capture violates this policy, or if you are the subject of a capture and want it removed, contact us:</p>
+        <p><strong>Email:</strong> <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></p>
+        <p><strong>What to include in your report:</strong></p>
+        <ul>
+          <li>The capture ID or verification URL</li>
+          <li>The nature of your concern (e.g., harassment, copyright, illegal content)</li>
+          <li>Evidence of authority or ownership, if applicable</li>
+          <li>Your contact information for follow-up</li>
+        </ul>
+        <p><strong>What to expect:</strong></p>
+        <ul>
+          <li>We aim to acknowledge reports within 3 business days.</li>
+          <li>We aim to provide a substantive response within 5 business days.</li>
+          <li>We will review the reported capture and may remove it if it violates this policy.</li>
+          <li>For CSAM reports, we act immediately without waiting for the review cycle.</li>
+        </ul>
+        <p>These timelines are goals for a small project maintained by a solo operator. Urgent matters (CSAM, imminent harm) are prioritized.</p>
+
+        <h2>Copyright Complaints</h2>
+        <p>If you believe a capture infringes your copyright:</p>
+        <ul>
+          <li>Identify the copyrighted work.</li>
+          <li>Provide the WRL capture ID or verification URL.</li>
+          <li>Include your contact information.</li>
+          <li>State your good faith belief that the capture is not authorized by the copyright owner, its agent, or the law.</li>
+        </ul>
+        <p>The operator will review valid copyright complaints and may remove captures that infringe copyright.</p>
+
+        <h2>Disclaimer</h2>
+        <p>This document is a reasonable-effort template for a small, early-stage project. It is not professional legal advice. If your situation requires legal certainty, consult a qualified attorney.</p>
+
+      </article>
+    </div>
+  </main>
+
+  <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <div class="site-footer__inner">
+        <div>
+          <div class="site-footer__brand">
+            <img src="/assets/logo-w-check-light.svg" width="28" height="28" alt="" aria-hidden="true">
+            <span class="site-footer__wordmark">Web Resource Ledger</span>
+          </div>
+          <p class="site-footer__tagline">Open source under Apache 2.0. Independently verifiable by design.</p>
+        </div>
+
+        <div class="site-footer__links">
+          <nav aria-label="Product">
+            <h4 class="site-footer__heading">Product</h4>
+            <a href="https://docs.webresourceledger.com">Docs</a>
+            <a href="https://api.webresourceledger.com/ui">Web UI</a>
+            <a href="https://docs.webresourceledger.com/api-reference/">API Reference</a>
+            <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
+          </nav>
+          <nav aria-label="Legal">
+            <h4 class="site-footer__heading">Legal</h4>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/refund-policy">Refund Policy</a>
+            <a href="/content-policy">Content Policy</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="site-footer__bottom">
+        <p class="site-footer__operator">Gerhard Benjamin Peter &middot; Weidenh&auml;user Str. 73, 35037 Marburg &middot; <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></p>
+        <p>&copy; 2026 Web Resource Ledger</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

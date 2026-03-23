@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service -- Web Resource Ledger</title>
+  <meta name="description" content="Terms governing use of the Web Resource Ledger API and services.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webresourceledger.com/terms">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/landing.css">
+</head>
+<body>
+
+  <a class="sr-only skip-link" href="#content">Skip to content</a>
+
+  <!-- Shared header: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <header class="site-header" role="banner">
+    <div class="container">
+      <a href="/" class="site-header__logo" aria-label="Web Resource Ledger home">
+        <img src="/assets/logo-w-check.svg" width="28" height="28" alt="" aria-hidden="true">
+        <span class="site-header__wordmark">Web Resource Ledger</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/#use-cases">Use Cases</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="https://docs.webresourceledger.com">Docs</a>
+        <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <div class="container">
+      <article class="article">
+        <h1>Terms of Service</h1>
+        <p class="article__meta">Effective: 2026-03-16</p>
+
+        <h2>What WRL Is</h2>
+        <p>Web Resource Ledger (WRL) is a web archival service. It captures web page screenshots, rendered HTML, and HTTP response headers, then packages them into Ed25519-signed WACZ bundles. Each capture is independently verifiable &mdash; anyone with the capture URL can confirm the content has not been tampered with.</p>
+
+        <h2>Acceptance</h2>
+        <p>By using this API, you agree to these terms. If you do not agree, do not use the service.</p>
+
+        <h2>Permitted Use</h2>
+        <p>WRL is provided for lawful archival purposes only. You may use WRL to create verifiable records of publicly accessible web content for documentation, research, legal evidence, journalism, or personal reference.</p>
+
+        <h2>Prohibited Uses</h2>
+        <p>You may not use WRL to:</p>
+        <ul>
+          <li><strong>Harass, stalk, or intimidate</strong> &mdash; capturing URLs to build dossiers on individuals, monitor someone without consent, or gather material for harassment campaigns.</li>
+          <li><strong>Archive illegal content</strong> &mdash; knowingly capturing child sexual abuse material (CSAM), classified government documents, or other content whose possession is unlawful.</li>
+          <li><strong>Circumvent access controls</strong> &mdash; capturing content behind paywalls, login walls, or authentication barriers that you are not authorized to access.</li>
+          <li><strong>Conduct surveillance</strong> &mdash; automated mass capture of URLs to monitor individuals or populations.</li>
+          <li><strong>Attack infrastructure</strong> &mdash; submitting URLs designed to exploit SSRF vulnerabilities, probe internal networks, or otherwise attack WRL or third-party systems.</li>
+        </ul>
+
+        <h2>Operator Rights</h2>
+        <p>The operator reserves the unrestricted right to:</p>
+        <ul>
+          <li>Remove any capture at sole discretion, without notice or explanation.</li>
+          <li>Suspend or revoke any API key at any time.</li>
+          <li>Block any IP address or range.</li>
+          <li>Modify rate limits, storage quotas, or service availability.</li>
+        </ul>
+        <p>No reason is required. No appeal process is guaranteed.</p>
+
+        <h2>No Warranty and Limitation of Liability</h2>
+        <p>WRL is provided &ldquo;as-is&rdquo; without warranty of any kind, express or implied. The operator does not guarantee availability, uptime, data durability, or permanence of captures.</p>
+        <p>To the maximum extent permitted by applicable law, the operator&rsquo;s total liability for any claim arising from use of the service is limited to the amount paid for the service (zero, if the service is provided at no charge). The operator is not liable for indirect, incidental, special, or consequential damages.</p>
+
+        <h2>Data Handling</h2>
+        <p><strong>What WRL stores for each capture:</strong></p>
+        <ul>
+          <li>The submitted URL</li>
+          <li>Full-page screenshots (PNG) &mdash; up to two per capture (before and after cookie consent dismissal)</li>
+          <li>Rendered HTML (the DOM after JavaScript execution)</li>
+          <li>HTTP response headers from the target server</li>
+          <li>Timestamps (creation and completion)</li>
+          <li>A signed WACZ bundle containing all of the above</li>
+        </ul>
+        <p><strong>What WRL does not store:</strong></p>
+        <ul>
+          <li>Your identity beyond the API key used for submission</li>
+          <li>Cookies or session data from the target site</li>
+          <li>Credentials or authentication tokens from the target site</li>
+          <li>Your IP address in the capture record (rate limiting uses IP transiently)</li>
+        </ul>
+        <p><strong>Retention:</strong> Captures are stored indefinitely unless removed by the operator.</p>
+        <p><strong>Personal data in captures:</strong> If the captured web page contains third-party personal data, you (the submitter) are the data controller for that data under GDPR. The operator processes it on your instruction (the capture request). You are responsible for ensuring you have a lawful basis for capturing content that includes personal data.</p>
+
+        <h2>Copyright and Takedown</h2>
+        <p>WRL captures publicly accessible web content as-is. The operator does not endorse or verify the content at captured URLs.</p>
+        <p>If you believe a capture infringes your copyright, contact the operator (see <a href="/content-policy">Content Policy</a> for contact details). Include:</p>
+        <ul>
+          <li>Identification of the copyrighted work</li>
+          <li>The WRL capture ID or URL</li>
+          <li>Your contact information</li>
+          <li>A statement of good faith belief that the use is not authorized</li>
+        </ul>
+        <p>The operator will review valid complaints and may remove content that infringes copyright.</p>
+
+        <h2>Governing Law</h2>
+        <p>These terms are governed by the laws of the Federal Republic of Germany.</p>
+
+        <h2>Changes to Terms</h2>
+        <p>These terms may be updated at any time. The effective date at the top of this document reflects the most recent revision. Continued use of the service after changes constitutes acceptance of the updated terms.</p>
+
+        <h2>Disclaimer</h2>
+        <p>This document is a reasonable-effort template for a small, early-stage project. It is not professional legal advice. If your use case requires legal certainty, consult a qualified attorney.</p>
+
+      </article>
+    </div>
+  </main>
+
+  <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <div class="site-footer__inner">
+        <div>
+          <div class="site-footer__brand">
+            <img src="/assets/logo-w-check-light.svg" width="28" height="28" alt="" aria-hidden="true">
+            <span class="site-footer__wordmark">Web Resource Ledger</span>
+          </div>
+          <p class="site-footer__tagline">Open source under Apache 2.0. Independently verifiable by design.</p>
+        </div>
+
+        <div class="site-footer__links">
+          <nav aria-label="Product">
+            <h4 class="site-footer__heading">Product</h4>
+            <a href="https://docs.webresourceledger.com">Docs</a>
+            <a href="https://api.webresourceledger.com/ui">Web UI</a>
+            <a href="https://docs.webresourceledger.com/api-reference/">API Reference</a>
+            <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
+          </nav>
+          <nav aria-label="Legal">
+            <h4 class="site-footer__heading">Legal</h4>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/refund-policy">Refund Policy</a>
+            <a href="/content-policy">Content Policy</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="site-footer__bottom">
+        <p class="site-footer__operator">Gerhard Benjamin Peter &middot; Weidenh&auml;user Str. 73, 35037 Marburg &middot; <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></p>
+        <p>&copy; 2026 Web Resource Ledger</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
