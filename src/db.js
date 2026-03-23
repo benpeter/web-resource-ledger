@@ -1479,7 +1479,7 @@ export async function recordThreatCheck(db, captureId, verdict, threatTypes) {
  */
 export async function listCapturesNeedingThreatCheck(db, olderThan, limit = 500) {
   const { results } = await db.prepare(
-    `SELECT MIN(id) AS capture_id, url, tenant_id
+    `SELECT MIN(id) AS capture_id, url, MIN(tenant_id) AS tenant_id
      FROM captures
      WHERE status = 'complete'
        AND quarantined = 0

@@ -131,13 +131,13 @@ significance of the event, not a system failure. No alert is defined for
 | **Priority** | P2 (Medium) |
 
 **What it monitors:** Google Web Risk API errors or timeouts during pre-capture
-URL checks. When this alert fires, incoming capture requests are being rejected
-with an error response because the safety check cannot complete.
+URL checks. When this alert fires, captures are proceeding without URL screening
+(fail-open design), recording `threatCheck: "unavailable"` in metadata.
 
 **Threshold rationale:** Two failures in 10 minutes rules out a single transient
-timeout. At that rate, a meaningful fraction of capture requests are failing.
-P2 (not P1) because captures are rejected cleanly rather than producing corrupt
-data — the system is failing safely.
+timeout. At that rate, a meaningful fraction of captures are unscreened.
+P2 (not P1) because captures continue to work — the safety gate is non-functional
+but the daily re-scan cron provides a safety net for the degraded window.
 
 **Scope:** The query filters to `context:"pre_capture"` only. Rescan-context
 `threatcheck.api_fail` events (severity 4 / warn) do not block user-facing

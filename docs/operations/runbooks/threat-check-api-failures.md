@@ -4,12 +4,12 @@
 
 More than 2 `threatcheck.api_fail` events with `context:"pre_capture"` in a
 10-minute window. The Google Web Risk API is failing or timing out during
-pre-capture URL safety checks, causing capture requests to be rejected with
-an error response.
+pre-capture URL safety checks. Captures proceed without screening (fail-open
+design), recording `threatCheck: "unavailable"` in metadata.
 
-This is a P2 alert. Captures are failing cleanly — the system is not
-producing corrupt data — but tenants cannot complete captures until the
-Web Risk API recovers.
+This is a P2 alert. Captures continue to work, but the safety gate is
+non-functional — URLs are not being screened. The daily re-scan cron
+provides a safety net for captures made during the degraded window.
 
 ## Check
 

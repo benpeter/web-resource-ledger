@@ -163,7 +163,7 @@ async function handleCaptureMessage(msg, env, ctx) {
 
   // Idempotency guard: skip if already terminal
   const existing = await getCapture(env.DB, captureId);
-  if (existing && (existing.status === 'complete' || existing.status === 'failed')) {
+  if (existing && (existing.status === 'complete' || existing.status === 'failed' || existing.status === 'quarantined')) {
     msg.ack();
     return;
   }
@@ -297,7 +297,7 @@ async function handleDlqMessage(msg, env, ctx) {
 
 export default {
   async scheduled(controller, env, ctx) {
-    if (controller.cron === '0 3 * * *') {
+    if (controller.cron === '0 3 * * *' || controller.cron === '0 4 * * *') {
       const { handleRescanTick } = await import('./rescan.js');
       await handleRescanTick(controller, env, ctx);
       return;

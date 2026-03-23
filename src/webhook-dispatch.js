@@ -117,6 +117,9 @@ export function buildWebhookPayload(eventType, captureRecord, env) {
     // error is already sanitized by categorizeError() in the capture pipeline
     if (captureRecord.error) data.error = captureRecord.error;
     data.retryable = Boolean(captureRecord.retryable);
+  } else if (eventType === 'capture.quarantined') {
+    data.quarantineReason = captureRecord.quarantineReason ?? null;
+    data.quarantinedAt = captureRecord.quarantinedAt ?? null;
   }
 
   return JSON.stringify({

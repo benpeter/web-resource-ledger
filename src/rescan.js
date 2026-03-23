@@ -97,7 +97,7 @@ export async function handleRescanTick(controller, env, ctx) {
             env.DB,
             url,
             threatTypes.join(','),
-            threatTypes,
+            threatTypes.join(','),
           );
         } catch (err) {
           skippedCount++;
@@ -130,6 +130,8 @@ export async function handleRescanTick(controller, env, ctx) {
             captureId: qCaptureId,
             status: 'quarantined',
             url,
+            quarantineReason: threatTypes.join(','),
+            quarantinedAt: new Date().toISOString(),
           };
 
           ctx.waitUntil(
