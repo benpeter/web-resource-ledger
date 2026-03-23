@@ -24,7 +24,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, computePeriod } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, computePeriod, getEidasQualified, setEidasQualified } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 import { checkQuota, getEffectiveQuota, computeQuotaReset } from './quotas.js';
@@ -564,5 +564,128 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     },
     resetsAt: computeQuotaReset(),
     billing,
+  }, 200, ACCOUNT_CACHE);
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/account/settings
+// ---------------------------------------------------------------------------
+
+/**
+ * Return eIDAS/qualified timestamp settings for the authenticated tenant.
+ *
+ * @param {Request} request
+ * @param {object} env  env._session is set by the router (verified session)
+ * @param {ExecutionContext} _ctx  unused
+ * @param {RegExpMatchArray} _match  unused
+ * @returns {Promise<Response>}
+ */
+export async function handleGetSettings(request, env, _ctx, _match) {
+  const { tenantId } = env._session;
+
+  const row = await env.DB.prepare(
+    'SELECT eidas_qualified, updated_at FROM tenants WHERE id = ?',
+  ).bind(tenantId).first();
+
+  const qualifiedTimestamps = Boolean(row?.eidas_qualified);
+  const updatedAt = row?.updated_at ?? null;
+
+  return jsonResponse({ qualifiedTimestamps, updatedAt }, 200, ACCOUNT_CACHE);
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /v1/account/settings
+// ---------------------------------------------------------------------------
+
+/**
+ * Update eIDAS/qualified timestamp settings for the authenticated tenant.
+ *
+ * Allowlisted fields: qualifiedTimestamps (boolean).
+ * Enabling qualified timestamps requires a payment method on file (402).
+ * Payment method check and current eIDAS state are fetched in a single query
+ * to avoid TOCTOU between the two reads.
+ *
+ * @param {Request} request
+ * @param {object} env  env._session is set by the router (verified session)
+ * @param {ExecutionContext} _ctx  unused
+ * @param {RegExpMatchArray} _match  unused
+ * @returns {Promise<Response>}
+ */
+export async function handleUpdateSettings(request, env, _ctx, _match) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
+  // CSRF defense in depth (PATCH is a mutation)
+  const csrfError = checkCsrf(request);
+  if (csrfError) return csrfError;
+
+  // Content-Type check
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json', ACCOUNT_CACHE);
+  }
+
+  // Parse body
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON', ACCOUNT_CACHE);
+  }
+
+  // Reject empty body
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length === 0) {
+    return problemResponse(400, 'Request body must not be empty', ACCOUNT_CACHE);
+  }
+
+  // Field allowlist: only qualifiedTimestamps is accepted
+  const ALLOWED_FIELDS = new Set(['qualifiedTimestamps']);
+  const unknown = Object.keys(body).filter(k => !ALLOWED_FIELDS.has(k));
+  if (unknown.length > 0) {
+    const field = unknown[0];
+    return problemResponse(400, `Unknown settings field: '${field}'. Allowed fields: qualifiedTimestamps`, ACCOUNT_CACHE);
+  }
+
+  // Type validation
+  if (typeof body.qualifiedTimestamps !== 'boolean') {
+    return problemResponse(400, "Field 'qualifiedTimestamps' must be a boolean", ACCOUNT_CACHE);
+  }
+
+  const { tenantId } = env._session;
+
+  // Single query: fetch current eIDAS state + payment method to avoid TOCTOU
+  const row = await env.DB.prepare(
+    'SELECT eidas_qualified, payment_method_added_at, updated_at FROM tenants WHERE id = ?',
+  ).bind(tenantId).first();
+
+  const previousValue = Boolean(row?.eidas_qualified);
+  const hasPaymentMethod = row?.payment_method_added_at != null;
+
+  // Payment method required to enable qualified timestamps
+  if (body.qualifiedTimestamps === true && !hasPaymentMethod) {
+    return problemResponse(402, 'A payment method is required to enable qualified timestamps. Add a payment method via the billing portal.', ACCOUNT_CACHE);
+  }
+
+  // Write the new setting
+  await setEidasQualified(env.DB, tenantId, body.qualifiedTimestamps);
+
+  // Log the change
+  await log(env, 3, 'admin', {
+    event: 'tenant.settings_change',
+    tenantId,
+    cip,
+    setting: 'eidas_qualified',
+    oldValue: previousValue,
+    newValue: body.qualifiedTimestamps,
+  });
+
+  // Read back the updated row for updatedAt timestamp
+  const updated = await env.DB.prepare(
+    'SELECT updated_at FROM tenants WHERE id = ?',
+  ).bind(tenantId).first();
+
+  return jsonResponse({
+    qualifiedTimestamps: body.qualifiedTimestamps,
+    updatedAt: updated?.updated_at ?? new Date().toISOString(),
   }, 200, ACCOUNT_CACHE);
 }

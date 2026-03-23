@@ -112,9 +112,10 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
  * @param {string} [cip] Hashed client IP (undefined when IP_HASH_SEED not configured)
  * @param {Function} [renderer] Injectable rendering function (defaults to defaultRenderer)
  * @param {number} [attempt] Delivery attempt number (1-based, incremented by queue consumer)
+ * @param {boolean} [qualifiedTimestamps] Whether to request a qualified (eIDAS) timestamp
  * @returns {Promise<{ ok: true }|{ ok: false, retryable: boolean, error?: string }>}
  */
-export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer, attempt = 1) {
+export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer, attempt = 1, qualifiedTimestamps = false) {
   const start = Date.now();
   await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip, attempt });
   try {
@@ -190,9 +191,9 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
           headers, // may be null if header fetch failed
           captureSettings,
         };
-        const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env);
+        const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env, { qualifiedTimestamps });
         if (result) {
-          const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus } = result;
+          const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus } = result;
           await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
             httpMetadata: {
               contentType: 'application/wacz+zip',
@@ -212,6 +213,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
             size: waczBytes.byteLength,
             keyId,
             timestampStatus,
+            qualifiedTimestampStatus,
           };
         }
       } catch (err) {
@@ -246,6 +248,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         renderQuality: 'full',
         cip,
         timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
+        qualifiedTimestampStatus: waczInfo?.qualifiedTimestampStatus ?? 'skipped',
         consentStatus: consent?.status ?? null,
         consentCmp: consent?.cmp ?? null,
         consentDurationMs: consent?.durationMs ?? null,
@@ -267,7 +270,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       + new TextEncoder().encode(html).byteLength
       + (headers ? new TextEncoder().encode(JSON.stringify(headers)).byteLength : 0)
       + (waczInfo?.size ?? 0);
-    return { ok: true, storedBytes };
+    return { ok: true, storedBytes, qualifiedTimestampStatus: waczInfo?.qualifiedTimestampStatus ?? 'skipped' };
   } catch (err) {
     // Catch-all: retryable -- leave KV pending, let queue consumer retry
     await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip, attempt });
