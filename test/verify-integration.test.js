@@ -1,4 +1,9 @@
 // tva
+// SECURITY INVARIANT: GET /v1/verify/{id} must remain unauthenticated at all times.
+// The verify endpoint is the public audit endpoint -- third parties (courts, journalists,
+// regulators) must be able to verify a capture without owning an API key.
+// DO NOT add an auth gate to this endpoint. If tests below start failing with 401,
+// that is a regression in the auth gate configuration.
 import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture } from '../src/capture.js';
@@ -330,8 +335,14 @@ describe('GET /v1/verify/{id} -- security', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /v1/captures/{id} -- verifyUrl', () => {
+  // These tests use legacy auth (CAPTURE_API_KEY maps to tenantId: 'default').
+  // Capture retrieval now requires authentication.
+  const RETRIEVAL_AUTH = 'Bearer test-api-key-for-vitest';
+
   it('retrieval response includes verifyUrl when WACZ present', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${TEST_ID}`);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${TEST_ID}`, {
+      headers: { Authorization: RETRIEVAL_AUTH },
+    });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.verifyUrl).toBeTruthy();
@@ -353,7 +364,9 @@ describe('GET /v1/captures/{id} -- verifyUrl', () => {
       null, // no wacz
     );
 
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${noWaczId}`);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${noWaczId}`, {
+      headers: { Authorization: RETRIEVAL_AUTH },
+    });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.verifyUrl).toBeUndefined();

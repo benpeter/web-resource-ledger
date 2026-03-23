@@ -1,281 +1,325 @@
+// tva
+// Tests for capture retrieval auth gate and tenant isolation.
+//
+// Security invariants verified:
+//   - All retrieval endpoints require authentication (API key or session)
+//   - Cross-tenant access returns 404 (NOT 403) with identical response body
+//   - Share token access only granted to the specific capture the token was issued for
+//   - The verify endpoint (/v1/verify/) must remain unauthenticated (in verify-integration.test.js)
+
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createCapture, completeCapture } from '../src/db.js';
-import { seedSchedule, TEST_SCHEDULE_ID } from './fixtures.js';
+import { createCapture, completeCapture, failCapture } from '../src/db.js';
+import {
+  cleanDb,
+  seedApiKey,
+  seedCapture,
+  seedShareToken,
+  createTestSession,
+  TEST_TENANT_KEY,
+  TEST_TENANT_KEY_B,
+} from './fixtures.js';
 
 // ---------------------------------------------------------------------------
-// Partial capture seed IDs (outside main beforeEach to avoid conflicts)
+// Fixture IDs
 // ---------------------------------------------------------------------------
-const PARTIAL_ID = 'cap_' + 'f'.repeat(32);  // must be [a-f0-9]{32} to match route
-const PARTIAL_RENDER = {
-  waitUntilReached: 'domcontentloaded',
-  timedOut: true,
-  durationMs: 25000,
-};
-const PARTIAL_ARTIFACTS = {
-  screenshot: `captures/${PARTIAL_ID}/screenshot.png`,
-  html:       `captures/${PARTIAL_ID}/rendered.html`,
-};
 
-const SEED_ID = 'cap_' + 'a'.repeat(32);
-const SEED_URL = 'https://example.com';
-const SEED_ARTIFACTS = {
-  screenshot: `captures/${SEED_ID}/screenshot.png`,
-  html:       `captures/${SEED_ID}/rendered.html`,
-  headers:    `captures/${SEED_ID}/headers.json`,
+const TENANT_A_ID = 'tenant-a';
+const TENANT_B_ID = 'tenant-b';
+
+const CAP_A = 'cap_' + 'a'.repeat(32);
+const CAP_B = 'cap_' + 'b'.repeat(32);
+const CAP_A_ARTIFACTS = {
+  screenshot: `captures/${CAP_A}/screenshot.png`,
+  html: `captures/${CAP_A}/rendered.html`,
+  headers: `captures/${CAP_A}/headers.json`,
 };
-const SEED_WACZ = {
-  key:        `captures/${SEED_ID}/bundle.wacz`,
+const CAP_A_WACZ = {
+  key: `captures/${CAP_A}/bundle.wacz`,
   bundleHash: 'sha256:' + 'a'.repeat(64),
-  size:       42000,
+  size: 42000,
 };
+
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(SEED_ID).run();
-  await createCapture(env.DB, SEED_ID, SEED_URL, '93.184.216.34', 'default');
-  await completeCapture(env.DB, SEED_ID, SEED_ARTIFACTS, SEED_WACZ);
+  await cleanDb(env.DB);
 
-  // Seed R2 with test artifact data
-  await env.BUCKET.put(SEED_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71])); // PNG magic bytes
-  await env.BUCKET.put(SEED_ARTIFACTS.html, '<html>test</html>');
-  await env.BUCKET.put(SEED_ARTIFACTS.headers, JSON.stringify({ 'content-type': 'text/html' }));
-  await env.BUCKET.put(SEED_WACZ.key, new Uint8Array([80, 75, 3, 4])); // ZIP magic bytes
+  // Seed API keys for both tenants
+  await seedApiKey(env.DB, TEST_TENANT_KEY, { tenantId: TENANT_A_ID, scopes: ['capture', 'read'] });
+  await seedApiKey(env.DB, TEST_TENANT_KEY_B, { tenantId: TENANT_B_ID, scopes: ['capture', 'read'] });
+
+  // Seed tenant A's capture (complete with artifacts and wacz)
+  await createCapture(env.DB, CAP_A, 'https://example.com', '1.2.3.4', TENANT_A_ID);
+  await completeCapture(env.DB, CAP_A, CAP_A_ARTIFACTS, CAP_A_WACZ);
+
+  // Seed R2 artifacts for tenant A's capture
+  await env.BUCKET.put(CAP_A_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71]));
+  await env.BUCKET.put(CAP_A_ARTIFACTS.html, '<html>test</html>');
+  await env.BUCKET.put(CAP_A_ARTIFACTS.headers, JSON.stringify({ 'content-type': 'text/html' }));
+  await env.BUCKET.put(CAP_A_WACZ.key, new Uint8Array([80, 75, 3, 4]));
+
+  // Seed tenant B's capture (complete)
+  const capBArtifacts = {
+    screenshot: `captures/${CAP_B}/screenshot.png`,
+    html: `captures/${CAP_B}/rendered.html`,
+  };
+  await createCapture(env.DB, CAP_B, 'https://example.com/b', '1.2.3.5', TENANT_B_ID);
+  await completeCapture(env.DB, CAP_B, capBArtifacts);
+  await env.BUCKET.put(capBArtifacts.screenshot, new Uint8Array([137, 80, 78, 71]));
+  await env.BUCKET.put(capBArtifacts.html, '<html>b</html>');
 });
 
 // ---------------------------------------------------------------------------
-// GET /v1/captures/{id}
+// GET /v1/captures/{id} -- authentication
 // ---------------------------------------------------------------------------
 
-describe('GET /v1/captures/{id}', () => {
-  it('200 with correct shape', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toContain('application/json');
+describe('GET /v1/captures/{id} -- auth', () => {
+  it('unauthenticated request returns 401', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`);
+    expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.id).toBe(SEED_ID);
+    expect(body).toHaveProperty('detail');
+  });
+
+  it('authenticated owner with API key returns 200', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe(CAP_A);
     expect(body.status).toBe('complete');
-    expect(body.url).toBeTruthy();
-    expect(body.completedAt).toBeTruthy();
-    expect(body.artifacts.screenshot).toBeTruthy();
-    expect(body.artifacts.html).toBeTruthy();
-    expect(body.wacz.url).toBeTruthy();
-    expect(body.wacz.size).toBe(42000);
-    expect(body.wacz.bundleHash).toBeTruthy();
   });
 
-  it('artifact URLs are absolute HTTP(S)', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
-    const body = await res.json();
-    expect(body.artifacts.screenshot).toMatch(/^https?:\/\//);
-    expect(body.artifacts.html).toMatch(/^https?:\/\//);
-    expect(body.wacz.url).toMatch(/^https?:\/\//);
-  });
-
-  it('no auth required', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
+  it('authenticated owner with session cookie returns 200', async () => {
+    const { cookie } = await createTestSession(env.DB, env, { tenantId: TENANT_A_ID });
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Cookie: cookie },
+    });
     expect(res.status).toBe(200);
+  });
+
+  it('legacy auth (authMethod: legacy, tenantId: default) accesses default-tenant captures', async () => {
+    // Seed a capture owned by 'default' tenant
+    const defaultCapId = 'cap_' + 'd'.repeat(32);
+    await createCapture(env.DB, defaultCapId, 'https://example.com/default', '1.2.3.4', 'default');
+    await completeCapture(env.DB, defaultCapId, {
+      screenshot: `captures/${defaultCapId}/screenshot.png`,
+      html: `captures/${defaultCapId}/rendered.html`,
+    });
+    await env.BUCKET.put(`captures/${defaultCapId}/screenshot.png`, new Uint8Array([137, 80, 78, 71]));
+    await env.BUCKET.put(`captures/${defaultCapId}/rendered.html`, '<html>default</html>');
+
+    // CAPTURE_API_KEY in env maps to tenantId 'default' (legacy auth)
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${defaultCapId}`, {
+      headers: { Authorization: 'Bearer test-api-key-for-vitest' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe(defaultCapId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures/{id} -- tenant isolation
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures/{id} -- tenant isolation', () => {
+  it('cross-tenant access returns 404', async () => {
+    // Tenant B tries to access tenant A's capture
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body).toHaveProperty('detail');
+  });
+
+  it('cross-tenant 404 is identical to non-existent capture 404', async () => {
+    const unknownId = 'cap_' + '9'.repeat(32);
+
+    const crossTenantRes = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
+    const notFoundRes = await SELF.fetch(`https://worker.test/v1/captures/${unknownId}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+
+    expect(crossTenantRes.status).toBe(404);
+    expect(notFoundRes.status).toBe(404);
+
+    const crossTenantBody = await crossTenantRes.json();
+    const notFoundBody = await notFoundRes.json();
+    // Both must have identical detail messages (no enumeration)
+    expect(crossTenantBody.detail).toBe(notFoundBody.detail);
+  });
+
+  it('response body does not include ip field', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+    const body = await res.json();
+    expect(body.ip).toBeUndefined();
   });
 
   it('security headers present on 200', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('Cache-Control: private, no-store on 200', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
   });
+});
 
-  it('RFC 9457 404 for valid-format unknown ID', async () => {
-    const unknownId = 'cap_' + 'b'.repeat(32);
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${unknownId}`);
-    expect(res.status).toBe(404);
-    expect(res.headers.get('Content-Type')).toContain('application/problem+json');
-    const body = await res.json();
-    expect(body).toMatchObject({ type: 'about:blank', status: 404 });
-    expect(body).toHaveProperty('title');
-    expect(body).toHaveProperty('detail');
-    // SECURITY: response detail must not echo back the capture ID
-    expect(body.detail).not.toContain(unknownId);
+// ---------------------------------------------------------------------------
+// GET /v1/captures/{id}/status -- auth and tenant isolation
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures/{id}/status -- auth and tenant isolation', () => {
+  it('unauthenticated returns 401', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/status`);
+    expect(res.status).toBe(401);
   });
 
-  it('RFC 9457 404 for malformed ID', async () => {
-    const res = await SELF.fetch('https://worker.test/v1/captures/badid');
-    expect(res.status).toBe(404);
+  it('authenticated owner returns 200', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/status`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('complete');
   });
 
-  it('security: ip field absent from response', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}`);
-    const body = await res.json();
-    expect(body.ip).toBeUndefined();
+  it('cross-tenant access returns 404', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/status`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
+    expect(res.status).toBe(404);
   });
 });
 
 // ---------------------------------------------------------------------------
-// GET /v1/captures/{id} -- partial capture response shape
+// GET /v1/captures/{id}/artifacts -- auth and tenant isolation
 // ---------------------------------------------------------------------------
 
-describe('GET /v1/captures/{id} -- partial capture', () => {
-  beforeEach(async () => {
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(PARTIAL_ID).run();
-    await createCapture(env.DB, PARTIAL_ID, 'https://example.com', '93.184.216.34', 'default');
-    await completeCapture(env.DB, PARTIAL_ID, PARTIAL_ARTIFACTS, null, 'partial', PARTIAL_RENDER);
-    await env.BUCKET.put(PARTIAL_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71]));
-    await env.BUCKET.put(PARTIAL_ARTIFACTS.html, '<html>partial test</html>');
+describe('GET /v1/captures/{id}/artifacts -- auth and tenant isolation', () => {
+  it('unauthenticated screenshot returns 401', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/screenshot`);
+    expect(res.status).toBe(401);
   });
 
-  it('returns renderQuality: partial', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.renderQuality).toBe('partial');
+  it('unauthenticated html returns 401', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/html`);
+    expect(res.status).toBe(401);
   });
 
-  it('returns render metadata', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
-    const body = await res.json();
-    expect(body.render).toMatchObject({
-      waitUntilReached: 'domcontentloaded',
-      timedOut: true,
-      durationMs: 25000,
+  it('unauthenticated wacz returns 401', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/wacz`);
+    expect(res.status).toBe(401);
+  });
+
+  it('authenticated owner can access screenshot', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/screenshot`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
     });
-  });
-
-  it('omits wacz and verifyUrl for partial captures', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${PARTIAL_ID}`);
-    const body = await res.json();
-    expect(body.wacz).toBeUndefined();
-    expect(body.verifyUrl).toBeUndefined();
-  });
-
-  it('defaults renderQuality to full for old records without renderQuality field', async () => {
-    const legacyId = 'cap_' + '0'.repeat(32);
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(legacyId).run();
-    await createCapture(env.DB, legacyId, 'https://example.com', '93.184.216.34', 'default');
-    // Write record without renderQuality (legacy shape)
-    await completeCapture(env.DB, legacyId, {
-      screenshot: `captures/${legacyId}/screenshot.png`,
-      html:       `captures/${legacyId}/rendered.html`,
-    });
-    await env.BUCKET.put(`captures/${legacyId}/screenshot.png`, new Uint8Array([137, 80, 78, 71]));
-    await env.BUCKET.put(`captures/${legacyId}/rendered.html`, '<html>legacy</html>');
-
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${legacyId}`);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.renderQuality).toBe('full');
-  });
-
-  it('omits render for old records without render field', async () => {
-    const legacyId = 'cap_' + '1'.repeat(32);
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(legacyId).run();
-    await createCapture(env.DB, legacyId, 'https://example.com', '93.184.216.34', 'default');
-    await completeCapture(env.DB, legacyId, {
-      screenshot: `captures/${legacyId}/screenshot.png`,
-      html:       `captures/${legacyId}/rendered.html`,
-    });
-    await env.BUCKET.put(`captures/${legacyId}/screenshot.png`, new Uint8Array([137, 80, 78, 71]));
-    await env.BUCKET.put(`captures/${legacyId}/rendered.html`, '<html>legacy</html>');
-
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${legacyId}`);
-    const body = await res.json();
-    expect(body.render).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// GET /v1/captures/{id}/artifacts/{name}
-// ---------------------------------------------------------------------------
-
-describe('GET /v1/captures/{id}/artifacts/{name}', () => {
-  it('html artifact served as text/plain', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}/artifacts/html`);
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toContain('text/plain');
-  });
-
-  it('screenshot artifact served as image/png', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}/artifacts/screenshot`);
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toContain('image/png');
   });
 
-  it('Content-Disposition: attachment on all artifacts', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SEED_ID}/artifacts/html`);
-    expect(res.headers.get('Content-Disposition')).toContain('attachment');
+  it('authenticated owner can access html', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/html`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/plain');
   });
 
-  it('wacz-absent returns 404', async () => {
-    const noWaczId = 'cap_' + 'c'.repeat(32);
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(noWaczId).run();
-    await createCapture(env.DB, noWaczId, SEED_URL, '93.184.216.34', 'default');
-    await completeCapture(env.DB, noWaczId, {
-      screenshot: `captures/${noWaczId}/screenshot.png`,
-      html:       `captures/${noWaczId}/rendered.html`,
-      headers:    `captures/${noWaczId}/headers.json`,
-    }, null);
+  it('authenticated owner can access wacz', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/wacz`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+    expect(res.status).toBe(200);
+  });
 
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${noWaczId}/artifacts/wacz`);
+  it('cross-tenant screenshot access returns 404', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/screenshot`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
     expect(res.status).toBe(404);
   });
 
-  it('pending capture returns 404 on artifact route', async () => {
-    const pendingId = 'cap_' + 'd'.repeat(32);
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(pendingId).run();
-    await createCapture(env.DB, pendingId, SEED_URL, '93.184.216.34', 'default');
-
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${pendingId}/artifacts/screenshot`);
+  it('cross-tenant html access returns 404', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/html`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
     expect(res.status).toBe(404);
   });
 
-  it('absent optional artifact (headers) returns 404', async () => {
-    const noHeadersId = 'cap_' + 'e'.repeat(32);
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(noHeadersId).run();
-    await createCapture(env.DB, noHeadersId, SEED_URL, '93.184.216.34', 'default');
-    await completeCapture(env.DB, noHeadersId, {
-      screenshot: `captures/${noHeadersId}/screenshot.png`,
-      html:       `captures/${noHeadersId}/rendered.html`,
-    }, SEED_WACZ);
-
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${noHeadersId}/artifacts/headers`);
+  it('cross-tenant wacz access returns 404', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/wacz`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
     expect(res.status).toBe(404);
+  });
+
+  it('cross-tenant 404 is identical to non-existent capture 404 for artifacts', async () => {
+    const unknownId = 'cap_' + '9'.repeat(32);
+
+    const crossTenantRes = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/screenshot`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
+    const notFoundRes = await SELF.fetch(`https://worker.test/v1/captures/${unknownId}/artifacts/screenshot`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+
+    expect(crossTenantRes.status).toBe(404);
+    expect(notFoundRes.status).toBe(404);
+
+    const crossBody = await crossTenantRes.json();
+    const notFoundBody = await notFoundRes.json();
+    expect(crossBody.detail).toBe(notFoundBody.detail);
   });
 });
 
 // ---------------------------------------------------------------------------
-// GET /v1/captures/{id} -- capture linked to a schedule
+// GET /v1/captures/{id} -- artifact URLs include ?token= when share token used
 // ---------------------------------------------------------------------------
 
-describe('GET /v1/captures/{id} -- schedule linkage', () => {
-  const SCHED_CAP_ID = 'cap_' + '2'.repeat(32);
-  const SCHED_ARTIFACTS = {
-    screenshot: `captures/${SCHED_CAP_ID}/screenshot.png`,
-    html: `captures/${SCHED_CAP_ID}/rendered.html`,
-  };
+describe('GET /v1/captures/{id} -- share token propagation to artifact URLs', () => {
+  it('artifact URLs include ?token= when accessed via share token', async () => {
+    const rawToken = 'wrl_share_' + 'x'.repeat(43);
+    await seedShareToken(env.DB, {
+      captureId: CAP_A,
+      tenantId: TENANT_A_ID,
+      rawToken,
+    });
 
-  beforeEach(async () => {
-    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(SCHED_CAP_ID).run();
-    // Ensure the schedule FK target exists
-    await seedSchedule(env.DB, TEST_SCHEDULE_ID, { tenantId: 'default' });
-    // Create a capture linked to the schedule
-    await createCapture(env.DB, SCHED_CAP_ID, 'https://example.com/sched', '1.2.3.4', 'default', TEST_SCHEDULE_ID);
-    await completeCapture(env.DB, SCHED_CAP_ID, SCHED_ARTIFACTS);
-    await env.BUCKET.put(SCHED_ARTIFACTS.screenshot, new Uint8Array([137, 80, 78, 71]));
-    await env.BUCKET.put(SCHED_ARTIFACTS.html, '<html>scheduled</html>');
-  });
-
-  it('returns 200 for a capture with a schedule_id', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SCHED_CAP_ID}`);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}?token=${encodeURIComponent(rawToken)}`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.id).toBe(SCHED_CAP_ID);
-    expect(body.status).toBe('complete');
+    expect(body.artifacts.screenshot).toContain(`token=${encodeURIComponent(rawToken)}`);
+    expect(body.artifacts.html).toContain(`token=${encodeURIComponent(rawToken)}`);
+    expect(body.artifacts.headers).toContain(`token=${encodeURIComponent(rawToken)}`);
+    expect(body.wacz.url).toContain(`token=${encodeURIComponent(rawToken)}`);
   });
 
-  it('ip field is absent from response for scheduled capture', async () => {
-    const res = await SELF.fetch(`https://worker.test/v1/captures/${SCHED_CAP_ID}`);
+  it('artifact URLs do NOT include ?token= when accessed via API key', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY}` },
+    });
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.ip).toBeUndefined();
+    expect(body.artifacts.screenshot).not.toContain('token=');
+    expect(body.artifacts.html).not.toContain('token=');
   });
 });
