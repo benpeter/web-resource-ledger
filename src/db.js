@@ -735,3 +735,188 @@ export async function tenantExists(db, tenantId) {
   const row = await db.prepare('SELECT 1 FROM tenants WHERE id = ?').bind(tenantId).first();
   return row !== null;
 }
+
+// ---------------------------------------------------------------------------
+// GitHub user operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Transform a D1 github_users row into the canonical camelCase shape.
+ *
+ * @param {object} row
+ * @returns {object}
+ */
+function rowToGitHubUser(row) {
+  return {
+    githubId: row.github_id,
+    githubLogin: row.github_login,
+    tenantId: row.tenant_id,
+    tosAcceptedAt: row.tos_accepted_at ?? null,
+    tosVersion: row.tos_version ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Look up a GitHub user by their stable GitHub numeric ID.
+ * Returns null if the user has not yet completed onboarding.
+ *
+ * @param {D1Database} db
+ * @param {number} githubId  GitHub's stable numeric user ID
+ * @returns {Promise<{ githubId: number, githubLogin: string, tenantId: string,
+ *   tosAcceptedAt: string|null, tosVersion: string|null, createdAt: string } | null>}
+ */
+export async function findGitHubUser(db, githubId) {
+  const row = await db.prepare(
+    'SELECT * FROM github_users WHERE github_id = ?',
+  ).bind(githubId).first();
+  if (!row) return null;
+  return rowToGitHubUser(row);
+}
+
+/**
+ * Insert a new GitHub user record and ensure the associated tenant row exists.
+ * Both statements run atomically via db.batch().
+ *
+ * Self-serve tenants follow the format gh-{github_numeric_id}. When these
+ * tenants later create API keys via the self-serve flow, the api_keys.created_by
+ * field is set to 'github:{githubId}' (e.g. 'github:12345') -- a TEXT convention
+ * with no schema enforcement.
+ *
+ * @param {D1Database} db
+ * @param {{ githubId: number, githubLogin: string, tenantId: string,
+ *   tosAcceptedAt: string|null, tosVersion: string|null }} params
+ * @returns {Promise<{ githubId: number, githubLogin: string, tenantId: string,
+ *   tosAcceptedAt: string|null, tosVersion: string|null, createdAt: string }>}
+ */
+export async function createGitHubUser(db, { githubId, githubLogin, tenantId, tosAcceptedAt, tosVersion }) {
+  const createdAt = new Date().toISOString();
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT INTO github_users (github_id, github_login, tenant_id, tos_accepted_at, tos_version, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).bind(githubId, githubLogin, tenantId, tosAcceptedAt ?? null, tosVersion ?? null, createdAt),
+  ]);
+  return { githubId, githubLogin, tenantId, tosAcceptedAt: tosAcceptedAt ?? null, tosVersion: tosVersion ?? null, createdAt };
+}
+
+/**
+ * Update the github_login display name for a GitHub user.
+ * Called on every OAuth login callback to keep the display name current
+ * (GitHub users can rename themselves between logins).
+ *
+ * @param {D1Database} db
+ * @param {number} githubId
+ * @param {string} githubLogin
+ * @returns {Promise<void>}
+ */
+export async function updateGitHubLogin(db, githubId, githubLogin) {
+  await db.prepare(
+    `UPDATE github_users SET github_login = ?, updated_at = ? WHERE github_id = ?`,
+  ).bind(githubLogin, new Date().toISOString(), githubId).run();
+}
+
+/**
+ * Record ToS acceptance for a GitHub user. Idempotent -- the WHERE clause
+ * prevents overwriting an existing acceptance timestamp, so repeated calls
+ * are safe.
+ *
+ * @param {D1Database} db
+ * @param {number} githubId
+ * @param {string} tosVersion  The ToS version string the user accepted
+ * @returns {Promise<void>}
+ */
+export async function acceptTos(db, githubId, tosVersion) {
+  await db.prepare(
+    `UPDATE github_users
+     SET tos_accepted_at = ?, tos_version = ?, updated_at = ?
+     WHERE github_id = ? AND tos_accepted_at IS NULL`,
+  ).bind(new Date().toISOString(), tosVersion, new Date().toISOString(), githubId).run();
+}
+
+// ---------------------------------------------------------------------------
+// Session operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Insert a new server-side session record.
+ * The raw session cookie value must never be stored -- only its SHA-256 hex hash.
+ *
+ * @param {D1Database} db
+ * @param {{ idHash: string, githubId: number, tenantId: string, expiresAt: string }} params
+ * @returns {Promise<void>}
+ */
+export async function createSession(db, { idHash, githubId, tenantId, expiresAt }) {
+  await db.prepare(
+    `INSERT INTO sessions (id_hash, github_id, tenant_id, expires_at) VALUES (?, ?, ?, ?)`,
+  ).bind(idHash, githubId, tenantId, expiresAt).run();
+}
+
+/**
+ * Fetch a session record joined with GitHub user display info.
+ * Does NOT filter by expiry -- the caller is responsible for checking
+ * expiresAt (expired records may still be needed for logging purposes).
+ *
+ * @param {D1Database} db
+ * @param {string} idHash  SHA-256 hex of the session cookie value
+ * @returns {Promise<{ idHash: string, githubId: number, tenantId: string,
+ *   githubLogin: string, tosAcceptedAt: string|null,
+ *   createdAt: string, expiresAt: string } | null>}
+ */
+export async function getSession(db, idHash) {
+  const row = await db.prepare(
+    `SELECT s.id_hash, s.github_id, s.tenant_id, s.created_at, s.expires_at,
+            u.github_login, u.tos_accepted_at
+     FROM sessions s
+     JOIN github_users u ON s.github_id = u.github_id
+     WHERE s.id_hash = ?`,
+  ).bind(idHash).first();
+  if (!row) return null;
+  return {
+    idHash: row.id_hash,
+    githubId: row.github_id,
+    tenantId: row.tenant_id,
+    githubLogin: row.github_login,
+    tosAcceptedAt: row.tos_accepted_at ?? null,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+  };
+}
+
+/**
+ * Delete a single session by its hash. Used on explicit logout.
+ *
+ * @param {D1Database} db
+ * @param {string} idHash  SHA-256 hex of the session cookie value
+ * @returns {Promise<void>}
+ */
+export async function deleteSession(db, idHash) {
+  await db.prepare('DELETE FROM sessions WHERE id_hash = ?').bind(idHash).run();
+}
+
+/**
+ * Purge all sessions whose expires_at timestamp has passed.
+ * Intended to be called periodically (e.g. from a Cron Trigger).
+ *
+ * @param {D1Database} db
+ * @returns {Promise<number>} Count of deleted rows
+ */
+export async function deleteExpiredSessions(db) {
+  const result = await db.prepare(
+    `DELETE FROM sessions WHERE expires_at < datetime('now')`,
+  ).run();
+  return result.meta.changes ?? 0;
+}
+
+/**
+ * Delete all active sessions for a GitHub user. Used when a user account
+ * is deleted or when a forced sign-out of all devices is required.
+ *
+ * @param {D1Database} db
+ * @param {number} githubId
+ * @returns {Promise<void>}
+ */
+export async function deleteSessionsForUser(db, githubId) {
+  await db.prepare('DELETE FROM sessions WHERE github_id = ?').bind(githubId).run();
+}
