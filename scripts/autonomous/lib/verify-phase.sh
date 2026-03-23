@@ -246,7 +246,7 @@ wait_for_deploy() {
     if [[ -f "scripts/smoke-test.sh" ]]; then
       log_info "Running production smoke test..."
       SMOKE_SKIP_CAPTURE=1 bash scripts/smoke-test.sh \
-        "https://wrl.benpeter.workers.dev" 2>&1 || {
+        "https://api.webresourceledger.com" 2>&1 || {
         log_warn "Production smoke test failed (non-blocking)"
       }
     fi

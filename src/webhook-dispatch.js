@@ -100,7 +100,7 @@ export function buildWebhookPayload(eventType, captureRecord, env) {
   // The captureId is validated at creation time via route regex, so safe to include.
   const base = env?.VERIFICATION_BASE_URL
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
-    : 'https://wrl.benpeter.workers.dev';
+    : 'https://api.webresourceledger.com';
   const verificationUrl = `${base}/v1/verify/${captureRecord.captureId}`;
 
   const data = {

@@ -95,8 +95,8 @@ describe('parseArgs -- positional argument', () => {
   });
 
   it('URL as target is accepted', () => {
-    const opts = parseArgs(['https://wrl.benpeter.workers.dev/v1/captures/cap_abc/artifacts/wacz']);
-    assert.strictEqual(opts.target, 'https://wrl.benpeter.workers.dev/v1/captures/cap_abc/artifacts/wacz');
+    const opts = parseArgs(['https://api.webresourceledger.com/v1/captures/cap_abc/artifacts/wacz']);
+    assert.strictEqual(opts.target, 'https://api.webresourceledger.com/v1/captures/cap_abc/artifacts/wacz');
   });
 });
 

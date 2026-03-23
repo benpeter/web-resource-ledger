@@ -35,7 +35,7 @@ check "$HOME/.secrets" "test -f $HOME/.secrets"
 echo ""
 echo "API access:"
 check "Staging endpoint" "curl -sf https://wrl-staging.benpeter.workers.dev/health"
-check "Production endpoint" "curl -sf https://wrl.benpeter.workers.dev/health"
+check "Production endpoint" "curl -sf https://api.webresourceledger.com/health"
 
 echo ""
 echo "Optional (needed later):"

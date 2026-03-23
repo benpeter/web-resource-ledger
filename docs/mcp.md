@@ -2,7 +2,7 @@
 
 WRL is available as an [MCP](https://modelcontextprotocol.io/) server, enabling AI agents to capture and verify web pages as tamper-evident evidence. Any MCP client can instruct WRL to capture a URL, retrieve capture status and artifacts, or verify cryptographic integrity — all without leaving the agent workflow.
 
-The MCP server uses Streamable HTTP transport at `https://wrl.benpeter.workers.dev/mcp`. Authentication requires a WRL API key with at minimum `read` scope. Capture operations additionally require `capture` scope.
+The MCP server uses Streamable HTTP transport at `https://api.webresourceledger.com/mcp`. Authentication requires a WRL API key with at minimum `read` scope. Capture operations additionally require `capture` scope.
 
 ## Quick Setup
 
@@ -11,7 +11,7 @@ The MCP server uses Streamable HTTP transport at `https://wrl.benpeter.workers.d
 ```bash
 claude mcp add wrl --transport http \
   --header "Authorization: Bearer YOUR_WRL_API_KEY" \
-  https://wrl.benpeter.workers.dev/mcp
+  https://api.webresourceledger.com/mcp
 ```
 
 ### Cursor
@@ -22,7 +22,7 @@ Add to `.cursor/mcp.json` in your project directory, or `~/.cursor/mcp.json` glo
 {
   "mcpServers": {
     "wrl": {
-      "url": "https://wrl.benpeter.workers.dev/mcp",
+      "url": "https://api.webresourceledger.com/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_WRL_API_KEY"
       }
@@ -39,7 +39,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`. Note: Windsurf uses `serverUrl`, n
 {
   "mcpServers": {
     "wrl": {
-      "serverUrl": "https://wrl.benpeter.workers.dev/mcp",
+      "serverUrl": "https://api.webresourceledger.com/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_WRL_API_KEY"
       }
@@ -52,7 +52,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`. Note: Windsurf uses `serverUrl`, n
 
 WRL supports the MCP Streamable HTTP transport. Configure your client with:
 
-- **Endpoint:** `https://wrl.benpeter.workers.dev/mcp`
+- **Endpoint:** `https://api.webresourceledger.com/mcp`
 - **Transport:** Streamable HTTP (POST)
 - **Authorization:** `Bearer YOUR_WRL_API_KEY` header on every request
 
@@ -79,7 +79,7 @@ Capture submitted for: https://example.com
 Capture ID: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
 Use get_capture to check status. Captures typically complete in 5-15 seconds.
-Status URL: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+Status URL: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
 ```
 
 ---
@@ -116,12 +116,12 @@ Completed: 2025-06-01T10:30:12.481Z
 Render quality: full
 
 Artifacts:
-  Screenshot: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-  HTML: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-  Headers: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
-  WACZ bundle: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
+  Screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+  HTML: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+  Headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+  WACZ bundle: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
 
-Verify integrity: https://wrl.benpeter.workers.dev/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+Verify integrity: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
   Or use the verify_capture tool with this capture ID.
 ```
 
@@ -213,7 +213,7 @@ Capture submitted for: https://example.com/important-page
 Capture ID: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
 Use get_capture to check status. Captures typically complete in 5-15 seconds.
-Status URL: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
+Status URL: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
 ```
 
 Save the capture ID. You will need it for the next steps.
@@ -249,13 +249,13 @@ Completed: 2025-06-01T10:30:12.481Z
 Render quality: full
 
 Artifacts:
-  Screenshot: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-  HTML: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-  Headers: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
-  Screenshot (before consent): https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot-before
-  WACZ bundle: https://wrl.benpeter.workers.dev/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
+  Screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
+  HTML: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+  Headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+  Screenshot (before consent): https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot-before
+  WACZ bundle: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
 
-Verify integrity: https://wrl.benpeter.workers.dev/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+Verify integrity: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
   Or use the verify_capture tool with this capture ID.
 ```
 
