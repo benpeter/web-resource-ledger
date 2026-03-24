@@ -1636,6 +1636,28 @@ components:
               summary: No Authorization header
               value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
 
+    Problem403:
+      description: Forbidden — authenticated but insufficient permissions for this operation.
+      headers:
+        Referrer-Policy:
+          $ref: '#/components/headers/ReferrerPolicy'
+        X-Content-Type-Options:
+          $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            forbidden:
+              summary: Insufficient permissions
+              value: {type: about:blank, status: 403, title: Forbidden, detail: You do not have permission to perform this action.}
+
     Problem429:
       description: >
         Too Many Requests — rate limit or monthly quota exceeded.
@@ -4298,8 +4320,6 @@ paths:
           $ref: '#/components/responses/Problem401'
         '403':
           $ref: '#/components/responses/Problem403'
-        '415':
-          $ref: '#/components/responses/Problem415'
         '429':
           $ref: '#/components/responses/Problem429'
 
@@ -4307,6 +4327,7 @@ paths:
     get:
       operationId: getUnsubscribePage
       summary: Render email unsubscribe confirmation page
+      security: []
       description: >
         Renders an HTML confirmation page for the given unsubscribe token.
         The page contains a form that the user must submit (POST) to complete
@@ -4340,6 +4361,7 @@ paths:
     post:
       operationId: processUnsubscribe
       summary: Process email unsubscribe (RFC 8058 One-Click)
+      security: []
       description: >
         Processes the unsubscribe action for a valid token.
         Accepts `application/x-www-form-urlencoded` with `List-Unsubscribe=One-Click`
