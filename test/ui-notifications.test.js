@@ -29,18 +29,18 @@ const defaultPreferences      = evalFromSource(NOTIFICATIONS_JS, 'defaultPrefere
 // ---------------------------------------------------------------------------
 
 describe('notificationLabel -- human-readable labels', () => {
-  it('A1: captureFailures returns a non-empty label', () => {
-    const result = notificationLabel('captureFailures');
+  it('A1: capture_failure returns a non-empty label', () => {
+    const result = notificationLabel('capture_failure');
     expect(result).toBeTruthy();
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('A2: weeklyDigest returns a distinct label from captureFailures', () => {
-    expect(notificationLabel('weeklyDigest')).not.toBe(notificationLabel('captureFailures'));
+  it('A2: weekly_digest returns a distinct label from capture_failure', () => {
+    expect(notificationLabel('weekly_digest')).not.toBe(notificationLabel('capture_failure'));
   });
 
   it('A3: all six keys return distinct labels', () => {
-    const keys = ['captureFailures', 'approachingLimit', 'limitReached', 'paymentFailure', 'invoiceGenerated', 'weeklyDigest'];
+    const keys = ['capture_failure', 'approaching_limit', 'limit_reached', 'payment_failure', 'invoice_generated', 'weekly_digest'];
     const labels = keys.map(notificationLabel);
     const unique = new Set(labels);
     expect(unique.size).toBe(keys.length);
@@ -56,24 +56,24 @@ describe('notificationLabel -- human-readable labels', () => {
 // ---------------------------------------------------------------------------
 
 describe('notificationDescription -- description text', () => {
-  it('B1: captureFailures description is non-empty', () => {
-    const result = notificationDescription('captureFailures');
+  it('B1: capture_failure description is non-empty', () => {
+    const result = notificationDescription('capture_failure');
     expect(result).toBeTruthy();
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('B2: invoiceGenerated description mentions invoice', () => {
-    const result = notificationDescription('invoiceGenerated');
+  it('B2: invoice_generated description mentions invoice', () => {
+    const result = notificationDescription('invoice_generated');
     expect(result.toLowerCase()).toContain('invoice');
   });
 
-  it('B3: weeklyDigest description mentions weekly or summary', () => {
-    const result = notificationDescription('weeklyDigest');
+  it('B3: weekly_digest description mentions weekly or summary', () => {
+    const result = notificationDescription('weekly_digest');
     expect(result.toLowerCase()).toMatch(/weekly|summary/);
   });
 
-  it('B4: approachingLimit description mentions limit', () => {
-    const result = notificationDescription('approachingLimit');
+  it('B4: approaching_limit description mentions limit', () => {
+    const result = notificationDescription('approaching_limit');
     expect(result.toLowerCase()).toContain('limit');
   });
 });
@@ -89,7 +89,7 @@ describe('defaultPreferences -- default toggle state', () => {
 
   it('C2: all six keys are present', () => {
     const prefs = defaultPreferences();
-    const keys = ['captureFailures', 'approachingLimit', 'limitReached', 'paymentFailure', 'invoiceGenerated', 'weeklyDigest'];
+    const keys = ['capture_failure', 'approaching_limit', 'limit_reached', 'payment_failure', 'invoice_generated', 'weekly_digest'];
     keys.forEach(function(key) {
       expect(prefs).toHaveProperty(key);
     });

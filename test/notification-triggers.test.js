@@ -381,9 +381,10 @@ describe('3d: invoice.finalized -- notification dispatch', () => {
     const mockEnv = makeEmailEnv(sent);
 
     await dispatchNotification(mockEnv, 'default', 'invoice_generated', {
-      amountDue: 475,
+      amountFormatted: '4.75',
       currency: 'EUR',
-      invoiceUrl: 'https://invoice.stripe.com/i/test123',
+      period: 'March 2026',
+      portalUrl: 'https://invoice.stripe.com/i/test123',
     });
 
     expect(sent.length).toBe(1);
@@ -452,6 +453,7 @@ describe('3e: invoice.payment_failed -- notification dispatch', () => {
 
     await dispatchNotification(mockEnv, 'default', 'payment_failure', {
       gracePeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      portalUrl: 'https://api.webresourceledger.com/ui#billing',
     });
 
     expect(sent.length).toBe(1);

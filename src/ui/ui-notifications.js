@@ -25,12 +25,12 @@ function notificationsAnnounce(message) {
 
 function notificationLabel(key) {
   var labels = {
-    captureFailures: 'Capture failures',
-    approachingLimit: 'Approaching limit',
-    limitReached: 'Limit reached',
-    paymentFailure: 'Payment failure',
-    invoiceGenerated: 'Invoice generated',
-    weeklyDigest: 'Weekly digest'
+    capture_failure: 'Capture failures',
+    approaching_limit: 'Approaching limit',
+    limit_reached: 'Limit reached',
+    payment_failure: 'Payment failure',
+    invoice_generated: 'Invoice generated',
+    weekly_digest: 'Weekly digest'
   };
   return labels[key] || key;
 }
@@ -41,12 +41,12 @@ function notificationLabel(key) {
 
 function notificationDescription(key) {
   var descriptions = {
-    captureFailures: 'Get notified when a web capture fails',
-    approachingLimit: 'Warning when nearing your free capture limit',
-    limitReached: 'Alert when your free capture limit is reached',
-    paymentFailure: 'Alert when a payment attempt fails',
-    invoiceGenerated: 'Notification when a new invoice is created',
-    weeklyDigest: 'Weekly summary of your scheduled captures'
+    capture_failure: 'Get notified when a web capture fails',
+    approaching_limit: 'Warning when nearing your free capture limit',
+    limit_reached: 'Alert when your free capture limit is reached',
+    payment_failure: 'Alert when a payment attempt fails',
+    invoice_generated: 'Notification when a new invoice is created',
+    weekly_digest: 'Weekly summary of your scheduled captures'
   };
   return descriptions[key] || '';
 }
@@ -57,12 +57,12 @@ function notificationDescription(key) {
 
 function defaultPreferences() {
   return {
-    captureFailures: true,
-    approachingLimit: true,
-    limitReached: true,
-    paymentFailure: true,
-    invoiceGenerated: true,
-    weeklyDigest: true
+    capture_failure: true,
+    approaching_limit: true,
+    limit_reached: true,
+    payment_failure: true,
+    invoice_generated: true,
+    weekly_digest: true
   };
 }
 
@@ -155,18 +155,18 @@ function buildNotificationsContent(data) {
     existing[i].remove();
   }
 
-  var prefs = data.preferences || defaultPreferences();
+  var prefs = data.notifications || defaultPreferences();
 
   view.appendChild(buildEmailSection(data));
   view.appendChild(buildToggleSection('Alerts', [
-    'captureFailures',
-    'approachingLimit',
-    'limitReached',
-    'paymentFailure'
+    'capture_failure',
+    'approaching_limit',
+    'limit_reached',
+    'payment_failure'
   ], prefs));
   view.appendChild(buildToggleSection('Summaries', [
-    'invoiceGenerated',
-    'weeklyDigest'
+    'invoice_generated',
+    'weekly_digest'
   ], prefs));
 }
 
@@ -456,8 +456,8 @@ function buildToggleRow(key, checked) {
     var newValue = toggleInput.checked;
     toggleInput.disabled = true;
 
-    var payload = {};
-    payload[key] = newValue;
+    var notifications = {};
+    notifications[key] = newValue;
 
     apiFetch('/v1/account/notifications', {
       method: 'PUT',
@@ -466,7 +466,7 @@ function buildToggleRow(key, checked) {
         'Content-Type': 'application/json',
         'X-WRL-CSRF': '1'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ notifications: notifications })
     }).then(function(res) {
       toggleInput.disabled = false;
 

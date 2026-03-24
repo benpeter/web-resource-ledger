@@ -359,12 +359,25 @@ async function handleInvoiceFinalized(event, env, ctx) {
   }
 
   const amountDue = invoice?.amount_due ?? 0;
-  const currency = invoice?.currency ?? 'eur';
+  const currency = (invoice?.currency ?? 'eur').toUpperCase();
+  const amountFormatted = (amountDue / 100).toFixed(2);
+
+  // Compute billing period from invoice period_start (Unix timestamp)
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const periodStart = invoice?.period_start;
+  const period = periodStart
+    ? (() => { const d = new Date(periodStart * 1000); return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`; })()
+    : '';
+
+  const baseUrl = env.VERIFICATION_BASE_URL
+    ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+    : 'https://api.webresourceledger.com';
 
   ctx.waitUntil(dispatchNotification(env, tenant.id, 'invoice_generated', {
-    amountDue,
-    currency: currency.toUpperCase(),
-    invoiceUrl: invoice?.hosted_invoice_url ?? null,
+    amountFormatted,
+    currency,
+    period,
+    portalUrl: invoice?.hosted_invoice_url || `${baseUrl}/ui#billing`,
   }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: tenant.id })));
 
   ctx.waitUntil(log(env, 3, 'billing', {
@@ -400,10 +413,14 @@ async function handleInvoicePaymentFailed(event, env, ctx) {
   }
 
   // 3e: Notify tenant of payment failure regardless of prior billing status
+  const paymentBaseUrl = env.VERIFICATION_BASE_URL
+    ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+    : 'https://api.webresourceledger.com';
   ctx.waitUntil(dispatchNotification(env, tenant.id, 'payment_failure', {
     gracePeriodEnd: tenant.billingStatus === 'active'
       ? new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString()
       : tenant.gracePeriodEnd,
+    portalUrl: `${paymentBaseUrl}/ui#billing`,
   }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: tenant.id })));
 }
 
