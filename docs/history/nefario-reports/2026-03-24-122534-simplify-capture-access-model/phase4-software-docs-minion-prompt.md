@@ -1,0 +1,1 @@
+Task 4: Documentation -- update SECURITY.md, README, OpenAPI spec, site content. See synthesis for full details.

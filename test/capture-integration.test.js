@@ -272,7 +272,7 @@ describe('GET /v1/captures/{id}/status', () => {
     });
     expect(statusRes.status).toBe(200);
     expect(statusRes.headers.get('Content-Type')).toContain('application/json');
-    expect(statusRes.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(statusRes.headers.get('Cache-Control')).toBe('no-store');
 
     const body = await statusRes.json();
     expect(body.id).toBe(id);
@@ -292,13 +292,15 @@ describe('GET /v1/captures/{id}/status', () => {
     expect(['pending', 'complete', 'failed']).toContain(body.status);
   });
 
-  it('unauthenticated status request returns 401', async () => {
+  it('unauthenticated status request returns 200 (public endpoint, #169)', async () => {
     const createRes = await postCapture({ url: VALID_URL });
     const { statusUrl } = await createRes.json();
 
-    // Fetch without Authorization header -- must now require auth
+    // Fetch without Authorization header -- status endpoint is now public
     const statusRes = await SELF.fetch(statusUrl);
-    expect(statusRes.status).toBe(401);
+    expect(statusRes.status).toBe(200);
+    const body = await statusRes.json();
+    expect(['pending', 'complete', 'failed']).toContain(body.status);
   });
 });
 
@@ -319,11 +321,11 @@ describe('GET /v1/captures/{id}/status -- not found / malformed', () => {
     expect(body.detail).not.toContain('cap_aaaabbbbccccddddaaaabbbbccccdddd');
   });
 
-  it('returns 401 for malformed ID path under /v1/captures/ (auth gate fires before route dispatch)', async () => {
-    // The auth gate checks for /v1/captures/ prefix, so malformed paths still require auth.
-    // An authenticated request with a malformed ID would then get 404 from the route dispatch.
+  it('returns 404 for malformed ID path under /v1/captures/ (no auth gate on public routes)', async () => {
+    // Individual capture routes are public -- no auth gate fires before route dispatch.
+    // A malformed ID doesn't match any route regex -> 404 from the catch-all.
     const res = await SELF.fetch('https://worker.test/v1/captures/badid/status');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
   });
 });
 

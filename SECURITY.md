@@ -28,31 +28,19 @@ The following are considered security issues:
 
 ### Access Model
 
-Three access paths exist for capture retrieval:
-
-- **Tenant authentication (Bearer token):** Required for all capture retrieval endpoints (`GET /v1/captures/{id}`, `/status`, `/artifacts/*`). Tenants can only see their own captures. Cross-tenant access returns 404, not 403, to prevent enumeration.
-- **Share tokens (query parameter `?token=wrl_share_...`):** Delegated read-only access to a specific capture and its artifacts. Cryptographically random (256-bit), time-limited or permanent. Scoped to a single capture. Created by the owning tenant via `POST /v1/captures/{id}/share`.
-- **Public verification (no auth):** `GET /v1/verify/{id}` remains unauthenticated by design. Verification must be publicly accessible for the trust model to work.
-
-### Share Token Design
-
-- 256-bit cryptographic randomness, base64url encoded, `wrl_share_` prefix (43 character token body)
-- Stored as SHA-256 hash in D1 -- raw token never persisted, same model as API keys
-- Created via `POST /v1/captures/{id}/share` (requires tenant Bearer auth)
-- Expired tokens return 410 Gone; invalid tokens return 401 Unauthorized
-- Grants: read access to capture metadata and all artifacts for the specific capture
-- Does not grant: list access, access to other captures, write operations
+- **Tenant authentication (Bearer token):** Required for `POST /v1/captures` (create), `GET /v1/captures` (list), and management endpoints. Tenants can only list their own captures.
+- **Public access (capture ID as capability):** `GET /v1/captures/{id}`, `/status`, `/artifacts/*`, and `GET /v1/verify/{id}` require no authentication. The 128-bit capture ID (`cap_` + 32 hex chars, 122 bits of entropy from UUID v4) functions as a capability token. Knowing the ID grants read access to the capture and all its artifacts. This is analogous to "anyone with the link" sharing in Google Docs.
 
 ### Threat Analysis
 
 **Mitigated:**
-- Capture ID guessing: retrieval endpoints now return 401 without auth (previously unauthenticated)
-- Cross-tenant data access: tenant isolation enforced; cross-tenant lookups return 404
-- Credential sharing via capture URL: share tokens decouple artifact access from API keys
+- Capture ID enumeration: 128-bit IDs make brute-force enumeration computationally infeasible. List endpoint requires tenant auth, preventing catalog-based discovery.
+- Cross-tenant list isolation: tenants can only list their own captures.
+- Credential exposure for sharing: capture URLs are shareable without API key exposure.
 
 **Residual risks:**
-- Share token in URL query string: visible in server logs, browser history, and proxy logs. Mitigated by time-limited tokens and `Referrer-Policy: no-referrer` header on all responses.
-- Verify endpoint confirms capture existence without auth: intentional -- public verifiability is a core design requirement.
+- Capture ID as bearer capability: anyone who obtains a capture ID (from logs, shared URLs, browser history) can access that capture and all its artifacts. This is the intended design. Tenants should treat capture IDs with the same care as a document sharing link.
+- All individual capture endpoints confirm capture existence: intentional -- public verifiability is a core requirement.
 
 The following are regular bugs, not security issues:
 

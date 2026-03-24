@@ -71,7 +71,7 @@ When the capture is complete, the response includes all artifact links and a ver
 }
 ```
 
-> **Note:** Share the `verifyUrl` freely -- it renders as a human-readable verification page in any browser and requires no authentication. To share full artifact access with others, use `POST /v1/captures/{id}/share` to generate a time-limited share link.
+> **Note:** Share the `verifyUrl` freely -- it renders as a human-readable verification page in any browser and requires no authentication. Capture URLs are directly shareable -- anyone with the capture ID can access the capture and its artifacts.
 
 If the status is still `pending` when you check, wait a few more seconds and try again. The status URL in the Step 1 response is a convenient shortcut for checking just the lifecycle state. For full polling details and status values, see the [API Reference](/api-reference/).
 

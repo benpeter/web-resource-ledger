@@ -1,0 +1,1 @@
+Task 3: Verify package -- remove share token support from CLI. See synthesis for full details.

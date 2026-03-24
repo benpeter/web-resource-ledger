@@ -25,7 +25,6 @@ import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from 
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
-import { generateShareToken, hashShareToken, createShareToken, getShareTokenByHash, deleteExpiredShareTokens } from './share-tokens.js';
 
 // tva
 
@@ -66,7 +65,6 @@ const routes = [
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
-  ['POST',   /^\/v1\/captures\/(cap_[a-f0-9]{32})\/share$/, handleCreateShare],
   ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',    /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',    /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
@@ -312,9 +310,6 @@ export default {
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
-      ctx.waitUntil(deleteExpiredShareTokens(env.DB).catch((err) => {
-        console.warn('wrl:share_token_cleanup_fail', { errorMessage: String(err?.message ?? '').slice(0, 128) });
-      }));
     }
   },
 
@@ -452,61 +447,57 @@ export default {
         }
       }
 
-      // Auth gate for capture GET routes (retrieval, status, artifacts).
+      // Auth gate for capture GET routes.
       // CRITICAL: /v1/verify/ must NOT be gated -- verify is public by design.
       // /v1/verify/ uses a different path prefix and is naturally excluded here.
-      // WACZ artifacts are also public -- independent verification requires
-      // downloading the signed bundle without authentication.
+      //
+      // Access model (#169):
+      //   GET /v1/captures            -- list endpoint, requires tenant auth
+      //   GET /v1/captures/{id}       -- public (no auth required)
+      //   GET /v1/captures/{id}/status -- public (no auth required)
+      //   GET /v1/captures/{id}/artifacts/* -- public (no auth required)
+      //
+      // For individual capture routes: auth is optional. When present, it is
+      // resolved and attached as env._captureAuth so handlers can enforce
+      // tenant isolation (authenticated tenants only see their own captures).
+      // Unauthenticated requests skip isolation and may access any capture.
       const isCaptureGetRoute = (
         request.method === 'GET' && (
           pathname.startsWith('/v1/captures/') || pathname === '/v1/captures'
         )
       );
-      const isWaczArtifactRequest = /^\/v1\/captures\/cap_[a-f0-9]{32}\/artifacts\/wacz$/.test(pathname);
       if (!response && isCaptureGetRoute) {
-        const shareToken = url.searchParams.get('token');
-
-        if (shareToken) {
-          // Share token auth path -- mutually exclusive with API key auth
-          if (!shareToken.trim()) {
-            response = problemResponse(401, 'Invalid or missing authentication');
-          } else {
-            const tokenHash = await hashShareToken(shareToken);
-            const tokenRecord = await getShareTokenByHash(env.DB, tokenHash);
-
-            if (!tokenRecord) {
-              response = problemResponse(401, 'Invalid or missing authentication');
-            } else if (tokenRecord.expiresAt && new Date(tokenRecord.expiresAt) < new Date()) {
-              // Expired tokens return 410 -- token was intentionally shared so Gone is appropriate
-              response = problemResponse(410, 'Share token has expired');
-            } else if (pathname === '/v1/captures') {
-              // Share tokens do not grant list access -- only single-capture access
-              response = problemResponse(401, 'Invalid or missing authentication');
-            } else {
-              // Valid share token -- attach auth context for handler use
-              env._captureAuth = {
-                tenantId: tokenRecord.tenantId,
-                authMethod: 'share_token',
-                scopedCaptureId: tokenRecord.captureId,
-              };
-            }
-          }
-        } else {
-          // Standard tenant auth (API key or session)
+        if (pathname === '/v1/captures') {
+          // List endpoint: requires tenant auth (API key or session)
           const auth = await verifyAuth(request, env, { requiredScope: 'read' });
           if (!auth.ok) {
-            // WACZ artifacts are public for independent verification -- auth is optional.
-            // When unauthenticated, env._captureAuth stays unset; handler enforces rate limits.
-            if (!isWaczArtifactRequest) {
-              response = auth.response;
-            }
+            response = auth.response;
           } else {
             env._captureAuth = {
               tenantId: auth.tenantId,
               authMethod: auth.authMethod,
-              scopedCaptureId: null, // tenant can access all their captures
             };
           }
+        } else {
+          // Individual capture routes: auth is optional.
+          // - No credentials: public access (env._captureAuth unset, no isolation).
+          // - Valid credentials: tenant-isolated access (env._captureAuth set).
+          // - Invalid credentials (bad key, expired session): 401.
+          //   Presenting bad credentials is not equivalent to presenting none.
+          const hasCredentials = request.headers.has('Authorization')
+            || (request.headers.has('Cookie') && request.headers.get('Cookie').includes('__Host-wrl_session'));
+          if (hasCredentials) {
+            const auth = await verifyAuth(request, env, { requiredScope: 'read' });
+            if (auth.ok) {
+              env._captureAuth = {
+                tenantId: auth.tenantId,
+                authMethod: auth.authMethod,
+              };
+            } else {
+              response = auth.response;
+            }
+          }
+          // No credentials: env._captureAuth stays unset, handler allows public access.
         }
       }
 
@@ -1217,7 +1208,7 @@ async function handleListCaptures(request, env, ctx) {
   const cip = await computeCip(env, clientIp);
 
   // Step 1: Auth -- provided by the capture GET auth gate in fetch().
-  // Share tokens do not grant list access; the gate rejects them before here.
+  // List endpoint requires tenant auth; gate sets env._captureAuth before reaching here.
   const captureAuth = env._captureAuth;
   const { tenantId, authMethod } = captureAuth;
   const keyName = null;
@@ -1466,40 +1457,31 @@ async function handlePutTenantConfig(request, env, ctx, match) {
   return jsonResponse(saved);
 }
 
-// SECURITY: Authentication required -- tenant must own the capture.
-// Share tokens grant read-only access to a specific capture via ?token=.
+// Public endpoint -- no authentication required for individual captures (#169).
 // Response MUST NOT include: ip, raw R2 keys (artifacts.* values, wacz.key).
 // Static 404 message for all non-200 cases -- no enumeration of ID existence.
-// Cross-tenant access returns 404 (identical to not-found) to prevent enumeration.
-// Cache-Control: private, no-store prevents caching of authenticated responses.
+// If env._captureAuth is set (authenticated request), enforce tenant isolation so
+// authenticated tenants only see their own captures.
 async function handleGetCapture(request, env, ctx, match) {
   const captureId = match[1];
   const captureAuth = env._captureAuth;
 
   const record = await getCapture(env.DB, captureId);
 
-  // Tenant isolation: check ownership before revealing existence.
-  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
   if (!record) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
-  if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
-    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
-  }
-  if (record.tenantId !== captureAuth.tenantId) {
+
+  // Tenant isolation: only enforced when the request is authenticated.
+  // Public (unauthenticated) requests can access any capture by ID.
+  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
+  if (captureAuth && record.tenantId !== captureAuth.tenantId) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
 
   if (record.status !== 'complete' && record.status !== 'quarantined') {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
-
-  // When accessed via share token, artifact URLs must include the token as a query param
-  // so callers can fetch artifacts without needing a separate API key.
-  const rawToken = captureAuth.authMethod === 'share_token'
-    ? new URL(request.url).searchParams.get('token')
-    : null;
-  const tokenSuffix = rawToken ? `?token=${encodeURIComponent(rawToken)}` : '';
 
   // Quarantined captures: return metadata without artifact URLs
   if (record.status === 'quarantined') {
@@ -1516,7 +1498,7 @@ async function handleGetCapture(request, env, ctx, match) {
     };
     if (record.captureSettings) body.captureSettings = record.captureSettings;
     return jsonResponse(body, 200, {
-      'Cache-Control': 'private, no-store',
+      'Cache-Control': 'no-store',
       'Access-Control-Allow-Origin': '*',
     });
   }
@@ -1525,14 +1507,14 @@ async function handleGetCapture(request, env, ctx, match) {
   const artifactBase = `${base}/v1/captures/${captureId}/artifacts`;
 
   const artifacts = {
-    screenshot: `${artifactBase}/screenshot${tokenSuffix}`,
-    html: `${artifactBase}/html${tokenSuffix}`,
+    screenshot: `${artifactBase}/screenshot`,
+    html: `${artifactBase}/html`,
   };
   if (record.artifacts?.headers) {
-    artifacts.headers = `${artifactBase}/headers${tokenSuffix}`;
+    artifacts.headers = `${artifactBase}/headers`;
   }
   if (record.artifacts?.screenshotBefore) {
-    artifacts.screenshotBefore = `${artifactBase}/screenshot-before${tokenSuffix}`;
+    artifacts.screenshotBefore = `${artifactBase}/screenshot-before`;
   }
 
   const body = {
@@ -1559,7 +1541,7 @@ async function handleGetCapture(request, env, ctx, match) {
 
   if (record.wacz) {
     body.wacz = {
-      url: `${artifactBase}/wacz${tokenSuffix}`,
+      url: `${artifactBase}/wacz`,
       size: record.wacz.size,
       bundleHash: record.wacz.bundleHash,
     };
@@ -1571,7 +1553,7 @@ async function handleGetCapture(request, env, ctx, match) {
   }
 
   return jsonResponse(body, 200, {
-    'Cache-Control': 'private, no-store',
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
   });
 }
@@ -1581,20 +1563,14 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   const artifactName = match[2];
   const captureAuth = env._captureAuth;
 
-  // Public access is only allowed for WACZ (independent verification).
-  // Other artifacts require authentication.
-  if (!captureAuth && artifactName !== 'wacz') {
-    return problemResponse(401, 'Invalid or missing authentication');
-  }
-
-  // Rate-limit public (unauthenticated) WACZ requests per IP,
-  // same limiter as /v1/verify/ -- both are public verification endpoints.
+  // All artifact types are now public (#169).
+  // Rate-limit unauthenticated requests per IP using the verify limiter.
   if (!captureAuth && env.VERIFY_RATE_LIMITER) {
     const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
     const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
     if (!success) {
       const cip = await computeCip(env, clientIp);
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'wacz_public', cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'artifact_public', cip }) ?? Promise.resolve());
       return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
     }
   }
@@ -1606,15 +1582,10 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   }
 
   // Tenant isolation: only enforce when authenticated.
-  // Public WACZ access skips tenant checks -- the capture ID is the access key.
+  // Public requests can access any capture's artifacts by capture ID.
   // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
-  if (captureAuth) {
-    if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
-      return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
-    }
-    if (record.tenantId !== captureAuth.tenantId) {
-      return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
-    }
+  if (captureAuth && record.tenantId !== captureAuth.tenantId) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
 
   // Quarantined captures: return 451 before the generic status check
@@ -1839,17 +1810,15 @@ async function handleCaptureStatus(request, env, ctx, match) {
 
   const record = await getCapture(env.DB, captureId);
 
-  // Tenant isolation: check ownership before revealing existence.
+  // Public endpoint (#169): no auth required for individual captures.
+  // If env._captureAuth is set (authenticated request), enforce tenant isolation.
   // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
   if (!record) return problemResponse(404, 'Capture not found');
-  if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
-    return problemResponse(404, 'Capture not found');
-  }
-  if (record.tenantId !== captureAuth.tenantId) {
+  if (captureAuth && record.tenantId !== captureAuth.tenantId) {
     return problemResponse(404, 'Capture not found');
   }
 
-  const headers = { 'Cache-Control': 'private, no-store' };
+  const headers = { 'Cache-Control': 'no-store' };
 
   if (record.status === 'pending') {
     return jsonResponse({ id: captureId, status: 'pending' }, 200, {
@@ -1868,13 +1837,7 @@ async function handleCaptureStatus(request, env, ctx, match) {
   }
 
   if (record.status === 'complete') {
-    // When accessed via share token, captureUrl must include the token so the caller
-    // can follow it without needing a separate API key.
-    const rawToken = captureAuth.authMethod === 'share_token'
-      ? new URL(request.url).searchParams.get('token')
-      : null;
-    const captureUrl = new URL(`/v1/captures/${captureId}`, request.url).href
-      + (rawToken ? `?token=${encodeURIComponent(rawToken)}` : '');
+    const captureUrl = new URL(`/v1/captures/${captureId}`, request.url).href;
     return jsonResponse({ id: captureId, status: 'complete', captureUrl }, 200, headers);
   }
 
@@ -1887,88 +1850,3 @@ async function handleCaptureStatus(request, env, ctx, match) {
   }, 200, headers);
 }
 
-async function handleCreateShare(request, env, ctx, match) {
-  const captureId = match[1];
-
-  // Auth: tenant must own the capture. Share tokens cannot create other share tokens.
-  const auth = await verifyAuth(request, env, { requiredScope: 'read' });
-  if (!auth.ok) {
-    return problemResponse(401, 'Authentication required to create share links.');
-  }
-
-  // Parse request body (optional -- body may be absent or empty for permanent tokens)
-  let body = {};
-  const rawBody = await request.text().catch(() => '');
-  if (rawBody.trim()) {
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      return problemResponse(400, 'Request body must be valid JSON');
-    }
-    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-      return problemResponse(400, 'Request body must be a JSON object');
-    }
-  }
-
-  // Validate expiresIn if provided
-  let expiresAt = null;
-  if (body.expiresIn !== undefined) {
-    const expiresIn = body.expiresIn;
-    if (!Number.isInteger(expiresIn)) {
-      return problemResponse(400, "'expiresIn' must be an integer number of seconds");
-    }
-    if (expiresIn < 300) {
-      return problemResponse(400, "'expiresIn' must be at least 300 seconds (5 minutes)");
-    }
-    if (expiresIn > 31536000) {
-      return problemResponse(400, "'expiresIn' must be at most 31536000 seconds (365 days)");
-    }
-    expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
-  }
-
-  // Look up the capture -- must exist and be owned by the requesting tenant
-  const record = await getCapture(env.DB, captureId);
-  if (!record || record.tenantId !== auth.tenantId) {
-    return problemResponse(404, 'Capture not found');
-  }
-
-  // Only allow share creation for captures that are pending or complete
-  if (record.status === 'failed' || record.status === 'quarantined') {
-    return problemResponse(404, 'Capture not found');
-  }
-
-  // Generate and store the share token
-  const rawToken = generateShareToken();
-  const tokenHash = await hashShareToken(rawToken);
-
-  try {
-    await createShareToken(env.DB, {
-      tokenHash,
-      captureId,
-      tenantId: auth.tenantId,
-      expiresAt,
-    });
-  } catch (err) {
-    ctx.waitUntil(log(env, 5, 'capture', {
-      event: 'capture.share_token_create_fail',
-      captureId,
-      tenantId: auth.tenantId,
-      tokenHashPrefix: tokenHash.slice(0, 8),
-      errorMessage: String(err?.message ?? '').slice(0, 256),
-    }) ?? Promise.resolve());
-    return problemResponse(500, 'Could not create share token');
-  }
-
-  const origin = new URL(request.url).origin;
-  const shareUrl = `${origin}/v1/captures/${captureId}?token=${encodeURIComponent(rawToken)}`;
-
-  ctx.waitUntil(log(env, 3, 'capture', {
-    event: 'capture.share_token_created',
-    captureId,
-    tenantId: auth.tenantId,
-    tokenHashPrefix: tokenHash.slice(0, 8),
-    expiresAt,
-  }) ?? Promise.resolve());
-
-  return jsonResponse({ token: rawToken, shareUrl, expiresAt }, 201);
-}

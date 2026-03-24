@@ -37,21 +37,6 @@ export function isWrlCaptureUrl(input) {
 }
 
 /**
- * Extracts the share token from a WRL capture URL, if present.
- *
- * @param {string} urlStr
- * @returns {string|null}
- */
-export function shareTokenFromUrl(urlStr) {
-  try {
-    const url = new URL(urlStr);
-    return url.searchParams.get('token');
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Extracts the origin (scheme + host + port) from a URL string.
  *
  * @param {string} urlStr
@@ -104,10 +89,10 @@ async function fetchBytes(url, { timeoutMs = KEY_FETCH_TIMEOUT_MS, maxBytes = MA
     if (response.status === 401) {
       throw new Error(
         `HTTP 401 fetching ${url}\n\n` +
-        `This capture requires a share token. Use a share URL with ?token=:\n` +
-        `  npx @w-r-l/verify "https://wrl.../v1/captures/cap_abc?token=wrl_share_..."\n\n` +
-        `Or verify via the server-side endpoint (no token needed):\n` +
-        `  npx @w-r-l/verify "https://wrl.../v1/verify/cap_abc"`
+        `Individual captures are publicly accessible -- a 401 is unexpected.\n` +
+        `Check that the URL points to a specific capture (e.g., /v1/captures/cap_<id>).\n\n` +
+        `If you have a local .wacz file, verify it directly:\n` +
+        `  npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com`
       );
     }
     throw new Error(`HTTP ${response.status} fetching ${url}`);
@@ -151,10 +136,8 @@ async function fetchBytes(url, { timeoutMs = KEY_FETCH_TIMEOUT_MS, maxBytes = MA
 export async function fetchWaczFromCaptureUrl(captureUrl) {
   const origin    = originFromUrl(captureUrl);
   const captureId = captureIdFromUrl(captureUrl);
-  const token     = shareTokenFromUrl(captureUrl);
 
-  let waczUrl = `${origin}/v1/captures/${captureId}/artifacts/wacz`;
-  if (token) waczUrl += `?token=${encodeURIComponent(token)}`;
+  const waczUrl = `${origin}/v1/captures/${captureId}/artifacts/wacz`;
 
   process.stderr.write(`Fetching capture from ${waczUrl}\n`);
 
