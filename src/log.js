@@ -22,9 +22,9 @@
  * (use computeCip), Authorization header values, full keyHash (use
  * keyHashPrefix: hash.slice(0, 8)), request/response objects,
  * unvalidated request body content, raw GitHub access tokens,
- * raw session cookie values, OAuth authorization codes, or raw
- * state parameter values. Always destructure and pick specific
- * fields -- never pass auth result objects directly.
+ * raw session cookie values, OAuth authorization codes, raw
+ * state parameter values, or email addresses. Always destructure
+ * and pick specific fields -- never pass auth result objects directly.
  *
  * @param {object} env Worker env bindings
  * @param {number} severity Coralogix severity: 3=info, 4=warn, 5=error

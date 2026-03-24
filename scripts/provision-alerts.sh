@@ -313,6 +313,86 @@ worker_errors_payload() {
 ALERT_JSON
 }
 
+email_delivery_failures_payload() {
+  cat <<'ALERT_JSON'
+{
+  "alertDefProperties": {
+    "name": "[WRL] Email Delivery Failures",
+    "description": "More than 5 email send failures in 30 minutes. Indicates the email dispatch system (email.send_fail events) is unable to deliver notification emails to recipients. May indicate provider outage, credential failure, or rate limiting.",
+    "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
+    "enabled": true,
+    "priority": "ALERT_DEF_PRIORITY_P2",
+    "logsThreshold": {
+      "logsFilter": {
+        "simpleFilter": {
+          "luceneQuery": "event:\"email.send_fail\"",
+          "labelFilters": {
+            "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
+            "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "email"}]
+          }
+        }
+      },
+      "rules": [{
+        "condition": {
+          "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
+          "threshold": 5,
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_30"}
+        },
+        "override": {"priority": "ALERT_DEF_PRIORITY_P2"}
+      }]
+    },
+    "notificationGroup": {
+      "webhooks": [{
+        "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
+        "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
+        "minutes": 60
+      }]
+    }
+  }
+}
+ALERT_JSON
+}
+
+email_bounces_payload() {
+  cat <<'ALERT_JSON'
+{
+  "alertDefProperties": {
+    "name": "[WRL] Email Bounces",
+    "description": "More than 3 hard email bounces in 24 hours. Hard bounces (email.bounce events with bounceType:hard) indicate permanently undeliverable addresses. Accumulating hard bounces can damage sender reputation and trigger provider blocks.",
+    "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
+    "enabled": true,
+    "priority": "ALERT_DEF_PRIORITY_P3",
+    "logsThreshold": {
+      "logsFilter": {
+        "simpleFilter": {
+          "luceneQuery": "event:\"email.bounce\" AND bounceType:\"hard\"",
+          "labelFilters": {
+            "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
+            "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "email"}]
+          }
+        }
+      },
+      "rules": [{
+        "condition": {
+          "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
+          "threshold": 3,
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_HOURS_24"}
+        },
+        "override": {"priority": "ALERT_DEF_PRIORITY_P3"}
+      }]
+    },
+    "notificationGroup": {
+      "webhooks": [{
+        "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
+        "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
+        "minutes": 1440
+      }]
+    }
+  }
+}
+ALERT_JSON
+}
+
 # --- Core Logic ---
 
 # Fetch all existing alerts and extract [WRL] ones
@@ -445,13 +525,15 @@ main() {
   upsert_alert "[WRL] Worker Errors (5xx)"        worker_errors_payload             "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Threat Check Quarantines"   threat_check_quarantines_payload  "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Threat Check API Failures"  threat_check_api_failures_payload "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Email Delivery Failures"    email_delivery_failures_payload   "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Email Bounces"              email_bounces_payload             "$existing_alerts" || ((failed++))
 
   log ""
   if [ "$failed" -gt 0 ]; then
     err "$failed alert(s) failed to provision"
     exit 1
   fi
-  log "All 7 alerts provisioned successfully."
+  log "All 9 alerts provisioned successfully."
 }
 
 main
