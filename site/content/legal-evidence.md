@@ -69,12 +69,12 @@ The certification PDF is generated deterministically from the capture record. It
 | Capture ID | The unique WRL identifier for this capture (`cap_...`) |
 | Captured URL | The URL that was captured |
 | Capture timestamp | UTC time when the capture was submitted and when it completed |
-| Operator identity | The operator's signing key fingerprint (`keyId`) and the public key endpoint (`/.well-known/signing-key`) |
+| Operator identity | The system operator's name, postal address, contact email, system name and URL, and source code repository |
 | Process description | A plain-language description of WRL's automated capture pipeline: headless browser, no human operator involvement, deterministic output |
 | Bundle hash | SHA-256 hash of the WACZ bundle manifest (`datapackage.json`), covering all artifact hashes |
 | Ed25519 signature | The operator's signature over the bundle hash, confirming the bundle was produced by the operator's key |
 | RFC 3161 timestamp | The UTC time recorded by an independent Timestamp Authority (DigiCert) and bound to the bundle hash |
-| Verification result | Summary of all verification checks run at certificate generation time |
+| Verification instructions | URLs and procedures for independently verifying the capture's integrity (verification page, CLI tool, public key endpoint) |
 | Certificate signature | Ed25519 signature over the PDF bytes, delivered in the `X-Signature-Ed25519` response header |
 
 The document is designed for use alongside the WACZ bundle, not as a standalone substitute for it. Verification of the WACZ bundle remains the primary cryptographic assurance; the certification document provides the written description of process and system that supports a 902(13) argument.
