@@ -20,6 +20,7 @@ A single API call produces:
 - **HTTP response headers** -- the server's response at capture time
 - **Signed WACZ bundle** -- all artifacts packaged, hashed, and signed with Ed25519
 - **Verification URL** -- a shareable link anyone can use to confirm authenticity
+- **FRE 902(13) certification PDF** -- `GET /v1/captures/{captureId}/certificate` returns a signed PDF describing the capture process and integrity evidence, designed to support a Rule 902(13) self-authentication foundation
 
 ## Content Security
 

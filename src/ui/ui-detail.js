@@ -262,6 +262,16 @@ function renderDetailComplete(view, id, data) {
   addArtifactLink('HTTP headers', '/v1/captures/' + id + '/artifacts/headers');
   if (data.wacz) {
     addArtifactLink('WACZ archive', '/v1/captures/' + id + '/artifacts/wacz');
+
+    var certLi = document.createElement('li');
+    certLi.className = 'detail-artifact-cert';
+    var certLink = document.createElement('a');
+    certLink.href = '/v1/captures/' + id + '/certificate';
+    certLink.className = 'btn btn--ghost';
+    certLink.setAttribute('download', '');
+    certLink.textContent = 'Download Certificate (PDF)';
+    certLi.appendChild(certLink);
+    artList.appendChild(certLi);
   }
 
   artifactsSection.appendChild(artList);

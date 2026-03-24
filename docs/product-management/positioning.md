@@ -43,6 +43,35 @@ Phase 0062 accidentally broke this by adding auth to individual capture
 endpoints. Phase 0075 fixed the regression by recognizing that the ID
 itself is the access control.
 
+## FRE 902(13) Certification Document (Phase 0073)
+
+**Differentiator**: WRL generates a downloadable FRE 902(13) certification PDF
+for every capture — a structured document describing the automated capture process,
+integrity hashes, signature evidence, and operator identity. This directly supports
+self-authentication under Federal Rules of Evidence 902(13), potentially eliminating
+the need for live expert testimony to admit web capture evidence in US courts.
+
+**Competitive landscape**:
+- **Wayback Machine / archive.org**: Offers an affidavit service (manual, per-request,
+  staff time required). No automated certification document.
+- **Veripage / PageVault**: May provide evidence reports but in proprietary formats
+  and often requiring manual steps or paid add-on.
+- **Pagefreezer**: Enterprise evidence packages, but certification is typically part
+  of expensive plans rather than available per-capture.
+
+**WRL advantage**: Automated, deterministic, on-demand certification for every capture
+at no additional cost. The document is itself signed (Ed25519 via response headers),
+making it self-verifying. Combined with the open WACZ format and RFC 3161 timestamps,
+WRL provides the complete evidentiary package a litigation team needs.
+
+**Personas served**: Litigation paralegals preparing evidence packages, IP attorneys
+handling trademark/copyright evidence, compliance teams documenting regulatory snapshots.
+
+**Pricing implications**: Certificate generation is included in the base capture price —
+no separate charge. This is a deliberate choice: the certificate adds legal value to
+every capture and strengthens the core value proposition. Charging separately would
+discourage usage and weaken the "evidence-grade by default" story.
+
 ## UX Decisions (Phase 0063)
 
 - **Account-level, not per-capture**: Simplifies the mental model. Legal teams

@@ -564,6 +564,16 @@ components:
             bundle (e.g., partial captures from navigation timeouts).
           examples:
             - https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+        certificateUrl:
+          type: string
+          format: uri
+          description: >
+            URL to the FRE 902(13) certification PDF for this capture. Present only
+            when `wacz` is present. The PDF is generated deterministically from the
+            capture record and signed with the operator's Ed25519 key. Omitted when
+            the capture has no WACZ bundle.
+          examples:
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/certificate
         captureSettings:
           $ref: '#/components/schemas/CaptureSettings'
           description: >
@@ -2624,6 +2634,7 @@ paths:
                       bundleHash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                       size: 204800
                     verifyUrl: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    certificateUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/certificate
                 withoutWacz:
                   summary: Completed capture without WACZ bundle
                   value:
@@ -2755,6 +2766,103 @@ paths:
                 quarantined:
                   summary: Capture quarantined by content security screening
                   value: {type: about:blank, status: 451, title: Unavailable For Legal Reasons, detail: This capture has been quarantined and its artifacts are restricted.}
+
+  /v1/captures/{captureId}/certificate:
+    get:
+      operationId: getCaptureCertificate
+      summary: Download FRE 902(13) certification PDF
+      description: >
+        Generates a deterministic PDF certification document for a completed capture.
+        The document describes the automated capture process, integrity evidence, and
+        operator identity in a format designed to support Federal Rules of Evidence
+        902(13) self-authentication. The PDF is signed with the operator's Ed25519 key;
+        the signature is delivered in the `X-Signature-Ed25519` response header.
+
+        No authentication required. The PDF is generated on demand and cached at the
+        edge. A qualified person must still adopt and sign the certification statement
+        when introducing the document as evidence.
+      tags: [captures]
+      security: []
+      parameters:
+        - name: captureId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/CaptureId'
+          description: Capture ID returned by POST /v1/captures.
+      responses:
+        '200':
+          description: >
+            Certification PDF. Response headers include:
+
+            - `Content-Disposition: attachment; filename="certificate-{captureId}.pdf"` -- triggers download.
+            - `Cache-Control: public, max-age=31536000, immutable` -- deterministic output; cached aggressively.
+            - `X-Signature-Ed25519` -- base64-encoded Ed25519 signature over the PDF bytes, using the operator signing key.
+            - `X-Signature-Key-Id` -- 8-character key fingerprint identifying which signing key produced the signature.
+            - `Access-Control-Expose-Headers: X-Signature-Ed25519, X-Signature-Key-Id` -- exposes signature headers to browser clients.
+          headers:
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            Content-Disposition:
+              description: >
+                Always `attachment` with a filename derived from the capture ID,
+                e.g. `attachment; filename="certificate-cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.pdf"`.
+              schema:
+                type: string
+            Cache-Control:
+              description: Certificate is deterministic and immutable; aggressively cached.
+              schema:
+                type: string
+                enum: ['public, max-age=31536000, immutable']
+            X-Signature-Ed25519:
+              description: Base64-encoded Ed25519 signature over the PDF bytes, using the operator signing key.
+              schema:
+                type: string
+            X-Signature-Key-Id:
+              description: 8-character hex fingerprint identifying the signing key that produced the signature.
+              schema:
+                type: string
+            Access-Control-Expose-Headers:
+              description: Exposes the signature headers to browser clients making cross-origin requests.
+              schema:
+                type: string
+                enum: ['X-Signature-Ed25519, X-Signature-Key-Id']
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Capture not found, not yet complete, or has no WACZ bundle.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                notFound:
+                  summary: Capture not found or not complete
+                  value: {type: about:blank, status: 404, title: Not Found, detail: Capture not found or not complete.}
+                noWacz:
+                  summary: Capture has no WACZ bundle
+                  value: {type: about:blank, status: 404, title: Not Found, detail: No WACZ bundle available for this capture.}
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '451':
+          description: >
+            Unavailable For Legal Reasons -- this capture has been quarantined due to
+            content security screening. Certification is not available for quarantined captures.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                quarantined:
+                  summary: Capture quarantined by content security screening
+                  value: {type: about:blank, status: 451, title: Unavailable For Legal Reasons, detail: This capture has been quarantined and certification is not available.}
+        '503':
+          $ref: '#/components/responses/Problem503'
 
   /v1/verify/{captureId}:
     get:

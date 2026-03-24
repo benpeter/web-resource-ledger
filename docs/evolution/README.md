@@ -77,3 +77,4 @@ software development.
 | [0075-simplify-capture-access-model](0075-simplify-capture-access-model/) | Simplify capture access model: remove share tokens, make individual capture endpoints public, auth-gate list only (Issue #169) |
 | [0076-billing-ui-panel](0076-billing-ui-panel/) | Billing UI panel: usage dashboard with charges, pricing tiers, invoice threshold, payment status, Stripe portal link, eIDAS add-on (Issue #170) |
 | [0074-legal-evidence-positioning](0074-legal-evidence-positioning/) | Legal-evidence positioning: landing page FRE/eIDAS framing, Legal Evidence docs guide, verification comparison (Issue #142) |
+| [0073-fre-902-13-certificate](0073-fre-902-13-certificate/) | FRE 902(13) certification PDF: deterministic Ed25519-signed document, API endpoint, web UI download button, 42 tests (Issue #141) |

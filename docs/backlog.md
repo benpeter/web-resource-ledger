@@ -277,6 +277,7 @@ Completed items removed from active tracking:
 - ~~R31: Capture metering to Stripe pipeline~~ -- DONE (Phase 0060): hourly batch meter event reporting with idempotency, graduated pricing module (4 tiers), billing sub-object on GET /v1/account/usage, D1 watermark tracking, 32 new tests (Issue #108)
 - ~~R32: Content security scanning~~ -- DONE (Phase 0061): Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement with 451 responses, 2 Coralogix alerts, fail-open degradation (Issue #109)
 - ~~R33: Capture auth gate~~ -- DONE (Phase 0062), REVISED (Phase 0075): simplified to list-only auth gate. Individual capture endpoints made public (128-bit ID = capability token). Share token system removed entirely. (Issues #110, #169)
+- ~~R41: FRE 902(13) certification document~~ -- DONE (Phase 0073): Deterministic PDF certificate endpoint `GET /v1/captures/{id}/certificate`, Ed25519-signed, 6-section legal document with attestation block, web UI download button, 42 tests (Issue #141)
 - ~~R42: Legal-evidence positioning~~ -- DONE (Phase 0074): Landing page updated with FRE 901(b)(9), 902(14), eIDAS Art. 41(2) references. New Legal Evidence docs guide page. Verification comparison table. No overclaiming -- "designed to support" language throughout. (Issue #142)
 
 ---
