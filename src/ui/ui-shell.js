@@ -8,6 +8,7 @@ import { TOS_JS } from './ui-tos.js';
 import { SETTINGS_JS } from './ui-settings.js';
 import { SCHEDULES_JS } from './ui-schedules.js';
 import { BILLING_JS } from './ui-billing.js';
+import { NOTIFICATIONS_JS } from './ui-notifications.js';
 import { SUBMIT_VIEW_JS } from './ui-submit.js';
 import { DETAIL_VIEW_JS } from './ui-detail.js';
 import { POLL_JS } from './ui-poll.js';
@@ -55,6 +56,9 @@ ${SETTINGS_JS}
 
 // === BILLING ===
 ${BILLING_JS}
+
+// === NOTIFICATIONS ===
+${NOTIFICATIONS_JS}
 
 // === SCHEDULES ===
 ${SCHEDULES_JS}
@@ -122,6 +126,17 @@ function route() {
       updateNavCurrent('/billing');
       renderBilling();
       mountBilling();
+    } else {
+      location.replace('#/captures');
+    }
+    return;
+  }
+
+  if (path === '/notifications') {
+    if (_authMethod === 'session') {
+      updateNavCurrent('/notifications');
+      renderNotifications();
+      mountNotifications();
     } else {
       location.replace('#/captures');
     }
