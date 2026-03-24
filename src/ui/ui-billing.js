@@ -253,14 +253,11 @@ function buildPeriodSummary(usageData) {
   section.className = 'settings-section card';
   section.setAttribute('aria-labelledby', 'billing-period-heading');
 
-  var inner = document.createElement('div');
-  inner.style.padding = 'var(--space-4) var(--space-5)';
-
   var h2 = document.createElement('h2');
   h2.id = 'billing-period-heading';
   h2.className = 'settings-section-heading';
   h2.textContent = formatPeriod(usageData.period) || 'Current Period';
-  inner.appendChild(h2);
+  section.appendChild(h2);
 
   // Three-stat row
   var statsRow = document.createElement('div');
@@ -302,7 +299,7 @@ function buildPeriodSummary(usageData) {
   tierCell.appendChild(tierLabelEl);
   statsRow.appendChild(tierCell);
 
-  inner.appendChild(statsRow);
+  section.appendChild(statsRow);
 
   // Reset date note
   if (usageData.resetsAt) {
@@ -318,10 +315,9 @@ function buildPeriodSummary(usageData) {
     } catch (e) {
       resetNote.textContent = 'Period resets ' + usageData.resetsAt;
     }
-    inner.appendChild(resetNote);
+    section.appendChild(resetNote);
   }
 
-  section.appendChild(inner);
   return section;
 }
 
@@ -367,14 +363,11 @@ function buildThresholdSection(usageData) {
   section.className = 'settings-section card';
   section.setAttribute('aria-labelledby', 'billing-threshold-heading');
 
-  var inner = document.createElement('div');
-  inner.style.padding = 'var(--space-4) var(--space-5)';
-
   var h2 = document.createElement('h2');
   h2.id = 'billing-threshold-heading';
   h2.className = 'settings-section-heading';
   h2.textContent = 'Invoice Threshold';
-  inner.appendChild(h2);
+  section.appendChild(h2);
 
   var metric = document.createElement('div');
   metric.className = 'usage-metric';
@@ -403,7 +396,7 @@ function buildThresholdSection(usageData) {
   fill.style.width = pct + '%';
   bar.appendChild(fill);
   metric.appendChild(bar);
-  inner.appendChild(metric);
+  section.appendChild(metric);
 
   if (invoiceThreshold.met) {
     var metNote = document.createElement('p');
@@ -411,17 +404,16 @@ function buildThresholdSection(usageData) {
     metNote.style.marginTop = 'var(--space-2)';
     metNote.style.color = 'var(--color-success-text)';
     metNote.textContent = 'Invoice will be issued at period end.';
-    inner.appendChild(metNote);
+    section.appendChild(metNote);
   } else {
     var deferNote = document.createElement('p');
     deferNote.className = 'text-muted';
     deferNote.style.fontSize = 'var(--text-sm)';
     deferNote.style.marginTop = 'var(--space-2)';
     deferNote.textContent = 'Charges under ' + formatCurrency(thresholdAmount) + ' are deferred to next period.';
-    inner.appendChild(deferNote);
+    section.appendChild(deferNote);
   }
 
-  section.appendChild(inner);
   return section;
 }
 
@@ -438,14 +430,11 @@ function buildPricingSection(usageData) {
   section.className = 'settings-section card';
   section.setAttribute('aria-labelledby', 'billing-pricing-heading');
 
-  var inner = document.createElement('div');
-  inner.style.padding = 'var(--space-4) var(--space-5)';
-
   var h2 = document.createElement('h2');
   h2.id = 'billing-pricing-heading';
   h2.className = 'settings-section-heading';
   h2.textContent = 'Pricing';
-  inner.appendChild(h2);
+  section.appendChild(h2);
 
   // Current tier inline summary as dl
   if (activeTier) {
@@ -470,7 +459,7 @@ function buildPricingSection(usageData) {
     dd.textContent = activeTier.name + ' (' + priceStr + ')';
     dl.appendChild(dd);
 
-    inner.appendChild(dl);
+    section.appendChild(dl);
   }
 
   // Tiers disclosure (collapsed by default)
@@ -538,10 +527,9 @@ function buildPricingSection(usageData) {
     table.appendChild(tbody);
     tableWrap.appendChild(table);
     details.appendChild(tableWrap);
-    inner.appendChild(details);
+    section.appendChild(details);
   }
 
-  section.appendChild(inner);
   return section;
 }
 
@@ -557,14 +545,11 @@ function buildEidasSection(usageData) {
   section.className = 'settings-section card';
   section.setAttribute('aria-labelledby', 'billing-eidas-heading');
 
-  var inner = document.createElement('div');
-  inner.style.padding = 'var(--space-4) var(--space-5)';
-
   var h2 = document.createElement('h2');
   h2.id = 'billing-eidas-heading';
   h2.className = 'settings-section-heading';
   h2.textContent = 'Qualified Timestamps';
-  inner.appendChild(h2);
+  section.appendChild(h2);
 
   if (!eidasData) {
     // API does not yet return eIDAS usage data -- degrade gracefully
@@ -584,7 +569,7 @@ function buildEidasSection(usageData) {
       handlePortalRedirect(tmpBtn);
     });
     note.appendChild(portalLink);
-    inner.appendChild(note);
+    section.appendChild(note);
   } else {
     // Future: eIDAS data present in API response
     var count = eidasData.count != null ? eidasData.count : 0;
@@ -617,17 +602,16 @@ function buildEidasSection(usageData) {
     ddCharges.textContent = formatCurrency(eidasCharges);
     dl.appendChild(ddCharges);
 
-    inner.appendChild(dl);
+    section.appendChild(dl);
 
     var pricing = document.createElement('p');
     pricing.className = 'text-muted';
     pricing.style.fontSize = 'var(--text-sm)';
     pricing.style.marginTop = 'var(--space-2)';
     pricing.textContent = 'First 50 free, then EUR 0.10 each.';
-    inner.appendChild(pricing);
+    section.appendChild(pricing);
   }
 
-  section.appendChild(inner);
   return section;
 }
 
@@ -643,21 +627,18 @@ function buildPaymentSection(usageData) {
   section.className = 'settings-section card';
   section.setAttribute('aria-labelledby', 'billing-payment-heading');
 
-  var inner = document.createElement('div');
-  inner.style.padding = 'var(--space-4) var(--space-5)';
-
   var h2 = document.createElement('h2');
   h2.id = 'billing-payment-heading';
   h2.className = 'settings-section-heading';
   h2.textContent = 'Payment';
-  inner.appendChild(h2);
+  section.appendChild(h2);
 
   // sr-only portal description for aria-describedby
   var portalDesc = document.createElement('span');
   portalDesc.id = 'billing-portal-desc';
   portalDesc.className = 'sr-only';
   portalDesc.textContent = "Opens Stripe's secure billing portal. You will leave this site.";
-  inner.appendChild(portalDesc);
+  section.appendChild(portalDesc);
 
   if (status === 'free' && !hasPaymentMethod) {
     var infoBox = document.createElement('div');
@@ -665,7 +646,7 @@ function buildPaymentSection(usageData) {
     infoBox.setAttribute('role', 'status');
     infoBox.style.marginBottom = 'var(--space-4)';
     infoBox.textContent = 'No payment method required. First 200 captures/month are free.';
-    inner.appendChild(infoBox);
+    section.appendChild(infoBox);
 
     var setupBtn = document.createElement('button');
     setupBtn.type = 'button';
@@ -675,7 +656,7 @@ function buildPaymentSection(usageData) {
     setupBtn.addEventListener('click', function() {
       handleCheckoutRedirect(setupBtn);
     });
-    inner.appendChild(setupBtn);
+    section.appendChild(setupBtn);
 
   } else if (status === 'active' && hasPaymentMethod) {
     var activeRow = document.createElement('div');
@@ -699,14 +680,14 @@ function buildPaymentSection(usageData) {
     });
     activeRow.appendChild(manageBtn);
 
-    inner.appendChild(activeRow);
+    section.appendChild(activeRow);
 
   } else if (status === 'grace_period') {
     var graceNote = document.createElement('p');
     graceNote.style.fontSize = 'var(--text-sm)';
     graceNote.style.marginBottom = 'var(--space-3)';
     graceNote.textContent = 'See the notice above to update your payment method.';
-    inner.appendChild(graceNote);
+    section.appendChild(graceNote);
 
     var graceBtn = document.createElement('button');
     graceBtn.type = 'button';
@@ -716,14 +697,14 @@ function buildPaymentSection(usageData) {
     graceBtn.addEventListener('click', function() {
       handlePortalRedirect(graceBtn);
     });
-    inner.appendChild(graceBtn);
+    section.appendChild(graceBtn);
 
   } else if (status === 'blocked') {
     var blockedNote = document.createElement('p');
     blockedNote.style.fontSize = 'var(--text-sm)';
     blockedNote.style.marginBottom = 'var(--space-3)';
     blockedNote.textContent = 'Captures are paused. Update your payment method to resume.';
-    inner.appendChild(blockedNote);
+    section.appendChild(blockedNote);
 
     var blockedBtn = document.createElement('button');
     blockedBtn.type = 'button';
@@ -733,7 +714,7 @@ function buildPaymentSection(usageData) {
     blockedBtn.addEventListener('click', function() {
       handlePortalRedirect(blockedBtn);
     });
-    inner.appendChild(blockedBtn);
+    section.appendChild(blockedBtn);
 
   } else {
     // Fallback for unexpected or transitional status values
@@ -742,7 +723,7 @@ function buildPaymentSection(usageData) {
     fallbackNote.style.fontSize = 'var(--text-sm)';
     fallbackNote.style.marginBottom = 'var(--space-3)';
     fallbackNote.textContent = billingStatusLabel(status);
-    inner.appendChild(fallbackNote);
+    section.appendChild(fallbackNote);
 
     if (shouldShowCheckout(hasPaymentMethod, status)) {
       var fallbackCheckoutBtn = document.createElement('button');
@@ -753,7 +734,7 @@ function buildPaymentSection(usageData) {
       fallbackCheckoutBtn.addEventListener('click', function() {
         handleCheckoutRedirect(fallbackCheckoutBtn);
       });
-      inner.appendChild(fallbackCheckoutBtn);
+      section.appendChild(fallbackCheckoutBtn);
     } else {
       var fallbackPortalBtn = document.createElement('button');
       fallbackPortalBtn.type = 'button';
@@ -763,11 +744,10 @@ function buildPaymentSection(usageData) {
       fallbackPortalBtn.addEventListener('click', function() {
         handlePortalRedirect(fallbackPortalBtn);
       });
-      inner.appendChild(fallbackPortalBtn);
+      section.appendChild(fallbackPortalBtn);
     }
   }
 
-  section.appendChild(inner);
   return section;
 }
 
