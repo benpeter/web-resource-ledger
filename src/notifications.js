@@ -23,6 +23,7 @@
 import { jsonResponse, problemResponse } from './responses.js';
 import { getNotificationPreferences, upsertNotificationPreferences, NOTIFICATION_TYPES } from './db.js';
 import { log } from './log.js';
+import { dispatchNotification } from './email-dispatch.js';
 
 const ACCOUNT_CACHE = { 'Cache-Control': 'private, no-store' };
 
@@ -200,4 +201,138 @@ export async function handleUpdateNotificationPreferences(request, env, ctx, _ma
     notifications: result.prefs.notifications,
     updatedAt: result.prefs.updatedAt,
   }, 200, ACCOUNT_CACHE);
+}
+
+// ---------------------------------------------------------------------------
+// Weekly digest cron handler
+// ---------------------------------------------------------------------------
+
+/** Maximum tenants processed per weekly digest invocation. */
+const WEEKLY_DIGEST_TENANT_LIMIT = 50;
+
+/**
+ * Send weekly digest emails to all eligible tenants.
+ *
+ * Eligible tenants must:
+ *   - Have at least one active (non-paused) schedule
+ *   - Have notify_weekly_digest = 1 in notification_preferences
+ *   - Have email_verified = 1 in notification_preferences
+ *
+ * Skips tenants with zero captures in the last 7 days.
+ * Limited to WEEKLY_DIGEST_TENANT_LIMIT tenants per invocation.
+ * Deduplication uses notification_sent with YYYY-MM period key.
+ *
+ * @param {object} env  Worker env bindings
+ */
+export async function handleWeeklyDigest(env) {
+  const now = new Date();
+  const periodEnd = now.toISOString();
+  const periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // YYYY-MM period key for deduplication (monthly, matching notification_sent CHECK constraint)
+  const dedupPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
+  const baseUrl = env.VERIFICATION_BASE_URL
+    ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+    : 'https://api.webresourceledger.com';
+
+  // Query tenants with active schedules + digest preference + verified email.
+  // Uses DISTINCT to avoid duplicates when a tenant has multiple active schedules.
+  let tenantRows;
+  try {
+    const result = await env.DB.prepare(`
+      SELECT DISTINCT np.tenant_id
+      FROM notification_preferences np
+      INNER JOIN schedules s ON s.tenant_id = np.tenant_id AND s.paused = 0
+      WHERE np.notify_weekly_digest = 1
+        AND np.email_verified = 1
+      LIMIT ?
+    `).bind(WEEKLY_DIGEST_TENANT_LIMIT).all();
+    tenantRows = result.results ?? [];
+  } catch (err) {
+    log(env, 4, 'email', {
+      event: 'email.digest_error',
+      phase: 'tenant_query',
+      error: err?.message,
+    });
+    return;
+  }
+
+  if (tenantRows.length === WEEKLY_DIGEST_TENANT_LIMIT) {
+    log(env, 4, 'email', {
+      event: 'email.digest_limit_hit',
+      limit: WEEKLY_DIGEST_TENANT_LIMIT,
+    });
+  }
+
+  log(env, 3, 'email', {
+    event: 'email.digest_start',
+    tenantCount: tenantRows.length,
+    periodStart,
+    periodEnd,
+  });
+
+  for (const row of tenantRows) {
+    const tenantId = row.tenant_id;
+    try {
+      await sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, dedupPeriod, baseUrl);
+    } catch (err) {
+      log(env, 4, 'email', {
+        event: 'email.dispatch_error',
+        error: err?.message,
+        tenantId,
+      });
+    }
+  }
+}
+
+/**
+ * Query schedule execution results and dispatch digest for one tenant.
+ *
+ * @param {object} env
+ * @param {string} tenantId
+ * @param {string} periodStart  ISO timestamp
+ * @param {string} periodEnd    ISO timestamp
+ * @param {string} dedupPeriod  YYYY-MM string for notification_sent
+ * @param {string} baseUrl
+ */
+async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, dedupPeriod, baseUrl) {
+  // Query captures for this tenant in the period, grouped by schedule URL
+  const captureResult = await env.DB.prepare(`
+    SELECT s.url, COUNT(c.id) AS total,
+           SUM(CASE WHEN c.status = 'complete' THEN 1 ELSE 0 END) AS succeeded,
+           SUM(CASE WHEN c.status = 'failed' THEN 1 ELSE 0 END) AS failed
+    FROM schedules s
+    LEFT JOIN captures c ON c.schedule_id = s.id
+      AND c.created_at >= ?
+      AND c.created_at < ?
+    WHERE s.tenant_id = ? AND s.paused = 0
+    GROUP BY s.id, s.url
+  `).bind(periodStart, periodEnd, tenantId).all();
+
+  const schedules = (captureResult.results ?? []).map(r => ({
+    url: r.url,
+    total: r.total ?? 0,
+    succeeded: r.succeeded ?? 0,
+    failed: r.failed ?? 0,
+  }));
+
+  // Skip if no captures at all in the period
+  const totalCaptures = schedules.reduce((sum, s) => sum + s.total, 0);
+  if (totalCaptures === 0) {
+    log(env, 3, 'email', {
+      event: 'email.dispatch_suppressed',
+      tenantId,
+      notificationType: 'weekly_digest',
+      suppressionReason: 'no_captures_in_period',
+    });
+    return;
+  }
+
+  await dispatchNotification(env, tenantId, 'weekly_digest', {
+    periodStart,
+    periodEnd,
+    schedules,
+    dashboardUrl: `${baseUrl}/ui`,
+  });
 }

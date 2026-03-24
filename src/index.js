@@ -11,7 +11,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
-import { checkQuota } from './quotas.js';
+import { checkQuota, FREE_CAPTURE_LIMIT } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage } from './admin.js';
 import { handleMcp } from './mcp.js';
@@ -19,10 +19,10 @@ import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
-import { handleEmailMessage, handleEmailDlqMessage } from './email-dispatch.js';
+import { handleEmailMessage, handleEmailDlqMessage, dispatchNotification } from './email-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage, handleGetSettings, handleUpdateSettings } from './account.js';
-import { handleGetNotificationPreferences, handleUpdateNotificationPreferences } from './notifications.js';
+import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, handleWeeklyDigest } from './notifications.js';
 import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
@@ -245,6 +245,30 @@ async function handleCaptureMessage(msg, env, ctx) {
         log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
       }
     })());
+    // 3b: Approaching free tier limit notification
+    ctx.waitUntil((async () => {
+      try {
+        const quota = await checkQuota(env.DB, tenantId);
+        // Only free-tier tenants (no payment method); dispatched when count crosses 80%
+        if (quota.allowed && !quota.hasPaymentMethod) {
+          const newCount = quota.captureCount;
+          const threshold = Math.floor(FREE_CAPTURE_LIMIT * 0.8);
+          if (newCount >= threshold) {
+            const baseUrl = env.VERIFICATION_BASE_URL
+              ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+              : 'https://api.webresourceledger.com';
+            await dispatchNotification(env, tenantId, 'approaching_limit', {
+              used: newCount,
+              limit: FREE_CAPTURE_LIMIT,
+              period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+              addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
+            }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
+          }
+        }
+      } catch (err) {
+        log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId });
+      }
+    })());
   } else if (!result.retryable) {
     // Already written to D1 as failed by performCapture
     msg.ack();
@@ -254,6 +278,15 @@ async function handleCaptureMessage(msg, env, ctx) {
         const captureRecord = await getCapture(env.DB, captureId);
         if (captureRecord) {
           await dispatchWebhooks(env, tenantId, 'capture.failed', captureRecord);
+          const baseUrl = env.VERIFICATION_BASE_URL
+            ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+            : 'https://api.webresourceledger.com';
+          await dispatchNotification(env, tenantId, 'capture_failure', {
+            url: captureRecord.url,
+            errorCategory: captureRecord.error,
+            failedAt: new Date().toISOString(),
+            captureDetailUrl: `${baseUrl}/v1/captures/${captureRecord.captureId}`,
+          }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
         }
       } catch (err) {
         log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
@@ -291,12 +324,21 @@ async function handleDlqMessage(msg, env, ctx) {
     } catch {
       // Best-effort
     }
-    // Dispatch webhooks after failCapture -- must not block DLQ ack
+    // Dispatch webhooks and email notification after failCapture -- must not block DLQ ack
     ctx.waitUntil((async () => {
       try {
         const captureRecord = await getCapture(env.DB, captureId);
         if (captureRecord) {
           await dispatchWebhooks(env, tenantId, 'capture.failed', captureRecord);
+          const baseUrl = env.VERIFICATION_BASE_URL
+            ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+            : 'https://api.webresourceledger.com';
+          await dispatchNotification(env, tenantId, 'capture_failure', {
+            url: captureRecord.url,
+            errorCategory: captureRecord.error,
+            failedAt: new Date().toISOString(),
+            captureDetailUrl: `${baseUrl}/v1/captures/${captureRecord.captureId}`,
+          }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
         }
       } catch (err) {
         log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
@@ -317,6 +359,13 @@ export default {
       const { handleRescanTick } = await import('./rescan.js');
       await handleRescanTick(controller, env, ctx);
       return;
+    }
+    // Weekly digest: Monday 9:00 UTC
+    if (controller.cron === '0 9 * * 1') {
+      ctx.waitUntil(handleWeeklyDigest(env).catch(err => log(env, 4, 'email', {
+        event: 'email.digest_error',
+        error: err?.message,
+      })));
     }
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
@@ -767,6 +816,20 @@ async function handleCreateCapture(request, env, ctx) {
         : isCaptureLimit
           ? `Monthly capture quota reached (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
           : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+
+      // 3c: Notify tenant when free tier limit is reached
+      if (quotaCheck.reason === 'payment_required') {
+        const baseUrl = env.VERIFICATION_BASE_URL
+          ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+          : 'https://api.webresourceledger.com';
+        ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', {
+          used: quotaCheck.used,
+          limit: quotaCheck.limit,
+          period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+          addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
+          resetsAt: quotaCheck.resetsAt,
+        }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId })));
+      }
 
       return problemResponse(429, detail, quotaHeaders, {
         limitType: 'quota',
