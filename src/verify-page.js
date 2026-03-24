@@ -387,7 +387,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     var signing  = verifyData.signing || {};
     var checks   = (verifyData.checks || []).slice();
 
-    var capturedUrl = retrievalData ? (retrievalData.url || null) : null;
+    var capturedUrl = capture.url || (retrievalData ? (retrievalData.url || null) : null);
     var screenshotUrl = retrievalData
       ? (retrievalData.artifacts && retrievalData.artifacts.screenshot ? retrievalData.artifacts.screenshot : null)
       : null;
@@ -532,7 +532,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       : null;
 
     // Populate capture metadata using textContent (no innerHTML for user data)
-    var capturedUrl = retrievalData ? (retrievalData.url || null) : null;
+    var capturedUrl = capture.url || (retrievalData ? (retrievalData.url || null) : null);
     var screenshotUrl = retrievalData
       ? (retrievalData.artifacts && retrievalData.artifacts.screenshot ? retrievalData.artifacts.screenshot : null)
       : null;

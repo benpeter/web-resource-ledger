@@ -77,8 +77,8 @@ describe('GET /v1/verify/{id} -- happy path', () => {
     expect(body.capture).toHaveProperty('id');
     expect(body.capture).toHaveProperty('createdAt');
     expect(body.capture).toHaveProperty('completedAt');
-    // url must NOT appear in verify response
-    expect(body.capture.url).toBeUndefined();
+    // url is included so the public verify page can display what was captured
+    expect(body.capture).toHaveProperty('url');
 
     // signing is not named 'wacz'
     expect(body.wacz).toBeUndefined();
@@ -322,10 +322,11 @@ describe('GET /v1/verify/{id} -- security', () => {
     expect(text).not.toMatch(/"key"\s*:/);
   });
 
-  it('capture.url absent from verify response', async () => {
+  it('capture.url present in verify response (public metadata)', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
     const body = await res.json();
-    expect(body.capture?.url).toBeUndefined();
+    expect(body.capture?.url).toBe('https://example.com');
+    // Top-level .url must not exist (only nested in .capture)
     expect(body.url).toBeUndefined();
   });
 });

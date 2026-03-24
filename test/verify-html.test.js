@@ -156,10 +156,10 @@ describe('GET /v1/verify/{id} -- JSON API regression guard', () => {
     expect(body).toHaveProperty('checks');
   });
 
-  it('capture.url is absent from JSON verify response', async () => {
+  it('capture.url is present in JSON verify response', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
     const body = await res.json();
-    expect(body.capture?.url).toBeUndefined();
+    expect(typeof body.capture?.url).toBe('string');
   });
 });
 

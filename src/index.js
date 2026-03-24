@@ -1730,7 +1730,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
       const { record } = verification;
       return jsonResponse({
         verified: false,
-        capture: { id: record.captureId, createdAt: record.createdAt, completedAt: record.completedAt, renderQuality: record.renderQuality ?? 'full' },
+        capture: { id: record.captureId, url: record.url, createdAt: record.createdAt, completedAt: record.completedAt, renderQuality: record.renderQuality ?? 'full' },
         signing: null,
         checks: [
           { name: 'artifactHashes', status: 'fail', detail: 'WACZ bundle not found in storage' },
@@ -1752,6 +1752,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
     verified: result.verified,
     capture: {
       id: record.captureId,
+      url: record.url,
       createdAt: record.createdAt,
       completedAt: record.completedAt,
       renderQuality: record.renderQuality ?? 'full',
