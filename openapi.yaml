@@ -1632,6 +1632,11 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            Cache-Control:
+              description: Prevents caching of health responses.
+              schema:
+                type: string
+                enum: [no-store]
           content:
             application/json:
               schema:
@@ -1651,6 +1656,19 @@ paths:
                       policy:
                         type: string
                         format: uri
+                  build:
+                    type: object
+                    required: [commit, version, env, deployedAt]
+                    properties:
+                      commit:
+                        type: string
+                      version:
+                        type: string
+                      env:
+                        type: string
+                      deployedAt:
+                        type: string
+                        format: date-time
               examples:
                 healthy:
                   value:
@@ -1658,6 +1676,18 @@ paths:
                     legal:
                       terms: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
                       policy: https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md
+                deployed:
+                  summary: Response from a CI-deployed Worker
+                  value:
+                    status: ok
+                    legal:
+                      terms: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
+                      policy: https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md
+                    build:
+                      commit: '43f8b68a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f'
+                      version: '0.1.0'
+                      env: production
+                      deployedAt: '2026-03-24T14:30:00Z'
 
   /v1/captures:
     options:

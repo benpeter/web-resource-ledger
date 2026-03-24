@@ -576,13 +576,27 @@ function handleFavicon() {
 }
 
 function handleHealth() {
-  return jsonResponse({
+  const body = {
     status: 'ok',
     legal: {
       terms: 'https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md',
       policy: 'https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md',
     },
-  });
+  };
+
+  // Build identity -- injected at deploy time via wrangler --define.
+  // typeof guard required: these are compile-time text replacements,
+  // accessing undeclared identifiers without typeof throws ReferenceError.
+  if (typeof BUILD_COMMIT !== 'undefined') {
+    body.build = {
+      commit: BUILD_COMMIT,
+      version: BUILD_VERSION,
+      env: BUILD_ENV,
+      deployedAt: BUILD_DEPLOYED_AT,
+    };
+  }
+
+  return jsonResponse(body, 200, { 'Cache-Control': 'no-store' });
 }
 
 function handleDashboard() {
