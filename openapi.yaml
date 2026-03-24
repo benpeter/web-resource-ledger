@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.7.0
+  version: 0.8.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
@@ -48,15 +48,6 @@ components:
         Admin infrastructure key. Set via wrangler secret put ADMIN_KEY.
         Grants access to key management endpoints. Does not grant tenant
         capture or read access.
-    shareToken:
-      type: apiKey
-      in: query
-      name: token
-      description: >
-        Share token granting read-only access to a specific capture and its artifacts.
-        Passed as a query parameter: ?token=wrl_share_... Created via POST /v1/captures/{captureId}/share.
-        Scoped to a single capture. Does not grant list access or write operations.
-
   headers:
     ReferrerPolicy:
       description: Prevents referrer leakage.
@@ -119,7 +110,7 @@ components:
     CaptureId:
       type: string
       pattern: '^cap_[a-f0-9]{32}$'
-      description: Unique capture identifier. Use with tenant Bearer auth or a share token to access capture records and artifacts.
+      description: Unique capture identifier (128-bit, unguessable). Knowing the capture ID grants read access.
       examples:
         - cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
@@ -509,15 +500,14 @@ components:
     CaptureRecord:
       type: object
       description: >
-        Metadata and artifact links for a completed capture. Requires tenant authentication
-        (Bearer token) or a valid share token. Captures are also accessible via GET /v1/captures.
+        Metadata and artifact links for a completed capture. Individual captures are publicly
+        accessible by ID. Captures are also listable via GET /v1/captures (requires auth).
 
         Artifact URLs are served via the API Worker to ensure correct security
         headers (XSS prevention for HTML artifact). URLs do not expire.
 
         To submit a new capture, see POST /v1/captures. For lifecycle tracking
         before completion, use GET /v1/captures/{captureId}/status.
-        To delegate read access, see POST /v1/captures/{captureId}/share.
       required: [id, status, url, createdAt, completedAt, renderQuality, artifacts]
       properties:
         id:
@@ -2511,13 +2501,10 @@ paths:
       operationId: getCaptureStatus
       summary: Poll capture status
       description: >
-        Returns the current state of a capture. Requires tenant authentication (Bearer token)
-        or a valid share token (?token=wrl_share_...). Poll until status is "complete" or "failed".
-        Cross-tenant access returns 404 to prevent enumeration.
+        Returns the current state of a capture. No authentication required.
+        Poll until status is "complete" or "failed".
       tags: [captures]
-      security:
-        - bearerAuth: []
-        - shareToken: []
+      security: []
       parameters:
         - name: captureId
           in: path
@@ -2525,12 +2512,6 @@ paths:
           schema:
             $ref: '#/components/schemas/CaptureId'
           description: Capture ID returned by POST /v1/captures.
-        - name: token
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Share token (wrl_share_... prefix). Alternative to Bearer authentication.
       responses:
         '200':
           description: Capture found. Check `status` field for current state.
@@ -2549,7 +2530,7 @@ paths:
               description: Prevents caching of status responses.
               schema:
                 type: string
-                enum: ['private, no-store']
+                enum: ['no-store']
             Retry-After:
               description: Present when status is "pending". Suggested seconds before next poll.
               schema:
@@ -2577,34 +2558,18 @@ paths:
                     status: failed
                     error: Page did not finish loading within 20 seconds
                     retryable: true
-        '401':
-          $ref: '#/components/responses/Problem401'
         '404':
           $ref: '#/components/responses/Problem404'
-        '410':
-          description: Share token has expired.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-              examples:
-                expired:
-                  summary: Share token expired
-                  value: {type: about:blank, status: 410, title: Gone, detail: Share token has expired.}
 
   /v1/captures/{captureId}:
     get:
       operationId: getCapture
       summary: Retrieve a completed capture
       description: >
-        Returns metadata and artifact links for a completed capture. Requires tenant
-        authentication (Bearer token) or a valid share token (?token=wrl_share_...).
-        Returns 404 if the capture does not exist, has not yet completed, or belongs
-        to a different tenant (cross-tenant access returns 404, not 403, to prevent enumeration).
+        Returns metadata and artifact links for a completed capture. No authentication required.
+        Returns 404 if the capture does not exist or has not yet completed.
       tags: [captures]
-      security:
-        - bearerAuth: []
-        - shareToken: []
+      security: []
       parameters:
         - name: captureId
           in: path
@@ -2612,12 +2577,6 @@ paths:
           schema:
             $ref: '#/components/schemas/CaptureId'
           description: Capture ID returned by POST /v1/captures.
-        - name: token
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Share token (wrl_share_... prefix). Alternative to Bearer authentication.
       responses:
         '200':
           description: Capture found and complete.
@@ -2636,7 +2595,7 @@ paths:
               description: Prevents caching of capture records.
               schema:
                 type: string
-                enum: ['private, no-store']
+                enum: ['no-store']
             Access-Control-Allow-Origin:
               description: Allows cross-origin access to capture records.
               schema:
@@ -2695,103 +2654,6 @@ paths:
                       screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
                       html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
                       headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
-        '401':
-          $ref: '#/components/responses/Problem401'
-        '404':
-          $ref: '#/components/responses/Problem404'
-        '410':
-          description: Share token has expired.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-              examples:
-                expired:
-                  summary: Share token expired
-                  value: {type: about:blank, status: 410, title: Gone, detail: Share token has expired.}
-
-  /v1/captures/{captureId}/share:
-    post:
-      operationId: createShareToken
-      summary: Create a share token for a capture
-      description: >
-        Creates a share token granting read-only access to a specific capture and its
-        artifacts. The token can be time-limited (expiresIn) or permanent. Share the
-        returned shareUrl to delegate access without exposing your API key.
-
-        Tokens are stored as SHA-256 hashes -- the raw token is returned only at creation time.
-        Expired tokens return 410 Gone. Invalid tokens return 401 Unauthorized.
-      tags: [captures]
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: captureId
-          in: path
-          required: true
-          schema:
-            $ref: '#/components/schemas/CaptureId'
-          description: Capture ID to share.
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                expiresIn:
-                  type: integer
-                  minimum: 300
-                  maximum: 31536000
-                  description: >
-                    Token lifetime in seconds. Omit for a permanent token.
-                    Minimum 300 (5 minutes), maximum 31536000 (1 year).
-            examples:
-              withExpiry:
-                summary: Token valid for 24 hours
-                value: {expiresIn: 86400}
-              permanent:
-                summary: Permanent token
-                value: {}
-      responses:
-        '201':
-          description: Share token created.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [token, shareUrl, expiresAt]
-                properties:
-                  token:
-                    type: string
-                    description: >
-                      The raw share token (wrl_share_... prefix). Shown only once --
-                      store it securely if you need to reference it later.
-                    example: 'wrl_share_abc123...'
-                  shareUrl:
-                    type: string
-                    format: uri
-                    description: Full URL with the token embedded as a query parameter.
-                    example: 'https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6?token=wrl_share_abc123...'
-                  expiresAt:
-                    type: ['string', 'null']
-                    format: date-time
-                    description: ISO 8601 expiry timestamp, or null for permanent tokens.
-                    example: '2024-01-16T10:30:00.000Z'
-              examples:
-                withExpiry:
-                  summary: Time-limited share token
-                  value:
-                    token: 'wrl_share_abc123def456...'
-                    shareUrl: 'https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6?token=wrl_share_abc123def456...'
-                    expiresAt: '2024-01-16T10:30:00.000Z'
-                permanent:
-                  summary: Permanent share token
-                  value:
-                    token: 'wrl_share_xyz789...'
-                    shareUrl: 'https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6?token=wrl_share_xyz789...'
-                    expiresAt: null
-        '401':
-          $ref: '#/components/responses/Problem401'
         '404':
           $ref: '#/components/responses/Problem404'
 
@@ -2800,13 +2662,10 @@ paths:
       operationId: getCaptureArtifact
       summary: Download a capture artifact
       description: >
-        Returns the raw artifact binary or text for a completed capture. Requires tenant
-        authentication (Bearer token) or a valid share token (?token=wrl_share_...).
+        Returns the raw artifact binary or text for a completed capture. No authentication required.
         Responses include Content-Disposition: attachment to prevent browser rendering.
       tags: [captures]
-      security:
-        - bearerAuth: []
-        - shareToken: []
+      security: []
       parameters:
         - name: captureId
           in: path
@@ -2814,12 +2673,6 @@ paths:
           schema:
             $ref: '#/components/schemas/CaptureId'
           description: Capture ID returned by POST /v1/captures.
-        - name: token
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Share token (wrl_share_... prefix). Alternative to Bearer authentication.
         - name: name
           in: path
           required: true
@@ -2876,20 +2729,8 @@ paths:
                 type: string
                 format: binary
                 description: Signed WACZ bundle (artifact name "wacz").
-        '401':
-          $ref: '#/components/responses/Problem401'
         '404':
           $ref: '#/components/responses/Problem404'
-        '410':
-          description: Share token has expired.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetail'
-              examples:
-                expired:
-                  summary: Share token expired
-                  value: {type: about:blank, status: 410, title: Gone, detail: Share token has expired.}
         '451':
           description: >
             Unavailable For Legal Reasons — this capture has been quarantined due to
