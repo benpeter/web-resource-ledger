@@ -80,3 +80,4 @@ software development.
 | [0073-fre-902-13-certificate](0073-fre-902-13-certificate/) | FRE 902(13) certification PDF: deterministic Ed25519-signed document, API endpoint, web UI download button, 42 tests (Issue #141) |
 | [0077-settings-schedules-ui-polish](0077-settings-schedules-ui-polish/) | Settings & schedules UI polish: 18+ missing CSS selectors, card padding, mobile breakpoints, billing DOM cleanup (Issue #161) |
 | [0072-email-notifications](0072-email-notifications/) | Email notifications: 6 transactional types, Resend delivery via queue, RFC 8058 unsubscribe, preferences API + UI, OAuth email auto-population (Issue #111) |
+| [0078-ui-fixes-batch](0078-ui-fixes-batch/) | UI fixes batch: URL auto-prepend in capture form, "Art." → "Article" on verify page, billing stat spacing (Issues #179, #180, #183) |
