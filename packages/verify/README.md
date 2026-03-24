@@ -20,25 +20,25 @@ Exit code `0` means all applicable checks passed. Exit code `1` means one or mor
 
 ## Usage
 
-### Remote capture with share token
-
-Capture retrieval requires a share token. Use the share URL provided by the tenant:
+### Remote capture
 
 ```bash
-npx @w-r-l/verify "https://api.webresourceledger.com/v1/captures/cap_abc123...?token=wrl_share_..."
+npx @w-r-l/verify "https://api.webresourceledger.com/v1/captures/cap_abc123def456..."
 ```
 
-The `?token=` parameter is automatically forwarded to the artifact download. The signing key is fetched from the server automatically.
+The signing key is fetched from the server automatically. Individual captures are publicly accessible -- no authentication or tokens are needed.
 
-### Remote capture via server-side verify endpoint (no token needed)
+### Remote capture via server-side verify endpoint
 
-The `/v1/verify/` endpoint is public and does not require a token. Use it when you don't have a share URL:
+The `/v1/verify/cap_<id>` endpoint returns a server-side verification result as JSON or HTML, without downloading the WACZ locally. Use it when you want a lightweight check or don't need local verification:
 
 ```bash
 npx @w-r-l/verify https://api.webresourceledger.com/v1/verify/cap_abc123def456...
 ```
 
-Note: this uses server-side verification rather than downloading and verifying the WACZ locally.
+The distinction:
+- `/v1/captures/cap_<id>` -- CLI downloads the WACZ and verifies it locally (cryptographic proof)
+- `/v1/verify/cap_<id>` -- server returns its own verification result (JSON or HTML)
 
 ### Local file
 
