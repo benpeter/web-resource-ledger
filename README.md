@@ -495,13 +495,17 @@ Third-party verifiers: match the `keyId` from a WACZ bundle's `signedData` (v0.1
 
 ### Health Endpoint
 
-`GET /health` returns the current service status and legal document URLs.
+`GET /health` returns the current service status, legal document URLs, and build identity metadata.
 
 ```json
-{ "status": "ok", "legal": { "terms": "<url>", "policy": "<url>" } }
+{
+  "status": "ok",
+  "legal": { "terms": "<url>", "policy": "<url>" },
+  "build": { "commit": "<sha>", "version": "<semver>", "env": "production", "deployedAt": "<iso8601>" }
+}
 ```
 
-Useful for uptime monitoring and smoke tests.
+The `build` object is present when deployed via CI (injected at build time via `wrangler --define`). It is absent during local development. Useful for uptime monitoring, smoke tests, and deploy verification.
 
 ### Response Headers
 

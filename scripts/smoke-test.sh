@@ -11,6 +11,7 @@
 #   SMOKE_CAPTURE_URL  -- URL to capture (default: https://example.com)
 #   SMOKE_TIMEOUT      -- poll timeout in seconds (default: 60)
 #   SMOKE_SKIP_CAPTURE -- set to 1 to skip capture round-trip
+#   GITHUB_SHA         -- expected commit SHA (auto-set by GitHub Actions; skip check if absent)
 
 set -euo pipefail
 
@@ -134,6 +135,34 @@ else
     else
       fail "Capture ${CAPTURE_ID} did not resolve within ${SMOKE_TIMEOUT}s (last status: ${STATUS:-unknown})"
     fi
+  fi
+fi
+
+# --- Check 5: Build version ---
+if [ -z "${GITHUB_SHA:-}" ]; then
+  echo "Check 5: Build version (SKIPPED -- GITHUB_SHA not set)"
+elif ! echo "$GITHUB_SHA" | grep -qE '^[0-9a-f]{7,40}$'; then
+  echo "Check 5: Build version (SKIPPED -- GITHUB_SHA is not a commit SHA)"
+else
+  echo "Check 5: Build version matches deployed commit"
+  ATTEMPTS=0
+  MAX_ATTEMPTS=6
+  MATCH=false
+
+  while [ "$ATTEMPTS" -lt "$MAX_ATTEMPTS" ]; do
+    DEPLOYED_SHA=$(curl -sf "${SMOKE_URL}/health" 2>/dev/null | jq -r '.build.commit // empty')
+    if [ "$DEPLOYED_SHA" = "$GITHUB_SHA" ]; then
+      MATCH=true
+      break
+    fi
+    ATTEMPTS=$((ATTEMPTS + 1))
+    [ "$ATTEMPTS" -lt "$MAX_ATTEMPTS" ] && sleep 5
+  done
+
+  if [ "$MATCH" = true ]; then
+    pass "Deployed commit matches expected (${GITHUB_SHA:0:7}...)"
+  else
+    fail "Deployed commit '${DEPLOYED_SHA:-empty}' does not match expected '${GITHUB_SHA:0:7}...' after ${MAX_ATTEMPTS} attempts"
   fi
 fi
 

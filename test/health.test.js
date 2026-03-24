@@ -6,17 +6,20 @@ describe('GET /health', () => {
     const response = await SELF.fetch('https://example.com/health');
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toContain('application/json');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     const body = await response.json();
     expect(body).toMatchObject({ status: 'ok' });
     expect(body.legal).toBeDefined();
     expect(body.legal.terms).toContain('TERMS.md');
     expect(body.legal.policy).toContain('CONTENT-POLICY.md');
+    expect(body.build).toBeUndefined();
   });
 
   it('with trailing slash returns 200', async () => {
     const response = await SELF.fetch('https://example.com/health/');
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toContain('application/json');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     const body = await response.json();
     expect(body).toMatchObject({ status: 'ok' });
   });

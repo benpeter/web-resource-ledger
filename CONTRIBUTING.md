@@ -72,9 +72,10 @@ SMOKE_API_KEY=<staging capture api key> \
 npm run smoke
 ```
 
-The smoke test validates four things: health endpoint returns `200 { status: "ok" }`,
+The smoke test validates five things: health endpoint returns `200 { status: "ok" }`,
 required security headers are present, `/.well-known/signing-key` returns a valid
-Ed25519 key, and a capture round-trip completes (or at least enters the queue).
+Ed25519 key, a capture round-trip completes (or at least enters the queue), and
+the deployed commit SHA matches the expected `GITHUB_SHA` (with retry for propagation).
 
 ## Running Tests
 

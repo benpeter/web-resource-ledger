@@ -15,6 +15,7 @@
 ```bash
 curl https://api.webresourceledger.com/health
 ```
+The response includes a `build` object with `commit`, `version`, `env`, and `deployedAt` — use `.build.commit` to confirm which code is live.
 
 **Coralogix:** Filter by `applicationName:wrl` (production) or `applicationName:wrl-staging`.
 
@@ -110,7 +111,7 @@ wrangler rollback
 
 This bypasses environment protection rules and smoke tests. Verify manually after:
 ```bash
-curl https://api.webresourceledger.com/health
+curl -s https://api.webresourceledger.com/health | jq .build.commit
 ```
 
 ---
