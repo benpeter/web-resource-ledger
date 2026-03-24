@@ -1505,11 +1505,13 @@ input, select, textarea {
   text-align: center;
 }
 .billing-stat-value {
+  display: block;
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   color: var(--color-text);
 }
 .billing-stat-label {
+  display: block;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: var(--space-1);
