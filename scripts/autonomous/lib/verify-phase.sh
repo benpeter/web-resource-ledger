@@ -192,13 +192,14 @@ wait_for_deploy() {
     log_warn "Staging deploy timeout (run $staging_run_id)"
   fi
 
-  # Run staging smoke test
+  # Run staging smoke test (blocking — staging validates code before production)
   if [[ -f "scripts/smoke-test.sh" ]]; then
     log_info "Running staging smoke test..."
-    SMOKE_SKIP_CAPTURE=1 bash scripts/smoke-test.sh \
-      "https://wrl-staging.benpeter.workers.dev" 2>&1 || {
-      log_warn "Staging smoke test failed (non-blocking)"
-    }
+    if ! SMOKE_SKIP_CAPTURE=1 SMOKE_EXPECTED_COMMIT="$commit_sha" \
+      bash scripts/smoke-test.sh "https://wrl-staging.benpeter.workers.dev" 2>&1; then
+      log_error "Staging smoke test failed"
+      return 3
+    fi
   fi
 
   # --- Production deploy ---
@@ -234,27 +235,82 @@ wait_for_deploy() {
         log_info "Production deploy succeeded"
         break
       elif [[ "$prod_result" == "failure" ]]; then
-        log_warn "Production deploy failed (run $prod_run_id, non-blocking)"
-        break
+        log_error "Production deploy failed (run $prod_run_id)"
+        notify_error "$phase" "Production deploy failed. Run $prod_run_id"
+        return 3
       fi
 
       sleep 30
       prod_elapsed=$((prod_elapsed + 30))
     done
 
-    # Run production smoke test
+    # Production deploy timeout is a hard failure
+    if [[ "$prod_result" != "success" && "$prod_result" != "failure" ]]; then
+      log_error "Production deploy timeout (run $prod_run_id, last status: $prod_result)"
+      return 3
+    fi
+
+    # Run production smoke test (non-blocking — staging already validated code)
     if [[ -f "scripts/smoke-test.sh" ]]; then
       log_info "Running production smoke test..."
-      SMOKE_SKIP_CAPTURE=1 bash scripts/smoke-test.sh \
-        "https://api.webresourceledger.com" 2>&1 || {
-        log_warn "Production smoke test failed (non-blocking)"
+      SMOKE_SKIP_CAPTURE=1 SMOKE_EXPECTED_COMMIT="$commit_sha" \
+        bash scripts/smoke-test.sh "https://api.webresourceledger.com" 2>&1 || {
+        log_warn "Production smoke test failed (staging passed; investigate environmental cause)"
       }
     fi
+    # Verify production deployed commit (blocking — must be the right code)
+    if ! verify_deployed_commit "https://api.webresourceledger.com" "$commit_sha" "production"; then
+      return 3
+    fi
   else
-    log_warn "No production deploy workflow detected"
+    log_error "No production deploy workflow detected for $short_sha after 180s"
+    return 3
   fi
 
   return 0
+}
+
+# Verify that the deployed commit matches the expected SHA.
+# Retries to allow for Cloudflare edge propagation.
+verify_deployed_commit() {
+  local url="$1"
+  local expected_sha="$2"
+  local env_name="$3"
+  local max_retries=6
+  local retry_delay=10
+
+  if [[ -z "$expected_sha" ]]; then
+    log_warn "No expected SHA provided for $env_name commit verification (skipping)"
+    return 0
+  fi
+
+  local attempt=0
+  while [[ $attempt -lt $max_retries ]]; do
+    local health_json
+    health_json=$(curl -sf "${url}/health" 2>/dev/null || echo "{}")
+
+    local deployed_commit
+    deployed_commit=$(echo "$health_json" | jq -r '.build.commit // empty' 2>/dev/null)
+
+    if [[ -z "$deployed_commit" ]]; then
+      log_error "$env_name /health has no .build.commit field"
+      return 1
+    fi
+
+    if [[ "$deployed_commit" == "$expected_sha" ]]; then
+      log_info "$env_name deployed commit verified: ${expected_sha:0:12}"
+      return 0
+    fi
+
+    attempt=$((attempt + 1))
+    if [[ $attempt -lt $max_retries ]]; then
+      log_info "$env_name commit mismatch (attempt $attempt/$max_retries): expected ${expected_sha:0:12}, got ${deployed_commit:0:12}. Retrying in ${retry_delay}s..."
+      sleep "$retry_delay"
+    fi
+  done
+
+  log_error "$env_name deployed commit mismatch after $max_retries attempts: expected ${expected_sha:0:12}, got ${deployed_commit:0:12}"
+  return 1
 }
 
 # Extract PR number from claude session JSON output

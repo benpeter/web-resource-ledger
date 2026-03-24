@@ -95,12 +95,19 @@ Your workflow for each phase:
       supervisor.
    f. **No dependabot / code scanning alerts** that could block future phases
 
-4. **Self-heal if verification fails** — if any check in step 3 fails:
+4. **Self-heal with Regression Guard Loop** — if any check in step 3 fails:
    - Diagnose the root cause (missing migration, empty config value,
      code bug, missing secret, etc.)
    - Fix it yourself: apply migrations, set secrets, fix code, commit,
      push, redeploy
-   - Re-verify after the fix
+   - **REGRESSION GUARD**: After EVERY fix, re-run the ENTIRE verification
+     checklist (ALL items in step 3), not just the item that failed.
+     A deploy fix can break CI. A CI fix can break the feature. A config
+     change can break security headers. You must verify everything again.
+   - This loops until all checks pass simultaneously.
+   - **Maximum 3 iterations.** If after 3 full verification cycles there
+     are still failures, STOP. Notify the operator via ntfy with a summary
+     of what was tried and what is still failing. Do not attempt a 4th fix.
    - If you cannot fix it (needs human judgment, external credentials,
      architecture decisions): notify the operator via ntfy and WAIT.
      Do not proceed.
@@ -251,6 +258,22 @@ that doesn't require a human judgment call. Kill stuck processes, clean up
 worktrees, provision infrastructure, fix code, resolve conflicts, merge PRs.
 The operator only needs to be involved for decisions, not for execution.
 
+## CRITICAL: Exit 0 is necessary but not sufficient
+
+The orchestrator script (`orchestrate.sh`) returning exit 0 means the
+mechanical steps succeeded: session ran, PR created, CI passed, merge
+completed, deploy workflows triggered. It does NOT mean:
+- The deployed code actually works end-to-end
+- The feature described in the issue was actually built correctly
+- The running production code matches the merge commit
+- The new functionality has test coverage
+- Existing features still work after the change
+
+You MUST complete your own independent verification below before declaring
+a phase done. If you skip this and start the next phase, regressions will
+compound. Every phase declared "done" without verification is a phase that
+may need to be redone.
+
 ## Independent verification (after every phase)
 
 This duplicates step 3 of the workflow above for emphasis. After the phase
@@ -274,7 +297,32 @@ Then check each item. ALL must pass:
    pass after staging deploy. If it fails, read the log and fix assertions
    or infrastructure before proceeding.
 5. **Dependabot / code scanning**: check for new alerts
-6. **Evolution log**: verify the phase directory has all four files:
+6. **Deployed commit verification**: After deploy workflows succeed,
+   verify that the running code matches the merge SHA:
+   ```bash
+   MERGE_SHA=$(gh pr view <N> --json mergeCommit --jq '.mergeCommit.oid')
+   # Staging
+   STAGING_COMMIT=$(curl -sf https://wrl-staging.benpeter.workers.dev/health | jq -r '.build.commit')
+   [[ "$STAGING_COMMIT" == "$MERGE_SHA" ]] || echo "STAGING MISMATCH: expected $MERGE_SHA, got $STAGING_COMMIT"
+   # Production
+   PROD_COMMIT=$(curl -sf https://api.webresourceledger.com/health | jq -r '.build.commit')
+   [[ "$PROD_COMMIT" == "$MERGE_SHA" ]] || echo "PRODUCTION MISMATCH: expected $MERGE_SHA, got $PROD_COMMIT"
+   ```
+   If either shows a mismatch after 60 seconds, the deploy may have failed
+   silently or rolled back. Investigate before proceeding. A missing
+   `.build.commit` field means the health endpoint is broken — do not proceed.
+7. **Feature smoke test**: After infrastructure verification passes,
+   exercise the specific new feature that this phase was supposed to deliver:
+   - `gh issue view <N>` to recall what the phase built
+   - Hit the new/changed endpoint(s) with `curl` and verify the response
+     body matches expectations — not just status 200, but the actual content
+   - If the phase added UI: open it in Playwright (`browser_navigate` →
+     `browser_snapshot`) and verify it renders correctly
+   - If the phase added a background process: trigger it and verify the
+     outcome in D1/KV/R2
+   - The `/health` check and smoke-test.sh are infrastructure tests.
+     This step tests the FEATURE. They are different things.
+8. **Evolution log**: verify the phase directory has all four files:
    ```bash
    ls docs/evolution/${PHASE}-*/prompt.md \
       docs/evolution/${PHASE}-*/decisions.md \
@@ -284,8 +332,21 @@ Then check each item. ALL must pass:
    If any file is missing, **create it yourself** from the PR description,
    nefario report, and session output before proceeding. The evolution log
    is a project deliverable — it is not optional.
+9. **Test coverage for new functionality**: Diff the changed files and
+   check that new source files have corresponding tests:
+   ```bash
+   # List new/modified source files in this PR
+   gh pr diff <N> --name-only | grep '^src/.*\.js$'
+   ```
+   For each new source file, check if a corresponding test file exists in
+   `test/`. If new feature code (handlers, endpoints, modules) lacks tests,
+   spawn the test-minion agent to evaluate whether coverage is acceptable.
+   If the test-minion determines coverage is insufficient, have it write
+   the missing tests immediately — commit and push them before proceeding.
+   No deferral to follow-up issues.
 
-Do NOT start the next phase if any of these are red. Fix first.
+Do NOT start the next phase if any of these are red. Fix first (and
+remember the Regression Guard Loop: after any fix, re-run ALL checks).
 
 ## Act boundaries
 
