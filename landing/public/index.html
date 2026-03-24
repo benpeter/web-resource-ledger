@@ -196,35 +196,74 @@
 
         <div class="pricing-grid">
 
-          <div class="card pricing-card" aria-labelledby="pricing-explore">
+          <div class="card pricing-card pricing-card--featured" aria-labelledby="pricing-usage">
             <div class="pricing-card__tier">
-              <h3 id="pricing-explore">Explore</h3>
-              <span class="badge badge--info">Coming soon</span>
+              <h3 id="pricing-usage">Usage-Based Pricing</h3>
             </div>
-            <p class="pricing-card__price">Free</p>
-            <p class="pricing-card__description">Get started with the API. Includes rate-limited captures and full verification access. No credit card required.</p>
-          </div>
 
-          <div class="card pricing-card pricing-card--featured" aria-labelledby="pricing-evidence">
-            <div class="pricing-card__tier">
-              <h3 id="pricing-evidence">Evidence</h3>
-              <span class="badge badge--info">Coming soon</span>
+            <p class="pricing-section-label">Web Captures</p>
+            <div class="pricing-table-wrapper">
+              <table class="pricing-table" aria-label="Web Captures pricing tiers">
+                <thead>
+                  <tr>
+                    <th scope="col">Volume</th>
+                    <th scope="col">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="pricing-table__free">
+                    <td>First 200 / month</td>
+                    <td><span class="badge badge--pass">Free</span></td>
+                  </tr>
+                  <tr>
+                    <td>201 – 10,000</td>
+                    <td>€0.05 per capture</td>
+                  </tr>
+                  <tr>
+                    <td>10,001 – 100,000</td>
+                    <td>€0.035 per capture</td>
+                  </tr>
+                  <tr>
+                    <td>100,001+</td>
+                    <td>€0.015 per capture</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <p class="pricing-card__price">Pro <span>usage-based</span></p>
-            <p class="pricing-card__description">For teams that need reliable capture volume, priority processing, and extended retention. Usage-based pricing, billed monthly.</p>
+
+            <p class="pricing-section-label">Qualified Timestamps (eIDAS)</p>
+            <div class="pricing-table-wrapper">
+              <table class="pricing-table" aria-label="Qualified Timestamps pricing tiers">
+                <thead>
+                  <tr>
+                    <th scope="col">Volume</th>
+                    <th scope="col">Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="pricing-table__free">
+                    <td>First 50 / month</td>
+                    <td><span class="badge badge--pass">Free</span></td>
+                  </tr>
+                  <tr>
+                    <td>51+</td>
+                    <td>€0.10 per capture</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="pricing-card__description">Account-level opt-in add-on.</p>
           </div>
 
           <div class="card pricing-card" aria-labelledby="pricing-on-premise">
             <div class="pricing-card__tier">
-              <h3 id="pricing-on-premise">On-Premise</h3>
+              <h3 id="pricing-on-premise">On-Premise / Enterprise</h3>
             </div>
-            <p class="pricing-card__price">Enterprise</p>
             <p class="pricing-card__description">Deploy WRL on your own infrastructure. Your keys, your storage, your evidence chain. Custom SLAs and volume pricing available.</p>
+            <p class="pricing-card__description"><a href="mailto:hello@webresourceledger.com">Contact us &rarr;</a></p>
           </div>
 
         </div>
-
-        <p class="pricing-note">Pricing is coming. The API is available now.</p>
       </div>
     </section>
 

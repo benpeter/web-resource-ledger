@@ -445,20 +445,6 @@ body {
   color: var(--color-text);
 }
 
-.pricing-card__price {
-  margin: 0 0 var(--space-6);
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-bold);
-  color: var(--color-text);
-  letter-spacing: -0.02em;
-}
-
-.pricing-card__price span {
-  font-size: var(--text-base);
-  font-weight: var(--weight-normal);
-  color: var(--color-text-muted);
-}
-
 .pricing-card__description {
   margin: 0;
   color: var(--color-text-muted);
@@ -472,7 +458,7 @@ body {
 }
 
 .pricing-card--featured::before {
-  content: "Recommended";
+  content: "Pay as you go";
   position: absolute;
   top: -1px;
   left: var(--space-8);
@@ -484,25 +470,52 @@ body {
   border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
-/* 3-col at tablet+ */
+/* 2-col at tablet+ */
 @media (min-width: 768px) {
   .pricing-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-.pricing-note {
-  text-align: center;
-  color: var(--color-text-muted);
+/* Pricing tables within cards */
+.pricing-section-label {
+  margin: var(--space-6) 0 var(--space-2);
   font-size: var(--text-sm);
-  margin: 0;
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
 }
 
-/* Badge variant for "Coming soon" */
-.badge--info {
-  background: var(--color-info-bg);
-  color: var(--color-info-text);
-  border-color: var(--color-info);
+.pricing-section-label:first-of-type {
+  margin-top: var(--space-4);
+}
+
+.pricing-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: var(--space-2);
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pricing-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.pricing-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.pricing-table__free td {
+  font-weight: var(--weight-bold);
+  color: var(--color-success-text);
 }
 
 /* ===================================================================
@@ -721,9 +734,7 @@ body {
     display: none;
   }
 
-  .pricing-card--featured::before {
-    display: none;
-  }
+  /* "Pay as you go" badge is shown on mobile — it describes the model, not just a recommendation */
 
   .article {
     padding: var(--space-12) 0;
