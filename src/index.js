@@ -21,6 +21,8 @@ import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDel
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage, handleGetSettings, handleUpdateSettings } from './account.js';
+import { handleGetNotificationPreferences, handleUpdateNotificationPreferences } from './notifications.js';
+import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
@@ -100,6 +102,11 @@ const routes = [
   ['GET',    /^\/v1\/account\/usage$/, handleAccountGetUsage],
   ['GET',    /^\/v1\/account\/settings$/, handleGetSettings],
   ['PATCH',  /^\/v1\/account\/settings$/, handleUpdateSettings],
+  ['GET',    /^\/v1\/account\/notifications$/, handleGetNotificationPreferences],
+  ['PUT',    /^\/v1\/account\/notifications$/, handleUpdateNotificationPreferences],
+  // Unsubscribe routes (unauthenticated -- rate-limited via AUTH_RATE_LIMITER in fetch handler)
+  ['GET',    /^\/v1\/notifications\/unsubscribe$/, handleGetUnsubscribe],
+  ['POST',   /^\/v1\/notifications\/unsubscribe$/, handlePostUnsubscribe],
   // Billing routes (session-gated in fetch handler via /v1/account/ prefix check)
   ['POST',   /^\/v1\/billing\/checkout$/, handleBillingCheckout],
   ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
@@ -124,6 +131,7 @@ function getRateLimitGroup(method, pathname) {
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
   if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'account';
   if (pathname.startsWith('/auth/')) return 'auth';
+  if (pathname.startsWith('/v1/notifications/unsubscribe')) return 'auth';
   return null;
 }
 
@@ -401,9 +409,10 @@ export default {
         }
       }
 
-      // Auth rate limit for /auth/* routes
+      // Auth rate limit for /auth/* routes and /v1/notifications/unsubscribe
       const isAuthRoute = pathname.startsWith('/auth/');
-      if (!response && isAuthRoute && env.AUTH_RATE_LIMITER) {
+      const isUnsubscribeRoute = pathname.startsWith('/v1/notifications/unsubscribe');
+      if (!response && (isAuthRoute || isUnsubscribeRoute) && env.AUTH_RATE_LIMITER) {
         const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
         const { success } = await env.AUTH_RATE_LIMITER.limit({ key: clientIp });
         if (!success) {
