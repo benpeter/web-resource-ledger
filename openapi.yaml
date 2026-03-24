@@ -1658,17 +1658,28 @@ paths:
                         format: uri
                   build:
                     type: object
+                    description: Build identity metadata. Present only when deployed via CI with --define flags.
                     required: [commit, version, env, deployedAt]
                     properties:
                       commit:
                         type: string
+                        description: Full git commit SHA of the deployed code.
+                        pattern: '^[a-f0-9]{40}$'
+                        example: '43f8b68a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f'
                       version:
                         type: string
+                        description: Semantic version from package.json.
+                        pattern: '^\d+\.\d+\.\d+'
+                        example: '0.1.0'
                       env:
                         type: string
+                        description: Deployment environment.
+                        enum: [production, staging]
                       deployedAt:
                         type: string
                         format: date-time
+                        description: ISO 8601 UTC timestamp of when the deploy job ran.
+                        example: '2026-03-24T14:30:00Z'
               examples:
                 healthy:
                   value:

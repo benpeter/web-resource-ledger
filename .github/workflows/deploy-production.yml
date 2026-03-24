@@ -58,7 +58,7 @@ jobs:
           sha=$(git rev-parse HEAD)
           version=$(jq -r .version package.json)
           if ! echo "$sha" | grep -qE '^[0-9a-f]{40}$'; then echo "Invalid SHA: $sha" >&2; exit 1; fi
-          if ! echo "$version" | grep -qE '^\d+\.\d+\.\d+'; then echo "Invalid version: $version" >&2; exit 1; fi
+          if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then echo "Invalid version: $version" >&2; exit 1; fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
