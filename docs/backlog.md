@@ -130,7 +130,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | Item | Condition | Source |
 |------|-----------|--------|
 | ~~[should] Wire Stripe meter event reporting into capture pipeline~~ | ~~When first paying tenant onboards~~ -- DONE (Phase 0060): hourly batch reporter with idempotency keys, graduated pricing module, billing dashboard endpoint (Issue #108) | Phase 0058 |
-| [consider] Stripe Checkout returnUrl from client config | Currently defaults to `/ui`; make configurable when billing UI exists | Phase 0058 |
+| ~~[consider] Stripe Checkout returnUrl from client config~~ | ~~Partially addressed: Phase 0076 billing UI sets returnUrl to `/ui#/billing`; full configurability not needed~~ | Phase 0058 → 0076 |
 
 ### Security
 
@@ -192,7 +192,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Fix --color-text-muted contrast on landing page | When a11y audit runs; apply local override (same pattern as docs site in Phase 0051) | Phase 0052 |
 | [consider] Paywall and accept-only CMP handling (#156) | When a user needs to capture paywall/accept-only sites | Phase 0059b |
 | [consider] Automated autoconsent update pipeline (#152) | When manual update lag causes CMP regressions | Phase 0059b |
-| [consider] Embed Stripe payment form instead of redirect (#147) | After Billing UI ships (Phase 0076), if redirect flow is UX problem | Phase 0058 |
+| [consider] Embed Stripe payment form instead of redirect (#147) | Billing UI shipped (Phase 0076) with redirect flow; activate if redirect causes UX friction | Phase 0058 → 0076 |
 | [consider] Fetch-based capture for non-HTML resources (#143) | When a user needs to capture PDFs, APIs, or static files | Product |
 | [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | When GTM efforts start (Phase 0066 ecosystem push) | GTM research |
 | [consider] SEO optimization for landing page (#136) | When GTM efforts start (Phase 0066) | GTM research |

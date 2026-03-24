@@ -1357,4 +1357,94 @@ input, select, textarea {
     padding: var(--space-4) var(--space-4);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Billing tab
+--------------------------------------------------------------------------- */
+
+.billing-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.billing-stat {
+  text-align: center;
+}
+.billing-stat-value {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+.billing-stat-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.billing-tier-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.billing-tier-table th {
+  text-align: left;
+  font-weight: var(--weight-medium);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+.billing-tier-table td {
+  padding: var(--space-1) var(--space-2);
+}
+.billing-tier-active {
+  background: var(--color-info-bg);
+}
+
+.billing-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.billing-status-badge--active {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+.billing-status-badge--none {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+/* Billing: mobile layout */
+@media (max-width: 640px) {
+  .billing-stats-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+  .billing-stat {
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .billing-tier-table thead { display: none; }
+  .billing-tier-table tr {
+    display: block;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .billing-tier-table td {
+    display: block;
+    padding: var(--space-1) 0;
+  }
+  .billing-tier-table td::before {
+    content: attr(data-label);
+    font-weight: var(--weight-medium);
+    color: var(--color-text-muted);
+    margin-right: var(--space-2);
+  }
+}
 `;

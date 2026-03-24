@@ -158,6 +158,12 @@ function renderAppShell() {
     schedulesLink.textContent = 'Schedules';
     navLinks.appendChild(schedulesLink);
 
+    var billingLink = document.createElement('a');
+    billingLink.href = '#/billing';
+    billingLink.className = 'nav-link';
+    billingLink.textContent = 'Billing';
+    navLinks.appendChild(billingLink);
+
     var settingsLink = document.createElement('a');
     settingsLink.href = '#/settings';
     settingsLink.className = 'nav-link';
