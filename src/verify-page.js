@@ -341,7 +341,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     bundleHash:         'Confirms the overall archive bundle has not been altered.',
     signature:          'Confirms the bundle was signed by the capture service.',
     timestamp:          'Time was recorded by an independent authority (not verified cryptographically).',
-    qualifiedTimestamp: 'Qualified electronic timestamp from an EU Trusted List TSA (eIDAS Art. 41).',
+    qualifiedTimestamp: 'Qualified electronic timestamp from an EU Trusted List TSA (eIDAS Article 41).',
     consentHandling:    'The capture dismissed a cookie consent banner to reveal the page content.',
   };
 

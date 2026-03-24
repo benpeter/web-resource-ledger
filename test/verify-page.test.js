@@ -190,6 +190,19 @@ describe('security', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Regression: Fix 2 -- eIDAS reference uses "Article 41" not "Art. 41"
+// ---------------------------------------------------------------------------
+
+describe('htmlVerifyResponse -- eIDAS reference wording (Fix 2 regression)', () => {
+  it('uses "Article 41" not "Art." for eIDAS references', async () => {
+    const res = htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC);
+    const html = await res.text();
+    expect(html).not.toContain('Art. 41');
+    expect(html).toContain('Article 41');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Design system tokens
 // ---------------------------------------------------------------------------
 

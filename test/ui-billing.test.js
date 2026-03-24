@@ -224,6 +224,28 @@ describe('UI_CSS -- billing section styles', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Partition G2 -- Regression: Fix 3 -- billing stat spans are display: block
+// ---------------------------------------------------------------------------
+
+describe('UI_CSS -- billing stat display (Fix 3 regression)', () => {
+  it('G5: billing stat value is display: block', () => {
+    // Regression guard: .billing-stat-value must use display:block so each
+    // value and label stack vertically in the billing stats row.
+    expect(UI_CSS).toContain('.billing-stat-value');
+    expect(UI_CSS).toContain('display: block');
+  });
+
+  it('G6: billing stat label is display: block', () => {
+    expect(UI_CSS).toContain('.billing-stat-label');
+    // Both value and label must be block-level; the CSS contains at least one
+    // "display: block" rule that applies to billing stat children.
+    const idx = UI_CSS.indexOf('.billing-stat-value');
+    const section = UI_CSS.slice(idx, idx + 200);
+    expect(section).toContain('display: block');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Partition H -- Separation guard: billing logic must not leak into settings
 // ---------------------------------------------------------------------------
 

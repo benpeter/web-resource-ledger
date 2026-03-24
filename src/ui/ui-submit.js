@@ -10,10 +10,16 @@ export const SUBMIT_VIEW_JS = `
 function safeUrl(urlStr) {
   try {
     var u = new URL(urlStr);
-    return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null;
+    if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
   } catch (e) {
-    return null;
+    if (urlStr && urlStr.indexOf('://') === -1) {
+      try {
+        var u2 = new URL('https://' + urlStr);
+        if (u2.protocol === 'https:') return u2.href;
+      } catch (e2) { /* fall through */ }
+    }
   }
+  return null;
 }
 
 function formatDate(isoStr) {
@@ -370,7 +376,7 @@ function handleSubmit(urlInput, submitBtn, formErrorEl) {
   // Validate URL
   var safe = safeUrl(raw);
   if (!raw || !safe) {
-    formErrorEl.textContent = 'Enter a valid http:// or https:// URL.';
+    formErrorEl.textContent = 'Enter a valid URL (e.g. example.com or https://example.com).';
     formErrorEl.style.display = '';
     urlInput.classList.add('input--error');
     urlInput.focus();
