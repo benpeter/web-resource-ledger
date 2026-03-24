@@ -25,6 +25,24 @@ price.
 with optional EU-qualified timestamps for legal certainty. No proprietary
 formats, no vendor lock-in, no opaque pricing.
 
+## Simplified Sharing Model (Phase 0075)
+
+**Differentiator**: WRL captures are shareable by default. No tokens, no
+expiration, no access management. Share the URL, anyone can verify. This is
+a deliberate product choice: capture IDs have 128 bits of entropy, making
+them unguessable capability tokens. The security comes from the ID space,
+not from auth layers on top.
+
+**Competitive advantage**: Most evidence platforms require login or token
+exchange to share captures. WRL's model means a lawyer can send a capture
+URL in an email and the recipient can verify it immediately — no account,
+no setup, no friction.
+
+**Product story**: "Anyone can verify" is core to WRL's value proposition.
+Phase 0062 accidentally broke this by adding auth to individual capture
+endpoints. Phase 0075 fixed the regression by recognizing that the ID
+itself is the access control.
+
 ## UX Decisions (Phase 0063)
 
 - **Account-level, not per-capture**: Simplifies the mental model. Legal teams
