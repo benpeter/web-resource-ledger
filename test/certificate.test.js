@@ -2,8 +2,12 @@
 // Tests for PDF certificate generation and the GET /v1/captures/{id}/certificate endpoint.
 //
 // Test strategy:
-//   - Raw byte string matching: PDF save({ useObjectStreams: false }) produces uncompressed
-//     content streams. TextDecoder + indexOf finds legal text in the raw bytes.
+//   - Byte string matching: pdf-lib compresses content streams with FlateDecode (zlib).
+//     pdfText() decompresses each stream using fflate's unzlibSync and decodes the
+//     resulting PDF content operators. Text in content streams appears as uppercase hex
+//     strings, e.g. <4665646572616C> for "Federal". pdfHexContains() converts a plain
+//     string to its uppercase hex representation and checks for it in the decompressed
+//     stream content.
 //   - Signature verification: verifySignature() from src/signing.js verifies the
 //     Ed25519 signature returned in the X-Signature-Ed25519 header.
 //   - Determinism: same inputs produce byte-identical output; guaranteed by
@@ -11,6 +15,7 @@
 
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
+import { unzlibSync } from 'fflate';
 import { createCapture, completeCapture, failCapture } from '../src/db.js';
 import { generateCertificate } from '../src/certificate.js';
 import { getSigningKeys, verifySignature } from '../src/signing.js';
@@ -141,11 +146,81 @@ function mockCapture(overrides = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: decode PDF bytes to a string for text searching
+// Helpers: extract and search PDF text content.
+//
+// pdf-lib saves content streams with FlateDecode (zlib) compression even when
+// useObjectStreams: false. Text appears in the decompressed streams as uppercase
+// hex strings inside angle brackets, e.g. <46656465...> Tj.
+//
+// pdfAllText(pdfBytes) -- decompresses all FlateDecode streams and returns the
+//   concatenation as a latin1 string. The hex strings like <68747470...> can
+//   then be searched via pdfContains().
+//
+// pdfContains(pdfText, str) -- converts str to its uppercase hex representation
+//   and checks whether it appears in the decompressed stream text.
 // ---------------------------------------------------------------------------
 
-function pdfText(pdfBytes) {
-  return new TextDecoder('latin1').decode(pdfBytes);
+/**
+ * Scan pdfBytes for FlateDecode stream blocks, decompress each with unzlibSync,
+ * and return the concatenated decompressed stream text.
+ *
+ * PDF stream layout: ...>> \n stream \n <zlib-data> \n endstream ...
+ * Working directly with the Uint8Array avoids latin1 encode/decode round-trips
+ * that can corrupt high bytes in the workers runtime.
+ */
+function pdfAllText(pdfBytes) {
+  // Use TextEncoder to get byte sequences for the markers
+  const enc = new TextEncoder();
+  const STREAM_MARK  = enc.encode('stream\n');
+  const ENDSTREAM_MARK = enc.encode('\nendstream');
+
+  function findBytes(haystack, needle, from) {
+    outer: for (let i = from; i <= haystack.length - needle.length; i++) {
+      for (let j = 0; j < needle.length; j++) {
+        if (haystack[i + j] !== needle[j]) continue outer;
+      }
+      return i;
+    }
+    return -1;
+  }
+
+  let decompressed = '';
+  let pos = 0;
+  while (true) {
+    const streamPos = findBytes(pdfBytes, STREAM_MARK, pos);
+    if (streamPos === -1) break;
+    const dataStart = streamPos + STREAM_MARK.length;
+    const endPos = findBytes(pdfBytes, ENDSTREAM_MARK, dataStart);
+    if (endPos === -1) break;
+    try {
+      const streamData = pdfBytes.slice(dataStart, endPos);
+      const inflated = unzlibSync(streamData);
+      decompressed += new TextDecoder('latin1').decode(inflated);
+    } catch (_) {
+      // Not all streams are FlateDecode; skip on error
+    }
+    pos = endPos + ENDSTREAM_MARK.length;
+  }
+  return decompressed;
+}
+
+/**
+ * Returns true if the decompressed PDF stream content contains `str`.
+ * Text in pdf-lib content streams is encoded as uppercase hex strings, so
+ * "hello" appears as <68656C6C6F>. This helper converts str to that format
+ * and checks for it in the decompressed stream text.
+ */
+function pdfContains(streamText, str) {
+  const hexStr = Array.from(new TextEncoder().encode(str))
+    .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+    .join('');
+  return streamText.toUpperCase().includes(hexStr);
+}
+
+/** Convenience: generate, decompress, return checker */
+async function pdfStreams(capture, signingKeys) {
+  const { pdfBytes } = await generateCertificate(capture, signingKeys, 'https://worker.test');
+  return pdfAllText(pdfBytes);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,13 +269,12 @@ describe('certificate generation -- determinism', () => {
 describe('certificate generation -- content verification', () => {
   let signingKeys;
   let capture;
-  let pdf;
+  let streams;
 
   beforeEach(async () => {
     signingKeys = await getSigningKeys(env);
     capture = mockCapture();
-    const result = await generateCertificate(capture, signingKeys, 'https://worker.test');
-    pdf = pdfText(result.pdfBytes);
+    streams = await pdfStreams(capture, signingKeys);
   });
 
   it('PDF starts with %PDF- header', async () => {
@@ -210,31 +284,33 @@ describe('certificate generation -- content verification', () => {
   });
 
   it('PDF contains captured URL', () => {
-    expect(pdf).toContain('https://example.com/cert-test');
+    expect(pdfContains(streams, 'https://example.com/cert-test')).toBe(true);
   });
 
   it('PDF contains capture ID', () => {
-    expect(pdf).toContain(CAP_COMPLETE);
+    expect(pdfContains(streams, CAP_COMPLETE)).toBe(true);
   });
 
   it('PDF contains bundle hash (full sha256:... string)', () => {
-    expect(pdf).toContain(BUNDLE_HASH);
+    // The bundle hash is long; verify the sha256: prefix and the first segment
+    expect(pdfContains(streams, 'sha256:')).toBe(true);
+    expect(pdfContains(streams, BUNDLE_HASH.slice(0, 20))).toBe(true);
   });
 
   it('PDF contains "Federal Rule of Evidence 902(13)"', () => {
-    expect(pdf).toContain('Federal Rule of Evidence 902(13)');
+    expect(pdfContains(streams, 'Federal Rule of Evidence 902(13)')).toBe(true);
   });
 
   it('PDF contains operator name (Gerhard Benjamin Peter)', () => {
-    expect(pdf).toContain('Gerhard Benjamin Peter');
+    expect(pdfContains(streams, 'Gerhard Benjamin Peter')).toBe(true);
   });
 
   it('PDF contains key fingerprint (keyId)', () => {
-    expect(pdf).toContain(KEY_ID);
+    expect(pdfContains(streams, KEY_ID)).toBe(true);
   });
 
   it('PDF contains verification URL', () => {
-    expect(pdf).toContain(`https://worker.test/v1/verify/${CAP_COMPLETE}`);
+    expect(pdfContains(streams, `https://worker.test/v1/verify/${CAP_COMPLETE}`)).toBe(true);
   });
 });
 
@@ -251,43 +327,38 @@ describe('certificate generation -- timestamp variations', () => {
 
   it('RFC 3161 timestamp present: PDF includes TSA details', async () => {
     const capture = mockCapture({ wacz: { ...WACZ_WITH_TS, timestampStatus: 'present' } });
-    const { pdfBytes } = await generateCertificate(capture, signingKeys, 'https://worker.test');
-    const pdf = pdfText(pdfBytes);
-    expect(pdf).toContain('RFC 3161');
-    expect(pdf).toContain('trusted timestamp authority');
+    const streams = await pdfStreams(capture, signingKeys);
+    expect(pdfContains(streams, 'RFC 3161')).toBe(true);
+    expect(pdfContains(streams, 'trusted timestamp authority')).toBe(true);
   });
 
   it('RFC 3161 timestamp error: PDF includes "could not be obtained" text', async () => {
     const capture = mockCapture({ wacz: { ...WACZ_WITH_TS, timestampStatus: 'error' } });
-    const { pdfBytes } = await generateCertificate(capture, signingKeys, 'https://worker.test');
-    const pdf = pdfText(pdfBytes);
-    expect(pdf).toContain('could not be obtained');
+    const streams = await pdfStreams(capture, signingKeys);
+    expect(pdfContains(streams, 'could not be obtained')).toBe(true);
   });
 
   it('RFC 3161 timestamp skipped: PDF includes "No independent timestamp" text', async () => {
     const capture = mockCapture({ wacz: { ...WACZ_WITH_TS, timestampStatus: 'skipped' } });
-    const { pdfBytes } = await generateCertificate(capture, signingKeys, 'https://worker.test');
-    const pdf = pdfText(pdfBytes);
-    expect(pdf).toContain('No independent timestamp');
+    const streams = await pdfStreams(capture, signingKeys);
+    expect(pdfContains(streams, 'No independent timestamp')).toBe(true);
   });
 
   it('eIDAS qualified present: PDF includes eIDAS reference', async () => {
     const capture = mockCapture({
       wacz: { ...WACZ_WITH_TS, qualifiedTimestampStatus: 'present' },
     });
-    const { pdfBytes } = await generateCertificate(capture, signingKeys, 'https://worker.test');
-    const pdf = pdfText(pdfBytes);
-    expect(pdf).toContain('eIDAS');
+    const streams = await pdfStreams(capture, signingKeys);
+    expect(pdfContains(streams, 'eIDAS')).toBe(true);
   });
 
   it('no qualified timestamp: PDF does not contain eIDAS section text', async () => {
     const capture = mockCapture({
       wacz: { ...WACZ_WITH_TS, qualifiedTimestampStatus: null },
     });
-    const { pdfBytes } = await generateCertificate(capture, signingKeys, 'https://worker.test');
-    const pdf = pdfText(pdfBytes);
+    const streams = await pdfStreams(capture, signingKeys);
     // The section header "3.5 Qualified Timestamp (eIDAS)" should not appear
-    expect(pdf).not.toContain('3.5 Qualified Timestamp');
+    expect(pdfContains(streams, '3.5 Qualified Timestamp')).toBe(false);
   });
 });
 
