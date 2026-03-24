@@ -167,6 +167,15 @@ else
   set_phase_status "$PHASE" "failed_session"
 fi
 
+# Check for human action items (regardless of session success/failure)
+if grep -q "HUMAN_ACTION_REQUIRED:" "$PHASE_OUTPUT" 2>/dev/null; then
+  log_warn "Phase $PHASE requires human action:"
+  grep "HUMAN_ACTION_REQUIRED:" "$PHASE_OUTPUT" | while IFS= read -r line; do
+    log_warn "  → ${line#*HUMAN_ACTION_REQUIRED: }"
+  done
+  grep "HUMAN_ACTION_REQUIRED:" "$PHASE_OUTPUT" > "${LOG_DIR}/phase-${PHASE}.human-actions" 2>/dev/null || true
+fi
+
 # --- Post-session verification (only if session succeeded) ---
 
 PR_NUMBER=""
@@ -188,8 +197,21 @@ if [[ -n "$PR_NUMBER" ]]; then
     log_info "Phase $PHASE complete!"
     notify_phase_complete "$PHASE" "$TITLE" "$PR_NUMBER"
 
+    # Notify human actions if any
+    if [[ -f "${LOG_DIR}/phase-${PHASE}.human-actions" ]]; then
+      HUMAN_ACTIONS=$(sed 's/.*HUMAN_ACTION_REQUIRED: //' "${LOG_DIR}/phase-${PHASE}.human-actions" | tr '\n' '; ')
+      notify_error "$PHASE" "HUMAN ACTION REQUIRED: $HUMAN_ACTIONS"
+    fi
+
     # Verify evolution log completeness (check after merge, when files are on main)
     git pull --quiet --rebase 2>/dev/null || true
+
+    # Apply any pending D1 migrations (safe no-op when current)
+    log_info "Applying D1 migrations..."
+    (unset CLOUDFLARE_API_TOKEN && npx wrangler d1 migrations apply wrl-metadata --remote 2>&1) || \
+      log_warn "D1 migration apply failed for production (may need manual intervention)"
+    (unset CLOUDFLARE_API_TOKEN && npx wrangler d1 migrations apply wrl-metadata-staging --remote --env staging 2>&1) || \
+      log_warn "D1 migration apply failed for staging (may need manual intervention)"
     EVO_DIR=$(find docs/evolution -maxdepth 1 -name "${PHASE}-*" -type d 2>/dev/null | head -1)
     if [[ -z "$EVO_DIR" ]]; then
       log_warn "Phase $PHASE: no evolution log directory found"

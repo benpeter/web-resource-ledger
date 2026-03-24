@@ -127,6 +127,24 @@ Your workflow for each phase:
 If the runner reports failure, diagnose and fix (see Diagnostic Playbook)
 before retrying or moving on.
 
+### Act-start gate
+
+When beginning a new act (not just continuing phases within an act),
+verify E2E is passing BEFORE launching the first phase. Previous acts
+may have introduced regressions that weren't caught because E2E was
+skipped or flaky. Fix any E2E failures on main first.
+
+### failed_deploy with merged PR
+
+If the orchestrator reports `failed_deploy` but the PR is already merged:
+1. Check if the deployed commit matches or is ahead of the merge SHA:
+   `curl -sf <url>/health | jq '.build.commit'`
+2. If it matches: the deploy recovered from a transient failure (e.g.,
+   Cloudflare 502). Run the full verification checklist and mark success.
+3. If it's behind: the deploy is genuinely stuck. Check deploy logs,
+   re-trigger manually, investigate.
+4. Do not re-run the phase — the code is already on main.
+
 ## On failure — YOU fix it
 
 When a phase fails:

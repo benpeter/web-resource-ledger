@@ -104,16 +104,46 @@ Examples:
 This applies to ALL environments (production and staging). If you add a
 binding to both environments, provision the resource for both.
 
+**Verify after provisioning** — do not trust that the create command
+succeeded. Confirm the resource exists:
+```bash
+unset CLOUDFLARE_API_TOKEN
+wrangler queues list | grep <name>
+wrangler d1 list | grep <name>
+wrangler kv namespace list | grep <name>
+```
+If the resource does not appear in the list, the PR must not be created.
+
 **wrangler.test.toml**: If you modify `wrangler.toml` (new bindings, changed
 rate limits, new queues), regenerate `wrangler.test.toml` by copying
 `wrangler.toml` and removing all `[[queues.consumers]]` sections. Queue
 consumers cause miniflare to auto-consume messages during tests, crashing
 the workerd runtime. CI will fail if `wrangler.test.toml` is stale.
 
-### Error Signaling
+**OpenAPI spec**: If you modified `openapi.yaml`, run `npm run lint:api`
+before creating the PR. All errors must be resolved — the CI job runs
+this check and will reject the PR. Common mistakes: referencing
+`$ref` components that don't exist, missing `security: []` on public
+endpoints.
 
-If an unrecoverable error occurs, output a line starting with
-"AUTONOMOUS_ERROR:" so the orchestrator can detect it.
+### Signaling
+
+**Unrecoverable errors**: Output a line starting with
+`AUTONOMOUS_ERROR:` so the orchestrator can detect it.
+
+**Human action needed**: If your phase requires something you cannot do
+autonomously — creating external service accounts, obtaining API keys,
+DNS changes at a registrar, legal review, etc. — output a line:
+`HUMAN_ACTION_REQUIRED: <concise description of what the human must do>`
+
+This is NOT an error. The PR can still be created and merged. But the
+orchestrator will surface these to the human operator so they are not
+silently buried in parking lot items. Each line should be one action.
+
+Examples:
+- `HUMAN_ACTION_REQUIRED: Create Resend account and push RESEND_API_KEY via wrangler secret put (both envs)`
+- `HUMAN_ACTION_REQUIRED: Register domain sender identity at Resend for transactional email`
+- `HUMAN_ACTION_REQUIRED: Provision QUALIFIED_TSA_AUTH secret with qtsa.eu credentials`
 
 ### Backlog Updates
 
