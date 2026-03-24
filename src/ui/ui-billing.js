@@ -487,7 +487,7 @@ function buildPricingSection(usageData) {
     tableWrap.style.overflowX = 'auto';
 
     var table = document.createElement('table');
-    table.className = 'table';
+    table.className = 'billing-tier-table';
     table.setAttribute('aria-label', 'Pricing tiers');
 
     var thead = document.createElement('thead');
@@ -581,7 +581,6 @@ function buildEidasSection(usageData) {
       // Create a temporary button element to satisfy handlePortalRedirect signature
       var tmpBtn = document.createElement('button');
       tmpBtn.textContent = 'View usage details in Stripe.';
-      note.appendChild(tmpBtn);
       handlePortalRedirect(tmpBtn);
     });
     note.appendChild(portalLink);
