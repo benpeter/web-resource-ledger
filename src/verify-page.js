@@ -763,23 +763,18 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     document.getElementById('loading').style.display = 'none';
   }
 
-  var verifyUrl   = origin + '/v1/verify/'   + captureId;
-  var retrievalUrl = origin + '/v1/captures/' + captureId;
+  var verifyUrl = origin + '/v1/verify/' + captureId;
 
-  Promise.all([
-    fetch(verifyUrl,   { headers: { 'Accept': 'application/json' } }).then(function (r) { return r.json(); }),
-    fetch(retrievalUrl, { headers: { 'Accept': 'application/json' } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-  ]).then(function (results) {
-    var verifyData   = results[0];
-    var retrievalData = results[1];
+  fetch(verifyUrl, { headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.json(); })
+    .then(function (verifyData) {
+      populate(verifyData, null);
 
-    populate(verifyData, retrievalData);
-
-    document.getElementById('result').classList.add('visible');
-    document.getElementById('loading').style.display = 'none';
-  }).catch(function () {
-    showError();
-  });
+      document.getElementById('result').classList.add('visible');
+      document.getElementById('loading').style.display = 'none';
+    }).catch(function () {
+      showError();
+    });
 }());
 </script>
 </body>
