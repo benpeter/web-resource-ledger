@@ -274,6 +274,42 @@ a phase done. If you skip this and start the next phase, regressions will
 compound. Every phase declared "done" without verification is a phase that
 may need to be redone.
 
+## CRITICAL: Pipeline must be fully green before launching phases
+
+**Never start a phase while any part of the verification pipeline is still
+in flight.** This is a hard gate with zero exceptions.
+
+The full pipeline is: CI → staging deploy → E2E tests → production deploy.
+Every step must show `completed` + `success` before you launch the next
+phase. `in_progress` is NOT green. `CI passed` alone is NOT green.
+
+This applies in three situations:
+
+1. **After a phase completes** — verify the merged phase fully, then launch
+   the next phase.
+2. **After a self-heal fix** — if you pushed a fix to main (E2E repair,
+   config change, migration, etc.), wait for the ENTIRE pipeline to
+   complete and confirm green before launching any phase. The phases will
+   branch from main; if main is broken, the phase starts broken.
+3. **After retrying a failed phase** — same rule. Full pipeline green
+   first.
+
+**Why this matters**: Phases branch from `main` at launch time. If you
+launch a phase while an E2E fix is still being validated, the phase
+session may branch from a commit where E2E is still broken. When the
+phase later tries to merge, it carries the broken state forward, or its
+own E2E check fails for reasons unrelated to its work. This wastes an
+entire phase session ($30-80) and creates merge conflicts.
+
+**The check**:
+```bash
+# ALL of these must show "success", not "in_progress" or blank
+gh run list --limit 5 --json name,conclusion,status \
+  --jq '.[] | select(.status=="completed") | "\(.name): \(.conclusion)"'
+```
+If any recent run for CI, Deploy to Staging, E2E Tests, or Deploy to
+Production shows anything other than `success`, do not launch a phase.
+
 ## Independent verification (after every phase)
 
 This duplicates step 3 of the workflow above for emphasis. After the phase
@@ -347,6 +383,18 @@ Then check each item. ALL must pass:
 
 Do NOT start the next phase if any of these are red. Fix first (and
 remember the Regression Guard Loop: after any fix, re-run ALL checks).
+
+**Sequence enforcement**: The correct order is always:
+1. Phase completes (or fix is pushed)
+2. Wait for FULL pipeline: CI, staging deploy, E2E, production deploy
+3. Confirm ALL show `completed` + `success` (not `in_progress`)
+4. Run the independent verification checklist above
+5. Only THEN launch the next phase
+
+Never reorder or overlap steps 2-5 with launching a new phase. The urge
+to parallelize ("I'll start the phase while E2E runs") is exactly the
+mistake this gate prevents. A wasted 10-minute wait is cheaper than a
+wasted $50 phase session that branches from broken main.
 
 ## Act boundaries
 
