@@ -1258,6 +1258,16 @@ input, select, textarea {
   border-radius: var(--radius-sm);
 }
 
+.detail-artifact-cert {
+  margin-top: var(--space-2);
+}
+.detail-artifact-cert .btn--ghost {
+  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 /* Verification link */
 
 .detail-verify-link {
