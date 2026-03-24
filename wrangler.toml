@@ -74,7 +74,7 @@ cpu_ms = 60000
 # capture jobs onto the existing wrl-captures queue.
 # NOTE: cron triggers are non-inheritable -- each environment must declare its own [triggers].
 [triggers]
-crons = ["*/1 * * * *", "0 3 * * *"]
+crons = ["*/1 * * * *", "0 3 * * *", "0 9 * * 1"]
 
 # --- Custom domain ---
 # Cloudflare auto-provisions DNS records when custom_domain = true.
@@ -137,6 +137,30 @@ max_batch_size = 1
 max_batch_timeout = 30
 max_retries = 0
 
+# Email notification delivery queue -- one message per outbound notification.
+# max_batch_size = 1 isolates failures. max_concurrency = 5 limits Resend API concurrency.
+[[queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "wrl-emails"
+
+[[queues.consumers]]
+queue = "wrl-emails"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "wrl-emails-dlq"
+max_concurrency = 5
+
+[[queues.producers]]
+binding = "EMAIL_DLQ"
+queue = "wrl-emails-dlq"
+
+[[queues.consumers]]
+queue = "wrl-emails-dlq"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 0
+
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 # IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
@@ -146,6 +170,8 @@ max_retries = 0
 # Stripe secrets (set via wrangler secret put):
 #   STRIPE_SECRET_KEY    -- Stripe secret key (sk_live_...)
 #   STRIPE_WEBHOOK_SECRET -- Stripe webhook signing secret (whsec_...)
+# Email secrets (set via wrangler secret put):
+#   RESEND_API_KEY       -- Resend API key for transactional email delivery
 # Threat check (set via wrangler secret put):
 #   GOOGLE_WEB_RISK_API_KEY -- Google Web Risk API key (without this, threat checks degrade gracefully)
 [vars]
@@ -239,7 +265,7 @@ cpu_ms = 60000
 
 # Cron triggers are non-inheritable -- staging must declare its own [triggers].
 [env.staging.triggers]
-crons = ["*/1 * * * *", "0 4 * * *"]
+crons = ["*/1 * * * *", "0 4 * * *", "0 9 * * 1"]
 
 # Queues are non-inheritable -- staging must declare its own producers and
 # consumers with -staging suffixed queue names.
@@ -287,6 +313,29 @@ queue = "wrl-webhooks-staging-dlq"
 
 [[env.staging.queues.consumers]]
 queue = "wrl-webhooks-staging-dlq"
+max_batch_size = 1
+max_batch_timeout = 30
+max_retries = 0
+
+# Email notification delivery queue (staging)
+[[env.staging.queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "wrl-emails-staging"
+
+[[env.staging.queues.consumers]]
+queue = "wrl-emails-staging"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+dead_letter_queue = "wrl-emails-staging-dlq"
+max_concurrency = 2
+
+[[env.staging.queues.producers]]
+binding = "EMAIL_DLQ"
+queue = "wrl-emails-staging-dlq"
+
+[[env.staging.queues.consumers]]
+queue = "wrl-emails-staging-dlq"
 max_batch_size = 1
 max_batch_timeout = 30
 max_retries = 0

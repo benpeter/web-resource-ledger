@@ -360,6 +360,8 @@ export async function cleanDb(db) {
     db.prepare('DELETE FROM schedules'),
     db.prepare('DELETE FROM api_keys'),
     db.prepare('DELETE FROM signing_keys'),
+    db.prepare('DELETE FROM notification_sent'),
+    db.prepare('DELETE FROM notification_preferences'),
     db.prepare('DELETE FROM tenants'),
   ]);
 }

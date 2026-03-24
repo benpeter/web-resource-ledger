@@ -29,6 +29,8 @@ tags:
     description: Outbound webhook registration and management
   - name: account
     description: Tenant account information and usage
+  - name: notifications
+    description: Email notification preferences and one-click unsubscribe
   - name: schedules
     description: Scheduled recurring captures (cron-style)
 
@@ -1451,6 +1453,102 @@ components:
             Settings and metadata about how the capture was performed. Present when
             capture settings were recorded.
 
+    NotificationPreferences:
+      type: object
+      description: Email notification preferences for the authenticated tenant.
+      required: [email, emailVerified, emailSource, notifications, updatedAt]
+      properties:
+        email:
+          type: ["string", "null"]
+          format: email
+          description: >
+            Email address for notifications. Null if none is configured.
+            Set to null to clear the configured address.
+          examples:
+            - user@example.com
+        emailVerified:
+          type: boolean
+          description: >
+            Whether the email address has been verified by a confirmation email.
+            Automatically reset to false when email changes.
+        emailSource:
+          type: string
+          enum: [github, manual]
+          description: >
+            How the email address was obtained. 'github' means it was pulled
+            from the GitHub OAuth profile. 'manual' means it was explicitly set
+            via PUT /v1/account/notifications.
+        notifications:
+          type: object
+          description: >
+            Per-event-type subscription flags. All default to true (subscribed).
+            Set a value to false to suppress that category of email.
+          required:
+            - capture_failure
+            - approaching_limit
+            - limit_reached
+            - invoice_generated
+            - payment_failure
+            - weekly_digest
+          properties:
+            capture_failure:
+              type: boolean
+              description: Alerts when a scheduled or API-triggered capture fails.
+            approaching_limit:
+              type: boolean
+              description: Warnings when the tenant is approaching their monthly quota.
+            limit_reached:
+              type: boolean
+              description: Alerts when the monthly capture quota is exhausted.
+            invoice_generated:
+              type: boolean
+              description: Notifications when a new invoice is generated.
+            payment_failure:
+              type: boolean
+              description: Alerts when a payment attempt fails.
+            weekly_digest:
+              type: boolean
+              description: Weekly summary of capture activity and usage.
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: ISO 8601 timestamp of the last update. Null if defaults have never been overridden.
+
+    NotificationPreferencesUpdate:
+      type: object
+      description: >
+        Partial update for notification preferences. Both top-level fields are optional.
+        Only keys present in the request are written; absent keys are unchanged.
+        Unknown top-level fields are rejected with 400.
+      additionalProperties: false
+      properties:
+        email:
+          type: ["string", "null"]
+          format: email
+          description: >
+            Email address to use for notifications. Set to null to clear.
+            Changing this field resets emailVerified to false and emailSource to 'manual'.
+          maxLength: 254
+        notifications:
+          type: object
+          description: >
+            Merge-patch for notification subscriptions. Only keys present in this
+            object are changed; absent keys retain their current value.
+          additionalProperties: false
+          properties:
+            capture_failure:
+              type: boolean
+            approaching_limit:
+              type: boolean
+            limit_reached:
+              type: boolean
+            invoice_generated:
+              type: boolean
+            payment_failure:
+              type: boolean
+            weekly_digest:
+              type: boolean
+
   responses:
     Problem400:
       description: Bad request — missing or malformed body, missing `url` field, invalid URL scheme.
@@ -1537,6 +1635,28 @@ components:
             missing:
               summary: No Authorization header
               value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
+
+    Problem403:
+      description: Forbidden — authenticated but insufficient permissions for this operation.
+      headers:
+        Referrer-Policy:
+          $ref: '#/components/headers/ReferrerPolicy'
+        X-Content-Type-Options:
+          $ref: '#/components/headers/XContentTypeOptions'
+        X-Frame-Options:
+          $ref: '#/components/headers/XFrameOptions'
+        Strict-Transport-Security:
+          $ref: '#/components/headers/StrictTransportSecurity'
+        Link:
+          $ref: '#/components/headers/TermsLink'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          examples:
+            forbidden:
+              summary: Insufficient permissions
+              value: {type: about:blank, status: 403, title: Forbidden, detail: You do not have permission to perform this action.}
 
     Problem429:
       description: >
@@ -4085,6 +4205,198 @@ paths:
                     resetsAt: "2026-04-01T00:00:00.000Z"
         '401':
           $ref: '#/components/responses/Problem401'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/account/notifications:
+    get:
+      operationId: getNotificationPreferences
+      summary: Get email notification preferences
+      description: >
+        Returns the authenticated tenant's email notification preferences.
+        If no preferences have been configured, synthesised defaults are returned
+        (all notification types enabled, email null, updatedAt null).
+      tags: [account, notifications]
+      security:
+        - {}
+      responses:
+        '200':
+          description: Current notification preferences for the authenticated tenant.
+          headers:
+            Cache-Control:
+              description: Prevents caching of tenant-scoped preferences.
+              schema:
+                type: string
+                enum: ['private, no-store']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+              examples:
+                defaults:
+                  summary: No preferences configured yet (defaults)
+                  value:
+                    email: null
+                    emailVerified: false
+                    emailSource: github
+                    notifications:
+                      capture_failure: true
+                      approaching_limit: true
+                      limit_reached: true
+                      invoice_generated: true
+                      payment_failure: true
+                      weekly_digest: true
+                    updatedAt: null
+                configured:
+                  summary: Tenant has configured a custom email
+                  value:
+                    email: user@example.com
+                    emailVerified: true
+                    emailSource: manual
+                    notifications:
+                      capture_failure: true
+                      approaching_limit: true
+                      limit_reached: true
+                      invoice_generated: true
+                      payment_failure: true
+                      weekly_digest: false
+                    updatedAt: '2026-03-01T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+    put:
+      operationId: updateNotificationPreferences
+      summary: Update email notification preferences
+      description: >
+        Partially updates the authenticated tenant's notification preferences.
+        Both `email` and `notifications` are optional. The `notifications` object
+        uses merge semantics -- only keys present in the request are changed.
+
+        Changing `email` automatically resets `emailVerified` to false and sets
+        `emailSource` to 'manual'. Setting `email` to null clears the address.
+
+        Requires the `X-WRL-CSRF` header.
+      tags: [account, notifications]
+      security:
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferencesUpdate'
+            examples:
+              setEmail:
+                summary: Set email address
+                value:
+                  email: user@example.com
+              unsubscribeWeekly:
+                summary: Unsubscribe from weekly digest
+                value:
+                  notifications:
+                    weekly_digest: false
+              clearEmail:
+                summary: Clear email address
+                value:
+                  email: null
+      responses:
+        '200':
+          description: Updated notification preferences.
+          headers:
+            Cache-Control:
+              description: Prevents caching of tenant-scoped preferences.
+              schema:
+                type: string
+                enum: ['private, no-store']
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/notifications/unsubscribe:
+    get:
+      operationId: getUnsubscribePage
+      summary: Render email unsubscribe confirmation page
+      security: []
+      description: >
+        Renders an HTML confirmation page for the given unsubscribe token.
+        The page contains a form that the user must submit (POST) to complete
+        the unsubscribe action.
+
+        Does NOT auto-unsubscribe: email security scanners pre-fetch GET URLs,
+        so the actual unsubscribe requires an explicit form submission.
+
+        Returns 200 for both valid and invalid tokens. Invalid tokens display
+        an error message without leaking whether the token is known.
+
+        No authentication required. Rate-limited by IP.
+      tags: [notifications]
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: HMAC-signed unsubscribe token from the email link.
+      responses:
+        '200':
+          description: HTML confirmation page (always 200, valid or invalid token).
+          content:
+            text/html:
+              schema:
+                type: string
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+    post:
+      operationId: processUnsubscribe
+      summary: Process email unsubscribe (RFC 8058 One-Click)
+      security: []
+      description: >
+        Processes the unsubscribe action for a valid token.
+        Accepts `application/x-www-form-urlencoded` with `List-Unsubscribe=One-Click`
+        (RFC 8058) or the `token` query parameter (form submission from the GET page).
+
+        Idempotent: unsubscribing twice is a no-op.
+        Returns 200 HTML for both valid and invalid tokens (no information leakage).
+
+        No authentication required. Rate-limited by IP.
+      tags: [notifications]
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: HMAC-signed unsubscribe token. Preferred source for form submissions.
+      requestBody:
+        required: false
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                List-Unsubscribe:
+                  type: string
+                  enum: [One-Click]
+                  description: RFC 8058 One-Click header value.
+      responses:
+        '200':
+          description: HTML confirmation page (always 200, valid or invalid token).
+          content:
+            text/html:
+              schema:
+                type: string
         '429':
           $ref: '#/components/responses/Problem429'
 

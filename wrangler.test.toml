@@ -101,6 +101,16 @@ binding = "WEBHOOK_DLQ"
 queue = "wrl-webhooks-dlq"
 
 
+# Email queues -- producer bindings only; no consumers to prevent miniflare auto-consuming
+[[queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "wrl-emails"
+
+[[queues.producers]]
+binding = "EMAIL_DLQ"
+queue = "wrl-emails-dlq"
+
+
 # Observability: Coralogix log ingestion
 # CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
 # IP_HASH_SEED must be set via: wrangler secret put IP_HASH_SEED
@@ -204,6 +214,16 @@ queue = "wrl-webhooks-staging"
 [[env.staging.queues.producers]]
 binding = "WEBHOOK_DLQ"
 queue = "wrl-webhooks-staging-dlq"
+
+
+# Email queues -- producer bindings only; no consumers to prevent miniflare auto-consuming
+[[env.staging.queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "wrl-emails-staging"
+
+[[env.staging.queues.producers]]
+binding = "EMAIL_DLQ"
+queue = "wrl-emails-staging-dlq"
 
 
 [env.staging.vars]

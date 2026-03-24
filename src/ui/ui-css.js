@@ -1580,4 +1580,34 @@ input, select, textarea {
     margin-right: var(--space-2);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Notifications tab
+--------------------------------------------------------------------------- */
+
+.notifications-email-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: 2.25rem;
+}
+
+.notifications-email-address {
+  font-size: var(--text-base);
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.notifications-email-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.notifications-email-input-row .input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
 `;

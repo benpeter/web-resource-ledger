@@ -40,6 +40,8 @@ import {
   deleteSession,
   deleteExpiredSessions,
   createApiKeyRecord,
+  getNotificationPreferences,
+  upsertNotificationPreferences,
 } from './db.js';
 
 // ---------------------------------------------------------------------------
@@ -124,7 +126,7 @@ export async function handleAuthLogin(request, env, ctx) {
     client_id: env.GITHUB_CLIENT_ID,
     redirect_uri: callbackUrl,
     state,
-    scope: 'read:user',
+    scope: 'read:user user:email',
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
   });
@@ -251,19 +253,32 @@ export async function handleAuthCallback(request, env, ctx) {
     return new Response(null, { status: 302, headers: { Location: '/ui?error=token_exchange_failed' } });
   }
 
-  // Step 4: fetch GitHub user identity
+  // Step 4: fetch GitHub user identity and primary verified email
   // SECURITY: access token is used here and then discarded -- never stored
   let githubUser;
+  let primaryEmail = null;
   try {
     const ghFetch = githubFetch(env);
-    const userResponse = await ghFetch('https://api.github.com/user', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'web-resource-ledger',
-      },
-      signal: AbortSignal.timeout(5000),
-    });
+
+    // Fetch user profile and emails in parallel
+    const [userResponse, emailsResponse] = await Promise.all([
+      ghFetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'web-resource-ledger',
+        },
+        signal: AbortSignal.timeout(5000),
+      }),
+      ghFetch('https://api.github.com/user/emails', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'web-resource-ledger',
+        },
+        signal: AbortSignal.timeout(5000),
+      }),
+    ]);
 
     if (!userResponse.ok) {
       throw new Error(`GitHub user API returned ${userResponse.status}`);
@@ -275,6 +290,20 @@ export async function handleAuthCallback(request, env, ctx) {
     }
 
     githubUser = { id: userData.id, login: userData.login };
+
+    // Extract primary verified email from /user/emails (best-effort, never fails OAuth)
+    if (emailsResponse.ok) {
+      try {
+        const emails = await emailsResponse.json();
+        if (Array.isArray(emails)) {
+          const found = emails.find(e => e.primary && e.verified);
+          // SECURITY: email addresses are never logged -- only stored in notification_preferences
+          primaryEmail = found ? { email: found.email } : null;
+        }
+      } catch {
+        // Non-fatal: email fetch parse failure does not affect login
+      }
+    }
     // userData and accessToken are no longer referenced -- GC eligible
     // SECURITY: accessToken deliberately not assigned to null (no need, GC handles it)
   } catch (err) {
@@ -298,6 +327,22 @@ export async function handleAuthCallback(request, env, ctx) {
       // Returning user: update login name (GitHub users can rename themselves)
       tenantId = existingUser.tenantId;
       await updateGitHubLogin(env.DB, githubUser.id, githubUser.login);
+
+      // 3g: Update email if source is 'github' and a new primary email is available
+      if (primaryEmail) {
+        const prefs = await getNotificationPreferences(env.DB, tenantId);
+        if (!prefs || prefs.emailSource === 'github') {
+          // Only update if the email differs (avoids unnecessary writes)
+          if (!prefs || prefs.email !== primaryEmail.email) {
+            await upsertNotificationPreferences(env.DB, tenantId, {
+              email: primaryEmail.email,
+              emailVerified: true,
+              emailSource: 'github',
+            });
+          }
+        }
+        // emailSource === 'manual': do NOT overwrite
+      }
     } else {
       // New user: create github_users record, tenant, and first API key
       isNewUser = true;
@@ -341,6 +386,15 @@ export async function handleAuthCallback(request, env, ctx) {
       } else {
         // Hash collision (astronomically rare) -- log but don't fail the OAuth flow
         console.error('wrl:oauth:first_key_collision', { tenantId, reason: result.reason });
+      }
+
+      // 3g: Auto-populate notification_preferences with GitHub email if available
+      if (primaryEmail) {
+        await upsertNotificationPreferences(env.DB, tenantId, {
+          email: primaryEmail.email,
+          emailVerified: true,
+          emailSource: 'github',
+        });
       }
     }
   } catch (err) {

@@ -1,8 +1,9 @@
 # Coralogix Alert Rules
 
-WRL uses seven Coralogix alert rules to monitor production health.
-All alerts send email notifications to bp@ben-peter.com with a 60-minute
-retriggering suppression window (one email per hour maximum during sustained issues).
+WRL uses nine Coralogix alert rules to monitor production health.
+Most alerts send email notifications to bp@ben-peter.com with a 60-minute
+retriggering suppression window. The Email Bounces alert uses a 24-hour
+suppression window to match its evaluation period.
 
 Alerts are provisioned via `scripts/provision-alerts.sh` (idempotent, safe to
 run multiple times). Use `--dry-run` to preview payloads without changes.
@@ -167,6 +168,50 @@ requests and are not covered by this alert. Rescan failures appear in
 `threatcheck.rescan_tick` log entries as skipped URLs.
 
 **Runbook:** [threat-check-api-failures.md](runbooks/threat-check-api-failures.md)
+
+---
+
+### [WRL] Email Delivery Failures
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"email.send_fail"` (app: wrl, subsystem: email) |
+| **Threshold** | > 5 events in 30 minutes |
+| **Priority** | P2 (Medium) |
+| **Retriggering** | 60-minute suppression |
+
+**What it monitors:** Failures from the email dispatch system where the
+provider rejected or failed to deliver an outbound notification email.
+These are `email.send_fail` events logged after the send attempt returns
+an error.
+
+**Threshold rationale:** A single send failure may be a transient provider
+issue. Five failures in 30 minutes indicates a sustained delivery problem —
+credential failure, provider outage, or rate limiting — that warrants
+investigation. P2 (not P1) because captures continue to succeed; email is
+a notification channel, not a data-integrity path.
+
+---
+
+### [WRL] Email Bounces
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"email.bounce" AND bounceType:"hard"` (app: wrl, subsystem: email) |
+| **Threshold** | > 3 events in 24 hours |
+| **Priority** | P3 (Low) |
+| **Retriggering** | 24-hour suppression |
+
+**What it monitors:** Hard bounces reported by the email provider for
+outbound notification emails. A hard bounce means the destination address
+is permanently undeliverable (invalid domain, non-existent mailbox).
+
+**Threshold rationale:** Soft bounces (temporary delivery failures) are
+excluded — only `bounceType:"hard"` counts. Three hard bounces in 24 hours
+is the threshold for a pattern that may affect sender reputation with the
+email provider. At WRL's notification volume, even a few hard bounces in a
+day indicates a data quality issue in recipient addresses that should be
+reviewed. P3 because no data is lost; this is a housekeeping signal.
 
 ---
 

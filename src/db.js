@@ -1121,6 +1121,248 @@ export async function getTenantByStripeCustomerId(db, customerId) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Notification preferences operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Notification type keys -- single source of truth for all notification columns.
+ * Used for validation and dynamic column access (SQL injection prevention).
+ * Maps event type key to the column name in notification_preferences.
+ */
+export const NOTIFICATION_TYPES = [
+  'capture_failure',
+  'approaching_limit',
+  'limit_reached',
+  'invoice_generated',
+  'payment_failure',
+  'weekly_digest',
+];
+
+/**
+ * Validate an email address at write time.
+ * Rejects CRLF characters, null bytes, and values over 254 chars.
+ * Returns null if valid, or an error message string if invalid.
+ *
+ * @param {string} email
+ * @returns {string|null}
+ */
+function validateEmail(email) {
+  if (typeof email !== 'string') return 'email must be a string';
+  if (email.length > 254) return 'email must be 254 characters or fewer';
+  if (/[\r\n\x00]/.test(email)) return 'email must not contain control characters';
+  const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  if (!EMAIL_RE.test(email)) return 'email is not a valid email address';
+  return null;
+}
+
+/**
+ * Transform a D1 notification_preferences row into the canonical camelCase shape.
+ *
+ * @param {object} row
+ * @returns {object}
+ */
+function rowToNotificationPreferences(row) {
+  return {
+    tenantId: row.tenant_id,
+    email: row.email ?? null,
+    emailVerified: Boolean(row.email_verified),
+    emailSource: row.email_source,
+    notifications: {
+      capture_failure:   Boolean(row.notify_capture_failure),
+      approaching_limit: Boolean(row.notify_approaching_limit),
+      limit_reached:     Boolean(row.notify_limit_reached),
+      invoice_generated: Boolean(row.notify_invoice_generated),
+      payment_failure:   Boolean(row.notify_payment_failure),
+      weekly_digest:     Boolean(row.notify_weekly_digest),
+    },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
+  };
+}
+
+/**
+ * Read notification preferences for a tenant.
+ * Returns null if no row exists (caller synthesises defaults).
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<object|null>}
+ */
+export async function getNotificationPreferences(db, tenantId) {
+  const row = await db.prepare(
+    'SELECT * FROM notification_preferences WHERE tenant_id = ?',
+  ).bind(tenantId).first();
+  if (!row) return null;
+  return rowToNotificationPreferences(row);
+}
+
+/**
+ * UPSERT notification preferences with partial update semantics.
+ * Only fields present in `fields` are changed. Recognised field names:
+ *   email (string|null), emailVerified (boolean), emailSource (string),
+ *   notifications (object of NOTIFICATION_TYPES keys -> boolean).
+ *
+ * Changing `email` resets emailVerified to false and sets emailSource to 'manual'
+ * (caller may pass emailSource to override this behaviour if needed).
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {object} fields  Partial update fields
+ * @returns {Promise<{ ok: true, prefs: object } | { ok: false, error: string }>}
+ */
+export async function upsertNotificationPreferences(db, tenantId, fields) {
+  // Email validation
+  if (Object.prototype.hasOwnProperty.call(fields, 'email') && fields.email !== null) {
+    const err = validateEmail(fields.email);
+    if (err) return { ok: false, error: err };
+  }
+
+  const updatedAt = new Date().toISOString();
+
+  // Build the SET clause dynamically from provided fields only.
+  // All column names are hardcoded here -- never interpolated from user input.
+  const setClauses = ['updated_at = ?'];
+  const params = [updatedAt];
+
+  if (Object.prototype.hasOwnProperty.call(fields, 'email')) {
+    setClauses.push('email = ?');
+    params.push(fields.email ?? null);
+    // Changing email resets verification (unless caller explicitly provides emailVerified)
+    if (!Object.prototype.hasOwnProperty.call(fields, 'emailVerified')) {
+      setClauses.push('email_verified = 0');
+    }
+    // And sets source to manual (unless caller explicitly provides emailSource)
+    if (fields.email !== null && !Object.prototype.hasOwnProperty.call(fields, 'emailSource')) {
+      setClauses.push("email_source = 'manual'");
+    }
+    // Clearing email: leave emailSource as-is (no semantic meaning with null email)
+  }
+
+  if (Object.prototype.hasOwnProperty.call(fields, 'emailVerified')) {
+    setClauses.push('email_verified = ?');
+    params.push(fields.emailVerified ? 1 : 0);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(fields, 'emailSource')) {
+    setClauses.push('email_source = ?');
+    params.push(fields.emailSource);
+  }
+
+  if (fields.notifications && typeof fields.notifications === 'object') {
+    const colMap = {
+      capture_failure:   'notify_capture_failure',
+      approaching_limit: 'notify_approaching_limit',
+      limit_reached:     'notify_limit_reached',
+      invoice_generated: 'notify_invoice_generated',
+      payment_failure:   'notify_payment_failure',
+      weekly_digest:     'notify_weekly_digest',
+    };
+    for (const [key, col] of Object.entries(colMap)) {
+      if (Object.prototype.hasOwnProperty.call(fields.notifications, key)) {
+        setClauses.push(`${col} = ?`);
+        params.push(fields.notifications[key] ? 1 : 0);
+      }
+    }
+  }
+
+  const setClause = setClauses.join(', ');
+
+  // Two-step: INSERT OR IGNORE to create the row with schema defaults, then
+  // UPDATE with the requested fields. This avoids the ON CONFLICT pattern where
+  // the SET clause does not execute on the first insert (only on conflict).
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare('INSERT OR IGNORE INTO notification_preferences (tenant_id) VALUES (?)').bind(tenantId),
+    db.prepare(`UPDATE notification_preferences SET ${setClause} WHERE tenant_id = ?`).bind(...params, tenantId),
+  ]);
+
+  const row = await db.prepare(
+    'SELECT * FROM notification_preferences WHERE tenant_id = ?',
+  ).bind(tenantId).first();
+
+  return { ok: true, prefs: rowToNotificationPreferences(row) };
+}
+
+/**
+ * Set a specific notification type to 0 (unsubscribed) for a tenant.
+ * Creates the preferences row if it does not exist.
+ *
+ * IMPORTANT: eventType is validated against NOTIFICATION_TYPES before use.
+ * Never interpolate unvalidated strings into SQL column names.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} eventType  Must be in NOTIFICATION_TYPES
+ * @returns {Promise<{ ok: true } | { ok: false, error: string }>}
+ */
+export async function unsubscribeNotificationType(db, tenantId, eventType) {
+  if (!NOTIFICATION_TYPES.includes(eventType)) {
+    return { ok: false, error: `Unknown notification type: ${eventType}` };
+  }
+  // Column name is safe: derived from the NOTIFICATION_TYPES allowlist above
+  const col = `notify_${eventType}`;
+  const updatedAt = new Date().toISOString();
+
+  await db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId).run();
+
+  await db.prepare(
+    `INSERT INTO notification_preferences (tenant_id, ${col}, updated_at)
+     VALUES (?, 0, ?)
+     ON CONFLICT(tenant_id) DO UPDATE SET ${col} = 0, updated_at = excluded.updated_at`,
+  ).bind(tenantId, updatedAt).run();
+
+  return { ok: true };
+}
+
+/**
+ * Check whether a notification has already been sent for the given period + event_type.
+ * Returns true if a row exists (already sent), false otherwise.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} period  'YYYY-MM' format
+ * @param {string} eventType
+ * @returns {Promise<boolean>}
+ */
+export async function checkNotificationSent(db, tenantId, period, eventType) {
+  const row = await db.prepare(
+    'SELECT 1 FROM notification_sent WHERE tenant_id = ? AND period = ? AND event_type = ?',
+  ).bind(tenantId, period, eventType).first();
+  return row !== null;
+}
+
+/**
+ * Record that a notification has been sent for the given period + event_type.
+ * INSERT OR IGNORE makes this idempotent.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} period  'YYYY-MM' format
+ * @param {string} eventType
+ * @returns {Promise<void>}
+ */
+export async function markNotificationSent(db, tenantId, period, eventType) {
+  await db.prepare(
+    'INSERT OR IGNORE INTO notification_sent (tenant_id, period, event_type) VALUES (?, ?, ?)',
+  ).bind(tenantId, period, eventType).run();
+}
+
+/**
+ * Delete notification preferences for a tenant (right-to-erasure / GDPR).
+ * Also removes the notification_sent deduplication rows for this tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<void>}
+ */
+export async function deleteNotificationPreferences(db, tenantId) {
+  await db.batch([
+    db.prepare('DELETE FROM notification_sent WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM notification_preferences WHERE tenant_id = ?').bind(tenantId),
+  ]);
+}
+
 /**
  * Fetch a session record joined with GitHub user display info.
  * Does NOT filter by expiry -- the caller is responsible for checking
