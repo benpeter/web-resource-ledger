@@ -95,21 +95,21 @@ function makeFlow(doc, fonts, pages) {
    * Draw a two-column key/value row on the same baseline.
    * labelWidth: px width reserved for the label column.
    */
-  function drawKV(label, value, { labelWidth = 130, valueFont, valueSize = 10 } = {}) {
+  function drawKV(label, value, { labelWidth = 130, valueFont, valueSize = 10, indent = 0 } = {}) {
     const vf    = valueFont || fonts.body;
     const lineH = valueSize + 4;
     ensureSpace(lineH);
     state.page.drawText(label, {
-      x: MARGIN, y: state.y, font: fonts.bold, size: 10, color: rgb(0, 0, 0),
+      x: MARGIN + indent, y: state.y, font: fonts.bold, size: 10, color: rgb(0, 0, 0),
     });
     // Truncate value if too wide to fit
-    const maxValW = CONTENT_W - labelWidth - 4;
+    const maxValW = CONTENT_W - labelWidth - indent - 4;
     let val = String(value);
     while (val.length > 4 && vf.widthOfTextAtSize(val, valueSize) > maxValW) {
       val = val.slice(0, -4) + '...';
     }
     state.page.drawText(val, {
-      x: MARGIN + labelWidth, y: state.y, font: vf, size: valueSize, color: rgb(0, 0, 0),
+      x: MARGIN + indent + labelWidth, y: state.y, font: vf, size: valueSize, color: rgb(0, 0, 0),
     });
     state.y -= lineH;
   }
