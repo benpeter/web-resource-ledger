@@ -76,3 +76,4 @@ software development.
 | [0059b-capture-quality](0059b-capture-quality/) | Capture quality improvements: error page detection, subresource limit 200→500, autoconsent v14.63.0, lazy-load scrolling, test battery |
 | [0075-simplify-capture-access-model](0075-simplify-capture-access-model/) | Simplify capture access model: remove share tokens, make individual capture endpoints public, auth-gate list only (Issue #169) |
 | [0076-billing-ui-panel](0076-billing-ui-panel/) | Billing UI panel: usage dashboard with charges, pricing tiers, invoice threshold, payment status, Stripe portal link, eIDAS add-on (Issue #170) |
+| [0074-legal-evidence-positioning](0074-legal-evidence-positioning/) | Legal-evidence positioning: landing page FRE/eIDAS framing, Legal Evidence docs guide, verification comparison (Issue #142) |

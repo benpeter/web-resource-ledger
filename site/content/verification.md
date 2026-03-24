@@ -99,6 +99,8 @@ The `verifyUrl` included in every capture record also renders as a human-readabl
 
 When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture -- meaning the capture cannot have been backdated.
 
+For how these technical properties map to legal authentication standards (FRE 901/902, eIDAS), see [Legal Evidence](/legal-evidence/).
+
 ---
 
 <details>

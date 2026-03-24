@@ -116,6 +116,9 @@ Manage API keys, understand scopes, and set up per-tenant access.
 **[Verification](/verification/)**
 Understand the trust model behind Ed25519 signatures and RFC 3161 timestamps.
 
+**[Legal Evidence](/legal-evidence/)**
+How WRL captures map to FRE 901/902 authentication requirements and eIDAS qualified timestamps.
+
 **[MCP Server](/mcp/)**
 Use WRL with AI agents in Claude Code, Cursor, Windsurf, and other MCP clients.
 

@@ -206,7 +206,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | When GTM efforts start (Phase 0066 ecosystem push) | GTM research |
 | [consider] SEO optimization for landing page (#136) | When GTM efforts start (Phase 0066) | GTM research |
 | [consider] Generative Engine Optimization / GEO (#137) | When GTM efforts start (Phase 0066) | GTM research |
-| [consider] Feature list and competitor comparison (#144) | When landing page content refresh (Phase 0074) | GTM research |
+| ~~[consider] Feature list and competitor comparison (#144)~~ | ~~When landing page content refresh (Phase 0074)~~ -- DONE (Phase 0074): Legal Evidence card with FRE 901/902 + eIDAS references on landing page, verification comparison table on docs site (Issue #142) | GTM research |
 
 ---
 
@@ -277,6 +277,7 @@ Completed items removed from active tracking:
 - ~~R31: Capture metering to Stripe pipeline~~ -- DONE (Phase 0060): hourly batch meter event reporting with idempotency, graduated pricing module (4 tiers), billing sub-object on GET /v1/account/usage, D1 watermark tracking, 32 new tests (Issue #108)
 - ~~R32: Content security scanning~~ -- DONE (Phase 0061): Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement with 451 responses, 2 Coralogix alerts, fail-open degradation (Issue #109)
 - ~~R33: Capture auth gate~~ -- DONE (Phase 0062), REVISED (Phase 0075): simplified to list-only auth gate. Individual capture endpoints made public (128-bit ID = capability token). Share token system removed entirely. (Issues #110, #169)
+- ~~R42: Legal-evidence positioning~~ -- DONE (Phase 0074): Landing page updated with FRE 901(b)(9), 902(14), eIDAS Art. 41(2) references. New Legal Evidence docs guide page. Verification comparison table. No overclaiming -- "designed to support" language throughout. (Issue #142)
 
 ---
 

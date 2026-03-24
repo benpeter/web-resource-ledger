@@ -5,6 +5,7 @@ export default {
     { title: "Getting Started", url: "/" },
     { title: "Authentication", url: "/authentication/" },
     { title: "Verification", url: "/verification/" },
+    { title: "Legal Evidence", url: "/legal-evidence/" },
     { title: "Batch Captures", url: "/batch/" },
     { title: "Limits & Quotas", url: "/limits/" },
     { title: "Webhooks", url: "/webhooks/" },
