@@ -360,6 +360,26 @@
       "act_last": true
     },
     {
+      "phase": "0078",
+      "item": "UI-FIXES",
+      "issue": 185,
+      "title": "UI fixes: URL prepend, verify page text, billing spacing",
+      "act": "5b",
+      "budget_usd": 20,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0079",
+      "item": "CONTENT-QUALITY",
+      "issue": 186,
+      "title": "Homepage pricing update and screenshot quality",
+      "act": "5b",
+      "budget_usd": 20,
+      "depends_on": [],
+      "act_last": true
+    },
+    {
       "phase": "0065",
       "item": "R34",
       "issue": 113,
