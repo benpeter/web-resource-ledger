@@ -126,6 +126,16 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Webhook delivery exhaustion Coralogix alert | When webhook feature is verified in production; alert on DLQ events | Phase 0054, observability-minion |
 | [consider] VERIFICATION_BASE_URL env var enforcement | Currently falls back to hardcoded production URL; require explicit config | Phase 0054, margo |
 
+### Notifications (R36 shipped -- extensions)
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Email verification sending (send-verify-click flow) | When notification delivery rate needs improvement; currently email_verified from GitHub OAuth | Phase 0072, out-of-scope |
+| [consider] Resend bounce webhook handler | When hard bounces cause repeated delivery failures at scale | Phase 0072, out-of-scope |
+| [consider] Digest frequency configuration (daily, biweekly) | When users request non-weekly digest cadences | Phase 0072, out-of-scope |
+| [consider] SMS/push notification channels | When email alone proves insufficient for urgent alerts | Phase 0072, out-of-scope |
+| [consider] Provision RESEND_API_KEY secrets (staging + production) | Before production deployment; manual ops step via wrangler secret put | Phase 0072, iac-minion |
+
 ### Scheduling (R28 shipped -- extensions)
 
 | Item | Condition | Source |
@@ -188,7 +198,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] Scheduled captures (cron-style)~~ | ~~When a user requests recurring capture~~ -- DONE (Phase 0059): CRUD API, Cron Trigger fan-out, per-tenant limits, web UI panel, 55 tests (Issue #107) | MVP.md |
 | [consider] Watch lists / bulk monitoring | Requires scheduling (also parked) | MVP.md |
 | [consider] Change detection / diffing | Requires multiple captures over time; no demand | MVP.md |
-| [consider] Notifications | When event-driven workflows needed | MVP.md |
+| ~~[consider] Notifications~~ | ~~When event-driven workflows needed~~ -- DONE (Phase 0072): 6 notification types (capture failure, approaching/reached free limit, invoice generated, payment failure, weekly digest), Resend email delivery, RFC 8058 unsubscribe, notification preferences API + UI tab, GitHub OAuth email auto-population (Issue #111) | MVP.md |
 | ~~[consider] Billing and quotas~~ | ~~When monetization actively planned~~ -- DONE (Phase 0056): usage-based free limit (100 captures/month without card, unlimited with card), pre-capture enforcement, usage dashboard, per-tenant D1 overrides (Issue #104). Pricing model: pure pay-per-capture, no subscriptions. | MVP.md |
 | ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |
 | [consider] E2E Playwright browser tests for Web UI | When client-side JS complexity grows beyond current 3-view scope | Phase 0049, test-minion |
@@ -279,6 +289,7 @@ Completed items removed from active tracking:
 - ~~R33: Capture auth gate~~ -- DONE (Phase 0062), REVISED (Phase 0075): simplified to list-only auth gate. Individual capture endpoints made public (128-bit ID = capability token). Share token system removed entirely. (Issues #110, #169)
 - ~~R41: FRE 902(13) certification document~~ -- DONE (Phase 0073): Deterministic PDF certificate endpoint `GET /v1/captures/{id}/certificate`, Ed25519-signed, 6-section legal document with attestation block, web UI download button, 42 tests (Issue #141)
 - ~~R42: Legal-evidence positioning~~ -- DONE (Phase 0074): Landing page updated with FRE 901(b)(9), 902(14), eIDAS Art. 41(2) references. New Legal Evidence docs guide page. Verification comparison table. No overclaiming -- "designed to support" language throughout. (Issue #142)
+- ~~R36: Email notifications~~ -- DONE (Phase 0072): 6 transactional notification types, Resend email delivery via Cloudflare Queue, RFC 8058 one-click unsubscribe, notification preferences API (GET/PUT), Notifications UI tab, GitHub OAuth email auto-population, 2 Coralogix alerts (Issue #111)
 
 ---
 

@@ -43,3 +43,20 @@ queue consumer.
 **Free tier interaction**: The 50 free eIDAS captures are independent of the
 200 free base captures. A tenant with eIDAS enabled who makes 100 captures
 pays nothing for the first 50 eIDAS timestamps (plus 200 free captures).
+
+## Billing Notifications (Phase 0072)
+
+Email notifications are sent for billing-related events:
+
+- **Approaching free limit** (at 160/200 captures): prompts adding a payment method
+- **Free limit reached** (200/200): blocks captures, links to payment setup
+- **Invoice generated**: when EUR 5.00 threshold reached, links to Stripe invoice
+- **Payment failure**: urgent alert with grace period deadline, links to update payment method
+
+These notifications are part of the free product -- no additional cost. They serve
+a conversion function (free → paid via "add payment method" CTAs) and a retention
+function (payment failure alerts prevent involuntary churn).
+
+**Email delivery cost**: Resend free tier (100 emails/day) is sufficient at current
+scale. At scale, Resend pricing starts at $20/month for 50k emails. This cost is
+negligible relative to capture revenue and does not need to be passed through to tenants.
