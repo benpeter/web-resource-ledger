@@ -2,7 +2,8 @@
 // Tests for capture retrieval auth gate and tenant isolation.
 //
 // Security invariants verified:
-//   - All retrieval endpoints require authentication (API key or session)
+//   - Non-WACZ retrieval endpoints require authentication (API key or session)
+//   - WACZ artifacts are publicly accessible for independent verification (#162)
 //   - Cross-tenant access returns 404 (NOT 403) with identical response body
 //   - Share token access only granted to the specific capture the token was issued for
 //   - The verify endpoint (/v1/verify/) must remain unauthenticated (in verify-integration.test.js)
@@ -223,9 +224,10 @@ describe('GET /v1/captures/{id}/artifacts -- auth and tenant isolation', () => {
     expect(res.status).toBe(401);
   });
 
-  it('unauthenticated wacz returns 401', async () => {
+  it('unauthenticated wacz returns 200 (public for independent verification)', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/wacz`);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('application/wacz+zip');
   });
 
   it('authenticated owner can access screenshot', async () => {
@@ -269,6 +271,24 @@ describe('GET /v1/captures/{id}/artifacts -- auth and tenant isolation', () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/wacz`, {
       headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
     });
+    expect(res.status).toBe(404);
+  });
+
+  it('unauthenticated headers returns 401', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/headers`);
+    expect(res.status).toBe(401);
+  });
+
+  it('unauthenticated wacz for non-existent capture returns 404', async () => {
+    const unknownId = 'cap_' + '9'.repeat(32);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${unknownId}/artifacts/wacz`);
+    expect(res.status).toBe(404);
+  });
+
+  it('unauthenticated wacz for incomplete capture returns 404', async () => {
+    const pendingId = 'cap_' + 'f'.repeat(32);
+    await createCapture(env.DB, pendingId, 'https://example.com/pending', '1.2.3.4', TENANT_A_ID);
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${pendingId}/artifacts/wacz`);
     expect(res.status).toBe(404);
   });
 
