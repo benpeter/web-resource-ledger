@@ -19,6 +19,7 @@ import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
+import { handleEmailMessage, handleEmailDlqMessage } from './email-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage, handleGetSettings, handleUpdateSettings } from './account.js';
 import { handleGetNotificationPreferences, handleUpdateNotificationPreferences } from './notifications.js';
@@ -326,7 +327,13 @@ export default {
   async queue(batch, env, ctx) {
     for (const msg of batch.messages) {
       const q = batch.queue;
-      if (q.includes('webhooks')) {
+      if (q.includes('emails')) {
+        if (q.endsWith('-dlq')) {
+          await handleEmailDlqMessage(msg, env, ctx);
+        } else {
+          await handleEmailMessage(msg, env, ctx);
+        }
+      } else if (q.includes('webhooks')) {
         if (q.endsWith('-dlq')) {
           await handleWebhookDlqMessage(msg, env, ctx);
         } else {
