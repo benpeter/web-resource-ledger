@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Resource Ledger -- Cryptographic Evidence of Web Content</title>
-  <meta name="description" content="Capture web pages with Ed25519 signatures and RFC 3161 timestamps. Screenshots, rendered HTML, and signed WACZ bundles anyone can independently verify. Free tier available.">
+  <meta name="description" content="Web evidence you can prove. Capture web pages with Ed25519 signatures, RFC 3161 timestamps, and optional eIDAS-qualified timestamps. Signed WACZ bundles anyone can independently verify.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://webresourceledger.com/">
 
@@ -12,7 +12,7 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://webresourceledger.com/">
   <meta property="og:title" content="Web Resource Ledger -- Cryptographic Evidence of Web Content">
-  <meta property="og:description" content="Capture web pages with Ed25519 signatures and RFC 3161 timestamps. Screenshots, rendered HTML, and signed WACZ bundles anyone can independently verify.">
+  <meta property="og:description" content="Capture web pages with Ed25519 signatures, RFC 3161 timestamps, and optional eIDAS-qualified timestamps. Signed WACZ bundles anyone can independently verify.">
   <meta property="og:site_name" content="Web Resource Ledger">
 
   <!-- Twitter Card -->
@@ -62,7 +62,9 @@
       "WACZ evidence bundles",
       "Public verification URLs",
       "REST API and MCP server",
-      "Cookie consent dismissal"
+      "Cookie consent dismissal",
+      "eIDAS-qualified timestamps (optional)",
+      "FRE 901/902 evidence authentication support"
     ],
     "license": "https://github.com/benpeter/web-resource-ledger/blob/main/LICENSE",
     "isAccessibleForFree": true,
@@ -102,7 +104,7 @@
       <div class="container">
         <div class="hero__inner">
           <h1 id="hero-heading">Web evidence you can prove.</h1>
-          <p class="hero__tagline">Capture any web page and get back a signed, timestamped bundle that anyone can independently verify -- no account, no trust required.</p>
+          <p class="hero__tagline">Capture any web page and get a signed, timestamped evidence bundle that anyone can independently verify -- no account, no trust in us required.</p>
           <div class="hero__ctas">
             <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--lg">Get started free</a>
             <a href="https://docs.webresourceledger.com" class="btn btn--lg btn--inverse">Read the docs</a>
@@ -154,22 +156,31 @@
 
           <article class="card use-case-card" aria-labelledby="use-case-legal">
             <h3 id="use-case-legal">Legal Evidence</h3>
-            <p>Web pages change. Screenshots get challenged. When opposing counsel asks "how do you know this page said that on that date?" -- you need more than a PNG. WRL captures produce cryptographically signed bundles with independent timestamps. The verification link works for anyone, including the court.</p>
+            <p>Screenshots get challenged. WRL captures produce signed, timestamped evidence bundles designed to support authentication under federal and EU evidence standards:</p>
+            <ul class="use-case-details">
+              <li><strong>FRE 901(b)(9)</strong> -- automated process producing verifiable results, no human in the chain of custody</li>
+              <li><strong>FRE 902(14)</strong> -- SHA-256 hash integrity as the digital identification process</li>
+              <li><strong>eIDAS Art. 41(2)</strong> -- optional qualified timestamps with legal presumption of accuracy across all EU member states</li>
+            </ul>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/legal-evidence/">How WRL supports evidence authentication &rarr;</a></p>
           </article>
 
           <article class="card use-case-card" aria-labelledby="use-case-compliance">
             <h3 id="use-case-compliance">Compliance Archiving</h3>
             <p>Regulatory audits require evidence that your web-facing content met requirements on specific dates. WRL provides timestamped, tamper-evident records of any public web page. Each capture is independently verifiable -- your auditor can check it without trusting your internal systems.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">How verification works &rarr;</a></p>
           </article>
 
           <article class="card use-case-card" aria-labelledby="use-case-ai">
             <h3 id="use-case-ai">AI Agent Grounding</h3>
             <p>When an AI agent reports what a web page contains, the claim is only as good as the source. WRL's MCP server and REST API let agents capture pages and produce signed evidence of what they observed. Ground agent outputs in verifiable snapshots, not ephemeral browser sessions.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/mcp/">MCP server documentation &rarr;</a></p>
           </article>
 
           <article class="card use-case-card" aria-labelledby="use-case-journalism">
             <h3 id="use-case-journalism">Journalism and Research</h3>
             <p>Sources go offline. Pages get edited. WRL preserves the original with cryptographic proof of when it was captured. Share the verification link with editors, fact-checkers, or readers -- the evidence speaks for itself.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">How verification works &rarr;</a></p>
           </article>
 
         </div>
