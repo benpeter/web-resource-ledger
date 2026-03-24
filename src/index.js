@@ -25,6 +25,7 @@ import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from 
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
+import { generateCertificate } from './certificate.js';
 
 // tva
 
@@ -65,6 +66,7 @@ const routes = [
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
+  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/certificate$/, handleGetCertificate],
   ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',    /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',    /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
@@ -1546,6 +1548,7 @@ async function handleGetCapture(request, env, ctx, match) {
       bundleHash: record.wacz.bundleHash,
     };
     body.verifyUrl = `${base}/v1/verify/${captureId}`;
+    body.certificateUrl = `${base}/v1/captures/${captureId}/certificate`;
     body.timestamps = {
       standard: record.wacz.timestampStatus === 'present',
       qualified: record.wacz.qualifiedTimestampStatus === 'present',
@@ -1646,6 +1649,78 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
       'Content-Length': String(obj.size),
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Access-Control-Allow-Origin': '*',
+    },
+  });
+}
+
+// Public endpoint -- no authentication required (#169).
+// Rate-limited per IP using the verify limiter (same as artifact endpoint).
+// Returns a deterministic, signed PDF certificate for FRE 902(13) use.
+async function handleGetCertificate(request, env, ctx, match) {
+  const captureId  = match[1];
+  const captureAuth = env._captureAuth;
+
+  // Rate-limit unauthenticated requests per IP.
+  if (!captureAuth && env.VERIFY_RATE_LIMITER) {
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
+    if (!success) {
+      const cip = await computeCip(env, clientIp);
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'certificate_public', cip }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
+  }
+
+  const record = await getCapture(env.DB, captureId);
+
+  if (!record) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  // Tenant isolation: only enforced when authenticated.
+  if (captureAuth && record.tenantId !== captureAuth.tenantId) {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  // 451 for quarantined (before generic status check)
+  if (record.status === 'quarantined') {
+    return problemResponse(451, 'Capture artifacts restricted due to content security policy', {
+      'Cache-Control': 'no-store',
+    }, {
+      quarantineReason: record.quarantineReason,
+      quarantinedAt: record.quarantinedAt,
+    });
+  }
+
+  if (record.status !== 'complete') {
+    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+  }
+
+  if (!record.wacz) {
+    return problemResponse(404, 'Certificate not available for this capture', { 'Cache-Control': 'no-store' });
+  }
+
+  const signingKeys = await getSigningKeys(env);
+  if (!signingKeys) {
+    return problemResponse(503, 'Certificate generation unavailable: signing key not configured', {
+      'Cache-Control': 'no-store',
+    });
+  }
+
+  const origin = new URL(request.url).origin;
+  const { pdfBytes, signature } = await generateCertificate(record, signingKeys, origin);
+
+  return new Response(pdfBytes, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="certificate-${captureId}.pdf"`,
+      'Content-Length': String(pdfBytes.length),
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Expose-Headers': 'X-Signature-Ed25519, X-Signature-Key-Id',
+      'X-Signature-Ed25519': signature,
+      'X-Signature-Key-Id': signingKeys.keyId,
     },
   });
 }
