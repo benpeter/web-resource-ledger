@@ -233,7 +233,32 @@ export async function verifyWacz(waczBytes, publicKeyBytes, options = {}) {
   // For v0.1.0: no timestamp check at all (3 checks, not 4)
 
   // ---------------------------------------------------------------------------
-  // Check 5: timestampChain (CLI only -- CMS certificate chain validation)
+  // Check 5: qualifiedTimestamp (v0.2.0 only, when present)
+  // ---------------------------------------------------------------------------
+  let qualifiedTimestampData = null;
+  if (version === '0.2.0') {
+    const sigs = signedData?.signatures ?? [];
+    const qtsEntry = sigs.find(s => s.type === 'rfc3161_qualified');
+
+    if (!qtsEntry) {
+      // Absent = not requested. Do NOT push a skip check -- simply omit.
+    } else {
+      try {
+        const result = verifyTimestamp(qtsEntry.token, signedData.hash);
+        if (result.valid) {
+          checks.push({ name: 'qualifiedTimestamp', status: 'pass' });
+          qualifiedTimestampData = { genTime: result.genTime, tsa: qtsEntry.tsa };
+        } else {
+          checks.push({ name: 'qualifiedTimestamp', status: 'fail', detail: 'Qualified timestamp structurally invalid' });
+        }
+      } catch {
+        checks.push({ name: 'qualifiedTimestamp', status: 'fail', detail: 'Qualified timestamp structurally invalid' });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Check 6: timestampChain (CLI only -- CMS certificate chain validation)
   // ---------------------------------------------------------------------------
   if (version === '0.2.0' && tsToken && trustedRoots && trustedRoots.length > 0 && doCmsChain) {
     try {
@@ -278,6 +303,9 @@ export async function verifyWacz(waczBytes, publicKeyBytes, options = {}) {
     };
     if (timestampData) {
       result.capture.timestamp = timestampData;
+    }
+    if (qualifiedTimestampData) {
+      result.capture.qualifiedTimestamp = qualifiedTimestampData;
     }
   }
 

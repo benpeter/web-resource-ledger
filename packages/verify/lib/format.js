@@ -43,11 +43,12 @@ function bold(text, color)   { return color ? `${ANSI_BOLD}${text}${ANSI_RESET}`
 // ---------------------------------------------------------------------------
 
 const CHECK_LABELS = {
-  artifactHashes:  'File integrity',
-  bundleHash:      'Bundle integrity',
-  signature:       'Digital signature',
-  timestamp:       'Timestamp imprint',
-  timestampChain:  'Timestamp chain',
+  artifactHashes:       'File integrity',
+  bundleHash:           'Bundle integrity',
+  signature:            'Digital signature',
+  timestamp:            'Timestamp imprint',
+  qualifiedTimestamp:   'Qualified timestamp',
+  timestampChain:       'Timestamp chain',
 };
 
 // Fixed display order
@@ -56,6 +57,7 @@ const CHECK_ORDER = [
   'bundleHash',
   'signature',
   'timestamp',
+  'qualifiedTimestamp',
   'timestampChain',
 ];
 
@@ -84,7 +86,8 @@ function checkLabel(name) {
  *     signature?: string,
  *     publicKey?: string,
  *     signedAt?: string,
- *     timestamp?: { genTime: string, tsa: string }
+ *     timestamp?: { genTime: string, tsa: string },
+ *     qualifiedTimestamp?: { genTime: string, tsa: string }
  *   },
  *   keyResolution?: {
  *     keyId: string,
@@ -148,6 +151,11 @@ export function formatHuman(result, opts = {}) {
   const tsa = result.capture?.timestamp?.tsa;
   if (tsa) {
     process.stdout.write(`  TSA       ${tsa}\n`);
+  }
+
+  const qtsa = result.capture?.qualifiedTimestamp?.tsa;
+  if (qtsa) {
+    process.stdout.write(`  QTSA      ${qtsa} (eIDAS)\n`);
   }
 
   const kr = result.keyResolution;
