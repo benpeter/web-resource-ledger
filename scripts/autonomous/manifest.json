@@ -281,15 +281,26 @@
       "act_last": false
     },
     {
-      "phase": "0073",
-      "item": "R41",
-      "issue": 141,
-      "title": "FRE 902(13) certification document",
+      "phase": "0075",
+      "item": "ACCESS",
+      "issue": 169,
+      "title": "Simplify capture access model (remove share tokens)",
       "act": 5,
-      "budget_usd": 40,
+      "budget_usd": 60,
       "depends_on": [
-        "0047",
-        "0049"
+        "0062"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0076",
+      "item": "BILLING-UI",
+      "issue": 170,
+      "title": "Billing UI panel",
+      "act": 5,
+      "budget_usd": 50,
+      "depends_on": [
+        "0058"
       ],
       "act_last": false
     },
@@ -302,7 +313,34 @@
       "budget_usd": 30,
       "depends_on": [
         "0051",
-        "0052"
+        "0052",
+        "0075"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0073",
+      "item": "R41",
+      "issue": 141,
+      "title": "FRE 902(13) certification document",
+      "act": 5,
+      "budget_usd": 40,
+      "depends_on": [
+        "0047",
+        "0049",
+        "0075"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0077",
+      "item": "UI-POLISH",
+      "issue": 161,
+      "title": "UI polish: settings and schedules pages",
+      "act": 5,
+      "budget_usd": 30,
+      "depends_on": [
+        "0076"
       ],
       "act_last": false
     },
@@ -318,18 +356,6 @@
         "0056",
         "0058",
         "0059"
-      ],
-      "act_last": true
-    },
-    {
-      "phase": "0064",
-      "item": "SEVDESK",
-      "issue": 112,
-      "title": "SevDesk/lexoffice integration",
-      "act": "5b",
-      "budget_usd": 60,
-      "depends_on": [
-        "0058"
       ],
       "act_last": true
     },

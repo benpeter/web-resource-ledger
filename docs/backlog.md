@@ -65,10 +65,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Per-endpoint differentiated limits | When different endpoints need different per-tenant limits (currently all share `capture` group) | Phase 0045 |
 | ~~[consider] Billing-tier-based limits~~ | Superseded: usage-based pricing model adopted 2026-03-23 (no tiers). See R29/R31 for billing implementation. | Phase 0045 |
 | ~~[consider] OAuth for web UI~~ | ~~R17 shipped with API key auth~~ -- DONE (Phase 0055): GitHub OAuth self-serve signup, dual-auth boot (session + API key), account settings with key CRUD | security-minion, kickoff, Phase 0049 |
-| ~~[should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant~~ | ~~When a second tenant is onboarded~~ -- DONE: retrieval endpoints now require tenant auth or share token; cross-tenant returns 404; SECURITY.md updated | security-minion, Phase 0037 |
-| [consider] Share token revocation API | When tenants report needing to invalidate a shared link before expiry | Phase 0062, out-of-scope |
-| [consider] Share token access analytics (access counts, last-used tracking) | When tenants need visibility into how shared links are being used | Phase 0062, out-of-scope |
-| [consider] Auto-share tenant configuration (auto-generate share token on capture complete) | When tenants want capture results shared externally without a manual step | Phase 0062, out-of-scope |
+| ~~[should] Evaluate auth requirement for GET /v1/captures/{id} post-multi-tenant~~ | ~~When a second tenant is onboarded~~ -- DONE (Phase 0062), then REVISED (Phase 0075): auth gate simplified to list-only. Individual capture access is public (128-bit ID = capability token). Share tokens removed as redundant. | security-minion, Phase 0037 |
+| ~~[consider] Share token revocation API~~ | Removed: share tokens eliminated in Phase 0075. Capture ID entropy (128 bit) makes them unnecessary. | Phase 0062 → 0075 |
+| ~~[consider] Share token access analytics~~ | Removed: share tokens eliminated in Phase 0075. | Phase 0062 → 0075 |
+| ~~[consider] Auto-share tenant configuration~~ | Removed: share tokens eliminated in Phase 0075. Individual capture URLs are inherently shareable. | Phase 0062 → 0075 |
 
 ### Signing and Legal
 
@@ -168,6 +168,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Smoke test response time assertion | When Coralogix/RUM shows latency regression | test-minion, cd-pipeline |
 | [consider] Automatic rollback on smoke failure | When deploy frequency >1/day or team size >1 | iac-minion, cd-pipeline |
 | [consider] Tag-based release versioning | When external consumers need stable version references | ux-strategy-minion, cd-pipeline |
+| [consider] queue_consumer_no_wait_for_wait_until compat flag (#159) | When Coralogix shows long queue consumer invocations (>60s p95) | Phase 0059b scaling research |
+| [consider] Auto-investigate Coralogix alerts with Claude Code (#139) | When alert volume makes manual triage unsustainable | Phase 0046 |
+| [consider] Disaster recovery strategy + D1 backups (#149) | Before first paying customer | observability-minion |
 
 ### Product Features
 
@@ -187,6 +190,14 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Additional OAuth providers (Google, email/password) | When user demand for non-GitHub auth is demonstrated | Phase 0055, out-of-scope |
 | [consider] OG image for landing page | When landing page visual design is considered final; placeholder worse than none | Phase 0052 |
 | [consider] Fix --color-text-muted contrast on landing page | When a11y audit runs; apply local override (same pattern as docs site in Phase 0051) | Phase 0052 |
+| [consider] Paywall and accept-only CMP handling (#156) | When a user needs to capture paywall/accept-only sites | Phase 0059b |
+| [consider] Automated autoconsent update pipeline (#152) | When manual update lag causes CMP regressions | Phase 0059b |
+| [consider] Embed Stripe payment form instead of redirect (#147) | After Billing UI ships (Phase 0076), if redirect flow is UX problem | Phase 0058 |
+| [consider] Fetch-based capture for non-HTML resources (#143) | When a user needs to capture PDFs, APIs, or static files | Product |
+| [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | When GTM efforts start (Phase 0066 ecosystem push) | GTM research |
+| [consider] SEO optimization for landing page (#136) | When GTM efforts start (Phase 0066) | GTM research |
+| [consider] Generative Engine Optimization / GEO (#137) | When GTM efforts start (Phase 0066) | GTM research |
+| [consider] Feature list and competitor comparison (#144) | When landing page content refresh (Phase 0074) | GTM research |
 
 ---
 
