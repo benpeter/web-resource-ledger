@@ -455,11 +455,14 @@ export default {
       // Auth gate for capture GET routes (retrieval, status, artifacts).
       // CRITICAL: /v1/verify/ must NOT be gated -- verify is public by design.
       // /v1/verify/ uses a different path prefix and is naturally excluded here.
+      // WACZ artifacts are also public -- independent verification requires
+      // downloading the signed bundle without authentication.
       const isCaptureGetRoute = (
         request.method === 'GET' && (
           pathname.startsWith('/v1/captures/') || pathname === '/v1/captures'
         )
       );
+      const isWaczArtifactRequest = /^\/v1\/captures\/cap_[a-f0-9]{32}\/artifacts\/wacz$/.test(pathname);
       if (!response && isCaptureGetRoute) {
         const shareToken = url.searchParams.get('token');
 
@@ -492,8 +495,11 @@ export default {
           // Standard tenant auth (API key or session)
           const auth = await verifyAuth(request, env, { requiredScope: 'read' });
           if (!auth.ok) {
-            // Propagate the original auth failure response (includes WWW-Authenticate header)
-            response = auth.response;
+            // WACZ artifacts are public for independent verification -- auth is optional.
+            // When unauthenticated, env._captureAuth stays unset; handler enforces rate limits.
+            if (!isWaczArtifactRequest) {
+              response = auth.response;
+            }
           } else {
             env._captureAuth = {
               tenantId: auth.tenantId,
@@ -1561,18 +1567,40 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
   const artifactName = match[2];
   const captureAuth = env._captureAuth;
 
+  // Public access is only allowed for WACZ (independent verification).
+  // Other artifacts require authentication.
+  if (!captureAuth && artifactName !== 'wacz') {
+    return problemResponse(401, 'Invalid or missing authentication');
+  }
+
+  // Rate-limit public (unauthenticated) WACZ requests per IP,
+  // same limiter as /v1/verify/ -- both are public verification endpoints.
+  if (!captureAuth && env.VERIFY_RATE_LIMITER) {
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
+    if (!success) {
+      const cip = await computeCip(env, clientIp);
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'wacz_public', cip }) ?? Promise.resolve());
+      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+    }
+  }
+
   const record = await getCapture(env.DB, captureId);
 
-  // Tenant isolation: check ownership before revealing existence.
-  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
   if (!record) {
     return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
   }
-  if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
-    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
-  }
-  if (record.tenantId !== captureAuth.tenantId) {
-    return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+
+  // Tenant isolation: only enforce when authenticated.
+  // Public WACZ access skips tenant checks -- the capture ID is the access key.
+  // SECURITY: Return identical 404 for cross-tenant (not 403) to prevent enumeration.
+  if (captureAuth) {
+    if (captureAuth.scopedCaptureId !== null && captureId !== captureAuth.scopedCaptureId) {
+      return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+    }
+    if (record.tenantId !== captureAuth.tenantId) {
+      return problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+    }
   }
 
   // Quarantined captures: return 451 before the generic status check
