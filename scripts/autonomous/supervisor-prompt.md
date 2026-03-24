@@ -15,6 +15,16 @@ bash scripts/autonomous/orchestrate.sh 0055
 Run in background. Monitor with periodic checks (every 15-20 min for large
 phases, every 5 min when near completion or CI/deploy).
 
+**One phase at a time. No parallel execution.** Each phase merges to main
+and deploys to production. Running two phases in parallel causes:
+- Merge conflicts when both touch shared files (index.js, backlog.md)
+- Deploy commit mismatch (second deploy overwrites first mid-verification)
+- D1 migration number collisions
+- Wasted $30-80 sessions that need manual recovery
+
+The 20-minute wait for serial execution is always cheaper than the
+recovery cost of a parallel collision. Do not optimize for throughput.
+
 The phase runner:
 - Checks dependencies (exits 10 if unmet)
 - Runs the claude session in a worktree
