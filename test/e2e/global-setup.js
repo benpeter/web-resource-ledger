@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(__dirname, '.auth-state.json');
 
 export default async function globalSetup() {
-  const baseUrl = (process.env.E2E_BASE_URL || 'https://wrl-staging.benpeter.workers.dev').replace(/\/$/, '');
+  const baseUrl = (process.env.E2E_BASE_URL || 'https://staging.webresourceledger.com').replace(/\/$/, '');
   const adminKey = process.env.E2E_ADMIN_KEY;
 
   if (!adminKey) {

@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
 
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'https://wrl-staging.benpeter.workers.dev',
+    baseURL: process.env.E2E_BASE_URL || 'https://staging.webresourceledger.com',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

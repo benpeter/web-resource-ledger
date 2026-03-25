@@ -23,7 +23,7 @@ import { test, expect } from '@playwright/test';
 import { createAuthenticatedFetch, pollUntilComplete } from './helpers/api-client.js';
 
 test('enforces capture quota limits', async () => {
-  const baseUrl = (process.env.E2E_BASE_URL || 'https://wrl-staging.benpeter.workers.dev').replace(/\/$/, '');
+  const baseUrl = (process.env.E2E_BASE_URL || 'https://staging.webresourceledger.com').replace(/\/$/, '');
   const adminKey = process.env.E2E_ADMIN_KEY;
 
   if (!adminKey) {

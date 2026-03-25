@@ -29,11 +29,15 @@ source ~/.secrets     # General secrets (Coralogix API key, etc.)
 
 | | Production | Staging |
 |---|---|---|
-| API host | `api.webresourceledger.com` | `wrl-staging.benpeter.workers.dev` |
+| API host | `api.webresourceledger.com` | `staging.webresourceledger.com` |
+| Verify host | `verify.webresourceledger.com` | `verify-staging.webresourceledger.com` |
 | D1 database | `wrl-metadata` | `wrl-metadata-staging` |
 | wrangler `--env` | *(omit)* | `--env staging` |
 | Admin key var | `$WRL_PROD_ADMIN_KEY` | `$WRL_STAGING_ADMIN_KEY` |
 | Capture key var | `$WRL_PROD_CAPTURE_API_KEY` | `$WRL_STAGING_CAPTURE_API_KEY` |
+
+**Note:** The old staging URL `wrl-staging.benpeter.workers.dev` no longer works
+(returns 404). Custom domains replaced it in Phase 0068.
 
 ---
 
@@ -190,23 +194,26 @@ unset CLOUDFLARE_API_TOKEN && npx wrangler d1 execute wrl-metadata --remote \
 
 ## Coralogix
 
-### Query logs via MCP (preferred in Claude Code)
+### Query logs via curl (always use a temp file)
 
-Use `mcp__coralogix__query_logs` with DataPrime syntax:
-
-```
-source logs
-| filter $l.applicationname == 'wrl' && $l.subsystemname == 'capture'
-| filter $d.event == 'capture.success'
-| sort by $m.timestamp desc
-| limit 20
-```
-
-Subsystems: `capture`, `security`, `notification`, `admin`, `billing`.
-
-### Query logs via curl
+DataPrime syntax uses `$` for field access, which conflicts with shell
+variable expansion. **Always write the query to a temp file** — inline
+`-d '{...}'` is a quoting minefield.
 
 ```bash
+# 1. Write query to temp file
+cat > /tmp/cx-query.json << 'EOF'
+{
+  "query": "source logs | filter $l.applicationname == 'wrl' && $l.subsystemname == 'email' | limit 20",
+  "metadata": {
+    "startDate": "2026-03-25T15:00:00.000Z",
+    "endDate": "2026-03-25T16:00:00.000Z",
+    "tier": "TIER_FREQUENT_SEARCH"
+  }
+}
+EOF
+
+# 2. Run query
 source ~/.secrets && curl -s -X POST \
   "https://ng-api-http.eu2.coralogix.com/api/v1/dataprime/query" \
   -H "Authorization: Bearer $WRL_CORALOGIX_API_KEY" \
@@ -214,9 +221,82 @@ source ~/.secrets && curl -s -X POST \
   -d @/tmp/cx-query.json
 ```
 
-Write the query to a temp file to avoid shell escaping hell with DataPrime's `$` syntax.
+**Important:** Use `<< 'EOF'` (quoted heredoc) so the shell does NOT expand
+`$l`, `$d`, `$m` — those are DataPrime variables, not shell variables. The
+`startDate`/`endDate` must be hardcoded ISO strings; use `date -u` to
+compute them before writing the file.
 
-**Keys:** Use `$WRL_CORALOGIX_API_KEY` (personal, all perms) for querying. `$WRL_CORALOGIX_SEND_KEY` is ingestion-only and will auth-fail on queries.
+### DataPrime syntax gotchas
+
+| What you want | Wrong | Right |
+|---|---|---|
+| Regex match | `$d.event =~ 'email'` | `$d.event ~~ 'email'` (but see below) |
+| Free-text search | `$d.event ~~ 'email'` | `$d ~~ 'email'` (`~~` only works on `$d`, not subfields) |
+| Field equality | `$d.event == 'capture.success'` | `$d.event == 'capture.success'` ✅ |
+| AND | `&&` | `&&` ✅ |
+| Subsystem filter | `$l.subsystemname == 'email'` | `$l.subsystemname == 'email'` ✅ |
+
+**`~~` (contains/regex) only works on `$d`** (the full userData blob), not on
+individual fields like `$d.event`. For field-level matching, use `==` with the
+exact value. For substring search across all fields, use `$d ~~ 'pattern'`.
+
+### Response parsing
+
+The API returns newline-delimited JSON. Each line has a `result.results[]`
+array. Parse with:
+
+```python
+# Pipe curl output to this
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try:
+        obj = json.loads(line)
+        for r in obj.get('result',{}).get('results',[]):
+            ts = [m['value'] for m in r.get('metadata',[]) if m['key']=='timestamp'][0][:19]
+            sub = [l['value'] for l in r.get('labels',[]) if l['key']=='subsystemname'][0]
+            ud = r.get('userData','')[:300]
+            print(f'{ts} [{sub}] {ud}')
+    except: pass
+```
+
+### WRL subsystem names
+
+| Subsystem | Events |
+|---|---|
+| `capture` | `capture.submit`, `capture.success`, `capture.fail`, `capture.list` |
+| `email` | `email.dispatch_suppressed`, `email.dispatch_error`, `email.send_success`, `email.send_fail`, `email.verify_send`, `email.verify_success` |
+| `security` | `security.rate_limit`, `security.auth_fail` |
+| `verify` | `verify.request` |
+| `schedule` | `schedule.tick_empty`, `schedule.tick` |
+| `admin` | `admin.tenant_config_updated` |
+| `billing` | `billing.meter_report` |
+
+### Common queries
+
+```
+# All email events for a tenant (last hour)
+source logs | filter $l.applicationname == 'wrl' && $l.subsystemname == 'email' | limit 50
+
+# All events for a specific tenant (free-text search on userData)
+source logs | filter $l.applicationname == 'wrl' && $d ~~ 'gh-398734' | limit 30
+
+# Failed captures
+source logs | filter $l.applicationname == 'wrl' && $d.event == 'capture.fail' | limit 20
+
+# Rate limit hits
+source logs | filter $l.applicationname == 'wrl' && $d.event == 'security.rate_limit' | limit 20
+```
+
+**Keys:** Use `$WRL_CORALOGIX_API_KEY` (personal, all perms) for querying.
+`$WRL_CORALOGIX_SEND_KEY` is ingestion-only and will auth-fail on queries.
+
+### MCP server (when available)
+
+A Coralogix MCP server is configured in `~/.claude.json` but may not always
+connect. When it's available, use `mcp__coralogix__query_logs` with DataPrime.
+Fall back to the curl approach above when the MCP server is unavailable.
 
 ### Investigate an alert
 
@@ -324,7 +404,7 @@ CI deploy tokens lack D1 permissions (error 7403). Migrations are always manual.
 
 ```bash
 curl -sf https://api.webresourceledger.com/health | jq '.build'
-curl -sf https://wrl-staging.benpeter.workers.dev/health | jq '.build'
+curl -sf https://staging.webresourceledger.com/health | jq '.build'
 ```
 
 Compare `.build.commit` against expected merge SHA:

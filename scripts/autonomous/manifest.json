@@ -407,6 +407,140 @@
         "0062"
       ],
       "act_last": true
+    },
+    {
+      "phase": "0080",
+      "item": "UI-FIXES-2",
+      "issue": 213,
+      "title": "UI/UX fixes: sign-in contrast, billing status, docs link, key-creation notify",
+      "act": 7,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0081",
+      "item": "WEBHOOK-FIX",
+      "issue": 212,
+      "title": "Fix webhook docs-vs-code discrepancies and add missing payload data",
+      "act": 7,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0082",
+      "item": "BACKEND-FIXES",
+      "issue": 214,
+      "title": "Backend fixes: notification skip, Content-Disposition filenames",
+      "act": 7,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0083",
+      "item": "TIMESTAMP-MERGE",
+      "issue": 167,
+      "title": "Merge timestamp checks into single hierarchical Time verification row",
+      "act": 7,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0084",
+      "item": "EMAIL-TESTS",
+      "issue": 199,
+      "title": "Add tests for email verification flow",
+      "act": 7,
+      "depends_on": [],
+      "act_last": true
+    },
+    {
+      "phase": "0085",
+      "item": "MCP-SYNC",
+      "issue": 202,
+      "title": "Sync MCP server with current API and establish drift prevention",
+      "act": 8,
+      "depends_on": [
+        "0081"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0086",
+      "item": "ARCH-DIAGRAMS",
+      "issue": 168,
+      "title": "Mermaid architecture diagrams for documentation site",
+      "act": 8,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0087",
+      "item": "LLM-REF",
+      "issue": 201,
+      "title": "LLM-oriented developer reference for WRL internals",
+      "act": 8,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0088",
+      "item": "AUTOCONSENT-CI",
+      "issue": 152,
+      "title": "Automated autoconsent update pipeline (GitHub Action)",
+      "act": 8,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0089",
+      "item": "LANDING-REVIEW",
+      "issue": 207,
+      "title": "Review landing page legal claims placement and section ordering",
+      "act": 8,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0090",
+      "item": "FEATURES-TABLE",
+      "issue": 144,
+      "title": "Feature list and competitor comparison table",
+      "act": 8,
+      "depends_on": [
+        "0089"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0091",
+      "item": "SEO-GEO",
+      "issue": 215,
+      "title": "SEO + GEO optimization for landing page and docs site",
+      "act": 8,
+      "depends_on": [
+        "0090"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0092",
+      "item": "LEGAL-VERIFY",
+      "issue": 166,
+      "title": "--legal flag for verify CLI court-admissible reports",
+      "act": 9,
+      "depends_on": [
+        "0083"
+      ],
+      "act_last": false
+    },
+    {
+      "phase": "0093",
+      "item": "ADMIN-DASH",
+      "issue": 203,
+      "title": "Operator admin dashboard for tenant and usage visibility",
+      "act": 9,
+      "depends_on": [],
+      "act_last": true
     }
   ]
 }

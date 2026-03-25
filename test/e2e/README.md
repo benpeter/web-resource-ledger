@@ -22,7 +22,7 @@ Node.js 22 is recommended (see `.nvmrc`). The suite requires Node >= 20.
 
 | Variable | Required | Description |
 |---|---|---|
-| `E2E_BASE_URL` | No | Staging Worker URL. Defaults to `https://wrl-staging.benpeter.workers.dev` |
+| `E2E_BASE_URL` | No | Staging Worker URL. Defaults to `https://staging.webresourceledger.com` |
 | `E2E_ADMIN_KEY` | Yes | Admin API key for staging. Used by global-setup to create test tenant. |
 
 Get the admin key from 1Password:
@@ -46,7 +46,7 @@ Local runs target the same staging environment as CI -- there is no separate
 local-only environment.
 
 ```bash
-export E2E_BASE_URL=https://wrl-staging.benpeter.workers.dev
+export E2E_BASE_URL=https://staging.webresourceledger.com
 export E2E_ADMIN_KEY=<admin-key-from-1password>
 npm run test:e2e
 ```
@@ -200,7 +200,7 @@ response is not `{ "status": "ok" }`. If tests never start, confirm staging
 is reachable:
 
 ```bash
-curl https://wrl-staging.benpeter.workers.dev/health
+curl https://staging.webresourceledger.com/health
 ```
 
 **Admin rate limited (429)**
@@ -232,7 +232,7 @@ tenants can be cleaned up by revoking their keys via the admin API:
 
 ```bash
 # Delete a key by its hash (get the hash from the key creation response or D1)
-curl -X DELETE https://wrl-staging.benpeter.workers.dev/v1/admin/keys/{keyHash} \
+curl -X DELETE https://staging.webresourceledger.com/v1/admin/keys/{keyHash} \
   -H "Authorization: Bearer $E2E_ADMIN_KEY"
 ```
 
