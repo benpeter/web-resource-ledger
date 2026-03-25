@@ -95,7 +95,7 @@ Verification PASSED
   File integrity     PASS
   Bundle integrity   PASS
   Digital signature  PASS
-  Timestamp imprint  PASS
+  Time verification  PASS
   Timestamp chain    PASS
 
 Captured URL:  https://example.com
