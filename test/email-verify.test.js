@@ -192,12 +192,8 @@ describe('email verify token -- generation and verification', () => {
 
 describe('GET /v1/notifications/verify-email', () => {
   it('returns 200 HTML with confirm page for a valid token', async () => {
-    const { tenantId } = await createTosSession();
     // Set pending email via the notifications PUT endpoint
     const { cookie } = await createTosSession({ githubId: 20001 });
-    await env.DB.prepare(
-      "UPDATE github_users SET tos_accepted_at = '2026-01-01T00:00:00.000Z', tos_version = '1.0' WHERE github_id = ?",
-    ).bind(20001).run();
     const putRes = await SELF.fetch(NOTIF_URL, {
       method: 'PUT',
       headers: {
@@ -209,8 +205,6 @@ describe('GET /v1/notifications/verify-email', () => {
       body: JSON.stringify({ email: 'verify-me@example.com' }),
     });
     expect(putRes.status).toBe(200);
-    const putBody = await putRes.json();
-    const tid = putBody.tenantId ?? `gh-20001`;
 
     const token = await generateEmailVerifyToken(env.SESSION_SECRET, 'gh-20001', 'verify-me@example.com');
     const res = await SELF.fetch(`${VERIFY_URL}?token=${encodeURIComponent(token)}`, {
@@ -235,7 +229,7 @@ describe('GET /v1/notifications/verify-email', () => {
 
   it('returns 200 HTML with invalid-link page for expired token', async () => {
     const ts = Math.floor(Date.now() / 1000) - 90000;
-    const token = await craftEmailVerifyToken('deadbeef'.repeat(8), {
+    const token = await craftEmailVerifyToken(env.SESSION_SECRET, {
       t: 'gh-20001', e: 'verify-me@example.com', ts, v: 1,
     });
     const res = await SELF.fetch(`${VERIFY_URL}?token=${encodeURIComponent(token)}`, {
@@ -334,7 +328,7 @@ describe('POST /v1/notifications/verify-email', () => {
 
   it('returns 200 failure page for expired token', async () => {
     const ts = Math.floor(Date.now() / 1000) - 90000;
-    const token = await craftEmailVerifyToken('deadbeef'.repeat(8), {
+    const token = await craftEmailVerifyToken(env.SESSION_SECRET, {
       t: 'gh-30002', e: 'any@example.com', ts, v: 1,
     });
     const res = await SELF.fetch(`${VERIFY_URL}?token=${encodeURIComponent(token)}`, {
