@@ -161,3 +161,7 @@ When per-tenant key management is enabled (the admin API is configured), the leg
 We recommend migrating to per-tenant keys. Create a key via `POST /v1/admin/keys` and replace the static value in your integrations. Per-tenant keys support scope restrictions, named labels, and individual revocation -- none of which are possible with the legacy single-key mode.
 
 </details>
+
+---
+
+For the full security model behind API key authentication — including hash storage, timing-safe comparison, scope enforcement, and session security — see the [Security Whitepaper](/security/whitepaper/).

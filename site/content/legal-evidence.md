@@ -16,7 +16,7 @@ A verified WRL capture establishes three properties:
 - **Integrity**: no byte of that content has been modified since capture. Every artifact is covered by a SHA-256 hash, and the full bundle is covered by an Ed25519 signature.
 - **Timing**: an independent Timestamp Authority (DigiCert) recorded the exact bundle hash at a specific UTC time using the RFC 3161 protocol. That timestamp is bound to this bundle and cannot be transferred to a different one.
 
-For a full explanation of how verification works and what each check confirms, see [Verification](/verification/).
+For a full explanation of how verification works and what each check confirms, see [Verification](/verification/). For the cryptographic implementation details behind signing and timestamping, see the [Security Whitepaper — Encryption section](/security/whitepaper/#5-encryption).
 
 ---
 
