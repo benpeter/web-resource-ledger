@@ -1020,6 +1020,7 @@ input, select, textarea {
 }
 .usage-bar-fill--warning { background: var(--color-warning); }
 .usage-bar-fill--critical { background: var(--color-error); }
+.usage-bar-fill--unlimited { background: var(--color-accent); opacity: 0.25; }
 .usage-footer {
   display: flex;
   justify-content: space-between;
