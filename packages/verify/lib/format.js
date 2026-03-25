@@ -48,6 +48,7 @@ const CHECK_LABELS = {
   signature:            'Digital signature',
   timestamp:            'Timestamp imprint',
   qualifiedTimestamp:   'Qualified timestamp',
+  timeVerification:     'Time verification',
   timestampChain:       'Timestamp chain',
 };
 
@@ -56,8 +57,7 @@ const CHECK_ORDER = [
   'artifactHashes',
   'bundleHash',
   'signature',
-  'timestamp',
-  'qualifiedTimestamp',
+  'timeVerification',
   'timestampChain',
 ];
 
@@ -69,6 +69,69 @@ const CHECK_ORDER = [
  */
 function checkLabel(name) {
   return CHECK_LABELS[name] ?? name;
+}
+
+// ---------------------------------------------------------------------------
+// Timestamp check merging
+// ---------------------------------------------------------------------------
+
+/**
+ * Merges `timestamp` and `qualifiedTimestamp` checks into a single
+ * `timeVerification` check. The merged entry replaces the first removed entry
+ * in the array, preserving display order. Used only by the human formatter --
+ * JSON output is not affected.
+ *
+ * Status priority: fail > pass > skip.
+ *
+ * @param {Array<{ name: string, status: string, detail?: string }>} checks
+ * @returns {Array<{ name: string, status: string, detail?: string }>}
+ */
+function mergeTimestampChecks(checks) {
+  const ts  = checks.find(c => c.name === 'timestamp');
+  const qts = checks.find(c => c.name === 'qualifiedTimestamp');
+
+  if (!ts && !qts) return checks;
+
+  // Determine merged status: fail > pass > skip
+  let mergedStatus = 'skip';
+  let mergedDetail;
+  if ((ts && ts.status === 'fail') || (qts && qts.status === 'fail')) {
+    mergedStatus = 'fail';
+    mergedDetail = (ts && ts.status === 'fail') ? ts.detail : qts.detail;
+  } else if ((ts && ts.status === 'pass') || (qts && qts.status === 'pass')) {
+    mergedStatus = 'pass';
+  }
+
+  // Determine detail text for the merged check
+  if (mergedStatus !== 'fail') {
+    if (qts && qts.status === 'pass') {
+      mergedDetail = 'Qualified electronic timestamp (eIDAS Art. 41)';
+    } else if (!qts && ts && ts.status === 'pass') {
+      mergedDetail = 'Independent RFC 3161 timestamp';
+    } else if (!qts && ts && ts.status === 'skip') {
+      mergedDetail = 'No independent timestamp obtained';
+    }
+  }
+
+  const merged = { name: 'timeVerification', status: mergedStatus };
+  if (mergedDetail !== undefined) merged.detail = mergedDetail;
+
+  // Replace at position of first removed entry
+  const firstIdx = checks.findIndex(c => c.name === 'timestamp' || c.name === 'qualifiedTimestamp');
+  const result = [];
+  const removed = new Set(['timestamp', 'qualifiedTimestamp']);
+  let inserted = false;
+  for (let i = 0; i < checks.length; i++) {
+    if (removed.has(checks[i].name)) {
+      if (!inserted) {
+        result.push(merged);
+        inserted = true;
+      }
+    } else {
+      result.push(checks[i]);
+    }
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,13 +165,16 @@ function checkLabel(name) {
 export function formatHuman(result, opts = {}) {
   const color = shouldColor(opts);
 
+  // Merge timestamp checks before ordering
+  const merged = mergeTimestampChecks(result.checks);
+
   // Sort checks into fixed display order, preserving any extras at the end
   const orderedChecks = [];
   for (const name of CHECK_ORDER) {
-    const c = result.checks.find(ch => ch.name === name);
+    const c = merged.find(ch => ch.name === name);
     if (c) orderedChecks.push(c);
   }
-  for (const c of result.checks) {
+  for (const c of merged) {
     if (!CHECK_ORDER.includes(c.name)) orderedChecks.push(c);
   }
 
