@@ -24,8 +24,9 @@ import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from 
 import { handleEmailMessage, handleEmailDlqMessage, dispatchNotification } from './email-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage, handleGetSettings, handleUpdateSettings } from './account.js';
-import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, handleWeeklyDigest } from './notifications.js';
+import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, handleResendVerification, handleWeeklyDigest } from './notifications.js';
 import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
+import { handleGetVerifyEmail, handlePostVerifyEmail } from './email-verify.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
@@ -109,9 +110,12 @@ const routes = [
   ['PATCH',  /^\/v1\/account\/settings$/, handleUpdateSettings],
   ['GET',    /^\/v1\/account\/notifications$/, handleGetNotificationPreferences],
   ['PUT',    /^\/v1\/account\/notifications$/, handleUpdateNotificationPreferences],
-  // Unsubscribe routes (unauthenticated -- rate-limited via AUTH_RATE_LIMITER in fetch handler)
+  ['POST',   /^\/v1\/account\/notifications\/resend-verification$/, handleResendVerification],
+  // Unauthenticated notification action routes (rate-limited via AUTH_RATE_LIMITER in fetch handler)
   ['GET',    /^\/v1\/notifications\/unsubscribe$/, handleGetUnsubscribe],
   ['POST',   /^\/v1\/notifications\/unsubscribe$/, handlePostUnsubscribe],
+  ['GET',    /^\/v1\/notifications\/verify-email$/, handleGetVerifyEmail],
+  ['POST',   /^\/v1\/notifications\/verify-email$/, handlePostVerifyEmail],
   // Billing routes (session-gated in fetch handler via /v1/account/ prefix check)
   ['POST',   /^\/v1\/billing\/checkout$/, handleBillingCheckout],
   ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
@@ -137,6 +141,7 @@ function getRateLimitGroup(method, pathname) {
   if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'account';
   if (pathname.startsWith('/auth/')) return 'auth';
   if (pathname.startsWith('/v1/notifications/unsubscribe')) return 'auth';
+  if (pathname.startsWith('/v1/notifications/verify-email')) return 'auth';
   return null;
 }
 
@@ -534,10 +539,11 @@ export default {
         }
       }
 
-      // Auth rate limit for /auth/* routes and /v1/notifications/unsubscribe
+      // Auth rate limit for /auth/* routes, /v1/notifications/unsubscribe, and /v1/notifications/verify-email
       const isAuthRoute = pathname.startsWith('/auth/');
       const isUnsubscribeRoute = pathname.startsWith('/v1/notifications/unsubscribe');
-      if (!response && (isAuthRoute || isUnsubscribeRoute) && env.AUTH_RATE_LIMITER) {
+      const isVerifyEmailRoute = pathname.startsWith('/v1/notifications/verify-email');
+      if (!response && (isAuthRoute || isUnsubscribeRoute || isVerifyEmailRoute) && env.AUTH_RATE_LIMITER) {
         const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
         const { success } = await env.AUTH_RATE_LIMITER.limit({ key: clientIp });
         if (!success) {

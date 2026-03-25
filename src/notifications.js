@@ -21,8 +21,10 @@
  */ // tva
 
 import { jsonResponse, problemResponse } from './responses.js';
-import { getNotificationPreferences, upsertNotificationPreferences, NOTIFICATION_TYPES } from './db.js';
+import { getNotificationPreferences, upsertNotificationPreferences, setPendingEmail, clearPendingEmail, NOTIFICATION_TYPES } from './db.js';
 import { log } from './log.js';
+import { generateEmailVerifyToken } from './email-verify.js';
+import { emailVerificationEmail } from './email/templates/email-verification.js';
 import { dispatchNotification } from './email-dispatch.js';
 
 const ACCOUNT_CACHE = { 'Cache-Control': 'private, no-store' };
@@ -86,6 +88,8 @@ export async function handleGetNotificationPreferences(_request, env, _ctx, _mat
     emailSource: prefs.emailSource,
     notifications: prefs.notifications,
     updatedAt: prefs.updatedAt,
+    pendingEmail: prefs.pendingEmail,
+    verificationSentAt: prefs.verificationSentAt,
   }, 200, ACCOUNT_CACHE);
 }
 
@@ -151,6 +155,14 @@ export async function handleUpdateNotificationPreferences(request, env, ctx, _ma
     if (body.email !== null && typeof body.email !== 'string') {
       return problemResponse(400, "Field 'email' must be a string or null", ACCOUNT_CACHE);
     }
+    if (body.email !== null) {
+      if (body.email.length > 254) {
+        return problemResponse(400, "Field 'email' must not exceed 254 characters", ACCOUNT_CACHE);
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+        return problemResponse(400, "Field 'email' must be a valid email address", ACCOUNT_CACHE);
+      }
+    }
   }
 
   // Validate notifications sub-object
@@ -172,20 +184,83 @@ export async function handleUpdateNotificationPreferences(request, env, ctx, _ma
 
   const { tenantId } = env._session;
 
-  // Build the fields object for the db layer
-  const fields = {};
-  if (Object.prototype.hasOwnProperty.call(body, 'email')) {
-    fields.email = body.email ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(body, 'notifications')) {
-    fields.notifications = body.notifications;
+  // Handle email change via pending-email flow
+  const hasEmailChange = Object.prototype.hasOwnProperty.call(body, 'email');
+  const hasNotificationsChange = Object.prototype.hasOwnProperty.call(body, 'notifications');
+
+  let verificationEmailSent = false;
+  let pendingEmailValue = undefined;
+
+  if (hasEmailChange) {
+    const newEmail = body.email ?? null;
+
+    if (newEmail === null) {
+      // Clearing email: also clear any pending verification
+      await clearPendingEmail(env.DB, tenantId);
+      // Also clear the primary email via upsert
+      const clearResult = await upsertNotificationPreferences(env.DB, tenantId, { email: null });
+      if (!clearResult.ok) {
+        return problemResponse(400, clearResult.error, ACCOUNT_CACHE);
+      }
+    } else {
+      // New email: rate-limit check before writing
+      const currentPrefs = await getNotificationPreferences(env.DB, tenantId);
+      if (currentPrefs?.verificationSentAt) {
+        const sentAt = new Date(currentPrefs.verificationSentAt).getTime();
+        const secondsSince = (Date.now() - sentAt) / 1000;
+        if (secondsSince < 60) {
+          return problemResponse(429, 'Please wait before requesting another verification email.', {
+            ...ACCOUNT_CACHE,
+            'Retry-After': '60',
+          });
+        }
+      }
+
+      // Store pending email and record send timestamp
+      await setPendingEmail(env.DB, tenantId, newEmail);
+
+      // Generate verification token and build URL
+      const baseUrl = env.VERIFICATION_BASE_URL
+        ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+        : 'https://api.webresourceledger.com';
+      const token = await generateEmailVerifyToken(env.SESSION_SECRET, tenantId, newEmail);
+      const verificationUrl = `${baseUrl}/v1/notifications/verify-email?token=${token}`;
+
+      // Render and enqueue the transactional verification email
+      const rendered = emailVerificationEmail({ verificationUrl });
+      await env.EMAIL_QUEUE.send({
+        tenantId,
+        notificationType: 'email_verification',
+        to: newEmail,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+
+      ctx.waitUntil(log(env, 3, 'email', {
+        event: 'email.verify_send',
+        tenantId,
+      }) ?? Promise.resolve());
+
+      verificationEmailSent = true;
+      pendingEmailValue = newEmail;
+    }
   }
 
-  const result = await upsertNotificationPreferences(env.DB, tenantId, fields);
-
-  if (!result.ok) {
-    return problemResponse(400, result.error, ACCOUNT_CACHE);
+  // Handle notifications-only update (or combined with email null clear)
+  let notifPrefs = null;
+  if (hasNotificationsChange) {
+    const notifResult = await upsertNotificationPreferences(env.DB, tenantId, {
+      notifications: body.notifications,
+    });
+    if (!notifResult.ok) {
+      return problemResponse(400, notifResult.error, ACCOUNT_CACHE);
+    }
+    notifPrefs = notifResult.prefs;
   }
+
+  // Read current prefs for response (always fresh from DB)
+  const finalPrefs = await getNotificationPreferences(env.DB, tenantId);
 
   ctx.waitUntil(log(env, 3, 'oauth', {
     event: 'oauth.notification_prefs_update',
@@ -194,13 +269,97 @@ export async function handleUpdateNotificationPreferences(request, env, ctx, _ma
     responseStatus: 200,
   }) ?? Promise.resolve());
 
-  return jsonResponse({
-    email: result.prefs.email,
-    emailVerified: result.prefs.emailVerified,
-    emailSource: result.prefs.emailSource,
-    notifications: result.prefs.notifications,
-    updatedAt: result.prefs.updatedAt,
-  }, 200, ACCOUNT_CACHE);
+  const responseBody = {
+    email: finalPrefs?.email ?? null,
+    emailVerified: finalPrefs?.emailVerified ?? false,
+    emailSource: finalPrefs?.emailSource ?? 'github',
+    notifications: finalPrefs?.notifications ?? notifPrefs?.notifications ?? null,
+    updatedAt: finalPrefs?.updatedAt ?? null,
+    pendingEmail: finalPrefs?.pendingEmail ?? null,
+    verificationSentAt: finalPrefs?.verificationSentAt ?? null,
+  };
+
+  if (verificationEmailSent) {
+    responseBody.verificationEmailSent = true;
+    responseBody.pendingEmail = pendingEmailValue;
+  }
+
+  return jsonResponse(responseBody, 200, ACCOUNT_CACHE);
+}
+
+// ---------------------------------------------------------------------------
+// POST /v1/account/notifications/resend-verification
+// ---------------------------------------------------------------------------
+
+/**
+ * Resend the email verification message for the currently pending email address.
+ * Session-gated and CSRF-gated.
+ * Rate-limited: 429 with Retry-After: 60 if a send occurred less than 60s ago.
+ *
+ * @param {Request} request
+ * @param {object} env  env._session is set by the router
+ * @param {ExecutionContext} ctx
+ * @param {RegExpMatchArray} _match  unused
+ * @returns {Promise<Response>}
+ */
+export async function handleResendVerification(request, env, ctx, _match) {
+  // CSRF defense in depth
+  const csrfError = checkCsrf(request);
+  if (csrfError) return csrfError;
+
+  const { tenantId } = env._session;
+
+  const prefs = await getNotificationPreferences(env.DB, tenantId);
+
+  if (!prefs?.pendingEmail) {
+    return problemResponse(400, 'No pending email verification found.', ACCOUNT_CACHE);
+  }
+
+  // Rate limit: reject if last send was less than 60 seconds ago
+  if (prefs.verificationSentAt) {
+    const sentAt = new Date(prefs.verificationSentAt).getTime();
+    const secondsSince = (Date.now() - sentAt) / 1000;
+    if (secondsSince < 60) {
+      ctx.waitUntil(log(env, 4, 'email', {
+        event: 'email.verify_rate_limit',
+        tenantId,
+      }) ?? Promise.resolve());
+      return problemResponse(429, 'Please wait before requesting another verification email.', {
+        ...ACCOUNT_CACHE,
+        'Retry-After': '60',
+      });
+    }
+  }
+
+  const pendingEmail = prefs.pendingEmail;
+
+  // Update verification_sent_at by calling setPendingEmail again with the same address
+  await setPendingEmail(env.DB, tenantId, pendingEmail);
+
+  // Generate new token and build URL
+  const baseUrl = env.VERIFICATION_BASE_URL
+    ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+    : 'https://api.webresourceledger.com';
+  const token = await generateEmailVerifyToken(env.SESSION_SECRET, tenantId, pendingEmail);
+  const verificationUrl = `${baseUrl}/v1/notifications/verify-email?token=${token}`;
+
+  // Render and enqueue
+  const rendered = emailVerificationEmail({ verificationUrl });
+  await env.EMAIL_QUEUE.send({
+    tenantId,
+    notificationType: 'email_verification',
+    to: pendingEmail,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+  });
+
+  ctx.waitUntil(log(env, 3, 'email', {
+    event: 'email.verify_send',
+    tenantId,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({ sent: true }, 200, ACCOUNT_CACHE);
 }
 
 // ---------------------------------------------------------------------------
