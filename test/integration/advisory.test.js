@@ -16,7 +16,7 @@ import { acquire, connect } from '@cloudflare/playwright';
 import { performCapture } from '../../src/capture.js';
 import { createCapture, getCapture } from '../../src/db.js';
 
-const captureId = 'cap_inttest00000000000000000000b1';
+const captureId = 'cap_0000000000000000000000000000e5b1';
 
 async function cleanupCapture(id) {
   await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(id).run();

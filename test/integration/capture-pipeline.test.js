@@ -66,7 +66,7 @@ async function cleanupCapture(captureId) {
 // ---------------------------------------------------------------------------
 
 describe('integration: fast page -- baseline sanity', () => {
-  const captureId = 'cap_inttest00000000000000000000a1';
+  const captureId = 'cap_0000000000000000000000000000e5a1';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -100,7 +100,7 @@ describe('integration: fast page -- baseline sanity', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: fast page -- WACZ and timestamp', () => {
-  const captureId = 'cap_inttest00000000000000000000a2';
+  const captureId = 'cap_0000000000000000000000000000e5a2';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -127,7 +127,7 @@ describe('integration: fast page -- WACZ and timestamp', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: never-settle page -- load strategy validation', () => {
-  const captureId = 'cap_inttest00000000000000000000a3';
+  const captureId = 'cap_0000000000000000000000000000e5a3';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -154,7 +154,7 @@ describe('integration: never-settle page -- load strategy validation', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: cookie-banner page -- consent injection', () => {
-  const captureId = 'cap_inttest00000000000000000000a4';
+  const captureId = 'cap_0000000000000000000000000000e5a4';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -181,7 +181,7 @@ describe('integration: cookie-banner page -- consent injection', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: page with iframe -- multi-frame consent injection', () => {
-  const captureId = 'cap_inttest00000000000000000000a6';
+  const captureId = 'cap_0000000000000000000000000000e5a6';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -224,7 +224,7 @@ describe('integration: page with iframe -- multi-frame consent injection', () =>
 // ---------------------------------------------------------------------------
 
 describe('integration: timeout budget and stage timings', () => {
-  const captureId = 'cap_inttest00000000000000000000a5';
+  const captureId = 'cap_0000000000000000000000000000e5a5';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -263,7 +263,7 @@ describe('integration: timeout budget and stage timings', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: error page detection', () => {
-  const captureId = 'cap_inttest00000000000000000000a7';
+  const captureId = 'cap_0000000000000000000000000000e5a7';
 
   beforeEach(async () => {
     await ensureBrowserSession();
@@ -290,7 +290,7 @@ describe('integration: error page detection', () => {
 // ---------------------------------------------------------------------------
 
 describe('integration: lazy-load triggering', () => {
-  const captureId = 'cap_inttest00000000000000000000a8';
+  const captureId = 'cap_0000000000000000000000000000e5a8';
 
   beforeEach(async () => {
     await ensureBrowserSession();
