@@ -17,6 +17,19 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+      - name: Check version sync
+        run: ./scripts/check-version-sync.sh
+      - name: Check changelog updated
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if echo "$CHANGED" | grep -qE '^(src/|openapi\.yaml)'; then
+            if ! echo "$CHANGED" | grep -q '^CHANGELOG.md'; then
+              echo "::warning::API-affecting files changed but CHANGELOG.md was not updated. If this PR changes API behavior, please update the changelog."
+            fi
+          fi
       - name: Check for code changes
         id: changes
         run: |

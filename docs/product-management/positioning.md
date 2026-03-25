@@ -25,6 +25,30 @@ price.
 with optional EU-qualified timestamps for legal certainty. No proprietary
 formats, no vendor lock-in, no opaque pricing.
 
+## API Stability Commitment (Phase 0065)
+
+**Differentiator**: WRL v1.0.0 ships with a formal stability contract:
+published CHANGELOG, 6-month deprecation policy (RFC 9745/8594 headers),
+semantic versioning, and CI-enforced version sync. Most competing web
+archiving tools offer no API stability guarantees at all.
+
+**Competitive landscape**:
+- **Wayback Machine**: No documented API versioning or deprecation policy.
+  Endpoints change without notice.
+- **Pagefreezer / PageVault**: Enterprise APIs behind sales walls. Stability
+  contracts are per-contract, not publicly documented.
+- **Conifer (Rhizome)**: Open source but no formal API versioning or
+  deprecation commitments.
+
+**WRL advantage**: Integrators (legal tech platforms, compliance tools, AI
+agents via MCP) can build against WRL's API with confidence. The public
+deprecation policy, machine-readable version header, and Keep a Changelog
+format reduce integration risk to near-zero. This is a prerequisite for
+enterprise adoption and third-party ecosystem development.
+
+**Personas served**: API integrators, legal tech platforms building evidence
+workflows, compliance automation vendors, AI agent developers using MCP.
+
 ## Simplified Sharing Model (Phase 0075)
 
 **Differentiator**: WRL captures are shareable by default. No tokens, no

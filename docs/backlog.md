@@ -186,7 +186,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Deploy version check in smoke test | When a deploy silently fails to update the Worker | test-minion, cd-pipeline |
 | [consider] Smoke test response time assertion | When Coralogix/RUM shows latency regression | test-minion, cd-pipeline |
 | [consider] Automatic rollback on smoke failure | When deploy frequency >1/day or team size >1 | iac-minion, cd-pipeline |
-| [consider] Tag-based release versioning | When external consumers need stable version references | ux-strategy-minion, cd-pipeline |
+| ~~[consider] Tag-based release versioning~~ | ~~Done (Phase 0065): v1.0.0 stability commitment, CI version sync, annotated tags~~ | ux-strategy-minion, cd-pipeline |
 | [consider] queue_consumer_no_wait_for_wait_until compat flag (#159) | When Coralogix shows long queue consumer invocations (>60s p95) | Phase 0059b scaling research |
 | [consider] Auto-investigate Coralogix alerts with Claude Code (#139) | When alert volume makes manual triage unsustainable | Phase 0046 |
 | [consider] Disaster recovery strategy + D1 backups (#149) | Before first paying customer | observability-minion |
@@ -290,6 +290,7 @@ Completed items removed from active tracking:
 - ~~R41: FRE 902(13) certification document~~ -- DONE (Phase 0073): Deterministic PDF certificate endpoint `GET /v1/captures/{id}/certificate`, Ed25519-signed, 6-section legal document with attestation block, web UI download button, 42 tests (Issue #141)
 - ~~R42: Legal-evidence positioning~~ -- DONE (Phase 0074): Landing page updated with FRE 901(b)(9), 902(14), eIDAS Art. 41(2) references. New Legal Evidence docs guide page. Verification comparison table. No overclaiming -- "designed to support" language throughout. (Issue #142)
 - ~~R36: Email notifications~~ -- DONE (Phase 0072): 6 transactional notification types, Resend email delivery via Cloudflare Queue, RFC 8058 one-click unsubscribe, notification preferences API (GET/PUT), Notifications UI tab, GitHub OAuth email auto-population, 2 Coralogix alerts (Issue #111)
+- ~~R34: API versioning and stability commitment~~ -- DONE (Phase 0065): v1.0.0 version bump (openapi.yaml + package.json), CHANGELOG.md with retroactive history, DEPRECATION-POLICY.md (6-month notice, 30-day emergency), WRL-API-Version response header, CI version-sync enforcement, PR template (Issue #113)
 
 ---
 

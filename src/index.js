@@ -617,6 +617,9 @@ export default {
     response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
     // URL is coupled to the GitHub repository path -- update if the repo is renamed.
     response.headers.set('Link', '<https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md>; rel="terms-of-service"');
+    if (typeof BUILD_VERSION !== 'undefined') {
+      response.headers.set('WRL-API-Version', BUILD_VERSION);
+    }
     return response;
   },
 };

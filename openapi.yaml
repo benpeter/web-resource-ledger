@@ -1,12 +1,13 @@
 openapi: 3.1.0
 info:
   title: Web Resource Ledger API
-  version: 0.8.0
+  version: 1.0.0
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
     name: Apache 2.0
     identifier: Apache-2.0
+  x-deprecation-policy: https://github.com/benpeter/web-resource-ledger/blob/main/DEPRECATION-POLICY.md
 
 servers:
   - url: https://api.webresourceledger.com
@@ -107,6 +108,33 @@ components:
       schema:
         type: integer
         example: 58
+
+    WRLAPIVersion:
+      description: >
+        Semantic version of the WRL API that produced this response. Matches the
+        info.version field in this specification. Present on every response.
+      schema:
+        type: string
+        pattern: '^\d+\.\d+\.\d+$'
+        example: '1.0.0'
+
+    Deprecation:
+      description: >
+        Indicates the resource has been deprecated per RFC 9745. Value is a
+        Structured Field Date (@timestamp) representing when the resource was
+        marked deprecated. Absent on non-deprecated resources.
+      schema:
+        type: string
+        pattern: '^@\d+$'
+        example: '@1735689599'
+
+    Sunset:
+      description: >
+        Date after which the resource may become unresponsive per RFC 8594.
+        Value is an HTTP-date (RFC 7231). Present only alongside the Deprecation header.
+      schema:
+        type: string
+        example: 'Sat, 31 Dec 2025 23:59:59 GMT'
 
   schemas:
     CaptureId:
@@ -1563,6 +1591,8 @@ components:
           $ref: '#/components/headers/StrictTransportSecurity'
         Link:
           $ref: '#/components/headers/TermsLink'
+        WRL-API-Version:
+          $ref: '#/components/headers/WRLAPIVersion'
       content:
         application/problem+json:
           schema:
@@ -1596,6 +1626,8 @@ components:
           schema:
             type: string
             enum: ['no-store']
+        WRL-API-Version:
+          $ref: '#/components/headers/WRLAPIVersion'
       content:
         application/problem+json:
           schema:
@@ -1627,6 +1659,8 @@ components:
           schema:
             type: string
             enum: [Bearer]
+        WRL-API-Version:
+          $ref: '#/components/headers/WRLAPIVersion'
       content:
         application/problem+json:
           schema:
@@ -1649,6 +1683,8 @@ components:
           $ref: '#/components/headers/StrictTransportSecurity'
         Link:
           $ref: '#/components/headers/TermsLink'
+        WRL-API-Version:
+          $ref: '#/components/headers/WRLAPIVersion'
       content:
         application/problem+json:
           schema:
@@ -1685,6 +1721,8 @@ components:
           $ref: '#/components/headers/RetryAfter'
         X-RateLimit-Limit:
           $ref: '#/components/headers/XRateLimitLimit'
+        WRL-API-Version:
+          $ref: '#/components/headers/WRLAPIVersion'
       content:
         application/problem+json:
           schema:
@@ -1722,6 +1760,8 @@ components:
           $ref: '#/components/headers/TermsLink'
         Retry-After:
           $ref: '#/components/headers/RetryAfter'
+        WRL-API-Version:
+          $ref: '#/components/headers/WRLAPIVersion'
       content:
         application/problem+json:
           schema:
@@ -1757,6 +1797,8 @@ paths:
               schema:
                 type: string
                 enum: [no-store]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -1816,7 +1858,7 @@ paths:
                       policy: https://github.com/benpeter/web-resource-ledger/blob/main/CONTENT-POLICY.md
                     build:
                       commit: '43f8b68a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f'
-                      version: '0.1.0'
+                      version: '1.0.0'
                       env: production
                       deployedAt: '2026-03-24T14:30:00Z'
 
@@ -1863,6 +1905,8 @@ paths:
               schema:
                 type: string
                 enum: [no-store]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
         '403':
           description: Origin not allowed.
           content:
@@ -1981,6 +2025,8 @@ paths:
                 enum: ['private, no-store']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -2054,6 +2100,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2134,6 +2182,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -2168,6 +2218,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2211,6 +2263,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2243,6 +2297,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2275,6 +2331,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2318,6 +2376,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2363,6 +2423,8 @@ paths:
               schema:
                 type: string
                 enum: [Origin]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2440,6 +2502,8 @@ paths:
               $ref: '#/components/headers/XQuotaUsed'
             X-Quota-Remaining:
               $ref: '#/components/headers/XQuotaRemaining'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -2497,6 +2561,8 @@ paths:
               $ref: '#/components/headers/TermsLink'
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2528,6 +2594,8 @@ paths:
               schema:
                 type: string
                 enum: [Bearer]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2551,6 +2619,8 @@ paths:
               $ref: '#/components/headers/TermsLink'
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2580,6 +2650,8 @@ paths:
               $ref: '#/components/headers/RetryAfter'
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2617,6 +2689,8 @@ paths:
               $ref: '#/components/headers/TermsLink'
             Retry-After:
               $ref: '#/components/headers/RetryAfter'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2665,6 +2739,8 @@ paths:
               description: Present when status is "pending". Suggested seconds before next poll.
               schema:
                 type: integer
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -2731,6 +2807,8 @@ paths:
               schema:
                 type: string
                 enum: ['*']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -2839,6 +2917,8 @@ paths:
               schema:
                 type: string
                 enum: ['*']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             image/png:
               schema:
@@ -2878,6 +2958,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -2949,6 +3031,8 @@ paths:
               schema:
                 type: string
                 enum: ['X-Signature-Ed25519, X-Signature-Key-Id']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/pdf:
               schema:
@@ -3049,6 +3133,8 @@ paths:
                 enum: ['Accept']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3149,6 +3235,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3198,6 +3286,8 @@ paths:
                 enum: ['*']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3272,6 +3362,8 @@ paths:
                 enum: ['*']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3372,6 +3464,8 @@ paths:
                 enum: ['private, no-store']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3402,6 +3496,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3433,6 +3529,8 @@ paths:
               schema:
                 type: string
                 enum: [Bearer]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3453,6 +3551,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3475,6 +3575,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3546,6 +3648,8 @@ paths:
                 enum: ['private, no-store']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3608,6 +3712,8 @@ paths:
               schema:
                 type: string
                 enum: [Bearer]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3630,6 +3736,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3690,6 +3798,8 @@ paths:
                 enum: ['private, no-store']
             X-RateLimit-Limit:
               $ref: '#/components/headers/XRateLimitLimit'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3723,6 +3833,8 @@ paths:
               schema:
                 type: string
                 enum: [Bearer]
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3748,6 +3860,8 @@ paths:
               schema:
                 type: string
                 enum: ['private, no-store']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3770,6 +3884,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3823,6 +3939,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3855,6 +3973,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -3891,6 +4011,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -3954,6 +4076,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4011,6 +4135,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4153,6 +4279,8 @@ paths:
               schema:
                 type: string
                 enum: ['private, no-store']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4228,6 +4356,8 @@ paths:
               schema:
                 type: string
                 enum: ['private, no-store']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4310,6 +4440,8 @@ paths:
               schema:
                 type: string
                 enum: ['private, no-store']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4452,6 +4584,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4492,6 +4626,8 @@ paths:
               $ref: '#/components/headers/TermsLink'
             Retry-After:
               $ref: '#/components/headers/RetryAfter'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/problem+json:
               schema:
@@ -4531,6 +4667,8 @@ paths:
               schema:
                 type: string
                 enum: ['private, no-store']
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4599,6 +4737,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
@@ -4647,6 +4787,8 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
           content:
             application/json:
               schema:
