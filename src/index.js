@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary } from './db.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent } from './db.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
@@ -311,15 +311,25 @@ async function handleCaptureMessage(msg, env, ctx) {
           const newCount = quota.captureCount;
           const threshold = Math.floor(FREE_CAPTURE_LIMIT * 0.8);
           if (newCount >= threshold) {
-            const baseUrl = env.VERIFICATION_BASE_URL
-              ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
-              : 'https://api.webresourceledger.com';
-            await dispatchNotification(env, tenantId, 'approaching_limit', {
-              used: newCount,
-              limit: FREE_CAPTURE_LIMIT,
-              period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
-              addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
-            }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
+            // Short-circuit: skip dispatchNotification entirely if already sent this period.
+            // dispatchNotification has its own internal dedup (correctness guard for races),
+            // but this avoids 2 D1 queries per capture for counts 161-200 on free tier.
+            const now = new Date();
+            const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+            const alreadySent = await checkNotificationSent(env.DB, tenantId, period, 'approaching_limit');
+            if (alreadySent) {
+              log(env, 7, 'email', { event: 'email.dispatch_skipped', tenantId, notificationType: 'approaching_limit', suppressionReason: 'callsite_dedup', period });
+            } else {
+              const baseUrl = env.VERIFICATION_BASE_URL
+                ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+                : 'https://api.webresourceledger.com';
+              await dispatchNotification(env, tenantId, 'approaching_limit', {
+                used: newCount,
+                limit: FREE_CAPTURE_LIMIT,
+                period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+                addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
+              }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
+            }
           }
         }
       } catch (err) {
@@ -1718,6 +1728,44 @@ async function handleGetCapture(request, env, ctx, match) {
   });
 }
 
+// Build a descriptive Content-Disposition filename from capture record data.
+// Pattern: capture-{domain}-{date}.{ext} (or capture-{domain}-{date}-before.png)
+// Falls back to generic names if URL parsing fails.
+function buildArtifactFilename(record, artifactName) {
+  const extensions = {
+    'screenshot-before': 'png',
+    screenshot: 'png',
+    html:       'html',
+    headers:    'json',
+    wacz:       'wacz',
+  };
+  const ext = extensions[artifactName] ?? 'bin';
+
+  try {
+    const hostname = new URL(record.url).hostname
+      .replace(/^www\./, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9.-]/g, '-')
+      .slice(0, 100);
+
+    // SECURITY: sanitize raw DB value before embedding in HTTP header
+    const date = (record.createdAt ?? '').slice(0, 10).replace(/[^0-9-]/g, '');
+
+    const suffix = artifactName === 'screenshot-before' ? '-before' : '';
+    return `capture-${hostname}-${date}${suffix}.${ext}`;
+  } catch (_) {
+    // URL parse failure or other unexpected error -- use safe generic names
+    const generics = {
+      'screenshot-before': 'screenshot-before.png',
+      screenshot: 'screenshot.png',
+      html:       'rendered.html',
+      headers:    'headers.json',
+      wacz:       'bundle.wacz',
+    };
+    return generics[artifactName] ?? `artifact.${ext}`;
+  }
+}
+
 async function handleGetCaptureArtifact(request, env, ctx, match) {
   const captureId = match[1];
   const artifactName = match[2];
@@ -1788,13 +1836,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
     wacz:       'application/wacz+zip',
   };
 
-  const filenames = {
-    'screenshot-before': 'screenshot-before.png',
-    screenshot: 'screenshot.png',
-    html:       'rendered.html',
-    headers:    'headers.json',
-    wacz:       'bundle.wacz',
-  };
+  const filename = buildArtifactFilename(record, artifactName);
 
   const buffer = await obj.arrayBuffer();
 
@@ -1802,7 +1844,7 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
     status: 200,
     headers: {
       'Content-Type': contentTypes[artifactName],
-      'Content-Disposition': `attachment; filename="${filenames[artifactName]}"`,
+      'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length': String(obj.size),
       'Cache-Control': 'public, max-age=31536000, immutable',
       'Access-Control-Allow-Origin': '*',

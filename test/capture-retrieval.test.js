@@ -338,3 +338,48 @@ describe('GET /v1/captures/{id} -- artifact URLs', () => {
     expect(body.artifacts.html).not.toContain('token=');
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /v1/captures/{id}/artifacts -- Content-Disposition filenames (#181)
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/captures/{id}/artifacts -- Content-Disposition filenames', () => {
+  it('screenshot Content-Disposition includes domain and date', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/screenshot`);
+    expect(res.status).toBe(200);
+    const cd = res.headers.get('Content-Disposition');
+    expect(cd).toMatch(/^attachment; filename="capture-example\.com-\d{4}-\d{2}-\d{2}\.png"$/);
+  });
+
+  it('wacz Content-Disposition includes domain and date', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/wacz`);
+    expect(res.status).toBe(200);
+    const cd = res.headers.get('Content-Disposition');
+    expect(cd).toMatch(/^attachment; filename="capture-example\.com-\d{4}-\d{2}-\d{2}\.wacz"$/);
+  });
+
+  it('html Content-Disposition includes domain and date', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/html`);
+    expect(res.status).toBe(200);
+    const cd = res.headers.get('Content-Disposition');
+    expect(cd).toMatch(/^attachment; filename="capture-example\.com-\d{4}-\d{2}-\d{2}\.html"$/);
+  });
+
+  it('screenshot-before Content-Disposition includes domain, date, and -before suffix', async () => {
+    // Seed screenshotBefore artifact (unique code path for -before suffix)
+    const beforeKey = `captures/${CAP_A}/screenshot-before.png`;
+    await env.BUCKET.put(beforeKey, new Uint8Array([137, 80, 78, 71]));
+
+    // Re-complete the capture with screenshotBefore included
+    const artifactsWithBefore = {
+      ...CAP_A_ARTIFACTS,
+      screenshotBefore: beforeKey,
+    };
+    await completeCapture(env.DB, CAP_A, artifactsWithBefore, CAP_A_WACZ);
+
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/artifacts/screenshot-before`);
+    expect(res.status).toBe(200);
+    const cd = res.headers.get('Content-Disposition');
+    expect(cd).toMatch(/^attachment; filename="capture-example\.com-\d{4}-\d{2}-\d{2}-before\.png"$/);
+  });
+});
