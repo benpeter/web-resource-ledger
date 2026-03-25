@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.benpeter/web-resource-ledger",
   "title": "Web Resource Ledger",
-  "description": "Capture web pages as verifiable evidence your agent can cite. Every capture is Ed25519-signed, RFC 3161-timestamped, and bundled as a WACZ archive. Four tools: capture_url, get_capture, list_captures, verify_capture.",
+  "description": "Capture web pages as cryptographically signed, tamper-evident evidence with WACZ archives.",
   "version": "1.0.0",
   "websiteUrl": "https://docs.webresourceledger.com",
   "repository": {
