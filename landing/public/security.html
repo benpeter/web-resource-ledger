@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security &amp; Compliance -- Web Resource Ledger</title>
+  <meta name="description" content="Security practices and compliance information for Web Resource Ledger. GDPR compliant, Ed25519 signatures, RFC 3161 timestamps, open source.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webresourceledger.com/security">
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/landing.css">
+</head>
+<body>
+
+  <a class="sr-only skip-link" href="#content">Skip to content</a>
+
+  <!-- Shared header: update in all pages (index, 404, privacy, refund-policy, terms, content-policy, security) -->
+  <header class="site-header" role="banner">
+    <div class="container">
+      <a href="/" class="site-header__logo" aria-label="Web Resource Ledger home">
+        <img src="/assets/logo-w-check.svg" width="28" height="28" alt="" aria-hidden="true">
+        <span class="site-header__wordmark">Web Resource Ledger</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/#use-cases">Use Cases</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="https://docs.webresourceledger.com">Docs</a>
+        <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <div class="container">
+      <article class="article">
+        <h1>Security &amp; Compliance</h1>
+        <p>WRL is built on Cloudflare&rsquo;s global infrastructure with cryptographic integrity at its core. Every security claim on this page is backed by the open-source codebase &mdash; verifiable by anyone. This page is a summary; full documentation lives at <a href="https://docs.webresourceledger.com/security/">docs.webresourceledger.com/security/</a>.</p>
+
+        <h2>Compliance</h2>
+
+        <h3>GDPR</h3>
+        <p>WRL is operated from Germany and processes personal data in compliance with the General Data Protection Regulation (GDPR). A <a href="https://docs.webresourceledger.com/security/dpa/">Data Processing Agreement (DPA)</a> is available for enterprise and B2B customers who require one for their own compliance obligations.</p>
+
+        <h3>Subprocessors</h3>
+        <p>We maintain a <a href="https://docs.webresourceledger.com/security/subprocessors/">published subprocessor list</a> with the purpose, data processed, location, and data transfer mechanism for each third-party processor (Cloudflare, Coralogix, GitHub, Stripe, and others).</p>
+
+        <h3>EU Data Processing</h3>
+        <p>Operational logs are processed exclusively in Coralogix&rsquo;s EU2 region (Ireland). Log data contains pseudonymized identifiers only &mdash; no raw personal data. See the <a href="https://docs.webresourceledger.com/security/subprocessors/">subprocessor list</a> for data transfer mechanisms for all processors.</p>
+
+        <h3>Incident Response</h3>
+        <p>We maintain a documented incident response procedure. In the event of a personal data breach, affected customers will be notified within 72 hours of discovery, in accordance with GDPR Article 33. Details are in the <a href="https://docs.webresourceledger.com/security/incident-response/">incident response documentation</a>.</p>
+
+        <h2>Cryptographic Integrity</h2>
+
+        <h3>Ed25519 Signatures</h3>
+        <p>Every capture bundle is signed with Ed25519 before it leaves the worker. The signature covers the complete WACZ archive &mdash; screenshot, rendered HTML, HTTP headers, and metadata. Any modification after signing invalidates the signature. The signing key is tenant-specific and the verification process is documented and open to independent audit.</p>
+
+        <h3>RFC 3161 Timestamps</h3>
+        <p>Each capture receives a standard RFC 3161 timestamp from DigiCert, anchoring it to a cryptographically attested point in time. Captures with the eIDAS add-on also receive a qualified timestamp from Sectigo, which carries legal presumption of accuracy across all EU member states under eIDAS Article 41(2).</p>
+
+        <h2>Privacy Engineering</h2>
+
+        <h3>IP Address Pseudonymization</h3>
+        <p>Raw IP addresses are never stored. For rate limiting and abuse prevention, we compute an HMAC-SHA-256 pseudonymized identifier using a daily rotating key. The identifier cannot be reversed to recover the original IP, and a different value is produced each day. This constitutes pseudonymized data under GDPR Article 4(5).</p>
+
+        <h3>API Key Hashing</h3>
+        <p>API keys are stored as SHA-256 hashes only. The raw key is shown once at creation and never persisted. The same applies to session tokens: only the hash is stored server-side.</p>
+
+        <h2>Open Source</h2>
+        <p>The full WRL codebase is published on <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a> under the Apache 2.0 license. Every security claim on this page can be verified by reading the code. No trust in our assertions required.</p>
+
+        <p>For the complete security documentation, including threat model, key management, and verification procedures, see <a href="https://docs.webresourceledger.com/security/">docs.webresourceledger.com/security/</a>.</p>
+
+        <p>See also: <a href="/privacy">Privacy Policy</a></p>
+
+      </article>
+    </div>
+  </main>
+
+  <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy, security) -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container">
+      <div class="site-footer__inner">
+        <div>
+          <div class="site-footer__brand">
+            <img src="/assets/logo-w-check-light.svg" width="28" height="28" alt="" aria-hidden="true">
+            <span class="site-footer__wordmark">Web Resource Ledger</span>
+          </div>
+          <p class="site-footer__tagline">Open source under Apache 2.0. Independently verifiable by design.</p>
+        </div>
+
+        <div class="site-footer__links">
+          <nav aria-label="Product">
+            <h4 class="site-footer__heading">Product</h4>
+            <a href="https://docs.webresourceledger.com">Docs</a>
+            <a href="https://api.webresourceledger.com/ui">Web UI</a>
+            <a href="https://docs.webresourceledger.com/api-reference/">API Reference</a>
+            <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
+          </nav>
+          <nav aria-label="Legal">
+            <h4 class="site-footer__heading">Legal</h4>
+            <a href="/terms">Terms of Service</a>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/security">Security</a>
+            <a href="/refund-policy">Refund Policy</a>
+            <a href="/content-policy">Content Policy</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="site-footer__bottom">
+        <p class="site-footer__operator">Gerhard Benjamin Peter &middot; Weidenh&auml;user Str. 73, 35037 Marburg &middot; <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a></p>
+        <p>&copy; 2026 Web Resource Ledger</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

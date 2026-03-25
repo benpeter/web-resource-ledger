@@ -11,5 +11,12 @@ export default {
     { title: "Webhooks", url: "/webhooks/" },
     { title: "MCP Server", url: "/mcp/" },
     { title: "API Reference", url: "/api-reference/" },
+    // Security & Compliance
+    { title: "Security & Compliance", url: "/security/" },
+    { title: "Security Whitepaper", url: "/security/whitepaper/" },
+    { title: "Data Processing (DPA)", url: "/security/dpa/" },
+    { title: "Subprocessors", url: "/security/subprocessors/" },
+    { title: "Incident Response", url: "/security/incident-response/" },
+    { title: "Data Retention", url: "/security/data-retention/" },
   ],
 };
