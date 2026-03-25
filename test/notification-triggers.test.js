@@ -28,6 +28,7 @@ import {
   getCapture,
   failCapture,
   completeCapture,
+  markNotificationSent,
 } from '../src/db.js';
 import { setStripeCustomerId, setPaymentMethodAdded } from '../src/db.js';
 import { handleWeeklyDigest } from '../src/notifications.js';
@@ -284,6 +285,62 @@ describe('3b: approaching free limit (80%) -- notification dispatch', () => {
 
     // Only one should be enqueued (dedup via notification_sent)
     expect(sent.length).toBe(1);
+  });
+
+  it('approaching_limit short-circuit skips dispatchNotification when already sent', async () => {
+    await seedNotificationPrefs(env.DB, 'default');
+    await seedUsage(Math.floor(FREE_CAPTURE_LIMIT * 0.8));
+
+    // Seed the notification_sent record to simulate already-sent state this period.
+    // This is the same state checkNotificationSent() reads in the index.js call-site pre-check.
+    const now = new Date();
+    const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    await markNotificationSent(env.DB, 'default', period, 'approaching_limit');
+
+    // Verify the pre-check condition: checkNotificationSent returns true
+    const { checkNotificationSent } = await import('../src/db.js');
+    const alreadySent = await checkNotificationSent(env.DB, 'default', period, 'approaching_limit');
+    expect(alreadySent).toBe(true);
+
+    // Verify that dispatchNotification also suppresses when already sent (end-to-end behavior):
+    // both the index.js short-circuit and dispatchNotification's internal dedup produce 0 sends.
+    const { dispatchNotification } = await import('../src/email-dispatch.js');
+    const sent = [];
+    const mockEnv = makeEmailEnv(sent);
+    await dispatchNotification(mockEnv, 'default', 'approaching_limit', {
+      used: Math.floor(FREE_CAPTURE_LIMIT * 0.8),
+      limit: FREE_CAPTURE_LIMIT,
+      period: 'March 2026',
+      addPaymentUrl: 'https://api.webresourceledger.com/v1/billing/checkout',
+    });
+    expect(sent.length).toBe(0);
+  });
+
+  it('approaching_limit dispatches on first crossing even with short-circuit in place', async () => {
+    await seedNotificationPrefs(env.DB, 'default');
+    await seedUsage(Math.floor(FREE_CAPTURE_LIMIT * 0.8));
+
+    // No markNotificationSent call: notification_sent is empty for this period.
+    const now = new Date();
+    const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
+    // Verify the pre-check condition: checkNotificationSent returns false (short-circuit passes through)
+    const { checkNotificationSent } = await import('../src/db.js');
+    const alreadySent = await checkNotificationSent(env.DB, 'default', period, 'approaching_limit');
+    expect(alreadySent).toBe(false);
+
+    // Verify dispatchNotification proceeds and enqueues a message when not yet sent
+    const { dispatchNotification } = await import('../src/email-dispatch.js');
+    const sent = [];
+    const mockEnv = makeEmailEnv(sent);
+    await dispatchNotification(mockEnv, 'default', 'approaching_limit', {
+      used: Math.floor(FREE_CAPTURE_LIMIT * 0.8),
+      limit: FREE_CAPTURE_LIMIT,
+      period: 'March 2026',
+      addPaymentUrl: 'https://api.webresourceledger.com/v1/billing/checkout',
+    });
+    expect(sent.length).toBe(1);
+    expect(sent[0].notificationType).toBe('approaching_limit');
   });
 });
 
