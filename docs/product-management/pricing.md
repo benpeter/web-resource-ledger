@@ -60,3 +60,14 @@ function (payment failure alerts prevent involuntary churn).
 **Email delivery cost**: Resend free tier (100 emails/day) is sufficient at current
 scale. At scale, Resend pricing starts at $20/month for 50k emails. This cost is
 negligible relative to capture revenue and does not need to be passed through to tenants.
+
+## Infrastructure Cost Notes
+
+### CDN Caching (Phase 0068)
+
+Workers Cache API is included in Cloudflare Workers at no additional cost. Edge
+caching for verification endpoints reduces D1 read units and R2 operations for
+repeat verification requests. At scale, the D1 savings (reads priced at
+$0.001/million) and R2 savings (Class B reads at $0.36/million) provide modest
+but compounding cost reduction as verification volume grows. No pricing impact
+for tenants -- this is pure infrastructure optimization.

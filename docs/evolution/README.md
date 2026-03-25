@@ -85,3 +85,4 @@ software development.
 | [0065-api-versioning](0065-api-versioning/) | API versioning and stability commitment: v1.0.0, CHANGELOG.md, DEPRECATION-POLICY.md, CI enforcement, WRL-API-Version header (Issue #113) |
 | [0066-mcp-directory-listings](0066-mcp-directory-listings/) | MCP directory listings and ecosystem: server.json registry update, Glama/MCP.so/awesome-lists submissions, doc bug fixes, 6 client integration examples (Issue #114) |
 | [0067-change-detection-diffing](0067-change-detection-diffing/) | Change detection and diffing: diff API endpoint, HTML text diff (diff-match-patch-es), screenshot hash + client pixel diff, header diff, change badges, visual diff UI with 3 modes, webhook enrichment (Issue #115) |
+| [0068-cdn-verification-traffic](0068-cdn-verification-traffic/) | CDN for verification traffic: Workers Cache API per-colo caching, admin cache purge endpoint, verify subdomain routing, Server-Timing headers, operational docs (Issue #116) |

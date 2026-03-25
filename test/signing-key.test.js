@@ -45,7 +45,7 @@ describe('GET /.well-known/signing-key -- headers', () => {
     const cc = res.headers.get('Cache-Control');
     expect(cc).toContain('public');
     expect(cc).toContain('max-age=3600');
-    expect(cc).toContain('stale-while-revalidate=86400');
+    expect(cc).toContain('stale-while-revalidate=300');
   });
 
   it('CORS header present -- Access-Control-Allow-Origin: *', async () => {

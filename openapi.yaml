@@ -4475,6 +4475,126 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
 
+  /v1/admin/cache/purge:
+    post:
+      operationId: adminCachePurge
+      summary: Purge CDN cache for verification endpoints
+      description: >
+        Purges cached verification responses at the CDN edge. Uses Cloudflare's
+        zone-level purge-by-URL API (works on all plans).
+
+        Targets are semantic names that expand to actual URLs:
+        - `signing-keys` — purges both `/.well-known/signing-key` and `/.well-known/signing-keys`
+        - `capture:cap_{id}` — purges both JSON and HTML variants of a specific capture verification
+        - `all` — purges all cached content (use sparingly)
+
+        Requires `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_CACHE_PURGE_TOKEN` environment
+        variables to be configured. Returns 503 if not configured.
+
+        Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
+
+        ```bash
+        # Purge signing key cache (e.g., after key rotation)
+        curl -X POST "https://api.webresourceledger.com/v1/admin/cache/purge" \
+          -H "Authorization: Bearer $ADMIN_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"targets": ["signing-keys"]}' | jq .
+
+        # Purge a specific capture
+        curl -X POST "https://api.webresourceledger.com/v1/admin/cache/purge" \
+          -H "Authorization: Bearer $ADMIN_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"targets": ["capture:cap_abcdef0123456789abcdef0123456789"]}' | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets:
+                  type: array
+                  minItems: 1
+                  maxItems: 30
+                  items:
+                    type: string
+                    pattern: '^(signing-keys|all|capture:cap_[a-f0-9]{32})$'
+                  description: >
+                    Semantic purge targets. Each target expands to one or more
+                    cache key URLs.
+                  example: ['signing-keys']
+            examples:
+              signingKeys:
+                summary: Purge signing key endpoints
+                value:
+                  targets: ['signing-keys']
+              singleCapture:
+                summary: Purge a specific capture
+                value:
+                  targets: ['capture:cap_abcdef0123456789abcdef0123456789']
+              nuclear:
+                summary: Purge everything
+                value:
+                  targets: ['all']
+      responses:
+        '200':
+          description: Cache purge completed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  purged:
+                    type: boolean
+                    example: true
+                  targets:
+                    type: array
+                    items:
+                      type: string
+                    example: ['signing-keys']
+                  urls:
+                    type: ['array', 'null']
+                    items:
+                      type: string
+                    description: >
+                      Resolved URLs that were purged. Null when target is "all"
+                      (purge_everything).
+                    example:
+                      - 'https://verify.webresourceledger.com/.well-known/signing-key'
+                      - 'https://verify.webresourceledger.com/.well-known/signing-keys'
+                  purgeId:
+                    type: ['string', 'null']
+                    description: Cloudflare purge request ID for audit trail.
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '415':
+          description: Unsupported media type. Content-Type must be application/json.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '502':
+          description: Cloudflare API returned an error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          description: Cache purge not configured (missing API token or zone ID).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
   /v1/account/usage:
     get:
       operationId: getAccountUsage
