@@ -6,8 +6,6 @@ description: GDPR Article 28 Data Processing Agreement template for WRL enterpri
 
 # Data Processing Agreement
 
-> **Download:** A PDF version of this agreement is available at [/assets/wrl-dpa.pdf](/assets/wrl-dpa.pdf) (to be published). Until then, use this page as the working reference.
-
 > **Legal disclaimer:** This is a reasonable-effort template prepared for enterprise customers of Web Resource Ledger. It is not professional legal advice. Before executing this agreement, both parties should have it reviewed by qualified legal counsel.
 
 ---
