@@ -254,3 +254,20 @@ describe('SETTINGS_JS -- separation guard', () => {
     expect(SETTINGS_JS).not.toContain('billingStatusLabel');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Partition I -- Regression: Fix B -- billing refresh row dedup (#190)
+// ---------------------------------------------------------------------------
+
+describe('BILLING_JS -- buildRefreshRow dedup guard', () => {
+  it('I1: buildRefreshRow function body does not render "Status: " text', () => {
+    // Extract the buildRefreshRow function body and assert it does not contain
+    // the redundant status label that was removed in Fix B.
+    const fnStart = BILLING_JS.indexOf('function buildRefreshRow');
+    expect(fnStart).toBeGreaterThan(-1);
+    // Grab enough text to cover the full function body (up to the next top-level function)
+    const fnBody = BILLING_JS.slice(fnStart, fnStart + 600);
+    expect(fnBody).not.toContain("'Status: '");
+    expect(fnBody).not.toContain('"Status: "');
+  });
+});

@@ -8,7 +8,7 @@ export const DESIGN_SYSTEM_CSS = `
 :root {
   /* Neutrals */
   --color-text: #1e2a36;
-  --color-text-muted: #6e6a66;
+  --color-text-muted: #595550;
   --color-bg: #f7f6f5;
   --color-surface: #ffffff;
   --color-surface-muted: #f3f2f0;

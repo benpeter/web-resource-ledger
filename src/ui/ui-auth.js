@@ -182,6 +182,28 @@ function renderAppShell() {
   var navActions = document.createElement('div');
   navActions.className = 'nav-actions';
 
+  var docsLink = document.createElement('a');
+  docsLink.href = 'https://docs.webresourceledger.com';
+  docsLink.className = 'nav-link nav-link--external';
+  docsLink.target = '_blank';
+  docsLink.rel = 'noopener noreferrer';
+  docsLink.appendChild(document.createTextNode('Docs'));
+  var docsIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  docsIcon.setAttribute('width', '12');
+  docsIcon.setAttribute('height', '12');
+  docsIcon.setAttribute('viewBox', '0 0 12 12');
+  docsIcon.setAttribute('aria-hidden', 'true');
+  docsIcon.setAttribute('fill', 'currentColor');
+  var docsIconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  docsIconPath.setAttribute('d', 'M3.5 3a.5.5 0 0 0 0 1H7L2.5 8.5a.5.5 0 0 0 .707.707L7.707 4.5V8a.5.5 0 0 0 1 0V3.5a.5.5 0 0 0-.5-.5H3.5z');
+  docsIcon.appendChild(docsIconPath);
+  docsLink.appendChild(docsIcon);
+  var docsScreenReader = document.createElement('span');
+  docsScreenReader.className = 'sr-only';
+  docsScreenReader.textContent = '(opens in new tab)';
+  docsLink.appendChild(docsScreenReader);
+  navActions.appendChild(docsLink);
+
   if (_authMethod === 'session' && _wrlUser) {
     var username = document.createElement('span');
     username.className = 'nav-username text-muted';
