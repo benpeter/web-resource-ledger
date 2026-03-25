@@ -3068,6 +3068,234 @@ paths:
         '503':
           $ref: '#/components/responses/Problem503'
 
+  /v1/captures/{baseId}/diff/{targetId}:
+    get:
+      operationId: diffCaptures
+      summary: Compare two captures
+      description: >
+        Returns structured differences between two captures of the same URL.
+        Compares HTML content (text-level diff with line context), screenshots
+        (hash-based similarity), and HTTP response headers (added, removed, modified).
+        Both captures must belong to the requesting tenant. The `include` query
+        parameter controls which diff sections are computed; omitted sections
+        still appear in the summary with cached or default values.
+      tags: [captures]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: baseId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/CaptureId'
+          description: ID of the base (older) capture.
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/CaptureId'
+          description: ID of the target (newer) capture.
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: string
+            default: html,screenshot,headers
+          description: >
+            Comma-separated list of diff sections to compute. Valid values:
+            `html`, `screenshot`, `headers`. Sections not listed are omitted
+            from the response body but still reflected in the summary.
+      responses:
+        '200':
+          description: Structured diff response.
+          headers:
+            Strict-Transport-Security:
+              $ref: '#/components/headers/StrictTransportSecurity'
+            Link:
+              $ref: '#/components/headers/TermsLink'
+            WRL-API-Version:
+              $ref: '#/components/headers/WRLAPIVersion'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [base, target, summary]
+                properties:
+                  base:
+                    type: object
+                    required: [id, url, createdAt]
+                    properties:
+                      id:
+                        $ref: '#/components/schemas/CaptureId'
+                      url:
+                        type: string
+                        format: uri
+                      createdAt:
+                        type: string
+                        format: date-time
+                  target:
+                    type: object
+                    required: [id, url, createdAt]
+                    properties:
+                      id:
+                        $ref: '#/components/schemas/CaptureId'
+                      url:
+                        type: string
+                        format: uri
+                      createdAt:
+                        type: string
+                        format: date-time
+                  summary:
+                    type: object
+                    required: [changed, sections]
+                    properties:
+                      changed:
+                        type: boolean
+                        description: True if any section detected changes.
+                      sections:
+                        type: object
+                        properties:
+                          html:
+                            type: object
+                            properties:
+                              changed:
+                                type: boolean
+                              additions:
+                                type: integer
+                              deletions:
+                                type: integer
+                          screenshot:
+                            type: object
+                            properties:
+                              changed:
+                                type: boolean
+                          headers:
+                            type: object
+                            properties:
+                              changed:
+                                type: boolean
+                              added:
+                                type: integer
+                              removed:
+                                type: integer
+                              modified:
+                                type: integer
+                  html:
+                    type: object
+                    description: Present only when `html` is in the `include` parameter.
+                    properties:
+                      changed:
+                        type: boolean
+                      truncated:
+                        type: boolean
+                        description: True if HTML was too large and diff was skipped.
+                      stats:
+                        type: object
+                        properties:
+                          additions:
+                            type: integer
+                          deletions:
+                            type: integer
+                      hunks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum: [addition, deletion]
+                            value:
+                              type: string
+                            context:
+                              type: object
+                              properties:
+                                before:
+                                  type: string
+                                after:
+                                  type: string
+                  screenshot:
+                    type: object
+                    description: Present only when `screenshot` is in the `include` parameter.
+                    properties:
+                      changed:
+                        type: boolean
+                      method:
+                        type: string
+                        enum: [hash]
+                        description: Always `hash` — server-side etag comparison.
+                  headers:
+                    type: object
+                    description: Present only when `headers` is in the `include` parameter.
+                    properties:
+                      changed:
+                        type: boolean
+                      added:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            targetValue:
+                              type: string
+                      removed:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            baseValue:
+                              type: string
+                      modified:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            baseValue:
+                              type: string
+                            targetValue:
+                              type: string
+                      unchanged:
+                        type: integer
+                        description: Count of headers present in both captures with identical values.
+                      statusChanged:
+                        type: boolean
+              examples:
+                changed:
+                  summary: Captures with detected changes
+                  value:
+                    base: {id: 'cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', url: 'https://example.com', createdAt: '2025-01-01T00:00:00.000Z'}
+                    target: {id: 'cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7', url: 'https://example.com', createdAt: '2025-01-02T00:00:00.000Z'}
+                    summary: {changed: true, sections: {html: {changed: true, additions: 3, deletions: 1}, screenshot: {changed: true}, headers: {changed: false, added: 0, removed: 0, modified: 0}}}
+                    html: {changed: true, truncated: false, stats: {additions: 3, deletions: 1}, hunks: [{type: addition, value: '<p>New paragraph</p>', context: {before: '<div>', after: '</div>'}}]}
+                    screenshot: {changed: true, method: hash}
+                    headers: {changed: false, added: [], removed: [], modified: [], unchanged: 12, statusChanged: false}
+                unchanged:
+                  summary: Identical captures
+                  value:
+                    base: {id: 'cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', url: 'https://example.com', createdAt: '2025-01-01T00:00:00.000Z'}
+                    target: {id: 'cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7', url: 'https://example.com', createdAt: '2025-01-02T00:00:00.000Z'}
+                    summary: {changed: false, sections: {html: {changed: false, additions: 0, deletions: 0}, screenshot: {changed: false}, headers: {changed: false, added: 0, removed: 0, modified: 0}}}
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: One or both captures not found, not yet complete, or not owned by the requesting tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                notFound:
+                  summary: Capture not found or cross-tenant
+                  value: {type: about:blank, status: 404, title: Not Found, detail: One or both captures not found.}
+        '429':
+          $ref: '#/components/responses/Problem429'
+        '503':
+          $ref: '#/components/responses/Problem503'
+
   /v1/verify/{captureId}:
     get:
       operationId: verifyCapture
