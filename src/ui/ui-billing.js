@@ -760,12 +760,6 @@ function buildRefreshRow(usageData) {
   row.className = 'billing-refresh-row usage-footer';
   row.style.marginBottom = 'var(--space-4)';
 
-  var leftEl = document.createElement('span');
-  leftEl.className = 'text-muted';
-  leftEl.style.fontSize = 'var(--text-sm)';
-  leftEl.textContent = 'Status: ' + billingStatusLabel(usageData.billingStatus);
-  row.appendChild(leftEl);
-
   var refreshBtn = document.createElement('button');
   refreshBtn.type = 'button';
   refreshBtn.className = 'usage-refresh-btn';

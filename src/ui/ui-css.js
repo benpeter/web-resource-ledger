@@ -85,6 +85,26 @@ input, select, textarea {
   gap: var(--space-2);
 }
 
+/* External nav link (e.g. Docs) */
+.nav-link--external {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Small ghost button variant for nav */
 .btn--sm {
   min-height: 36px;

@@ -6,6 +6,8 @@ import { AUTH_JS } from '../src/ui/ui-auth.js';
 import { SUBMIT_VIEW_JS } from '../src/ui/ui-submit.js';
 import { DETAIL_VIEW_JS } from '../src/ui/ui-detail.js';
 import { POLL_JS } from '../src/ui/ui-poll.js';
+import { DESIGN_SYSTEM_CSS } from '../src/design-system.js';
+import { UI_CSS } from '../src/ui/ui-css.js';
 
 // ---------------------------------------------------------------------------
 // htmlDashboard() -- response headers
@@ -272,5 +274,51 @@ describe('POST /ui and other methods', () => {
     const res = await SELF.fetch('https://worker.test/ui', { method: 'POST' });
     // The router should not serve the dashboard for non-GET requests.
     expect(res.status).not.toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Fix A -- design token sync (#211)
+// ---------------------------------------------------------------------------
+
+describe('design system -- color-text-muted token sync', () => {
+  it('DESIGN_SYSTEM_CSS contains #595550 for --color-text-muted', () => {
+    expect(DESIGN_SYSTEM_CSS).toContain('--color-text-muted: #595550');
+  });
+
+  it('UI_CSS does not hardcode the old muted value #6e6a66', () => {
+    expect(UI_CSS).not.toContain('#6e6a66');
+  });
+
+  it('DESIGN_SYSTEM_CSS and AUTH_JS agree on --color-text-muted value', () => {
+    // Both the CSS file and the JS export must contain the same token value.
+    expect(DESIGN_SYSTEM_CSS).toContain('#595550');
+    expect(AUTH_JS).not.toContain('#6e6a66');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Fix C -- docs link in nav (#210)
+// ---------------------------------------------------------------------------
+
+describe('AUTH_JS -- docs link in nav', () => {
+  it('contains docs.webresourceledger.com', () => {
+    expect(AUTH_JS).toContain('docs.webresourceledger.com');
+  });
+
+  it('contains screen reader text "(opens in new tab)"', () => {
+    expect(AUTH_JS).toContain('(opens in new tab)');
+  });
+
+  it('uses nav-link--external class', () => {
+    expect(AUTH_JS).toContain('nav-link--external');
+  });
+
+  it('UI_CSS contains .nav-link--external rule', () => {
+    expect(UI_CSS).toContain('.nav-link--external');
+  });
+
+  it('UI_CSS contains .sr-only utility class', () => {
+    expect(UI_CSS).toContain('.sr-only');
   });
 });

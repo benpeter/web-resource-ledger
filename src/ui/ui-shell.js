@@ -86,6 +86,8 @@ function updateNavCurrent(activePath) {
   var links = document.querySelectorAll('.nav-link');
   for (var i = 0; i < links.length; i++) {
     var linkPath = links[i].getAttribute('href') || '';
+    // Skip external links -- they are not hash routes
+    if (linkPath.startsWith('http')) continue;
     // Strip leading # for comparison
     var linkRoute = linkPath.replace(/^#/, '');
     if (linkRoute === activePath) {
