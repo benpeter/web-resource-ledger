@@ -21,7 +21,7 @@ import { homedir } from 'node:os';
 // Configuration
 // ---------------------------------------------------------------------------
 
-const BASE_URL = process.env.WRL_BASE || 'https://wrl-staging.benpeter.workers.dev';
+const BASE_URL = process.env.WRL_BASE || 'https://staging.webresourceledger.com';
 const POLL_TIMEOUT_MS = 300_000;
 const POLL_INTERVAL_MS = 3000;
 

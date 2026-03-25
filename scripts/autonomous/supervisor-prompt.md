@@ -366,7 +366,7 @@ Then check each item. ALL must pass:
    ```bash
    MERGE_SHA=$(gh pr view <N> --json mergeCommit --jq '.mergeCommit.oid')
    # Staging
-   STAGING_COMMIT=$(curl -sf https://wrl-staging.benpeter.workers.dev/health | jq -r '.build.commit')
+   STAGING_COMMIT=$(curl -sf https://staging.webresourceledger.com/health | jq -r '.build.commit')
    [[ "$STAGING_COMMIT" == "$MERGE_SHA" ]] || echo "STAGING MISMATCH: expected $MERGE_SHA, got $STAGING_COMMIT"
    # Production
    PROD_COMMIT=$(curl -sf https://api.webresourceledger.com/health | jq -r '.build.commit')

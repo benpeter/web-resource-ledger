@@ -196,7 +196,7 @@ wait_for_deploy() {
   if [[ -f "scripts/smoke-test.sh" ]]; then
     log_info "Running staging smoke test..."
     if ! SMOKE_SKIP_CAPTURE=1 SMOKE_EXPECTED_COMMIT="$commit_sha" \
-      bash scripts/smoke-test.sh "https://wrl-staging.benpeter.workers.dev" 2>&1; then
+      bash scripts/smoke-test.sh "https://staging.webresourceledger.com" 2>&1; then
       log_error "Staging smoke test failed"
       return 3
     fi
