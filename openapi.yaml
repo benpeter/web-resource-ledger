@@ -1031,7 +1031,7 @@ components:
     PingResponse:
       type: object
       description: Result of a webhook ping test.
-      required: [success, httpStatus, latencyMs]
+      required: [success, httpStatus, latencyMs, signatureHeader, timestampHeader, sentPayload]
       properties:
         success:
           type: boolean
@@ -1055,6 +1055,30 @@ components:
             (non-2xx response, network error, timeout).
           examples:
             - Endpoint returned 404 Not Found
+        signatureHeader:
+          type: string
+          description: >
+            The X-WRL-Signature-256 header value sent to the webhook endpoint.
+            Use this to test your signature verification logic without inspecting
+            server logs. Format: t={unix_timestamp},v1={hex_hmac_sha256}.
+          examples:
+            - 't=1711108800,v1=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+        timestampHeader:
+          type: string
+          description: >
+            The X-WRL-Timestamp header value sent to the webhook endpoint
+            (Unix seconds). Use this alongside signatureHeader to verify
+            your timestamp tolerance logic.
+          examples:
+            - '1711108800'
+        sentPayload:
+          type: string
+          description: >
+            The exact JSON string sent as the request body to the webhook
+            endpoint. Use this as the input to your HMAC-SHA256 verification
+            to confirm you are signing the correct bytes.
+          examples:
+            - '{"id":"evt_00000000000000000000000000000000","type":"ping","createdAt":"2026-03-22T12:05:00.000Z","data":{"webhookId":"whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"}}'
 
     WebhookEventPayload:
       type: object
@@ -1093,36 +1117,48 @@ components:
           type: object
           description: >
             Event-specific payload. Shape depends on the event type.
-            capture.complete includes the full capture record. capture.failed
-            includes the capture ID, URL, and failure reason. ping includes
-            a message field.
+            capture.complete includes captureId, status, url, verificationUrl,
+            completedAt, and artifacts (screenshot/html/headers URLs).
+            If change detection ran, it also includes a changeDetection object.
+            capture.failed includes captureId, status, url, verificationUrl,
+            failedAt, error, and retryable. capture.quarantined includes
+            captureId, status, url, verificationUrl, quarantineReason, and
+            quarantinedAt. ping includes a webhookId field.
       examples:
         - id: evt_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
           type: capture.complete
           createdAt: '2026-03-22T12:05:00.000Z'
           data:
-            id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+            captureId: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
             status: complete
             url: https://example.com
-            createdAt: '2026-03-22T12:04:45.000Z'
+            verificationUrl: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
             completedAt: '2026-03-22T12:05:00.312Z'
-            renderQuality: full
             artifacts:
               screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
               html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
               headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
-            verifyUrl: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
         - id: evt_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
           type: capture.failed
           createdAt: '2026-03-22T12:05:10.000Z'
           data:
-            id: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+            captureId: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
             status: failed
             url: https://example.com/missing-page
-            createdAt: '2026-03-22T12:04:55.000Z'
+            verificationUrl: https://api.webresourceledger.com/v1/verify/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
             failedAt: '2026-03-22T12:05:10.000Z'
-            error: Navigation timeout after 30000ms
+            error: Navigation timeout
             retryable: true
+        - id: evt_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
+          type: capture.quarantined
+          createdAt: '2026-03-22T12:05:20.000Z'
+          data:
+            captureId: cap_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
+            status: quarantined
+            url: https://example.com/flagged-page
+            verificationUrl: https://api.webresourceledger.com/v1/verify/cap_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
+            quarantineReason: SOCIAL_ENGINEERING
+            quarantinedAt: '2026-03-22T12:05:20.000Z'
 
     AdminKeyRevoked:
       type: object
@@ -4376,6 +4412,9 @@ paths:
                     success: true
                     httpStatus: 200
                     latencyMs: 142
+                    signatureHeader: 't=1711108800,v1=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                    timestampHeader: '1711108800'
+                    sentPayload: '{"id":"evt_00000000000000000000000000000000","type":"ping","createdAt":"2026-03-22T12:05:00.000Z","data":{"webhookId":"whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"}}'
                 failure:
                   summary: Endpoint returned non-2xx
                   value:
@@ -4383,6 +4422,9 @@ paths:
                     httpStatus: 404
                     latencyMs: 89
                     detail: Endpoint returned 404 Not Found
+                    signatureHeader: 't=1711108800,v1=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
+                    timestampHeader: '1711108800'
+                    sentPayload: '{"id":"evt_00000000000000000000000000000000","type":"ping","createdAt":"2026-03-22T12:05:00.000Z","data":{"webhookId":"whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"}}'
         '401':
           $ref: '#/components/responses/Problem401'
         '404':

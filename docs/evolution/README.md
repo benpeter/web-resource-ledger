@@ -89,3 +89,4 @@ software development.
 | [0068-cdn-verification-traffic](0068-cdn-verification-traffic/) | CDN for verification traffic: Workers Cache API per-colo caching, admin cache purge endpoint, verify subdomain routing, Server-Timing headers, operational docs (Issue #116) |
 | [0080-notification-email-change](0080-notification-email-change/) | Email verification flow: pending-email pattern, HMAC tokens with 24h expiry, GET+POST verification, resend with cooldown, cross-tab detection (Issue #195) |
 | [0069-compliance-documentation](0069-compliance-documentation/) | Enterprise compliance documentation: security whitepaper, DPA template, subprocessor list, incident response, data retention/deletion, privacy policy fixes (Issue #117) |
+| [0081-webhook-docs-payload-fixes](0081-webhook-docs-payload-fixes/) | Webhook docs & payload fixes: artifact URLs in capture.complete, signature echo in ping response, 9 docs corrections, OpenAPI updates (Issue #212) |
