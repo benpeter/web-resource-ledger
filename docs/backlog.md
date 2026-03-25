@@ -211,7 +211,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] E2E Playwright browser tests for OAuth flow | When OAuth UI complexity grows or regression risk increases | Phase 0055, test-minion |
 | [consider] Additional OAuth providers (Google, email/password) | When user demand for non-GitHub auth is demonstrated | Phase 0055, out-of-scope |
 | [consider] OG image for landing page | When landing page visual design is considered final; placeholder worse than none | Phase 0052 |
-| [consider] Fix --color-text-muted contrast on landing page | When a11y audit runs; apply local override (same pattern as docs site in Phase 0051) | Phase 0052 |
+| ~~[consider] Fix --color-text-muted contrast on landing page~~ | App token fixed in Phase 0080 (#595550); landing page uses own CSS — apply local override when a11y audit runs | Phase 0052 → 0080 |
+| [consider] Ghost button border contrast (--color-border) | When a11y audit runs; global token change affects entire UI. Consider --color-border-interactive token | Phase 0080, deferred |
 | [consider] Paywall and accept-only CMP handling (#156) | When a user needs to capture paywall/accept-only sites | Phase 0059b |
 | [consider] Automated autoconsent update pipeline (#152) | When manual update lag causes CMP regressions | Phase 0059b |
 | [consider] Embed Stripe payment form instead of redirect (#147) | Billing UI shipped (Phase 0076) with redirect flow; activate if redirect causes UX friction | Phase 0058 → 0076 |

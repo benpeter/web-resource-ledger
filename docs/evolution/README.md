@@ -81,6 +81,7 @@ software development.
 | [0077-settings-schedules-ui-polish](0077-settings-schedules-ui-polish/) | Settings & schedules UI polish: 18+ missing CSS selectors, card padding, mobile breakpoints, billing DOM cleanup (Issue #161) |
 | [0072-email-notifications](0072-email-notifications/) | Email notifications: 6 transactional types, Resend delivery via queue, RFC 8058 unsubscribe, preferences API + UI, OAuth email auto-population (Issue #111) |
 | [0078-ui-fixes-batch](0078-ui-fixes-batch/) | UI fixes batch: URL auto-prepend in capture form, "Art." → "Article" on verify page, billing stat spacing (Issues #179, #180, #183) |
+| [0080-ui-ux-fixes-batch](0080-ui-ux-fixes-batch/) | UI/UX fixes batch: sign-in contrast, billing status dedup, docs nav link, key-creation alert (Issue #213) |
 | [0079-homepage-pricing-screenshot-quality](0079-homepage-pricing-screenshot-quality/) | Homepage pricing update and screenshot quality: real graduated tier pricing, deviceScaleFactor 2→4 (Issues #182, #184) |
 | [0065-api-versioning](0065-api-versioning/) | API versioning and stability commitment: v1.0.0, CHANGELOG.md, DEPRECATION-POLICY.md, CI enforcement, WRL-API-Version header (Issue #113) |
 | [0066-mcp-directory-listings](0066-mcp-directory-listings/) | MCP directory listings and ecosystem: server.json registry update, Glama/MCP.so/awesome-lists submissions, doc bug fixes, 6 client integration examples (Issue #114) |
