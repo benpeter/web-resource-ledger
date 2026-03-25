@@ -1,7 +1,8 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck } from './db.js';
+import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary } from './db.js';
+import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
 import { performCapture } from './capture.js';
@@ -70,6 +71,7 @@ const routes = [
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/certificate$/, handleGetCertificate],
+  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/diff\/(cap_[a-f0-9]{32})$/, handleDiffCaptures],
   ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',    /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',    /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
@@ -243,6 +245,54 @@ async function handleCaptureMessage(msg, env, ctx) {
         }
       } catch (err) {
         log(env, 4, 'webhook', { event: 'webhook.dispatch_error', captureId, tenantId, errorCategory: 'unexpected', error: err.message });
+      }
+    })());
+    // Compute change summary for scheduled captures (non-blocking)
+    ctx.waitUntil((async () => {
+      try {
+        if (!scheduleId) return; // Only for scheduled captures
+        const previousId = await getPreviousCaptureId(env.DB, scheduleId, captureId);
+        if (!previousId) return; // First capture in schedule
+
+        // Fetch artifacts for hash/diff comparison
+        const [baseHtmlObj, targetHtmlObj, baseHeadersObj, targetHeadersObj] = await Promise.all([
+          env.BUCKET.get(`captures/${previousId}/rendered.html`),
+          env.BUCKET.get(`captures/${captureId}/rendered.html`),
+          env.BUCKET.get(`captures/${previousId}/headers.json`),
+          env.BUCKET.get(`captures/${captureId}/headers.json`),
+        ]);
+
+        // Screenshot: hash comparison via R2 head
+        const [baseScreenHead, targetScreenHead] = await Promise.all([
+          env.BUCKET.head(`captures/${previousId}/screenshot.png`),
+          env.BUCKET.head(`captures/${captureId}/screenshot.png`),
+        ]);
+
+        const screenshotDiff = diffScreenshot(
+          baseScreenHead?.httpEtag,
+          targetScreenHead?.httpEtag,
+        );
+
+        // HTML: lightweight diff for summary stats
+        let htmlDiff = { changed: false, stats: { additions: 0, deletions: 0 } };
+        if (baseHtmlObj && targetHtmlObj) {
+          const baseHtml = await baseHtmlObj.text();
+          const targetHtml = await targetHtmlObj.text();
+          htmlDiff = diffHtml(baseHtml, targetHtml);
+        }
+
+        // Headers
+        let headerDiff = { changed: false, added: [], removed: [], modified: [], unchanged: 0 };
+        if (baseHeadersObj && targetHeadersObj) {
+          headerDiff = diffHeaders(await baseHeadersObj.json(), await targetHeadersObj.json());
+        }
+
+        const summary = computeChangeSummary(htmlDiff, headerDiff, screenshotDiff);
+        summary.previousCaptureId = previousId;
+        await setChangeSummary(env.DB, captureId, summary);
+      } catch (err) {
+        // Graceful degradation: change_summary stays NULL, badge just does not show
+        log(env, 4, 'diff', { event: 'diff.summary_error', captureId, scheduleId, error: err?.message });
       }
     })());
     // 3b: Approaching free tier limit notification
@@ -1805,6 +1855,247 @@ async function handleGetCertificate(request, env, ctx, match) {
       'X-Signature-Key-Id': signingKeys.keyId,
     },
   });
+}
+
+// Authenticated endpoint -- requires read scope.
+// Compares two captures owned by the authenticated tenant and returns a
+// structured diff across HTML, screenshot, and headers.
+// Returns 404 (not 403) for cross-tenant or missing captures (no enumeration).
+// Returns 451 if either capture is quarantined.
+async function handleDiffCaptures(request, env, ctx, match) {
+  const start = Date.now();
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
+  // Step 1: Auth -- required, read scope.
+  // The fetch() gate runs optional auth for all /v1/captures/* GET routes.
+  // If credentials were absent, env._captureAuth is unset → enforce 401 here.
+  // If credentials were present but invalid, fetch() already returned 401.
+  const captureAuth = env._captureAuth;
+  if (!captureAuth) {
+    ctx.waitUntil(log(env, 5, 'security', { event: 'security.auth_fail', reason: 'missing_credentials', responseStatus: 401, cip }) ?? Promise.resolve());
+    return problemResponse(401, 'Authentication required.');
+  }
+  const { tenantId, authMethod } = captureAuth;
+  const keyName = null;
+  const keyHashPrefix = null;
+  // Re-assemble auth-like shape for checkCaptureRateLimit compatibility
+  const auth = { ok: true, tenantId, authMethod, keyName, keyHashPrefix, scopes: ['read'] };
+
+  ctx.waitUntil(
+    incrementUsage(env.DB, tenantId, { apiCalls: 1 })
+      .catch((err) => {
+        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      })
+  );
+
+  // Step 2: Per-tenant rate limit (dual-layer for KV auth, IP-only for legacy)
+  const rl = await checkCaptureRateLimit(env, auth, clientIp, 'capture');
+  if (rl.exceeded) {
+    const limiter = rl.type === 'ip_guard' ? 'capture_per_ip_guard' : rl.type === 'ip' ? 'capture_per_ip' : 'capture_per_tenant';
+    ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter, tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 429, cip }) ?? Promise.resolve());
+    if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+    const retryAfter = String(rl.resetIn || 60);
+    const headers = { 'Retry-After': retryAfter };
+    if (rl.limit !== undefined) {
+      headers['X-RateLimit-Limit'] = String(rl.limit);
+      headers['X-RateLimit-Remaining'] = '0';
+      headers['X-RateLimit-Reset'] = retryAfter;
+    }
+    if (rl.type === 'tenant') {
+      return problemResponse(429, 'Per-tenant rate limit exceeded.', headers, { limitType: 'tenant' });
+    }
+    return problemResponse(429, 'Rate limit exceeded. Try again later.', headers);
+  }
+  if (rl.writePromise) ctx.waitUntil(rl.writePromise);
+
+  if (env.GLOBAL_CAPTURE_LIMITER) {
+    const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.capacity_limit', tenantId, keyName, keyHashPrefix, authMethod, responseStatus: 503, cip }) ?? Promise.resolve());
+      return problemResponse(503, 'Service is at capacity. Retry in 10 seconds.', { 'Retry-After': '10' });
+    }
+  }
+
+  // Step 3: Extract and validate capture IDs from route match
+  const id1 = match[1]; // base
+  const id2 = match[2]; // target
+
+  if (id1 === id2) {
+    return problemResponse(400, 'Cannot diff a capture with itself.');
+  }
+
+  // Step 4: Parse ?include query param
+  const url = new URL(request.url);
+  const VALID_SECTIONS = new Set(['summary', 'html', 'screenshot', 'headers']);
+  const rawInclude = url.searchParams.get('include') || 'summary,html,screenshot,headers';
+  const include = new Set(rawInclude.split(',').map((s) => s.trim()).filter(Boolean));
+
+  for (const section of include) {
+    if (!VALID_SECTIONS.has(section)) {
+      return problemResponse(400, `Unknown section: '${section}'. Valid values: summary, html, screenshot, headers.`);
+    }
+  }
+  // summary is always included
+  include.add('summary');
+
+  // Step 5: Fetch both capture records
+  const [base, target] = await Promise.all([
+    getCapture(env.DB, id1),
+    getCapture(env.DB, id2),
+  ]);
+
+  // Tenant isolation + existence + status checks -- identical 404 for all failure cases (no enumeration)
+  const notFound = problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' });
+
+  if (!base || base.tenantId !== tenantId) return notFound;
+  if (!target || target.tenantId !== tenantId) return notFound;
+
+  // Check for quarantine before status check (451 takes precedence over 404)
+  if (base.status === 'quarantined' || target.status === 'quarantined') {
+    return problemResponse(451, 'Capture artifacts restricted due to content security policy', {
+      'Cache-Control': 'no-store',
+    });
+  }
+
+  if (base.status !== 'complete') return notFound;
+  if (target.status !== 'complete') return notFound;
+
+  // Step 6: Fetch artifacts from R2 for requested sections
+  let baseHtml = null;
+  let targetHtml = null;
+  let htmlTruncated = false;
+  let baseHeadersRaw = null;
+  let targetHeadersRaw = null;
+  let baseScreenshotHash = null;
+  let targetScreenshotHash = null;
+
+  const SIZE_GUARD = 2 * 1024 * 1024; // 2 MB
+
+  if (include.has('html')) {
+    const baseHtmlKey = base.artifacts?.html;
+    const targetHtmlKey = target.artifacts?.html;
+
+    if (baseHtmlKey && targetHtmlKey) {
+      // Size guard: use head() to avoid fetching large bodies unnecessarily
+      const [baseMeta, targetMeta] = await Promise.all([
+        env.BUCKET.head(baseHtmlKey),
+        env.BUCKET.head(targetHtmlKey),
+      ]);
+
+      if ((baseMeta?.size ?? 0) > SIZE_GUARD || (targetMeta?.size ?? 0) > SIZE_GUARD) {
+        htmlTruncated = true;
+      } else {
+        const [baseObj, targetObj] = await Promise.all([
+          env.BUCKET.get(baseHtmlKey),
+          env.BUCKET.get(targetHtmlKey),
+        ]);
+        if (baseObj) baseHtml = await baseObj.text();
+        if (targetObj) targetHtml = await targetObj.text();
+      }
+    }
+  }
+
+  if (include.has('headers')) {
+    const baseHeadersKey = base.artifacts?.headers;
+    const targetHeadersKey = target.artifacts?.headers;
+
+    const [baseHeadersObj, targetHeadersObj] = await Promise.all([
+      baseHeadersKey ? env.BUCKET.get(baseHeadersKey) : Promise.resolve(null),
+      targetHeadersKey ? env.BUCKET.get(targetHeadersKey) : Promise.resolve(null),
+    ]);
+
+    if (baseHeadersObj) {
+      try { baseHeadersRaw = JSON.parse(await baseHeadersObj.text()); } catch (err) {
+        console.warn('wrl:diff_headers_parse_fail', { captureId: id1, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      }
+    }
+    if (targetHeadersObj) {
+      try { targetHeadersRaw = JSON.parse(await targetHeadersObj.text()); } catch (err) {
+        console.warn('wrl:diff_headers_parse_fail', { captureId: id2, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      }
+    }
+  }
+
+  if (include.has('screenshot')) {
+    const baseScreenshotKey = base.artifacts?.screenshot;
+    const targetScreenshotKey = target.artifacts?.screenshot;
+
+    // Hash-only comparison via head() -- never fetch full screenshot bodies
+    const [baseMeta, targetMeta] = await Promise.all([
+      baseScreenshotKey ? env.BUCKET.head(baseScreenshotKey) : Promise.resolve(null),
+      targetScreenshotKey ? env.BUCKET.head(targetScreenshotKey) : Promise.resolve(null),
+    ]);
+
+    // Use etag as the hash; R2 returns etag for all objects
+    baseScreenshotHash = baseMeta?.etag ?? null;
+    targetScreenshotHash = targetMeta?.etag ?? null;
+  }
+
+  // Step 7: Compute diffs
+  const htmlDiff = include.has('html')
+    ? (htmlTruncated
+        ? { changed: true, truncated: true, stats: { additions: 0, deletions: 0 }, hunks: [] }
+        : diffHtml(baseHtml ?? '', targetHtml ?? ''))
+    : null;
+
+  const headersDiff = include.has('headers')
+    ? diffHeaders(baseHeadersRaw, targetHeadersRaw)
+    : null;
+
+  const screenshotDiff = include.has('screenshot')
+    ? diffScreenshot(baseScreenshotHash, targetScreenshotHash)
+    : null;
+
+  // Step 8: Build summary using effective diffs for all sections (null = not included)
+  const summaryHtmlDiff = htmlDiff ?? { changed: false, stats: { additions: 0, deletions: 0 } };
+  const summaryHeadersDiff = headersDiff ?? { changed: false, added: [], removed: [], modified: [] };
+  const summaryScreenshotDiff = screenshotDiff ?? { changed: false };
+  const changeSummary = computeChangeSummary(summaryHtmlDiff, summaryHeadersDiff, summaryScreenshotDiff);
+
+  // Step 9: Assemble response
+  const responseBody = {
+    base: {
+      id: base.captureId,
+      url: base.url,
+      createdAt: base.createdAt,
+    },
+    target: {
+      id: target.captureId,
+      url: target.url,
+      createdAt: target.createdAt,
+    },
+    summary: {
+      changed: changeSummary.changed,
+      sections: {
+        html: changeSummary.html,
+        screenshot: changeSummary.screenshot,
+        headers: changeSummary.headers,
+      },
+    },
+  };
+
+  if (include.has('html') && htmlDiff !== null) {
+    responseBody.html = htmlDiff;
+  }
+  if (include.has('screenshot') && screenshotDiff !== null) {
+    responseBody.screenshot = screenshotDiff;
+  }
+  if (include.has('headers') && headersDiff !== null) {
+    responseBody.headers = headersDiff;
+  }
+
+  ctx.waitUntil(log(env, 3, 'diff', {
+    event: 'diff.computed',
+    tenantId,
+    captureId1: id1,
+    captureId2: id2,
+    durationMs: Date.now() - start,
+    sections: Array.from(include),
+    changed: changeSummary.changed,
+  }) ?? Promise.resolve());
+
+  return jsonResponse(responseBody, 200, { 'Cache-Control': 'no-store' });
 }
 
 // Public endpoint -- no authentication. Rate-limited per IP.
