@@ -92,7 +92,7 @@ Why: Both specialists agreed. Resend is part of verification flow. notifications
 
 ## Verification
 
-Verification: all checks passed. Code review launched (3 agents), tests passed (31/31 new, 1561/1561 full suite).
+Verification: 2 code review findings auto-fixed, all tests pass (31/31 new, 1561/1561 full suite).
 
 ## Test Plan
 
