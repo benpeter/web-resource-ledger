@@ -1,6 +1,6 @@
 {
   "name": "wrl",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Tamper-evident archival of web resources with cryptographic signing",
   "license": "Apache-2.0",
