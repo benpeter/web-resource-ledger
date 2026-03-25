@@ -46,11 +46,11 @@ VS Code prompts for the API key on first use and stores it securely.
 
 ```bash
 claude mcp add wrl --transport http \
-  --header "Authorization: Bearer YOUR_API_KEY" \
+  --header "Authorization: Bearer YOUR_WRL_API_KEY" \
   https://api.webresourceledger.com/mcp
 ```
 
-Replace `YOUR_API_KEY` with a key that has at least `read` scope. Add `capture` scope if your agent needs to submit new captures.
+Replace `YOUR_WRL_API_KEY` with a key that has at least `read` scope. Add `capture` scope if your agent needs to submit new captures.
 
 ### Cursor
 
@@ -62,7 +62,7 @@ Add to `.cursor/mcp.json` in your project directory for project-level access, or
     "wrl": {
       "url": "https://api.webresourceledger.com/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_WRL_API_KEY"
       }
     }
   }
@@ -79,7 +79,7 @@ Open Cline sidebar > MCP Servers > Configure, then add:
     "wrl": {
       "url": "https://api.webresourceledger.com/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_WRL_API_KEY"
       }
     }
   }
@@ -98,7 +98,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`. Windsurf uses `serverUrl` instead 
     "wrl": {
       "serverUrl": "https://api.webresourceledger.com/mcp",
       "headers": {
-        "Authorization": "Bearer YOUR_API_KEY"
+        "Authorization": "Bearer YOUR_WRL_API_KEY"
       }
     }
   }
@@ -111,7 +111,7 @@ Configure your client with:
 
 - **Endpoint:** `https://api.webresourceledger.com/mcp`
 - **Transport:** Streamable HTTP (POST)
-- **Authorization:** `Bearer YOUR_API_KEY` header on every request
+- **Authorization:** `Bearer YOUR_WRL_API_KEY` header on every request
 
 ---
 
