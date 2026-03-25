@@ -47,15 +47,15 @@
         <p>We maintain a <a href="https://docs.webresourceledger.com/security/subprocessors/">published subprocessor list</a> with the purpose, data processed, location, and data transfer mechanism for each third-party processor (Cloudflare, Coralogix, GitHub, Stripe, and others).</p>
 
         <h3>EU Data Processing</h3>
-        <p>Operational logs are processed exclusively in Coralogix&rsquo;s EU2 region (Ireland). Log data contains pseudonymized identifiers only &mdash; no raw personal data. See the <a href="https://docs.webresourceledger.com/security/subprocessors/">subprocessor list</a> for data transfer mechanisms for all processors.</p>
+        <p>Operational logs are processed exclusively in Coralogix&rsquo;s EU2 region. Log data contains pseudonymized identifiers only &mdash; no raw personal data. See the <a href="https://docs.webresourceledger.com/security/subprocessors/">subprocessor list</a> for data transfer mechanisms for all processors.</p>
 
         <h3>Incident Response</h3>
-        <p>We maintain a documented incident response procedure. In the event of a personal data breach, affected customers will be notified within 72 hours of discovery, in accordance with GDPR Article 33. Details are in the <a href="https://docs.webresourceledger.com/security/incident-response/">incident response documentation</a>.</p>
+        <p>We maintain a documented <a href="https://docs.webresourceledger.com/security/incident-response/">incident response procedure</a>. In the event of a personal data breach, affected customers will be notified within 48 hours, and the supervisory authority within 72 hours per GDPR Article 33.</p>
 
         <h2>Cryptographic Integrity</h2>
 
         <h3>Ed25519 Signatures</h3>
-        <p>Every capture bundle is signed with Ed25519 before it leaves the worker. The signature covers the complete WACZ archive &mdash; screenshot, rendered HTML, HTTP headers, and metadata. Any modification after signing invalidates the signature. The signing key is tenant-specific and the verification process is documented and open to independent audit.</p>
+        <p>Every capture bundle is signed with Ed25519 before it leaves the worker. The signature covers the complete WACZ archive &mdash; screenshot, rendered HTML, HTTP headers, and metadata. Any modification after signing invalidates the signature. The verification process is documented and open to independent audit.</p>
 
         <h3>RFC 3161 Timestamps</h3>
         <p>Each capture receives a standard RFC 3161 timestamp from DigiCert, anchoring it to a cryptographically attested point in time. Captures with the eIDAS add-on also receive a qualified timestamp from Sectigo, which carries legal presumption of accuracy across all EU member states under eIDAS Article 41(2).</p>
