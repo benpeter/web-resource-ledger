@@ -4,7 +4,37 @@ WRL is available as an [MCP](https://modelcontextprotocol.io/) server, enabling 
 
 The MCP server uses Streamable HTTP transport at `https://api.webresourceledger.com/mcp`. Authentication requires a WRL API key with at minimum `read` scope. Capture operations additionally require `capture` scope.
 
+> **Try it:** Ask your agent: *"Capture https://example.com as evidence and verify it."*
+
 ## Quick Setup
+
+### VS Code (GitHub Copilot)
+
+Add to `.vscode/mcp.json` in your project directory:
+
+```json
+{
+  "servers": {
+    "wrl": {
+      "type": "http",
+      "url": "https://api.webresourceledger.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:wrl-api-key}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "wrl-api-key",
+      "description": "WRL API key (capture + read scopes)",
+      "password": true
+    }
+  ]
+}
+```
+
+VS Code prompts for the API key on first use and stores it securely.
 
 ### Claude Code
 
@@ -30,6 +60,25 @@ Add to `.cursor/mcp.json` in your project directory, or `~/.cursor/mcp.json` glo
   }
 }
 ```
+
+### Cline
+
+Open Cline sidebar > MCP Servers > Configure, then add:
+
+```json
+{
+  "mcpServers": {
+    "wrl": {
+      "url": "https://api.webresourceledger.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_WRL_API_KEY"
+      }
+    }
+  }
+}
+```
+
+> **Note:** Cline's Streamable HTTP transport support may vary by version. If the connection fails, check [cline/cline#3315](https://github.com/cline/cline/issues/3315) for current status.
 
 ### Windsurf
 
@@ -129,7 +178,7 @@ Verify integrity: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7
 
 ### list_captures
 
-List your recent captures with an optional status filter. Returns summaries in reverse chronological order. Use `get_capture` with a specific ID for full artifact details.
+List recent captures with optional filters. Returns summaries in reverse chronological order (newest first by default). Use `get_capture` with a specific ID for full artifact details.
 
 **Parameters:**
 
@@ -137,7 +186,11 @@ List your recent captures with an optional status filter. Returns summaries in r
 |-----------|------|----------|-------------|
 | `status` | string | no | Filter by status: `pending`, `complete`, or `failed` |
 | `limit` | integer | no | Number of results to return (1–100, default 20) |
-| `cursor` | string | no | Pagination cursor from a previous `list_captures` response |
+| `offset` | integer | no | Number of captures to skip for pagination (default 0) |
+| `url` | string | no | Filter by URL prefix |
+| `created_after` | string | no | ISO 8601 datetime -- only captures after this time |
+| `created_before` | string | no | ISO 8601 datetime -- only captures before this time |
+| `sort` | string | no | Sort order: `-created_at` (default, newest first) or `created_at` |
 
 **Requires:** `read` scope
 

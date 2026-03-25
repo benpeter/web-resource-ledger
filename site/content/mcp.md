@@ -10,7 +10,37 @@ Any MCP-compatible agent can capture web pages and verify evidence without writi
 
 The MCP server uses Streamable HTTP transport. Configure your client once, then let your agent handle the rest.
 
+> **Try it:** Ask your agent: *"Capture https://example.com as evidence and verify it."*
+
 ## Setup
+
+### VS Code (GitHub Copilot)
+
+Add to `.vscode/mcp.json` in your project directory:
+
+```json
+{
+  "servers": {
+    "wrl": {
+      "type": "http",
+      "url": "https://api.webresourceledger.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:wrl-api-key}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "wrl-api-key",
+      "description": "WRL API key (capture + read scopes)",
+      "password": true
+    }
+  ]
+}
+```
+
+VS Code prompts for the API key on first use and stores it securely.
 
 ### Claude Code
 
@@ -38,6 +68,25 @@ Add to `.cursor/mcp.json` in your project directory for project-level access, or
   }
 }
 ```
+
+### Cline
+
+Open Cline sidebar > MCP Servers > Configure, then add:
+
+```json
+{
+  "mcpServers": {
+    "wrl": {
+      "url": "https://api.webresourceledger.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+> **Note:** Cline's Streamable HTTP transport support may vary by version. If the connection fails, check [cline/cline#3315](https://github.com/cline/cline/issues/3315) for current status.
 
 ### Windsurf
 
@@ -68,7 +117,7 @@ Configure your client with:
 
 ## Available tools
 
-### `capture_page`
+### `capture_url`
 
 Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle. Returns a capture ID -- use `get_capture` to check progress.
 
@@ -123,7 +172,7 @@ Verify integrity: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7
 
 ### `list_captures`
 
-List recent captures with an optional status filter. Returns summaries in reverse chronological order. Use `get_capture` with a specific ID for full artifact details.
+List recent captures with optional filters. Returns summaries in reverse chronological order (newest first by default). Use `get_capture` with a specific ID for full artifact details.
 
 **Requires:** `read` scope
 
@@ -131,7 +180,11 @@ List recent captures with an optional status filter. Returns summaries in revers
 |-----------|------|----------|-------------|
 | `status` | string | no | Filter by status: `pending`, `complete`, or `failed` |
 | `limit` | integer | no | Number of results (1--100, default 20) |
-| `cursor` | string | no | Pagination cursor from a previous `list_captures` response |
+| `offset` | integer | no | Number of captures to skip for pagination (default 0) |
+| `url` | string | no | Filter by URL prefix |
+| `created_after` | string | no | ISO 8601 datetime -- only captures after this time |
+| `created_before` | string | no | ISO 8601 datetime -- only captures before this time |
+| `sort` | string | no | Sort order: `-created_at` (default, newest first) or `created_at` |
 
 ---
 
@@ -167,30 +220,16 @@ Signing metadata:
 
 ---
 
-### `batch_capture`
-
-Submit multiple URLs for capture in a single call. Returns a result for each URL -- some may succeed while others fail. Use `get_capture` to poll each accepted ID individually.
-
-**Requires:** `capture` scope
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `urls` | array of strings | yes | URLs to capture (maximum 100) |
-
-For full details on batch results and error handling, see the [Batch Captures](/batch/) guide.
-
----
-
 ## Tutorial: capture and verify in 3 tool calls
 
 This walkthrough shows the complete evidence workflow using MCP tools.
 
 ### Step 1: Submit the capture
 
-Call `capture_page` with the URL you want to preserve.
+Call `capture_url` with the URL you want to preserve.
 
 ```
-Tool: capture_page
+Tool: capture_url
 Input: { "url": "https://example.com/important-page" }
 ```
 
@@ -214,7 +253,7 @@ Input: { "capture_id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" }
 
 If still processing, you will see `is pending` -- call `get_capture` again in a few seconds. When the capture completes, the response includes all artifact URLs and a verification link.
 
-If the capture is still pending after 30 seconds, it may have stalled. Call `get_capture` once more to see if a failure record is now written, then resubmit with a new `capture_page` call if the error is retryable.
+If the capture is still pending after 30 seconds, it may have stalled. Call `get_capture` once more to see if a failure record is now written, then resubmit with a new `capture_url` call if the error is retryable.
 
 ### Step 3: Verify cryptographic integrity
 
@@ -235,16 +274,13 @@ All four checks passing confirms: the screenshot, HTML, and HTTP headers match w
 **Verify a capture before citing it in a report:**
 > "Before I include this capture URL in the audit report, verify it hasn't been tampered with."
 
-**Compliance audit across multiple pages:**
-> "Capture these 12 policy pages for the quarterly compliance record." -- use `batch_capture` and then `get_capture` for each ID. See the [Batch Captures](/batch/) guide for the polling pattern.
-
 ---
 
 ## Troubleshooting
 
 ### "Insufficient scope: API key does not grant 'capture' scope"
 
-Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, and `verify_capture` work with `read` scope. `capture_page` and `batch_capture` require `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
+Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, and `verify_capture` work with `read` scope. `capture_url` requires `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
 
 ### "Rate limit exceeded. Try again in 60 seconds."
 
@@ -259,7 +295,7 @@ A global capacity limit applies across all tenants. Retry after 10 seconds.
 Captures normally complete in 5--15 seconds. If `get_capture` returns pending after 30 seconds:
 
 1. Call `get_capture` one more time -- it may have just completed, or the failure record may now be written.
-2. If still pending, the background job may have been dropped. Submit a new capture with `capture_page`.
+2. If still pending, the background job may have been dropped. Submit a new capture with `capture_url`.
 
 ### "Capture not found or not yet complete"
 

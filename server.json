@@ -1,10 +1,10 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.benpeter/web-resource-ledger",
   "title": "Web Resource Ledger",
-  "description": "Capture web pages as tamper-evident evidence with Ed25519 signatures and RFC 3161 timestamps. Four tools: capture_url, get_capture, list_captures, verify_capture.",
-  "version": "0.1.0",
-  "websiteUrl": "https://github.com/benpeter/web-resource-ledger",
+  "description": "Capture web pages as verifiable evidence your agent can cite. Every capture is Ed25519-signed, RFC 3161-timestamped, and bundled as a WACZ archive. Four tools: capture_url, get_capture, list_captures, verify_capture.",
+  "version": "1.0.0",
+  "websiteUrl": "https://docs.webresourceledger.com",
   "repository": {
     "url": "https://github.com/benpeter/web-resource-ledger",
     "source": "github",
@@ -14,9 +14,14 @@
     {
       "type": "streamable-http",
       "url": "https://api.webresourceledger.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${env:WRL_API_KEY}"
-      }
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token using your WRL API key (format: Bearer wrl_live_...)",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
     }
   ]
 }
