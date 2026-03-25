@@ -177,7 +177,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] Coralogix alerting rules~~ | ~~When operational load justifies alerting~~ -- DONE (Phase 0046): 4 alert rules, provisioning script, runbooks | observability-minion, mvo-coralogix |
 | [consider] Queue architecture documentation update | When queue migration is verified in production | software-docs-minion, 0044-queue-migration |
 | [consider] Cron Trigger for pending capture TTL cleanup | When stale pending captures accumulate beyond queue retry window; queue retries handle most cases | data-minion, Phase 0047 |
-| [consider] Fastly CDN layer | When verification traffic justifies CDN | iac-minion, kickoff |
+| ~~[consider] Fastly CDN layer~~ | Superseded: Workers Cache API provides per-colo caching without additional vendor (Phase 0068, Issue #116) | iac-minion, kickoff |
 | [consider] Preview deployments on PRs | When team size > 1 | iac-minion, kickoff |
 | [consider] Durable Object session coordinator | When session contention >1% capture failures | iac-minion |
 | [consider] Cloudflare Containers | When Browser Rendering limits exhausted AND Queues insufficient; monitor for GA | iac-minion, kickoff |
@@ -295,6 +295,7 @@ Completed items removed from active tracking:
 - ~~R36: Email notifications~~ -- DONE (Phase 0072): 6 transactional notification types, Resend email delivery via Cloudflare Queue, RFC 8058 one-click unsubscribe, notification preferences API (GET/PUT), Notifications UI tab, GitHub OAuth email auto-population, 2 Coralogix alerts (Issue #111)
 - ~~R34: API versioning and stability commitment~~ -- DONE (Phase 0065): v1.0.0 version bump (openapi.yaml + package.json), CHANGELOG.md with retroactive history, DEPRECATION-POLICY.md (6-month notice, 30-day emergency), WRL-API-Version response header, CI version-sync enforcement, PR template (Issue #113)
 - ~~R35: MCP directory listings and ecosystem~~ -- DONE (Phase 0066): server.json updated to 2025-12-11 registry schema, glama.json for Glama auto-indexing, PRs submitted to punkpeye/awesome-mcp-servers (Legal) + appcypher/awesome-mcp-servers (Security) + iipc/awesome-web-archiving (Acquisition + Utilities), MCP.so submission, doc bugs fixed (capture_page→capture_url, batch_capture removed, cursor→offset), 6 MCP client integration examples (VS Code, Claude Code, Cursor, Cline, Windsurf, Generic) (Issue #114)
+- ~~R38: CDN for verification traffic~~ -- DONE (Phase 0068): Workers Cache API per-colo caching for verification endpoints, admin cache purge endpoint (URL-based, Free plan compatible), verify subdomain routing, Server-Timing + X-WRL-Cache headers, cache monitoring docs, key rotation runbook (Issue #116)
 
 ---
 
