@@ -83,3 +83,4 @@ software development.
 | [0078-ui-fixes-batch](0078-ui-fixes-batch/) | UI fixes batch: URL auto-prepend in capture form, "Art." → "Article" on verify page, billing stat spacing (Issues #179, #180, #183) |
 | [0079-homepage-pricing-screenshot-quality](0079-homepage-pricing-screenshot-quality/) | Homepage pricing update and screenshot quality: real graduated tier pricing, deviceScaleFactor 2→4 (Issues #182, #184) |
 | [0065-api-versioning](0065-api-versioning/) | API versioning and stability commitment: v1.0.0, CHANGELOG.md, DEPRECATION-POLICY.md, CI enforcement, WRL-API-Version header (Issue #113) |
+| [0066-mcp-directory-listings](0066-mcp-directory-listings/) | MCP directory listings and ecosystem: server.json registry update, Glama/MCP.so/awesome-lists submissions, doc bug fixes, 6 client integration examples (Issue #114) |

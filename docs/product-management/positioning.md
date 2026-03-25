@@ -110,3 +110,29 @@ discourage usage and weaken the "evidence-grade by default" story.
 - **Fallback transparency**: When the qualified TSA fails, the capture succeeds
   with standard-only. The UI shows "Standard (RFC 3161)" instead of "Qualified
   (eIDAS)" so the tenant knows exactly what they got.
+
+## MCP Ecosystem Presence (Phase 0066)
+
+**Differentiator**: WRL is listed across the MCP directory ecosystem, making
+it discoverable by AI agent developers browsing for tools. Most web archiving
+tools have no MCP presence at all. WRL is positioned as the only MCP server
+in the "Legal" category of the largest awesome-mcp-servers list.
+
+**Competitive landscape**:
+- **Wayback Machine**: No MCP server. CLI tools exist but not as MCP tools.
+- **Conifer (Rhizome)**: No MCP integration.
+- **Pagefreezer / PageVault**: Enterprise-only, no open MCP server.
+
+**WRL advantage**: First-mover in the MCP + web evidence intersection. When
+AI agents need to "capture a web page as evidence," WRL is the discoverable
+answer across multiple directories. The Streamable HTTP transport means zero
+installation — agents connect to the remote server directly.
+
+**Directories submitted**: Official MCP Registry (pending human auth),
+punkpeye/awesome-mcp-servers (Legal), appcypher/awesome-mcp-servers (Security),
+MCP.so, iipc/awesome-web-archiving (Acquisition + Utilities), Glama (via
+glama.json auto-indexing).
+
+**Personas served**: AI agent developers (Claude Code, Cursor, VS Code Copilot),
+legal tech platforms integrating evidence capture into agent workflows,
+compliance automation tools using MCP-compatible clients.
