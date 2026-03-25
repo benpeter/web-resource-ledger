@@ -166,12 +166,13 @@ function mountSettings() {
 // ---------------------------------------------------------------------------
 
 function buildUsageMetric(labelText, used, limit, ariaLabel) {
-  var pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  var hasLimit = limit !== null && limit !== undefined;
+  var pct = hasLimit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
   var metric = document.createElement('div');
   metric.className = 'usage-metric';
 
-  // Header row: label + "N of M" value
+  // Header row: label + value ("N of M" when limit is known, plain "N" otherwise)
   var header = document.createElement('div');
   header.className = 'usage-metric-header';
 
@@ -182,29 +183,32 @@ function buildUsageMetric(labelText, used, limit, ariaLabel) {
 
   var value = document.createElement('span');
   value.className = 'usage-metric-value';
-  value.textContent = used + ' of ' + limit;
+  value.textContent = hasLimit ? used + ' of ' + limit : String(used);
   header.appendChild(value);
 
   metric.appendChild(header);
 
-  // Progress bar
+  // Progress bar -- visually hidden when there is no limit (no meaningful percentage)
   var bar = document.createElement('div');
   bar.className = 'usage-bar';
   bar.setAttribute('role', 'progressbar');
   bar.setAttribute('aria-valuenow', String(used));
   bar.setAttribute('aria-valuemin', '0');
-  bar.setAttribute('aria-valuemax', String(limit));
+  bar.setAttribute('aria-valuemax', hasLimit ? String(limit) : String(used));
   bar.setAttribute('aria-label', ariaLabel);
+  if (!hasLimit) bar.setAttribute('aria-hidden', 'true');
 
   var fill = document.createElement('div');
   var fillClass = 'usage-bar-fill';
-  if (pct >= 95) {
+  if (!hasLimit) {
+    fillClass += ' usage-bar-fill--unlimited';
+  } else if (pct >= 95) {
     fillClass += ' usage-bar-fill--critical';
   } else if (pct >= 80) {
     fillClass += ' usage-bar-fill--warning';
   }
   fill.className = fillClass;
-  fill.style.width = pct + '%';
+  fill.style.width = hasLimit ? pct + '%' : '100%';
   bar.appendChild(fill);
 
   metric.appendChild(bar);
@@ -252,20 +256,29 @@ function buildUsageSection(usageData) {
   }
 
   // Captures metric
-  var captures = usageData.captures || { used: 0, limit: 0, remaining: 0 };
-  var capturesAriaLabel = captures.used + ' of ' + captures.limit + ' captures used this month';
-  section.appendChild(buildUsageMetric('Captures', captures.used, captures.limit, capturesAriaLabel));
+  var captures = usageData.captures || { used: 0, limit: null, remaining: null };
+  var capturesLimit = captures.limit !== undefined ? captures.limit : null;
+  var capturesAriaLabel = capturesLimit !== null
+    ? captures.used + ' of ' + capturesLimit + ' captures used this month'
+    : captures.used + ' captures used this month';
+  section.appendChild(buildUsageMetric('Captures', captures.used, capturesLimit, capturesAriaLabel));
 
   // Storage metric
-  var storage = usageData.storageBytes || { used: 0, limit: 0, remaining: 0 };
+  var storage = usageData.storageBytes || { used: 0, limit: null, remaining: null };
+  var storageLimit = storage.limit !== undefined ? storage.limit : null;
   var storageUsedFmt = formatBytes(storage.used);
-  var storageLimitFmt = formatBytes(storage.limit);
-  var storageAriaLabel = storageUsedFmt + ' of ' + storageLimitFmt + ' storage used this month';
+  var storageAriaLabel = storageLimit !== null
+    ? storageUsedFmt + ' of ' + formatBytes(storageLimit) + ' storage used this month'
+    : storageUsedFmt + ' storage used this month';
 
   // Override the value text to show formatted bytes
-  var storageMetric = buildUsageMetric('Storage', storage.used, storage.limit, storageAriaLabel);
+  var storageMetric = buildUsageMetric('Storage', storage.used, storageLimit, storageAriaLabel);
   var storageValue = storageMetric.querySelector('.usage-metric-value');
-  if (storageValue) storageValue.textContent = storageUsedFmt + ' of ' + storageLimitFmt;
+  if (storageValue) {
+    storageValue.textContent = storageLimit !== null
+      ? storageUsedFmt + ' of ' + formatBytes(storageLimit)
+      : storageUsedFmt;
+  }
 
   section.appendChild(storageMetric);
 
