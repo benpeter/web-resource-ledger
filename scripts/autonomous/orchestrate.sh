@@ -77,7 +77,6 @@ ITEM=$(jq -r ".phases[$PHASE_INDEX].item" "$MANIFEST")
 ISSUE=$(jq -r ".phases[$PHASE_INDEX].issue // empty" "$MANIFEST")
 TITLE=$(jq -r ".phases[$PHASE_INDEX].title" "$MANIFEST")
 ACT=$(jq -r ".phases[$PHASE_INDEX].act" "$MANIFEST")
-BUDGET=$(jq -r ".phases[$PHASE_INDEX].budget_usd" "$MANIFEST")
 
 # --- Pre-phase checks ---
 
@@ -103,7 +102,7 @@ done
 echo ""
 echo "=========================================="
 log_info "Phase $PHASE - $TITLE (Act $ACT)"
-log_info "Budget: \$$BUDGET | Issue: ${ISSUE:-TBD}"
+log_info "Issue: ${ISSUE:-TBD}"
 echo "=========================================="
 
 # Ensure main is up-to-date (stash if dirty to avoid silent checkout failure)

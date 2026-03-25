@@ -69,4 +69,3 @@ The business website must include:
 - Pages must match the landing page's visual style (use design-system.css)
 - Keep legal language clear and honest -- these are reasonable-effort templates
   for an early-stage project, not attorney-reviewed documents (include disclaimer)
-- Budget: $40 -- this is mostly content creation and HTML templating

@@ -172,7 +172,6 @@ Check the phase JSON for these patterns:
 |---------------|-----|-----------|
 | Compaction block | `grep -i 'compaction.*clipboard\|wait.*user\|Phase [0-9].* complete\. Compaction' phase-NNNN.json` | Session stopped at nefario compaction checkpoint. Reinforce session prompt and retry. |
 | Permission denials | `jq '.permission_denials \| length' phase-NNNN.json` — if >5 | Session tried AskUserQuestion repeatedly. Lucy gate protocol not working. |
-| Budget exceeded | `jq '.stop_reason' phase-NNNN.json` = `"budget_exceeded"` | Increase budget in manifest.json (50% bump) and retry. |
 | Too short (<5 turns) | `jq '.num_turns' phase-NNNN.json` < 5 | Likely transient. Just retry. |
 | Planning only | Many turns but no PR, `failed_no_pr` | Session did planning but never executed. Retry with reinforcement. |
 
@@ -261,7 +260,6 @@ Three distinct failure modes — handle differently:
 |------|--------|--------|
 | HTTP 429 (rate limit) | Exit code, "rate limit" in stderr | Wait 5 min, retry (max 3) |
 | Daily spend limit | "daily spend limit" in output | Pause gracefully, notify operator |
-| Session budget cap | `stop_reason: "budget_exceeded"` | Bump budget in manifest, retry |
 
 ### If you CANNOT fix it
 

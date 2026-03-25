@@ -60,10 +60,3 @@ for f in scripts/autonomous/logs/current/phase-*.status; do
 done
 ```
 
-## Budget & Timing (observed from 14 phases)
-
-- **Cost per phase**: ~$34 average (range $12-$60)
-- **Time per phase**: ~1 hour average (range 30 min to 2+ hours)
-- **CI budget**: GitHub Free plan = 2,000 min/month. Each phase uses ~5 min
-  CI, but retries, deploys, and integration tests add up.
-- **Full run estimate**: ~$1,600 for 28 phases over ~30 hours

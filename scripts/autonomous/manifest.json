@@ -6,7 +6,6 @@
       "issue": 45,
       "title": "MCP server for web evidence",
       "act": 3,
-      "budget_usd": 80,
       "depends_on": [],
       "act_last": false
     },
@@ -16,7 +15,6 @@
       "issue": 48,
       "title": "Batch capture endpoint",
       "act": 3,
-      "budget_usd": 60,
       "depends_on": [],
       "act_last": false
     },
@@ -26,7 +24,6 @@
       "issue": 46,
       "title": "Queue migration for capture processing",
       "act": 3,
-      "budget_usd": 80,
       "depends_on": [],
       "act_last": false
     },
@@ -36,7 +33,6 @@
       "issue": 94,
       "title": "Per-tenant rate limiting",
       "act": 3,
-      "budget_usd": 50,
       "depends_on": [],
       "act_last": false
     },
@@ -46,7 +42,6 @@
       "issue": 95,
       "title": "Coralogix alerting rules",
       "act": 3,
-      "budget_usd": 30,
       "depends_on": [],
       "act_last": false
     },
@@ -56,7 +51,6 @@
       "issue": 96,
       "title": "D1 migration for metadata",
       "act": 3,
-      "budget_usd": 100,
       "depends_on": [],
       "act_last": false
     },
@@ -66,7 +60,6 @@
       "issue": 97,
       "title": "Brand identity and design system",
       "act": 3,
-      "budget_usd": 60,
       "depends_on": [],
       "act_last": false
     },
@@ -76,7 +69,6 @@
       "issue": 47,
       "title": "Web UI for capture submission",
       "act": 3,
-      "budget_usd": 100,
       "depends_on": [
         "0047"
       ],
@@ -88,7 +80,6 @@
       "issue": 98,
       "title": "npm publish CI automation",
       "act": 3,
-      "budget_usd": 30,
       "depends_on": [],
       "act_last": false
     },
@@ -98,7 +89,6 @@
       "issue": 99,
       "title": "Documentation site",
       "act": 3,
-      "budget_usd": 80,
       "depends_on": [
         "0042",
         "0043"
@@ -111,7 +101,6 @@
       "issue": 100,
       "title": "Landing page",
       "act": 4,
-      "budget_usd": 50,
       "depends_on": [
         "0048",
         "0049"
@@ -124,7 +113,6 @@
       "issue": 101,
       "title": "Usage metering",
       "act": 4,
-      "budget_usd": 60,
       "depends_on": [
         "0047"
       ],
@@ -136,7 +124,6 @@
       "issue": 102,
       "title": "Webhooks / outbound callbacks",
       "act": 4,
-      "budget_usd": 60,
       "depends_on": [
         "0047"
       ],
@@ -148,7 +135,6 @@
       "issue": 103,
       "title": "Self-serve signup (OAuth)",
       "act": 4,
-      "budget_usd": 120,
       "depends_on": [
         "0049",
         "0045"
@@ -161,7 +147,6 @@
       "issue": 104,
       "title": "Tenant quotas",
       "act": 4,
-      "budget_usd": 60,
       "depends_on": [
         "0053",
         "0045"
@@ -174,7 +159,6 @@
       "issue": 134,
       "title": "Replace worker URL with api.webresourceledger.com",
       "act": 4,
-      "budget_usd": 15,
       "depends_on": [],
       "act_last": false
     },
@@ -184,7 +168,6 @@
       "issue": 131,
       "title": "Stripe-required legal pages",
       "act": 4,
-      "budget_usd": 40,
       "depends_on": [
         "0052"
       ],
@@ -196,7 +179,6 @@
       "issue": 105,
       "title": "E2E test suite (Playwright)",
       "act": 4,
-      "budget_usd": 60,
       "depends_on": [
         "0055"
       ],
@@ -208,7 +190,6 @@
       "issue": 106,
       "title": "Stripe usage-based billing",
       "act": 5,
-      "budget_usd": 80,
       "depends_on": [
         "0055",
         "0056",
@@ -222,7 +203,6 @@
       "issue": 107,
       "title": "Scheduled captures (cron)",
       "act": 5,
-      "budget_usd": 80,
       "depends_on": [
         "0055",
         "0056"
@@ -235,7 +215,6 @@
       "issue": 108,
       "title": "Capture metering to Stripe pipeline",
       "act": 5,
-      "budget_usd": 50,
       "depends_on": [
         "0053",
         "0058"
@@ -248,7 +227,6 @@
       "issue": 109,
       "title": "Content security scanning",
       "act": 5,
-      "budget_usd": 60,
       "depends_on": [
         "0059"
       ],
@@ -260,7 +238,6 @@
       "issue": 110,
       "title": "Capture auth gate for multi-tenant",
       "act": 5,
-      "budget_usd": 60,
       "depends_on": [
         "0055",
         "0047"
@@ -273,7 +250,6 @@
       "issue": 138,
       "title": "eIDAS qualified timestamps (optional add-on)",
       "act": 5,
-      "budget_usd": 50,
       "depends_on": [
         "0055",
         "0058"
@@ -286,7 +262,6 @@
       "issue": 169,
       "title": "Simplify capture access model (remove share tokens)",
       "act": 5,
-      "budget_usd": 60,
       "depends_on": [
         "0062"
       ],
@@ -298,7 +273,6 @@
       "issue": 170,
       "title": "Billing UI panel",
       "act": 5,
-      "budget_usd": 50,
       "depends_on": [
         "0058"
       ],
@@ -310,7 +284,6 @@
       "issue": 142,
       "title": "Legal-evidence positioning (landing + docs)",
       "act": 5,
-      "budget_usd": 30,
       "depends_on": [
         "0051",
         "0052",
@@ -324,7 +297,6 @@
       "issue": 141,
       "title": "FRE 902(13) certification document",
       "act": 5,
-      "budget_usd": 40,
       "depends_on": [
         "0047",
         "0049",
@@ -338,7 +310,6 @@
       "issue": 161,
       "title": "UI polish: settings and schedules pages",
       "act": 5,
-      "budget_usd": 30,
       "depends_on": [
         "0076"
       ],
@@ -350,7 +321,6 @@
       "issue": 111,
       "title": "Email notifications (operational + billing)",
       "act": 5,
-      "budget_usd": 70,
       "depends_on": [
         "0055",
         "0056",
@@ -365,7 +335,6 @@
       "issue": 185,
       "title": "UI fixes: URL prepend, verify page text, billing spacing",
       "act": "5b",
-      "budget_usd": 20,
       "depends_on": [],
       "act_last": false
     },
@@ -375,7 +344,6 @@
       "issue": 186,
       "title": "Homepage pricing update and screenshot quality",
       "act": "5b",
-      "budget_usd": 20,
       "depends_on": [],
       "act_last": true
     },
@@ -385,7 +353,6 @@
       "issue": 113,
       "title": "API versioning and stability commitment",
       "act": 6,
-      "budget_usd": 40,
       "depends_on": [
         "0042",
         "0043",
@@ -400,7 +367,6 @@
       "issue": 114,
       "title": "MCP directory listings and ecosystem",
       "act": 6,
-      "budget_usd": 40,
       "depends_on": [
         "0042",
         "0050",
@@ -414,7 +380,6 @@
       "issue": 115,
       "title": "Change detection and diffing",
       "act": 6,
-      "budget_usd": 80,
       "depends_on": [
         "0059",
         "0047"
@@ -427,7 +392,6 @@
       "issue": 116,
       "title": "CDN for verification traffic",
       "act": 6,
-      "budget_usd": 40,
       "depends_on": [],
       "act_last": false
     },
@@ -437,7 +401,6 @@
       "issue": 117,
       "title": "SOC 2 and compliance documentation",
       "act": 6,
-      "budget_usd": 60,
       "depends_on": [
         "0055",
         "0061",

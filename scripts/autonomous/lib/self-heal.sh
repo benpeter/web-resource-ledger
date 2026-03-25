@@ -37,15 +37,7 @@ diagnose_failure() {
     return 0
   fi
 
-  # 3. Budget exhausted (session ran out of money before completing)
-  local stop_reason
-  stop_reason=$(jq -r '.stop_reason // ""' "$phase_output" 2>/dev/null || true)
-  if [[ "$stop_reason" == "budget_exceeded" ]] || echo "$result_text" | grep -qi "budget.*exceeded\|budget.*limit"; then
-    echo "budget_exhausted"
-    return 0
-  fi
-
-  # 4. Session produced no meaningful output (empty or very short)
+  # 3. Session produced no meaningful output (empty or very short)
   local num_turns
   num_turns=$(jq -r '.num_turns // 0' "$phase_output" 2>/dev/null || echo "0")
   if [[ "$num_turns" -lt 5 ]]; then
@@ -111,12 +103,6 @@ ABSOLUTE RULES for this retry:
       return 0
       ;;
 
-    budget_exhausted)
-      log_info "Self-heal [$diagnosis]: increasing budget by 50% for retry"
-      SELF_HEAL_BUDGET_MULTIPLIER="1.5"
-      return 0
-      ;;
-
     excessive_permission_denials)
       log_info "Self-heal [$diagnosis]: reinforcing gate protocol for retry"
       SELF_HEAL_SUFFIX="
@@ -126,7 +112,7 @@ ABSOLUTE RULES for this retry:
 Previous attempt had excessive AskUserQuestion denials. Remember:
 AskUserQuestion is NOT available. For EVERY gate decision, spawn a
 Lucy agent instead. Do not attempt AskUserQuestion — it will be denied
-and waste your budget."
+and waste your session."
       return 0
       ;;
 
