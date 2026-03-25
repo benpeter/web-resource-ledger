@@ -372,3 +372,124 @@ export async function handleAdminGetUsage(request, env, ctx) {
     updatedAt: usage.updatedAt,
   }, 200, ADMIN_CACHE);
 }
+
+/**
+ * POST /v1/admin/cache/purge -- purge CDN cache by URL
+ *
+ * Body: { "targets": ["signing-keys"] }                    -- purge both signing key endpoints
+ * or:   { "targets": ["capture:cap_abc123def456..."] }     -- purge a specific capture's verify URLs
+ * or:   { "targets": ["all"] }                             -- purge everything (nuclear)
+ *
+ * Uses Cloudflare zone-level purge-by-URL (works on all plans).
+ * Requires CLOUDFLARE_ZONE_ID and CLOUDFLARE_CACHE_PURGE_TOKEN env vars.
+ */
+const TARGET_RE = /^(signing-keys|all|capture:cap_[a-f0-9]{32})$/;
+
+/** Derive the verify origin from the admin request host. */
+function resolveVerifyOrigin(request) {
+  const host = request.headers.get('Host') || '';
+  if (host.startsWith('staging.')) return 'https://verify-staging.webresourceledger.com';
+  if (host.startsWith('api.')) return 'https://verify.webresourceledger.com';
+  // Fallback: same origin (tests, local dev)
+  return new URL(request.url).origin;
+}
+
+/** Expand semantic targets into a CF purge API body. */
+function buildPurgePayload(targets, verifyOrigin) {
+  for (const t of targets) {
+    if (t === 'all') return { purge_everything: true };
+  }
+  const files = [];
+  for (const t of targets) {
+    if (t === 'signing-keys') {
+      files.push(`${verifyOrigin}/.well-known/signing-key`);
+      files.push(`${verifyOrigin}/.well-known/signing-keys`);
+    } else if (t.startsWith('capture:')) {
+      const captureId = t.slice('capture:'.length);
+      files.push(`${verifyOrigin}/v1/verify/${captureId}?_fmt=json`);
+      files.push(`${verifyOrigin}/v1/verify/${captureId}?_fmt=html`);
+    }
+  }
+  return { files };
+}
+
+export async function handleAdminCachePurge(request, env, ctx) {
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Invalid JSON body');
+  }
+
+  if (!body.targets || !Array.isArray(body.targets) || body.targets.length === 0) {
+    return problemResponse(400, 'Request body must include a non-empty "targets" array');
+  }
+
+  if (body.targets.length > 30) {
+    return problemResponse(400, 'Maximum 30 targets per purge request');
+  }
+
+  const invalid = body.targets.filter(t => typeof t !== 'string' || !TARGET_RE.test(t));
+  if (invalid.length > 0) {
+    return problemResponse(400, `Invalid purge targets: ${invalid.join(', ')}. Allowed: signing-keys, capture:cap_{id}, all`);
+  }
+
+  if (!env.CLOUDFLARE_ZONE_ID || !env.CLOUDFLARE_CACHE_PURGE_TOKEN) {
+    ctx.waitUntil(log(env, 5, 'admin', { event: 'admin.cache_purge', error: 'missing_config', cip }) ?? Promise.resolve());
+    return problemResponse(503, 'Cache purge is not configured. Set CLOUDFLARE_ZONE_ID and CLOUDFLARE_CACHE_PURGE_TOKEN.');
+  }
+
+  const verifyOrigin = resolveVerifyOrigin(request);
+  const purgePayload = buildPurgePayload(body.targets, verifyOrigin);
+
+  const purgeResp = await fetch(
+    `https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_ZONE_ID}/purge_cache`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.CLOUDFLARE_CACHE_PURGE_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(purgePayload),
+    },
+  );
+
+  const purgeBody = await purgeResp.json().catch(() => ({}));
+
+  if (!purgeResp.ok || !purgeBody.success) {
+    ctx.waitUntil(log(env, 5, 'admin', {
+      event: 'admin.cache_purge',
+      status: 'error',
+      httpStatus: purgeResp.status,
+      cfErrors: purgeBody.errors,
+      targets: body.targets,
+      cip,
+    }) ?? Promise.resolve());
+    return problemResponse(502, 'Cache purge failed. Check Cloudflare API credentials and zone ID.');
+  }
+
+  ctx.waitUntil(log(env, 3, 'admin', {
+    event: 'admin.cache_purge',
+    status: 'success',
+    targets: body.targets,
+    purgedUrls: purgePayload.files || null,
+    purgeEverything: !!purgePayload.purge_everything,
+    purgeId: purgeBody.result?.id,
+    cip,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({
+    purged: true,
+    targets: body.targets,
+    urls: purgePayload.files || null,
+    purgeId: purgeBody.result?.id,
+  }, 200, ADMIN_CACHE);
+}

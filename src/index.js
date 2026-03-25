@@ -14,7 +14,7 @@ import { log } from './log.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT } from './quotas.js';
 import { computeCip } from './ip-hash.js';
-import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage } from './admin.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge } from './admin.js';
 import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
@@ -80,6 +80,7 @@ const routes = [
   ['GET',    /^\/v1\/admin\/keys$/, handleAdminListKeys],
   ['DELETE', /^\/v1\/admin\/keys\/([a-f0-9]{64})$/, handleAdminRevokeKey],
   ['GET',    /^\/v1\/admin\/usage$/, handleAdminGetUsage],
+  ['POST',   /^\/v1\/admin\/cache\/purge$/, handleAdminCachePurge],
   ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handleGetTenantConfig],
   ['PUT',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handlePutTenantConfig],
   ['POST',   /^\/v1\/webhooks$/, handleCreateWebhook],
@@ -2265,7 +2266,6 @@ async function handleVerifyCapture(request, env, ctx, match) {
     const htmlResp = withInstrumentHeaders(htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl), originDurationMs);
     if (result.verified) {
       const toCache = new Response(htmlResp.body, { status: htmlResp.status, headers: new Headers(htmlResp.headers) });
-      toCache.headers.set('Cache-Tag', `verify,verify:${captureId}`);
       ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
       return toCache;
     }
@@ -2281,7 +2281,6 @@ async function handleVerifyCapture(request, env, ctx, match) {
   // Cache only verified responses (immutable once verified)
   if (result.verified) {
     const toCache = new Response(jsonResp.body, { status: jsonResp.status, headers: new Headers(jsonResp.headers) });
-    toCache.headers.set('Cache-Tag', `verify,verify:${captureId}`);
     ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
     return toCache;
   }
@@ -2348,7 +2347,6 @@ async function handleGetSigningKey(request, env, ctx) {
   const resp = jsonResponse({ algorithm: 'Ed25519', publicKey: publicKeyBase64, keyId: keys.keyId }, 200, {
     'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300',
     'Access-Control-Allow-Origin': '*',
-    'Cache-Tag': 'signing-keys',
   });
   const toCache = new Response(resp.body, { status: resp.status, headers: new Headers(resp.headers) });
   ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
@@ -2403,7 +2401,6 @@ async function handleGetSigningKeys(request, env, ctx) {
   const resp = jsonResponse({ keys: archived }, 200, {
     'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300',
     'Access-Control-Allow-Origin': '*',
-    'Cache-Tag': 'signing-keys',
   });
   const toCache = new Response(resp.body, { status: resp.status, headers: new Headers(resp.headers) });
   ctx.waitUntil(cache.put(cacheKey, toCache.clone()));

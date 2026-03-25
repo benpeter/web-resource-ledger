@@ -195,7 +195,24 @@ else
     fail "verify /.well-known/signing-key did not return expected key format"
   fi
 
-  # 6c: Non-verify path returns 404
+  # 6c: Cache headers on signing-key endpoint
+  VSK_HEADERS=$(curl -sI "${VERIFY_URL}/.well-known/signing-key" 2>/dev/null) || true
+  VSK_CC=$(echo "$VSK_HEADERS" | grep -i '^cache-control:' | tr -d '\r')
+  VSK_ST=$(echo "$VSK_HEADERS" | grep -i '^server-timing:' | tr -d '\r')
+
+  if echo "$VSK_CC" | grep -qi 'public.*max-age=3600'; then
+    pass "verify signing-key has Cache-Control: public, max-age=3600"
+  else
+    fail "verify signing-key Cache-Control missing or incorrect: ${VSK_CC}"
+  fi
+
+  if echo "$VSK_ST" | grep -qi 'cache;desc='; then
+    pass "verify signing-key has Server-Timing cache header"
+  else
+    fail "verify signing-key Server-Timing header missing: ${VSK_ST}"
+  fi
+
+  # 6d: Non-verify path returns 404
   VBLOCK=$(curl -sf -w '\n%{http_code}' -o /dev/null "${VERIFY_URL}/v1/captures" 2>/dev/null) || true
   VBLOCK_CODE=$(echo "$VBLOCK" | tail -1)
   if [ "$VBLOCK_CODE" = "404" ]; then

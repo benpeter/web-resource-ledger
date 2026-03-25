@@ -179,7 +179,10 @@ max_retries = 0
 #   RESEND_API_KEY       -- Resend API key for transactional email delivery
 # Threat check (set via wrangler secret put):
 #   GOOGLE_WEB_RISK_API_KEY -- Google Web Risk API key (without this, threat checks degrade gracefully)
+# Cache purge (set via wrangler secret put):
+#   CLOUDFLARE_CACHE_PURGE_TOKEN -- API token with Cache Purge permission for the zone
 [vars]
+CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
 TSA_URL = "https://timestamp.digicert.com"
@@ -349,6 +352,7 @@ max_batch_timeout = 30
 max_retries = 0
 
 [env.staging.vars]
+CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
 TSA_URL = "https://timestamp.digicert.com"

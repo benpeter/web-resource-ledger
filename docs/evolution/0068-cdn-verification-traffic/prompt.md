@@ -1,0 +1,23 @@
+**Outcome**: Verification traffic is served from CDN edge nodes, reducing origin load and latency for the most-accessed endpoints. A custom domain routes verification requests through the CDN with aggressive caching. Cache hit ratio exceeds 80% for verification endpoints, and cache can be purged when signing keys rotate. The cost reduction from offloading origin requests is quantified.
+
+**Success criteria**:
+- Verification endpoints (`GET /v1/captures/{id}`, `/.well-known/signing-keys`) cached at CDN edge
+- CDN configured on a custom domain (e.g., verify.wrl.example.com) with HTTPS
+- Cache-Control headers set appropriately: immutable for signed captures, short TTL for key endpoints
+- Cache hit ratio >80% for verification traffic (measured over 7-day window)
+- Cache purge API or mechanism available for key rotation scenarios
+- Purge tested: after key rotation, stale signing-keys response is evicted within 60 seconds
+- Origin request reduction quantified: before/after comparison documented
+- Cost analysis: CDN cost vs. origin request savings documented in outcome
+- Latency improvement: p50 and p95 verification response times measured before and after
+- Custom domain DNS configured with proper CNAME/A records and SSL certificate
+
+**Scope**:
+- In: CDN configuration (Cloudflare or Fastly), cache rules for verification endpoints, custom domain setup, cache purge capability, performance measurement, cost analysis
+- Out: CDN for capture submission endpoints, CDN for admin API, geographic routing optimization, multi-CDN failover, WAF rules (handled by Cloudflare natively)
+
+**Constraints**:
+- Cloudflare Workers already run on Cloudflare's edge -- evaluate whether additional CDN config provides measurable benefit vs. native edge caching
+- Cache purge must complete before new signing keys are advertised (ordering matters for verification correctness)
+- Signed capture responses are immutable and safe to cache indefinitely; key endpoints need bounded TTL
+- Custom domain requires DNS control and certificate provisioning
