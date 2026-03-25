@@ -107,25 +107,27 @@ describe('GET /v1/account/notifications -- defaults', () => {
 // ---------------------------------------------------------------------------
 
 describe('PUT /v1/account/notifications -- first write', () => {
-  it('creates preferences row on first PUT', async () => {
+  it('creates preferences row on first PUT (email goes to pendingEmail)', async () => {
     const ip = nextIp();
     const { cookie } = await createTosSession();
     const res = await makePut(cookie, ip, { email: 'user@example.com' });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.email).toBe('user@example.com');
-    expect(body.emailVerified).toBe(false);
-    expect(body.emailSource).toBe('manual');
+    // Pending-email pattern: email stays null until verified
+    expect(body.email).toBeNull();
+    expect(body.pendingEmail).toBe('user@example.com');
+    expect(body.verificationEmailSent).toBe(true);
     expect(body.updatedAt).toBeTruthy();
   });
 
-  it('GET after PUT returns the stored values', async () => {
+  it('GET after PUT returns pendingEmail', async () => {
     const ip = nextIp();
     const { cookie } = await createTosSession();
     await makePut(cookie, ip, { email: 'user@example.com' });
     const res = await makeGet(cookie, nextIp());
     const body = await res.json();
-    expect(body.email).toBe('user@example.com');
+    expect(body.email).toBeNull();
+    expect(body.pendingEmail).toBe('user@example.com');
   });
 });
 
@@ -143,7 +145,8 @@ describe('PUT /v1/account/notifications -- partial updates', () => {
     await makePut(cookie, ip, { email: 'new@example.com' });
     const res = await makeGet(cookie, ip);
     const body = await res.json();
-    expect(body.email).toBe('new@example.com');
+    // Pending-email: email stays null, new address in pendingEmail
+    expect(body.pendingEmail).toBe('new@example.com');
     expect(body.notifications.weekly_digest).toBe(false);
     // Other notifications still default true
     expect(body.notifications.capture_failure).toBe(true);
@@ -156,7 +159,8 @@ describe('PUT /v1/account/notifications -- partial updates', () => {
     await makePut(cookie, ip, { notifications: { capture_failure: false } });
     const res = await makeGet(cookie, ip);
     const body = await res.json();
-    expect(body.email).toBe('stay@example.com');
+    // Email went to pendingEmail on first PUT, notifications update doesn't move it
+    expect(body.pendingEmail).toBe('stay@example.com');
     expect(body.notifications.capture_failure).toBe(false);
   });
 
@@ -169,7 +173,8 @@ describe('PUT /v1/account/notifications -- partial updates', () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.email).toBe('both@example.com');
+    // Email goes to pendingEmail, notifications update immediately
+    expect(body.pendingEmail).toBe('both@example.com');
     expect(body.notifications.weekly_digest).toBe(false);
     expect(body.notifications.payment_failure).toBe(false);
     expect(body.notifications.capture_failure).toBe(true);
@@ -185,17 +190,21 @@ describe('PUT /v1/account/notifications -- partial updates', () => {
     expect(body.email).toBeNull();
   });
 
-  it('changing email resets emailVerified to false', async () => {
+  it('changing email stores in pendingEmail without touching emailVerified', async () => {
     const ip = nextIp();
     const { cookie, tenantId } = await createTosSession();
-    // Force emailVerified = 1 directly in DB
+    // Force emailVerified = 1 directly in DB (simulates a previously verified email)
     await env.DB.prepare(
       "INSERT INTO notification_preferences (tenant_id, email, email_verified) VALUES (?, 'old@example.com', 1)",
     ).bind(tenantId).run();
     const res = await makePut(cookie, ip, { email: 'changed@example.com' });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.emailVerified).toBe(false);
+    // Pending-email: old email stays verified, new address goes to pendingEmail
+    expect(body.email).toBe('old@example.com');
+    expect(body.emailVerified).toBe(true);
+    expect(body.pendingEmail).toBe('changed@example.com');
+    expect(body.verificationEmailSent).toBe(true);
   });
 
   it('notifications merge: only specified keys are changed', async () => {

@@ -1177,6 +1177,8 @@ function rowToNotificationPreferences(row) {
       payment_failure:   Boolean(row.notify_payment_failure),
       weekly_digest:     Boolean(row.notify_weekly_digest),
     },
+    pendingEmail: row.pending_email ?? null,
+    verificationSentAt: row.verification_sent_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? null,
   };
@@ -1362,6 +1364,79 @@ export async function deleteNotificationPreferences(db, tenantId) {
     db.prepare('DELETE FROM notification_sent WHERE tenant_id = ?').bind(tenantId),
     db.prepare('DELETE FROM notification_preferences WHERE tenant_id = ?').bind(tenantId),
   ]);
+}
+
+/**
+ * Set the pending email and record the verification send timestamp.
+ * Creates the preferences row if it does not exist.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} email  The new address awaiting verification
+ * @returns {Promise<void>}
+ */
+export async function setPendingEmail(db, tenantId, email) {
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare('INSERT OR IGNORE INTO notification_preferences (tenant_id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `UPDATE notification_preferences
+          SET pending_email = ?, verification_sent_at = ?, updated_at = ?
+        WHERE tenant_id = ?`,
+    ).bind(email, now, now, tenantId),
+  ]);
+}
+
+/**
+ * Atomically promote pending_email to the verified primary email.
+ * Sets email = pending_email, email_verified = 1, email_source = 'manual',
+ * and clears pending_email and verification_sent_at.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<{ ok: true, prefs: object } | { ok: false, error: string }>}
+ */
+export async function swapVerifiedEmail(db, tenantId) {
+  const now = new Date().toISOString();
+  const result = await db.prepare(
+    `UPDATE notification_preferences
+        SET email                = pending_email,
+            email_verified       = 1,
+            email_source         = 'manual',
+            pending_email        = NULL,
+            verification_sent_at = NULL,
+            updated_at           = ?
+      WHERE tenant_id = ?
+        AND pending_email IS NOT NULL`,
+  ).bind(now, tenantId).run();
+
+  if (result.meta.changes === 0) {
+    return { ok: false, error: 'no pending email verification found' };
+  }
+
+  const row = await db.prepare(
+    'SELECT * FROM notification_preferences WHERE tenant_id = ?',
+  ).bind(tenantId).first();
+
+  return { ok: true, prefs: rowToNotificationPreferences(row) };
+}
+
+/**
+ * Clear any in-flight email verification for a tenant without promoting it.
+ * No-op if no pending verification exists.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<void>}
+ */
+export async function clearPendingEmail(db, tenantId) {
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE notification_preferences
+        SET pending_email = NULL, verification_sent_at = NULL, updated_at = ?
+      WHERE tenant_id = ?`,
+  ).bind(now, tenantId).run();
 }
 
 /**
