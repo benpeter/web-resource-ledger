@@ -304,6 +304,7 @@ export async function handlePingWebhook(request, env, ctx, match) {
         'Content-Type': 'application/json',
         'User-Agent': 'WRL-Webhook/1.0',
         'X-WRL-Event': 'ping',
+        'X-WRL-Delivery': 'evt_00000000000000000000000000000000',
         [TIMESTAMP_HEADER]: String(timestamp),
         [SIGNATURE_HEADER]: `t=${timestamp},v1=${signature}`,
       },
@@ -332,8 +333,8 @@ export async function handlePingWebhook(request, env, ctx, match) {
   }) ?? Promise.resolve());
 
   if (detail !== null) {
-    return jsonResponse({ success: false, httpStatus: null, latencyMs, detail });
+    return jsonResponse({ success: false, httpStatus: null, latencyMs, detail, signatureHeader: `t=${timestamp},v1=${signature}`, timestampHeader: String(timestamp), sentPayload: pingPayload });
   }
-  return jsonResponse({ success, httpStatus, latencyMs });
+  return jsonResponse({ success, httpStatus, latencyMs, signatureHeader: `t=${timestamp},v1=${signature}`, timestampHeader: String(timestamp), sentPayload: pingPayload });
 }
 

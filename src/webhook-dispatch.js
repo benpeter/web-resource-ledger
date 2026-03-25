@@ -81,11 +81,11 @@ export function classifyDeliveryError(err, httpStatus) {
  * for both signing and the HTTP body -- do NOT parse and re-serialize.
  *
  * Fields included depend on event type:
- *   capture.complete: captureId, status, url, completedAt, verificationUrl
+ *   capture.complete: captureId, status, url, completedAt, verificationUrl, artifacts
  *   capture.failed:   captureId, status, url, failedAt, error, retryable, verificationUrl
  *
  * Fields NEVER included: R2 keys, render metadata, hashed IPs, attempt count,
- * internal service names, artifacts paths.
+ * internal service names.
  *
  * @param {string} eventType  "capture.complete" | "capture.failed"
  * @param {object} captureRecord  Canonical capture record from getCapture()
@@ -112,6 +112,11 @@ export function buildWebhookPayload(eventType, captureRecord, env) {
 
   if (eventType === 'capture.complete') {
     data.completedAt = captureRecord.completedAt;
+    data.artifacts = {
+      screenshot: `${base}/v1/captures/${captureRecord.captureId}/artifacts/screenshot`,
+      html: `${base}/v1/captures/${captureRecord.captureId}/artifacts/html`,
+      headers: `${base}/v1/captures/${captureRecord.captureId}/artifacts/headers`,
+    };
     // Include change detection if available
     if (captureRecord.changeSummary) {
       data.changeDetection = {
