@@ -13,6 +13,8 @@
 #   SMOKE_SKIP_CAPTURE -- set to 1 to skip capture round-trip
 #   SMOKE_EXPECTED_COMMIT -- expected commit SHA (set by orchestrator; overrides GITHUB_SHA)
 #   GITHUB_SHA         -- expected commit SHA (auto-set by GitHub Actions; skip check if absent)
+#   SMOKE_VERIFY_URL   -- base URL of the verify subdomain (e.g. https://verify-staging.webresourceledger.com)
+#                         if set, runs verify subdomain checks; if unset, skips them
 
 set -euo pipefail
 
@@ -31,6 +33,7 @@ SMOKE_CAPTURE_URL="${SMOKE_CAPTURE_URL:-https://example.com}"
 SMOKE_TIMEOUT="${SMOKE_TIMEOUT:-90}"
 SMOKE_SKIP_CAPTURE="${SMOKE_SKIP_CAPTURE:-0}"
 SMOKE_API_KEY="${SMOKE_API_KEY:-}"
+SMOKE_VERIFY_URL="${SMOKE_VERIFY_URL:-}"
 
 if [ "$SMOKE_SKIP_CAPTURE" != "1" ] && [ -z "$SMOKE_API_KEY" ]; then
   echo "ERROR: SMOKE_API_KEY is required when SMOKE_SKIP_CAPTURE != 1" >&2
@@ -165,6 +168,40 @@ else
     pass "Deployed commit matches expected (${EXPECTED_COMMIT:0:7}...)"
   else
     fail "Deployed commit '${DEPLOYED_SHA:-empty}' does not match expected '${EXPECTED_COMMIT:0:7}...' after ${MAX_ATTEMPTS} attempts"
+  fi
+fi
+
+# --- Check 6: Verify subdomain ---
+if [ -z "$SMOKE_VERIFY_URL" ]; then
+  echo "Check 6: Verify subdomain (SKIPPED -- SMOKE_VERIFY_URL not set)"
+else
+  VERIFY_URL="${SMOKE_VERIFY_URL%/}"
+  echo "Check 6: Verify subdomain ($VERIFY_URL)"
+
+  # 6a: Health endpoint responds 200
+  VH=$(curl -sf -w '\n%{http_code}' "${VERIFY_URL}/health" 2>/dev/null) || true
+  VH_CODE=$(echo "$VH" | tail -1)
+  if [ "$VH_CODE" = "200" ]; then
+    pass "verify /health returns 200"
+  else
+    fail "verify /health returned $VH_CODE (expected 200)"
+  fi
+
+  # 6b: Signing-key endpoint returns valid JSON
+  VSK=$(curl -sf "${VERIFY_URL}/.well-known/signing-key" 2>/dev/null) || true
+  if echo "$VSK" | jq -e '.algorithm == "Ed25519" and .publicKey != null' >/dev/null 2>&1; then
+    pass "verify /.well-known/signing-key returns Ed25519 key"
+  else
+    fail "verify /.well-known/signing-key did not return expected key format"
+  fi
+
+  # 6c: Non-verify path returns 404
+  VBLOCK=$(curl -sf -w '\n%{http_code}' -o /dev/null "${VERIFY_URL}/v1/captures" 2>/dev/null) || true
+  VBLOCK_CODE=$(echo "$VBLOCK" | tail -1)
+  if [ "$VBLOCK_CODE" = "404" ]; then
+    pass "verify /v1/captures returns 404 (blocked as expected)"
+  else
+    fail "verify /v1/captures returned $VBLOCK_CODE (expected 404)"
   fi
 fi
 

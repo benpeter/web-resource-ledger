@@ -76,12 +76,17 @@ cpu_ms = 60000
 [triggers]
 crons = ["*/1 * * * *", "0 3 * * *", "0 9 * * 1"]
 
-# --- Custom domain ---
+# --- Custom domains ---
 # Cloudflare auto-provisions DNS records when custom_domain = true.
-# NOTE: routes use inline array syntax to prevent inheritance into staging env.
-routes = [
-  { pattern = "api.webresourceledger.com", custom_domain = true }
-]
+# NOTE: [[routes]] table-array syntax does not inherit into env.staging -- staging
+# must declare its own [[env.staging.routes]] entries.
+[[routes]]
+pattern = "api.webresourceledger.com"
+custom_domain = true
+
+[[routes]]
+pattern = "verify.webresourceledger.com"
+custom_domain = true
 
 # --- Queue architecture ---
 # Two queues per environment:
@@ -198,10 +203,13 @@ RESCAN_CRON = "0 3 * * *"
 
 [env.staging]
 
-# Custom domain deferred -- staging.webresourceledger.com
-# [[env.staging.routes]]
-# pattern = "staging.webresourceledger.com"
-# custom_domain = true
+[[env.staging.routes]]
+pattern = "staging.webresourceledger.com"
+custom_domain = true
+
+[[env.staging.routes]]
+pattern = "verify-staging.webresourceledger.com"
+custom_domain = true
 
 [[env.staging.d1_databases]]
 binding = "DB"
