@@ -277,6 +277,28 @@ function renderDetailComplete(view, id, data) {
   artifactsSection.appendChild(artList);
   card.appendChild(artifactsSection);
 
+  // Compare with previous (only when changeSummary has previousCaptureId)
+  if (data.changeSummary && data.changeSummary.previousCaptureId) {
+    var compareSection = document.createElement('section');
+    compareSection.className = 'section detail-section';
+
+    var compareH2 = document.createElement('h2');
+    compareH2.textContent = 'Changes';
+    compareSection.appendChild(compareH2);
+
+    var compareLink = document.createElement('a');
+    compareLink.href = '#/diff/' + data.changeSummary.previousCaptureId + '/' + id;
+    compareLink.className = 'detail-url-link';
+
+    if (data.changeSummary.changed === true) {
+      compareLink.textContent = 'Compare with previous capture (changes detected)';
+    } else {
+      compareLink.textContent = 'Compare with previous capture (no changes)';
+    }
+    compareSection.appendChild(compareLink);
+    card.appendChild(compareSection);
+  }
+
   // Verification link (only when WACZ is present)
   if (data.wacz) {
     var verifySection = document.createElement('section');

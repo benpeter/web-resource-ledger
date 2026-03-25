@@ -1458,6 +1458,7 @@ function rowToSchedule(row) {
     lastRunAt: row.last_run_at ?? null,
     lastCaptureId: row.last_capture_id ?? null,
     lastCaptureStatus: row.last_capture_status ?? null,
+    changeSummary: row.change_summary ? JSON.parse(row.change_summary) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? null,
   };
@@ -1515,7 +1516,11 @@ export async function getSchedule(db, id, tenantId) {
  */
 export async function listSchedules(db, tenantId) {
   const rows = await db.prepare(
-    'SELECT * FROM schedules WHERE tenant_id = ? ORDER BY created_at DESC',
+    `SELECT s.*, c.change_summary
+     FROM schedules s
+     LEFT JOIN captures c ON s.last_capture_id = c.id
+     WHERE s.tenant_id = ?
+     ORDER BY s.created_at DESC`,
   ).bind(tenantId).all();
   return (rows.results ?? []).map(rowToSchedule);
 }

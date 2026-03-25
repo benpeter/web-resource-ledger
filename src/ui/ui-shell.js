@@ -11,6 +11,7 @@ import { BILLING_JS } from './ui-billing.js';
 import { NOTIFICATIONS_JS } from './ui-notifications.js';
 import { SUBMIT_VIEW_JS } from './ui-submit.js';
 import { DETAIL_VIEW_JS } from './ui-detail.js';
+import { DIFF_VIEW_JS } from './ui-diff.js';
 import { POLL_JS } from './ui-poll.js';
 
 export function htmlDashboard() {
@@ -71,6 +72,9 @@ ${SUBMIT_VIEW_JS}
 
 // === VIEW: DETAIL ===
 ${DETAIL_VIEW_JS}
+
+// === VIEW: DIFF ===
+${DIFF_VIEW_JS}
 
 // ---------------------------------------------------------------------------
 // Hash router
@@ -151,6 +155,15 @@ function route() {
     } else {
       location.replace('#/captures');
     }
+    return;
+  }
+
+  // /diff/:id1/:id2
+  var diffMatch = path.match(/^\\/diff\\/(cap_[a-f0-9]{32})\\/(cap_[a-f0-9]{32})$/);
+  if (diffMatch) {
+    updateNavCurrent('/captures');
+    renderDiff(diffMatch[1], diffMatch[2]);
+    mountDiff(diffMatch[1], diffMatch[2]);
     return;
   }
 

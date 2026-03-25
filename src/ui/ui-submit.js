@@ -146,6 +146,27 @@ function buildCaptureItem(capture) {
   }
   badge.dataset.badge = '1';
   badgeCell.appendChild(badge);
+
+  // Change badge: shown when changeSummary is present and status is complete
+  if (capture.status === 'complete' && capture.changeSummary) {
+    var cs = capture.changeSummary;
+    if (cs.changed === true && cs.previousCaptureId) {
+      var changeBadge = document.createElement('a');
+      changeBadge.className = 'badge badge--change-link';
+      changeBadge.href = '#/diff/' + cs.previousCaptureId + '/' + capture.id;
+      changeBadge.textContent = 'Changed';
+      changeBadge.setAttribute('aria-label', 'View changes from previous capture');
+      // Prevent capture item link navigation when clicking the badge
+      changeBadge.addEventListener('click', function(e) { e.stopPropagation(); });
+      badgeCell.appendChild(changeBadge);
+    } else if (cs.changed === false) {
+      var unchangedBadge = document.createElement('span');
+      unchangedBadge.className = 'badge badge--unchanged';
+      unchangedBadge.textContent = 'Unchanged';
+      badgeCell.appendChild(unchangedBadge);
+    }
+  }
+
   item.appendChild(badgeCell);
 
   return item;
