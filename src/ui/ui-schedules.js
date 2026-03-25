@@ -362,6 +362,24 @@ function buildScheduleRow(schedule, listEl) {
   // Status badge
   actionsCell.appendChild(scheduleStatusBadge(schedule));
 
+  // Change badge: shown when schedule carries changeSummary from last capture
+  if (schedule.changeSummary && schedule.lastCaptureId) {
+    var cs = schedule.changeSummary;
+    if (cs.changed === true && cs.previousCaptureId) {
+      var changeBadge = document.createElement('a');
+      changeBadge.className = 'badge badge--change-link';
+      changeBadge.href = '#/diff/' + cs.previousCaptureId + '/' + schedule.lastCaptureId;
+      changeBadge.textContent = 'Changed';
+      changeBadge.setAttribute('aria-label', 'View changes from previous capture');
+      actionsCell.appendChild(changeBadge);
+    } else if (cs.changed === false) {
+      var unchangedBadge = document.createElement('span');
+      unchangedBadge.className = 'badge badge--unchanged';
+      unchangedBadge.textContent = 'Unchanged';
+      actionsCell.appendChild(unchangedBadge);
+    }
+  }
+
   // Delete button
   var deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
