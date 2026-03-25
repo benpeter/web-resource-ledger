@@ -329,6 +329,7 @@ function buildScreenshotSection(id1, id2, normalised) {
 
   // Tab state
   var diffComputed = false;
+  var overlayInitialized = false;
 
   function activateTab(idx) {
     for (var k = 0; k < tabEls.length; k++) {
@@ -346,7 +347,8 @@ function buildScreenshotSection(id1, id2, normalised) {
       diffComputed = true;
       computeDiffCanvas();
     }
-    if (idx === 1) {
+    if (idx === 1 && !overlayInitialized) {
+      overlayInitialized = true;
       initOverlaySlider(50);
     }
   }

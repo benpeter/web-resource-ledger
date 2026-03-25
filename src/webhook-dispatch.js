@@ -114,13 +114,10 @@ export function buildWebhookPayload(eventType, captureRecord, env) {
     data.completedAt = captureRecord.completedAt;
     // Include change detection if available
     if (captureRecord.changeSummary) {
-      const verifyBase = env?.VERIFICATION_BASE_URL
-        ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
-        : 'https://api.webresourceledger.com';
       data.changeDetection = {
         changed: captureRecord.changeSummary.changed,
         previousCaptureId: captureRecord.changeSummary.previousCaptureId,
-        diffUrl: `${verifyBase}/v1/captures/${captureRecord.changeSummary.previousCaptureId}/diff/${captureRecord.captureId}`,
+        diffUrl: `${base}/v1/captures/${captureRecord.changeSummary.previousCaptureId}/diff/${captureRecord.captureId}`,
         summary: {
           htmlChanged: captureRecord.changeSummary.html?.changed ?? false,
           screenshotChanged: captureRecord.changeSummary.screenshot?.changed ?? false,

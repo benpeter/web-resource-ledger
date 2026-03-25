@@ -269,8 +269,8 @@ async function handleCaptureMessage(msg, env, ctx) {
         ]);
 
         const screenshotDiff = diffScreenshot(
-          baseScreenHead?.httpEtag,
-          targetScreenHead?.httpEtag,
+          baseScreenHead?.etag,
+          targetScreenHead?.etag,
         );
 
         // HTML: lightweight diff for summary stats
