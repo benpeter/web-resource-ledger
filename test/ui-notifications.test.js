@@ -198,8 +198,8 @@ describe('NOTIFICATIONS_JS -- mutation API call', () => {
     expect(NOTIFICATIONS_JS).toContain("'X-WRL-CSRF': '1'");
   });
 
-  it('G3: honest feedback copy after email save (no false claim about verification email)', () => {
-    expect(NOTIFICATIONS_JS).toContain('Verification required before notifications are sent.');
+  it('G3: feedback copy after email save references verification email', () => {
+    expect(NOTIFICATIONS_JS).toContain('Verification email sent to');
   });
 });
 

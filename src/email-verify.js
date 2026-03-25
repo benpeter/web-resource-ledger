@@ -250,7 +250,8 @@ function renderPage(title, bodyContent) {
  * @returns {string}
  */
 function renderConfirmPage(token, tokenState) {
-  const safeToken = escapeHtml(token || '');
+  // encodeURIComponent for URL context, then escapeHtml for HTML attribute safety
+  const safeToken = escapeHtml(encodeURIComponent(token || ''));
 
   if (!tokenState.valid) {
     const bodyContent = `

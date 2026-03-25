@@ -405,36 +405,6 @@ function buildEmailSection(data) {
 }
 
 // ---------------------------------------------------------------------------
-// updateEmailDisplay -- refresh email display row after a successful save
-// ---------------------------------------------------------------------------
-
-function updateEmailDisplay(displayRow, editBtn, newEmail, verified) {
-  // Clear existing content from displayRow (not editBtn -- it lives in section)
-  while (displayRow.firstChild) {
-    displayRow.removeChild(displayRow.firstChild);
-  }
-
-  var emailEl = document.createElement('span');
-  emailEl.className = 'notifications-email-address';
-  emailEl.textContent = newEmail;
-  displayRow.appendChild(emailEl);
-
-  var badge = document.createElement('span');
-  if (verified) {
-    badge.className = 'badge badge--pass';
-    badge.textContent = 'Verified';
-  } else {
-    badge.className = 'badge badge--skip';
-    badge.textContent = 'Not verified';
-  }
-  badge.style.marginLeft = 'var(--space-2)';
-  displayRow.appendChild(badge);
-
-  editBtn.textContent = 'Edit';
-  displayRow.appendChild(editBtn);
-}
-
-// ---------------------------------------------------------------------------
 // buildVerifyStatusBlock -- creates the pending-verification UI block
 //   pendingEmail  {string}  the address awaiting verification
 //   justSaved     {boolean} true if we just issued a PUT (shows "sent" copy)
