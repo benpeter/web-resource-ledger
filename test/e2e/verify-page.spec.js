@@ -67,7 +67,11 @@ test('serves public verification page without authentication', async ({ page }) 
   const consoleErrors = [];
   page.on('console', msg => {
     if (msg.type() === 'error') {
-      consoleErrors.push(msg.text());
+      const text = msg.text();
+      // Cloudflare injects its analytics beacon on edge-served pages.
+      // The CSP may block it -- that's not our code's fault.
+      if (text.includes('cloudflareinsights.com')) return;
+      consoleErrors.push(text);
     }
   });
 
