@@ -197,6 +197,104 @@ describe('formatHuman -- verdict line', () => {
 });
 
 // ---------------------------------------------------------------------------
+// formatHuman -- timestamp merging
+// ---------------------------------------------------------------------------
+
+describe('formatHuman -- timestamp merging', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  function makeBase(extraChecks = []) {
+    return {
+      verified: true,
+      checks: [
+        { name: 'artifactHashes', status: 'pass' },
+        { name: 'bundleHash',     status: 'pass' },
+        { name: 'signature',      status: 'pass' },
+        ...extraChecks,
+      ],
+      capture: {
+        bundleHash: 'sha256:' + 'd'.repeat(64),
+        signature:  'dGVzdA==',
+        publicKey:  'dGVzdHB1YmxpY2tleQ==',
+        signedAt:   '2026-03-16T12:00:00.000Z',
+      },
+      keyResolution: { keyId: 'aabbccdd', source: 'pinned', origin: null, endpoint: null },
+      source: 'test.wacz',
+    };
+  }
+
+  it('qualified only: shows single Time verification row with pass', () => {
+    const result = makeBase([
+      { name: 'qualifiedTimestamp', status: 'pass', detail: 'TSA: example.com' },
+      { name: 'timestamp',          status: 'skip', detail: 'No independent timestamp was obtained' },
+    ]);
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /Time verification/);
+    assert.match(stdoutOutput, /pass/);
+    assert.doesNotMatch(stdoutOutput, /Timestamp imprint/);
+    assert.doesNotMatch(stdoutOutput, /Qualified timestamp/);
+    assert.match(stdoutOutput, /All 4 cryptographic checks passed/);
+  });
+
+  it('standard only: shows Time verification with pass and correct verdict', () => {
+    const result = makeBase([
+      { name: 'timestamp', status: 'pass', detail: 'TSA: example.com' },
+    ]);
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /Time verification/);
+    assert.match(stdoutOutput, /pass/);
+    assert.match(stdoutOutput, /All 4 cryptographic checks passed/);
+  });
+
+  it('both present: single Time verification row and verdict counts 4 not 5', () => {
+    const result = makeBase([
+      { name: 'timestamp',          status: 'pass', detail: 'TSA: ts.example.com' },
+      { name: 'qualifiedTimestamp', status: 'pass', detail: 'QTSA: qtsa.example.com' },
+    ]);
+    formatHuman(result, { noColor: true });
+    const matches = [...stdoutOutput.matchAll(/Time verification/g)];
+    assert.strictEqual(matches.length, 1, 'Expected exactly one Time verification row');
+    assert.match(stdoutOutput, /All 4 cryptographic checks passed/);
+  });
+
+  it('neither present: shows Time verification with skip', () => {
+    const result = makeBase([
+      { name: 'timestamp', status: 'skip', detail: 'No independent timestamp was obtained for this capture' },
+    ]);
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /Time verification/);
+    assert.match(stdoutOutput, /skip/);
+    assert.doesNotMatch(stdoutOutput, /Timestamp imprint/);
+  });
+
+  it('failure propagation: shows Time verification with FAIL and propagated detail', () => {
+    const result = makeBase([
+      { name: 'timestamp', status: 'fail', detail: 'Timestamp mismatch detected' },
+    ]);
+    result.verified = false;
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /Time verification/);
+    assert.match(stdoutOutput, /FAIL/);
+    assert.match(stdoutOutput, /Timestamp mismatch detected/);
+  });
+
+  it('JSON output unchanged: emits separate timestamp and qualifiedTimestamp with original labels', () => {
+    const result = makeBase([
+      { name: 'timestamp',          status: 'pass', detail: null },
+      { name: 'qualifiedTimestamp', status: 'pass', detail: null },
+    ]);
+    formatJson(result);
+    const parsed = JSON.parse(stdoutOutput);
+    const byName = Object.fromEntries(parsed.checks.map(c => [c.name, c]));
+    assert.ok(byName.timestamp, 'timestamp check should be present in JSON');
+    assert.ok(byName.qualifiedTimestamp, 'qualifiedTimestamp check should be present in JSON');
+    assert.strictEqual(byName.timestamp.label, 'Timestamp imprint');
+    assert.strictEqual(byName.qualifiedTimestamp.label, 'Qualified timestamp');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // formatJson tests
 // ---------------------------------------------------------------------------
 

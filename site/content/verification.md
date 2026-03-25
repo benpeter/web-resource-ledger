@@ -36,7 +36,7 @@ Verification PASSED
   File integrity     PASS
   Bundle integrity   PASS
   Digital signature  PASS
-  Timestamp imprint  PASS
+  Time verification  PASS
   Timestamp chain    PASS
 
 Captured URL:  https://example.com
@@ -94,7 +94,7 @@ The `verifyUrl` included in every capture record also renders as a human-readabl
 | **File integrity** (`artifactHashes`) | Every file in the WACZ archive matches its recorded SHA-256 hash. No individual artifact has been modified. |
 | **Bundle integrity** (`bundleHash`) | The archive manifest (`datapackage.json`) has not been altered. The hash covers the canonical form of the manifest. |
 | **Digital signature** (`signature`) | The bundle was signed by the operator's Ed25519 private key. The signature is over the bundle hash. |
-| **Timestamp imprint** (`timestamp`) | An independent RFC 3161 timestamp authority recorded a time that references the exact bundle hash. The timestamp cannot reference a different bundle. |
+| **Time verification** (`timeVerification`) | An independent timestamp authority recorded the time of capture. Shows the strongest available tier: qualified electronic timestamp (eIDAS Art. 41) when present, otherwise standard RFC 3161 timestamp. |
 | **Timestamp chain** (`timestampChain`) | The timestamp was signed by a certificate authority in a trusted chain (CLI only). Confirms the TSA itself is legitimate. |
 
 When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture -- meaning the capture cannot have been backdated.

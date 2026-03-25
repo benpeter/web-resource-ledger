@@ -331,8 +331,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     artifactHashes:     'File integrity',
     bundleHash:         'Bundle integrity',
     signature:          'Digital signature',
-    timestamp:          'Independent time verification',
-    qualifiedTimestamp: 'Qualified timestamp (eIDAS)',
+    timeVerification:   'Time verification',
     consentHandling:    'Cookie consent handled',
   };
 
@@ -340,10 +339,55 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     artifactHashes:     'Confirms individual captured files have not been modified.',
     bundleHash:         'Confirms the overall archive bundle has not been altered.',
     signature:          'Confirms the bundle was signed by the capture service.',
-    timestamp:          'Time was recorded by an independent authority (not verified cryptographically).',
-    qualifiedTimestamp: 'Qualified electronic timestamp from an EU Trusted List TSA (eIDAS Article 41).',
+    timeVerification:   'Verification of the time of capture by an independent authority.',
     consentHandling:    'The capture dismissed a cookie consent banner to reveal the page content.',
   };
+
+  // Canonical source: packages/verify/lib/format.js -- keep in sync
+  function mergeTimestampChecks(checks) {
+    var ts  = null;
+    var qts = null;
+    for (var i = 0; i < checks.length; i++) {
+      if (checks[i].name === 'timestamp') ts = checks[i];
+      if (checks[i].name === 'qualifiedTimestamp') qts = checks[i];
+    }
+    if (!ts && !qts) return checks;
+
+    var mergedStatus = 'skip';
+    var mergedDetail;
+    if ((ts && ts.status === 'fail') || (qts && qts.status === 'fail')) {
+      mergedStatus = 'fail';
+      mergedDetail = (ts && ts.status === 'fail') ? ts.detail : qts.detail;
+    } else if ((ts && ts.status === 'pass') || (qts && qts.status === 'pass')) {
+      mergedStatus = 'pass';
+    }
+
+    var mergedDesc;
+    if (mergedStatus === 'fail') {
+      mergedDesc = 'Timestamp verification failed.';
+    } else if (qts && qts.status === 'pass') {
+      mergedDesc = 'Qualified electronic timestamp from an EU Trusted List TSA (eIDAS Article 41).';
+    } else if (!qts && ts && ts.status === 'pass') {
+      mergedDesc = 'An independent timestamp authority recorded the time of capture (RFC 3161).';
+    } else {
+      mergedDesc = 'No independent timestamp was obtained. Time is based on the capture service clock.';
+    }
+
+    var merged = { name: 'timeVerification', status: mergedStatus, desc: mergedDesc };
+    if (mergedDetail !== undefined) merged.detail = mergedDetail;
+
+    var removed = { timestamp: true, qualifiedTimestamp: true };
+    var result = [];
+    var inserted = false;
+    for (var j = 0; j < checks.length; j++) {
+      if (removed[checks[j].name]) {
+        if (!inserted) { result.push(merged); inserted = true; }
+      } else {
+        result.push(checks[j]);
+      }
+    }
+    return result;
+  }
 
   function safeUrl(raw) {
     try {
@@ -370,7 +414,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     return checks.map(function (c) {
       var icon = c.status === 'pass' ? SVG_CHECK : (c.status === 'fail' ? SVG_X : SVG_DASH);
       var label = CHECK_LABELS[c.name] || c.name;
-      var desc  = CHECK_DESCS[c.name] || '';
+      var desc  = c.desc || CHECK_DESCS[c.name] || '';
       var srText = '<span class="sr-only">' + c.status + ':</span>';
       return '<li class="check-row">' + icon + srText +
         '<div class="check-body">' +
@@ -443,6 +487,9 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       }
       html += '</section>';
     }
+
+    // Merge timestamp checks for display
+    checks = mergeTimestampChecks(checks);
 
     // Verification checks
     html += '<section aria-label="Verification checks"><h2>Checks</h2>' +

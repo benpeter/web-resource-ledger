@@ -91,3 +91,4 @@ software development.
 | [0069-compliance-documentation](0069-compliance-documentation/) | Enterprise compliance documentation: security whitepaper, DPA template, subprocessor list, incident response, data retention/deletion, privacy policy fixes (Issue #117) |
 | [0081-webhook-docs-payload-fixes](0081-webhook-docs-payload-fixes/) | Webhook docs & payload fixes: artifact URLs in capture.complete, signature echo in ping response, 9 docs corrections, OpenAPI updates (Issue #212) |
 | [0082-backend-fixes-batch](0082-backend-fixes-batch/) | Backend fixes batch: notification skip for approaching_limit, descriptive Content-Disposition filenames (Issues #187, #181, #214) |
+| [0083-merge-timestamp-checks](0083-merge-timestamp-checks/) | Merge timestamp checks: single "Time verification" row replacing separate Timestamp imprint and Qualified timestamp rows (Issue #167) |
