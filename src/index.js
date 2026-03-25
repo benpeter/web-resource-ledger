@@ -16,7 +16,7 @@ import { checkQuota, FREE_CAPTURE_LIMIT } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge } from './admin.js';
 import { handleMcp } from './mcp.js';
-import { buildCacheKey, buildSimpleCacheKey } from './cache.js';
+import { buildCacheKey, buildSimpleCacheKey, getCache } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
@@ -2173,9 +2173,9 @@ async function handleVerifyCapture(request, env, ctx, match) {
 
   // Step 1c: Cache check -- after quarantine to prevent serving cached verified
   // responses for quarantined captures. Workers Cache API per-colo.
-  const cache = caches.default;
+  const cache = getCache(env);
   const cacheKey = buildCacheKey(request);
-  const cached = await cache.match(cacheKey);
+  const cached = cache ? await cache.match(cacheKey) : undefined;
   if (cached) {
     cacheStatus = 'hit';
     const durationMs = Date.now() - start;
@@ -2266,7 +2266,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
     const htmlResp = withInstrumentHeaders(htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl), originDurationMs);
     if (result.verified) {
       const toCache = new Response(htmlResp.body, { status: htmlResp.status, headers: new Headers(htmlResp.headers) });
-      ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+      if (cache) ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
       return toCache;
     }
     return htmlResp;
@@ -2281,7 +2281,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
   // Cache only verified responses (immutable once verified)
   if (result.verified) {
     const toCache = new Response(jsonResp.body, { status: jsonResp.status, headers: new Headers(jsonResp.headers) });
-    ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+    if (cache) ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
     return toCache;
   }
 
@@ -2315,9 +2315,9 @@ async function handleGetSigningKey(request, env, ctx) {
   }
 
   // Cache check for signing key
-  const cache = caches.default;
+  const cache = getCache(env);
   const cacheKey = buildSimpleCacheKey(request);
-  const cached = await cache.match(cacheKey);
+  const cached = cache ? await cache.match(cacheKey) : undefined;
   if (cached) {
     cacheStatus = 'hit';
     const durationMs = Date.now() - start;
@@ -2349,7 +2349,7 @@ async function handleGetSigningKey(request, env, ctx) {
     'Access-Control-Allow-Origin': '*',
   });
   const toCache = new Response(resp.body, { status: resp.status, headers: new Headers(resp.headers) });
-  ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+  if (cache) ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
   return withTimingHeader(toCache);
 }
 
@@ -2380,9 +2380,9 @@ async function handleGetSigningKeys(request, env, ctx) {
   }
 
   // Cache check for signing keys
-  const cache = caches.default;
+  const cache = getCache(env);
   const cacheKey = buildSimpleCacheKey(request);
-  const cached = await cache.match(cacheKey);
+  const cached = cache ? await cache.match(cacheKey) : undefined;
   if (cached) {
     cacheStatus = 'hit';
     const durationMs = Date.now() - start;
@@ -2403,7 +2403,7 @@ async function handleGetSigningKeys(request, env, ctx) {
     'Access-Control-Allow-Origin': '*',
   });
   const toCache = new Response(resp.body, { status: resp.status, headers: new Headers(resp.headers) });
-  ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+  if (cache) ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
   return withTimingHeader(toCache, originDur);
 }
 

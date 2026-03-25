@@ -182,6 +182,7 @@ max_retries = 0
 # Cache purge (set via wrangler secret put):
 #   CLOUDFLARE_CACHE_PURGE_TOKEN -- API token with Cache Purge permission for the zone
 [vars]
+ENABLE_EDGE_CACHE = "true"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
@@ -352,6 +353,7 @@ max_batch_timeout = 30
 max_retries = 0
 
 [env.staging.vars]
+ENABLE_EDGE_CACHE = "true"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"

@@ -23,3 +23,17 @@ export function buildCacheKey(request) {
 export function buildSimpleCacheKey(request) {
   return new Request(request.url, { method: 'GET' });
 }
+
+/**
+ * Get the default cache instance, or null when edge caching is disabled.
+ * Workers Cache API operations (match/put) hang in the workerd test
+ * runtime, so caching is opt-in via env.ENABLE_EDGE_CACHE = "true".
+ */
+export function getCache(env) {
+  if (env?.ENABLE_EDGE_CACHE !== 'true') return null;
+  try {
+    return caches.default;
+  } catch {
+    return null;
+  }
+}
