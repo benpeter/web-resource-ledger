@@ -1,6 +1,6 @@
 # Coralogix Alert Rules
 
-WRL uses nine Coralogix alert rules to monitor production health.
+WRL uses ten Coralogix alert rules to monitor production health.
 Most alerts send email notifications to bp@ben-peter.com with a 60-minute
 retriggering suppression window. The Email Bounces alert uses a 24-hour
 suppression window to match its evaluation period.
@@ -212,6 +212,40 @@ is the threshold for a pattern that may affect sender reputation with the
 email provider. At WRL's notification volume, even a few hard bounces in a
 day indicates a data quality issue in recipient addresses that should be
 reviewed. P3 because no data is lost; this is a housekeeping signal.
+
+---
+
+### [WRL] New API Key Created
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"admin.key_create" AND responseStatus:201` (app: wrl, subsystem: admin) |
+| **Threshold** | > 0 events in 1 minute (immediate) |
+| **Priority** | P4 (Info) |
+
+**What it monitors:** Every successful API key creation issued via the admin
+endpoint (`POST /v1/admin/keys`). The `admin.key_create` event is emitted
+after the key record is written to KV and the 201 response is sent. The log
+fields include `tenantId`, `name`, `scopes`, and `keyHashPrefix` (first 8
+characters of the key hash — not the raw key).
+
+**Threshold rationale:** Threshold is 0 — any key creation fires immediately.
+API key creation is a rare, deliberate operator action. There is no expected
+background rate. An unexpected creation event could indicate unauthorized
+admin credential use or an automated attack against the admin endpoint.
+P4 (Info) rather than P1 because the event itself is not an error; the purpose
+is an audit trail notification, not an incident trigger.
+
+**Notification group fields:** `tenantId`, `name`, `scopes`, `keyHashPrefix` —
+included in the alert notification body so the operator can confirm the key
+matches an expected provisioning action without logging into Coralogix.
+
+**Staging exclusion:** The `applicationName` filter is scoped to `wrl`
+(production). The staging application name `wrl-staging` is intentionally
+excluded. Include `wrl-staging` only if monitoring test environments for
+unauthorized key creation is required.
+
+**Runbook:** [new-api-key-created.md](runbooks/new-api-key-created.md)
 
 ---
 

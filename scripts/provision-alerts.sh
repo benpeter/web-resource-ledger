@@ -353,6 +353,46 @@ email_delivery_failures_payload() {
 ALERT_JSON
 }
 
+new_api_key_created_payload() {
+  cat <<'ALERT_JSON'
+{
+  "alertDefProperties": {
+    "name": "[WRL] New API Key Created",
+    "description": "Any successful API key creation (admin.key_create with responseStatus:201). Fires immediately on every creation — threshold is 0. Notification includes tenantId, name, scopes, and keyHashPrefix so the operator can confirm the key matches expected provisioning without logging into Coralogix.",
+    "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
+    "enabled": true,
+    "priority": "ALERT_DEF_PRIORITY_P4",
+    "logsThreshold": {
+      "logsFilter": {
+        "simpleFilter": {
+          "luceneQuery": "event:\"admin.key_create\" AND responseStatus:201",
+          "labelFilters": {
+            "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
+            "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "admin"}]
+          }
+        }
+      },
+      "rules": [{
+        "condition": {
+          "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
+          "threshold": 0,
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_1_OR_UNSPECIFIED"}
+        },
+        "override": {"priority": "ALERT_DEF_PRIORITY_P4"}
+      }]
+    },
+    "notificationGroup": {
+      "webhooks": [{
+        "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
+        "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
+        "minutes": 60
+      }]
+    }
+  }
+}
+ALERT_JSON
+}
+
 email_bounces_payload() {
   cat <<'ALERT_JSON'
 {
@@ -527,13 +567,14 @@ main() {
   upsert_alert "[WRL] Threat Check API Failures"  threat_check_api_failures_payload "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Email Delivery Failures"    email_delivery_failures_payload   "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Email Bounces"              email_bounces_payload             "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] New API Key Created"        new_api_key_created_payload       "$existing_alerts" || ((failed++))
 
   log ""
   if [ "$failed" -gt 0 ]; then
     err "$failed alert(s) failed to provision"
     exit 1
   fi
-  log "All 9 alerts provisioned successfully."
+  log "All 10 alerts provisioned successfully."
 }
 
 main
