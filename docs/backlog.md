@@ -197,7 +197,10 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 |------|-----------|--------|
 | ~~[consider] Scheduled captures (cron-style)~~ | ~~When a user requests recurring capture~~ -- DONE (Phase 0059): CRUD API, Cron Trigger fan-out, per-tenant limits, web UI panel, 55 tests (Issue #107) | MVP.md |
 | [consider] Watch lists / bulk monitoring | Requires scheduling (also parked) | MVP.md |
-| [consider] Change detection / diffing | Requires multiple captures over time; no demand | MVP.md |
+| ~~[consider] Change detection / diffing~~ | ~~Requires multiple captures over time~~ -- DONE (Phase 0067): Diff API endpoint, HTML text diff (diff-match-patch-es), screenshot hash comparison + client-side pixel diff, header diff, change badges on schedules/captures, visual diff UI with 3 comparison modes, webhook enrichment (Issue #115) | MVP.md |
+| [consider] Diff unit/integration tests | Add test/diff.test.js for diffHtml, diffHeaders, diffScreenshot, computeChangeSummary, plus integration test for handleDiffCaptures endpoint | Phase 0067, lucy |
+| [consider] Pipeline diff stats optimization | Extract stats-only diffHtml variant for capture completion pipeline where hunks are discarded | Phase 0067, margo |
+| [consider] Screenshot similarity score in API | Surface numeric similarity percentage (not just boolean changed) in diff API and webhook; may require Durable Object for memory | Phase 0067, prompt deviation |
 | ~~[consider] Notifications~~ | ~~When event-driven workflows needed~~ -- DONE (Phase 0072): 6 notification types (capture failure, approaching/reached free limit, invoice generated, payment failure, weekly digest), Resend email delivery, RFC 8058 unsubscribe, notification preferences API + UI tab, GitHub OAuth email auto-population (Issue #111) | MVP.md |
 | ~~[consider] Billing and quotas~~ | ~~When monetization actively planned~~ -- DONE (Phase 0056): usage-based free limit (100 captures/month without card, unlimited with card), pre-capture enforcement, usage dashboard, per-tenant D1 overrides (Issue #104). Pricing model: pure pay-per-capture, no subscriptions. | MVP.md |
 | ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |
