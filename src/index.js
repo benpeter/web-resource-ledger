@@ -16,6 +16,7 @@ import { checkQuota, FREE_CAPTURE_LIMIT } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage } from './admin.js';
 import { handleMcp } from './mcp.js';
+import { buildCacheKey, buildSimpleCacheKey } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
@@ -2127,12 +2128,18 @@ async function handleVerifyCapture(request, env, ctx, match) {
   const accept = request.headers.get('Accept') || '';
   const contentType = accept.includes('text/html') ? 'html' : 'json';
 
+  // Cache status tracking for logging and headers
+  let cacheStatus = 'bypass';
+
   // Helper: build a response with Server-Timing and X-WRL-Cache headers appended
-  const withInstrumentHeaders = (response) => {
+  const withInstrumentHeaders = (response, originDurationMs) => {
     const durationMs = Date.now() - start;
     const headers = new Headers(response.headers);
-    headers.set('Server-Timing', `total;dur=${durationMs}`);
-    headers.set('X-WRL-Cache', 'NONE');
+    const timingParts = [`cache;desc="${cacheStatus.toUpperCase()}"`];
+    if (originDurationMs !== undefined) timingParts.push(`origin;dur=${originDurationMs}`);
+    timingParts.push(`total;dur=${durationMs}`);
+    headers.set('Server-Timing', timingParts.join(', '));
+    headers.set('X-WRL-Cache', cacheStatus.toUpperCase());
     return new Response(response.body, { status: response.status, headers });
   };
 
@@ -2144,16 +2151,17 @@ async function handleVerifyCapture(request, env, ctx, match) {
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify', cip }) ?? Promise.resolve());
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 4, 'verify', { event: 'verify.request', captureId, responseStatus: 429, durationMs, verified: null, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'verify', { event: 'verify.request', captureId, responseStatus: 429, durationMs, verified: null, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withInstrumentHeaders(problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' }));
     }
   }
 
-  // Step 1b: Quarantine check -- must happen before performVerification (which returns not_found for quarantined)
+  // Step 1b: Quarantine check -- must happen before cache AND performVerification.
+  // A quarantined capture must never be served from cache.
   const qRecord = await getCapture(env.DB, captureId);
   if (qRecord && qRecord.status === 'quarantined') {
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 4, 'verify', { event: 'verify.request', captureId, responseStatus: 451, durationMs, verified: null, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 4, 'verify', { event: 'verify.request', captureId, responseStatus: 451, durationMs, verified: null, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
     return withInstrumentHeaders(problemResponse(451, 'Capture artifacts restricted due to content security policy', {
       'Cache-Control': 'no-store',
     }, {
@@ -2162,13 +2170,26 @@ async function handleVerifyCapture(request, env, ctx, match) {
     }));
   }
 
+  // Step 1c: Cache check -- after quarantine to prevent serving cached verified
+  // responses for quarantined captures. Workers Cache API per-colo.
+  const cache = caches.default;
+  const cacheKey = buildCacheKey(request);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    cacheStatus = 'hit';
+    const durationMs = Date.now() - start;
+    ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: cached.status, durationMs, verified: true, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
+    return withInstrumentHeaders(new Response(cached.body, { status: cached.status, headers: new Headers(cached.headers) }));
+  }
+
   // Steps 2-6: Delegate to shared orchestrator (KV lookup, key resolution, R2, verify)
+  const originStart = Date.now();
   const verification = await performVerification({ DB: env.DB, BUCKET: env.BUCKET, SIGNING_KEY: env.SIGNING_KEY }, captureId);
 
   if (!verification.ok) {
     if (verification.reason === 'not_found') {
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: 404, durationMs, verified: null, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: 404, durationMs, verified: null, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withInstrumentHeaders(problemResponse(404, 'Capture not found', { 'Cache-Control': 'no-store' }));
     }
     if (verification.reason === 'key_unavailable') {
@@ -2179,7 +2200,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
         cip,
       }) ?? Promise.resolve());
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 5, 'verify', { event: 'verify.request', captureId, responseStatus: 503, durationMs, verified: null, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 5, 'verify', { event: 'verify.request', captureId, responseStatus: 503, durationMs, verified: null, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withInstrumentHeaders(problemResponse(503, 'Verification service is not configured'));
     }
     if (verification.reason === 'r2_missing') {
@@ -2187,7 +2208,7 @@ async function handleVerifyCapture(request, env, ctx, match) {
       // Return a verification result (not 500) -- this is an observable fact.
       const { record } = verification;
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: 200, durationMs, verified: false, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: 200, durationMs, verified: false, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withInstrumentHeaders(jsonResponse({
         verified: false,
         capture: { id: record.captureId, url: record.url, createdAt: record.createdAt, completedAt: record.completedAt, renderQuality: record.renderQuality ?? 'full' },
@@ -2201,11 +2222,11 @@ async function handleVerifyCapture(request, env, ctx, match) {
     }
     if (verification.reason === 'too_large') {
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 4, 'verify', { event: 'verify.request', captureId, responseStatus: 422, durationMs, verified: null, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'verify', { event: 'verify.request', captureId, responseStatus: 422, durationMs, verified: null, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withInstrumentHeaders(problemResponse(422, 'WACZ bundle exceeds maximum verifiable size'));
     }
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 5, 'verify', { event: 'verify.request', captureId, responseStatus: 500, durationMs, verified: null, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'verify', { event: 'verify.request', captureId, responseStatus: 500, durationMs, verified: null, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
     return withInstrumentHeaders(problemResponse(500, 'Verification error'));
   }
 
@@ -2234,30 +2255,53 @@ async function handleVerifyCapture(request, env, ctx, match) {
     ? 'public, max-age=86400, stale-while-revalidate=604800'
     : 'no-store';
 
+  cacheStatus = result.verified ? 'miss' : 'bypass';
+  const originDurationMs = Date.now() - originStart;
   const durationMs = Date.now() - start;
-  ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: 200, durationMs, verified: result.verified, contentType, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+  ctx.waitUntil(log(env, 3, 'verify', { event: 'verify.request', captureId, responseStatus: 200, durationMs, originDurationMs, verified: result.verified, contentType, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
 
   // Step 9: Content negotiation -- serve HTML to browsers
   if (contentType === 'html') {
-    return withInstrumentHeaders(htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl));
+    const htmlResp = withInstrumentHeaders(htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl), originDurationMs);
+    if (result.verified) {
+      const toCache = new Response(htmlResp.body, { status: htmlResp.status, headers: new Headers(htmlResp.headers) });
+      toCache.headers.set('Cache-Tag', `verify,verify:${captureId}`);
+      ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+      return toCache;
+    }
+    return htmlResp;
   }
 
-  return withInstrumentHeaders(jsonResponse(body, 200, {
+  const jsonResp = withInstrumentHeaders(jsonResponse(body, 200, {
     'Cache-Control': cacheControl,
     'Access-Control-Allow-Origin': '*',
     'Vary': 'Accept',
-  }));
+  }), originDurationMs);
+
+  // Cache only verified responses (immutable once verified)
+  if (result.verified) {
+    const toCache = new Response(jsonResp.body, { status: jsonResp.status, headers: new Headers(jsonResp.headers) });
+    toCache.headers.set('Cache-Tag', `verify,verify:${captureId}`);
+    ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+    return toCache;
+  }
+
+  return jsonResp;
 }
 
 async function handleGetSigningKey(request, env, ctx) {
   const start = Date.now();
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
+  let cacheStatus = 'bypass';
 
-  const withTimingHeader = (response) => {
+  const withTimingHeader = (response, originDur) => {
     const durationMs = Date.now() - start;
     const headers = new Headers(response.headers);
-    headers.set('Server-Timing', `total;dur=${durationMs}`);
+    const parts = [`cache;desc="${cacheStatus.toUpperCase()}"`];
+    if (originDur !== undefined) parts.push(`origin;dur=${originDur}`);
+    parts.push(`total;dur=${durationMs}`);
+    headers.set('Server-Timing', parts.join(', '));
     return new Response(response.body, { status: response.status, headers });
   };
 
@@ -2266,9 +2310,20 @@ async function handleGetSigningKey(request, env, ctx) {
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_key', cip }) ?? Promise.resolve());
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 4, 'verify', { event: 'signing_key.request', responseStatus: 429, durationMs, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'verify', { event: 'signing_key.request', responseStatus: 429, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withTimingHeader(problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' }));
     }
+  }
+
+  // Cache check for signing key
+  const cache = caches.default;
+  const cacheKey = buildSimpleCacheKey(request);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    cacheStatus = 'hit';
+    const durationMs = Date.now() - start;
+    ctx.waitUntil(log(env, 3, 'verify', { event: 'signing_key.request', responseStatus: 200, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
+    return withTimingHeader(new Response(cached.body, { status: cached.status, headers: new Headers(cached.headers) }));
   }
 
   const keys = await getSigningKeys(env);
@@ -2279,31 +2334,40 @@ async function handleGetSigningKey(request, env, ctx) {
       cip,
     }) ?? Promise.resolve());
     const durationMs = Date.now() - start;
-    ctx.waitUntil(log(env, 5, 'verify', { event: 'signing_key.request', responseStatus: 503, durationMs, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'verify', { event: 'signing_key.request', responseStatus: 503, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
     return withTimingHeader(problemResponse(503, 'Signing is not configured'));
   }
 
   // Use Array.from to avoid spread operator RangeError on large arrays
   const publicKeyBase64 = btoa(Array.from(keys.publicKeyBytes.slice()).map(b => String.fromCharCode(b)).join(''));
 
+  cacheStatus = 'miss';
   const durationMs = Date.now() - start;
-  ctx.waitUntil(log(env, 3, 'verify', { event: 'signing_key.request', responseStatus: 200, durationMs, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+  ctx.waitUntil(log(env, 3, 'verify', { event: 'signing_key.request', responseStatus: 200, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
 
-  return withTimingHeader(jsonResponse({ algorithm: 'Ed25519', publicKey: publicKeyBase64, keyId: keys.keyId }, 200, {
-    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+  const resp = jsonResponse({ algorithm: 'Ed25519', publicKey: publicKeyBase64, keyId: keys.keyId }, 200, {
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300',
     'Access-Control-Allow-Origin': '*',
-  }));
+    'Cache-Tag': 'signing-keys',
+  });
+  const toCache = new Response(resp.body, { status: resp.status, headers: new Headers(resp.headers) });
+  ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+  return withTimingHeader(toCache);
 }
 
 async function handleGetSigningKeys(request, env, ctx) {
   const start = Date.now();
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
+  let cacheStatus = 'bypass';
 
-  const withTimingHeader = (response) => {
+  const withTimingHeader = (response, originDur) => {
     const durationMs = Date.now() - start;
     const headers = new Headers(response.headers);
-    headers.set('Server-Timing', `total;dur=${durationMs}`);
+    const parts = [`cache;desc="${cacheStatus.toUpperCase()}"`];
+    if (originDur !== undefined) parts.push(`origin;dur=${originDur}`);
+    parts.push(`total;dur=${durationMs}`);
+    headers.set('Server-Timing', parts.join(', '));
     return new Response(response.body, { status: response.status, headers });
   };
 
@@ -2312,20 +2376,38 @@ async function handleGetSigningKeys(request, env, ctx) {
     if (!success) {
       ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'signing_keys', cip }) ?? Promise.resolve());
       const durationMs = Date.now() - start;
-      ctx.waitUntil(log(env, 4, 'verify', { event: 'signing_keys.request', responseStatus: 429, durationMs, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+      ctx.waitUntil(log(env, 4, 'verify', { event: 'signing_keys.request', responseStatus: 429, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
       return withTimingHeader(problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' }));
     }
   }
 
+  // Cache check for signing keys
+  const cache = caches.default;
+  const cacheKey = buildSimpleCacheKey(request);
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    cacheStatus = 'hit';
+    const durationMs = Date.now() - start;
+    ctx.waitUntil(log(env, 3, 'verify', { event: 'signing_keys.request', responseStatus: 200, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
+    return withTimingHeader(new Response(cached.body, { status: cached.status, headers: new Headers(cached.headers) }));
+  }
+
+  const originStart = Date.now();
   const archived = await listArchivedSigningKeys(env.DB);
+  const originDur = Date.now() - originStart;
 
+  cacheStatus = 'miss';
   const durationMs = Date.now() - start;
-  ctx.waitUntil(log(env, 3, 'verify', { event: 'signing_keys.request', responseStatus: 200, durationMs, cacheStatus: 'none', colo: request.cf?.colo, cip }) ?? Promise.resolve());
+  ctx.waitUntil(log(env, 3, 'verify', { event: 'signing_keys.request', responseStatus: 200, durationMs, cacheStatus, colo: request.cf?.colo, cip }) ?? Promise.resolve());
 
-  return withTimingHeader(jsonResponse({ keys: archived }, 200, {
-    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+  const resp = jsonResponse({ keys: archived }, 200, {
+    'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300',
     'Access-Control-Allow-Origin': '*',
-  }));
+    'Cache-Tag': 'signing-keys',
+  });
+  const toCache = new Response(resp.body, { status: resp.status, headers: new Headers(resp.headers) });
+  ctx.waitUntil(cache.put(cacheKey, toCache.clone()));
+  return withTimingHeader(toCache, originDur);
 }
 
 async function handleCaptureStatus(request, env, ctx, match) {

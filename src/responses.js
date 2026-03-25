@@ -33,6 +33,7 @@ export function problemResponse(status, detail, headers = {}, extra = {}) {
     status,
     headers: {
       'Content-Type': 'application/problem+json',
+      'Cache-Control': 'no-store',
       ...headers,
     },
   });
