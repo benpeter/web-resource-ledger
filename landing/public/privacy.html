@@ -55,7 +55,15 @@
           <li><strong>GitHub user ID</strong> &mdash; a stable numeric identifier assigned by GitHub</li>
           <li><strong>GitHub username</strong> &mdash; your current GitHub display name (updated on each login)</li>
         </ul>
-        <p>We request the <code>read:user</code> scope from GitHub. We do <strong>not</strong> receive or store your GitHub email address, repositories, or any data beyond your public profile identity. The GitHub access token used during login is discarded immediately after fetching your identity &mdash; it is never stored.</p>
+        <p>We request the <code>read:user user:email</code> scopes from GitHub. This allows us to receive your GitHub user ID, username, and primary verified email address. The GitHub access token used during login is discarded immediately after fetching your identity &mdash; it is never stored.</p>
+
+        <h3>Email Addresses</h3>
+        <p>We collect and store your email address in two ways:</p>
+        <ul>
+          <li><strong>From GitHub OAuth</strong> &mdash; when you sign in, we receive your primary verified email address from GitHub (via the <code>user:email</code> scope) and store it in your notification preferences as the default delivery address for transactional notifications.</li>
+          <li><strong>Manual entry</strong> &mdash; you may update your notification email address directly in the web interface. Only the verified address is stored; any pending (unverified) address is held temporarily until the verification link is clicked.</li>
+        </ul>
+        <p>Email addresses are used solely to deliver transactional notifications (capture failures, quota alerts, email verification messages). They are not used for marketing.</p>
 
         <h3>Session Data</h3>
         <p>When you log in, we create a server-side session:</p>
@@ -104,8 +112,13 @@
           </thead>
           <tbody>
             <tr>
-              <td>GitHub identity</td>
+              <td>GitHub identity (user ID, username)</td>
               <td>Contract performance (providing the service you signed up for)</td>
+              <td>Art. 6(1)(b)</td>
+            </tr>
+            <tr>
+              <td>Email address</td>
+              <td>Contract performance (delivering transactional notifications you requested)</td>
               <td>Art. 6(1)(b)</td>
             </tr>
             <tr>
@@ -148,6 +161,10 @@
             <tr>
               <td>Account data (GitHub ID, username)</td>
               <td>Until you request deletion or the service is discontinued</td>
+            </tr>
+            <tr>
+              <td>Email address</td>
+              <td>Until you remove it, request account deletion, or the service is discontinued</td>
             </tr>
             <tr>
               <td>Sessions</td>
@@ -203,7 +220,13 @@
             </tr>
             <tr>
               <td>DigiCert</td>
-              <td>RFC 3161 timestamping</td>
+              <td>RFC 3161 timestamping (standard captures)</td>
+              <td>SHA-256 hash of capture bundle only (no personal data)</td>
+              <td>USA</td>
+            </tr>
+            <tr>
+              <td>Sectigo</td>
+              <td>eIDAS-qualified RFC 3161 timestamping (when eIDAS timestamps are enabled)</td>
               <td>SHA-256 hash of capture bundle only (no personal data)</td>
               <td>USA</td>
             </tr>
@@ -213,9 +236,21 @@
               <td>Payment and billing information you provide to Stripe</td>
               <td>USA</td>
             </tr>
+            <tr>
+              <td>Resend</td>
+              <td>Transactional email delivery (notifications, email verification)</td>
+              <td>Recipient email addresses and notification content</td>
+              <td>USA</td>
+            </tr>
+            <tr>
+              <td>Google (Web Risk API)</td>
+              <td>URL threat screening before capture is initiated</td>
+              <td>The URL submitted for capture (may contain personal data in query strings)</td>
+              <td>USA</td>
+            </tr>
           </tbody>
         </table>
-        <p>We maintain data processing agreements with our infrastructure providers as required by GDPR Article 28.</p>
+        <p>We maintain data processing agreements with our infrastructure providers as required by GDPR Article 28. For a detailed list of all subprocessors including data transfer mechanisms, see our <a href="https://docs.webresourceledger.com/security/subprocessors/">Subprocessor List</a>.</p>
 
         <h2>Your Rights</h2>
         <p>Under GDPR, you have the following rights regarding your personal data:</p>
@@ -259,7 +294,7 @@
         <a href="https://datenschutz.hessen.de">https://datenschutz.hessen.de</a></p>
 
         <h2>International Data Transfers</h2>
-        <p>Some of our processors (GitHub, DigiCert, Stripe) are based in the USA. Cloudflare processes data globally across its network. These transfers are conducted under appropriate safeguards, including the EU-US Data Privacy Framework and Standard Contractual Clauses where applicable.</p>
+        <p>Some of our processors (GitHub, DigiCert, Sectigo, Stripe, Resend, Google) are based in the USA. Cloudflare processes data globally across its network. These transfers are conducted under appropriate safeguards, including the EU-US Data Privacy Framework and Standard Contractual Clauses where applicable. See the <a href="https://docs.webresourceledger.com/security/subprocessors/">Subprocessor List</a> for the specific transfer mechanism for each processor.</p>
 
         <h2>Children</h2>
         <p>WRL is not directed at children under 16. We do not knowingly collect personal data from children. If you believe a child has provided us with personal data, contact us at <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a> and we will delete it.</p>
