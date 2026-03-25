@@ -1613,6 +1613,20 @@ input, select, textarea {
   min-width: 0;
 }
 
+.notifications-verify-status {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.notifications-verify-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
 /* ---------------------------------------------------------------------------
    Diff view
 --------------------------------------------------------------------------- */

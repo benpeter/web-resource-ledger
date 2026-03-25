@@ -9,6 +9,11 @@ export const NOTIFICATIONS_JS = `
 
 var _notificationsLiveEl = null;
 
+// Verification state -- cleared on navigate-away or verification confirmed
+var _verifyResendTimer = null;       // setInterval id for cooldown countdown
+var _verifyVisibilityFn = null;      // visibilitychange handler (so it can be removed)
+var _verifyCheckPending = false;     // guard against rapid re-fetches on Check status
+
 // ---------------------------------------------------------------------------
 // Announce helper (mirrors settingsAnnounce pattern)
 // ---------------------------------------------------------------------------
@@ -67,10 +72,29 @@ function defaultPreferences() {
 }
 
 // ---------------------------------------------------------------------------
+// notificationsNavigateCleanup -- tear down timers and listeners on nav away
+// ---------------------------------------------------------------------------
+
+function notificationsNavigateCleanup() {
+  if (_verifyResendTimer !== null) {
+    clearInterval(_verifyResendTimer);
+    _verifyResendTimer = null;
+  }
+  if (_verifyVisibilityFn !== null) {
+    document.removeEventListener('visibilitychange', _verifyVisibilityFn);
+    _verifyVisibilityFn = null;
+  }
+  _verifyCheckPending = false;
+}
+
+// ---------------------------------------------------------------------------
 // renderNotifications() -- builds DOM skeleton for the notifications view
 // ---------------------------------------------------------------------------
 
 function renderNotifications() {
+  // Clean up any running timers / listeners from previous visit
+  notificationsNavigateCleanup();
+
   document.title = 'Notifications \u2014 WRL';
 
   var view = document.getElementById('view');
@@ -157,7 +181,15 @@ function buildNotificationsContent(data) {
 
   var prefs = data.notifications || defaultPreferences();
 
-  view.appendChild(buildEmailSection(data));
+  var emailSection = buildEmailSection(data);
+  view.appendChild(emailSection);
+
+  // If a pending verification exists from a previous save, show the status block
+  if (data.pendingEmail) {
+    var loadStatusBlock = buildVerifyStatusBlock(data.pendingEmail, false);
+    emailSection.appendChild(loadStatusBlock);
+    startVerificationWatch(data.pendingEmail, emailSection);
+  }
   view.appendChild(buildToggleSection('Alerts', [
     'capture_failure',
     'approaching_limit',
@@ -177,6 +209,8 @@ function buildNotificationsContent(data) {
 function buildEmailSection(data) {
   var email = data.email || null;
   var emailVerified = !!data.emailVerified;
+  // pendingEmail is used by the caller (buildNotificationsContent) to add the
+  // status block; the display row always shows the current active email.
 
   var section = document.createElement('section');
   section.className = 'settings-section card';
@@ -192,6 +226,7 @@ function buildEmailSection(data) {
   var displayRow = document.createElement('div');
   displayRow.className = 'notifications-email-row';
   displayRow.id = 'notifications-email-display';
+  displayRow.tabIndex = -1; // allows programmatic focus after verification confirmed
 
   if (!email) {
     var promptEl = document.createElement('p');
@@ -325,15 +360,31 @@ function buildEmailSection(data) {
       if (!res) return; // 401 handled by apiFetch
 
       if (res.ok) {
-        // Update display row to reflect new email without re-fetching
-        emailInput.value = newEmail;
+        // Hide form, restore display row (shows current active email with its badge)
         editForm.style.display = 'none';
         displayRow.style.display = '';
 
-        // Refresh display row content to show new email + "not verified" badge
-        updateEmailDisplay(displayRow, editBtn, newEmail, false);
+        // The PUT returns the pending state; display row shows the still-active
+        // (old) email until the new one is verified. We don't update the display
+        // email here -- the current email remains active.
+        // If there was a prior pending email we treat this as a re-edit, so tear
+        // down old verification state first.
+        notificationsNavigateCleanup();
 
-        notificationsAnnounce('Email updated. Verification required before notifications are sent.');
+        // Remove any existing verification status block
+        var oldBlock = section.querySelector('#notifications-verify-status');
+        if (oldBlock) oldBlock.remove();
+
+        var saveStatusBlock = buildVerifyStatusBlock(newEmail, true);
+        section.appendChild(saveStatusBlock);
+
+        // Start 60s resend cooldown (email was just sent)
+        startResendCooldown(saveStatusBlock, 60);
+
+        // Start cross-tab verification watch
+        startVerificationWatch(newEmail, section);
+
+        notificationsAnnounce('Verification email sent to ' + newEmail + '. Check your inbox.');
         return;
       }
 
@@ -381,6 +432,229 @@ function updateEmailDisplay(displayRow, editBtn, newEmail, verified) {
 
   editBtn.textContent = 'Edit';
   displayRow.appendChild(editBtn);
+}
+
+// ---------------------------------------------------------------------------
+// buildVerifyStatusBlock -- creates the pending-verification UI block
+//   pendingEmail  {string}  the address awaiting verification
+//   justSaved     {boolean} true if we just issued a PUT (shows "sent" copy)
+// ---------------------------------------------------------------------------
+
+function buildVerifyStatusBlock(pendingEmail, justSaved) {
+  var block = document.createElement('div');
+  block.id = 'notifications-verify-status';
+  block.className = 'notifications-verify-status';
+
+  // a. Confirmation message
+  var msgEl = document.createElement('p');
+  msgEl.style.fontSize = 'var(--text-sm)';
+  var msgPrefix = document.createTextNode(
+    justSaved ? 'Verification email sent to\u00a0' : 'Verification pending for\u00a0'
+  );
+  var boldEmail = document.createElement('strong');
+  boldEmail.textContent = pendingEmail;
+  msgEl.appendChild(msgPrefix);
+  msgEl.appendChild(boldEmail);
+  block.appendChild(msgEl);
+
+  // b. Suppression warning
+  var warningEl = document.createElement('div');
+  warningEl.className = 'alert alert--warning';
+  warningEl.setAttribute('role', 'status');
+  warningEl.style.fontSize = 'var(--text-sm)';
+  warningEl.textContent = 'Notifications will continue to your current email until the new address is verified.';
+  block.appendChild(warningEl);
+
+  // c + d. Action row (resend + check status)
+  var actionsEl = document.createElement('div');
+  actionsEl.className = 'notifications-verify-actions';
+
+  var resendBtn = document.createElement('button');
+  resendBtn.type = 'button';
+  resendBtn.className = 'btn btn--ghost btn--sm';
+  resendBtn.id = 'notifications-resend-btn';
+  resendBtn.textContent = 'Resend verification email';
+
+  var resendFeedback = document.createElement('span');
+  resendFeedback.id = 'notifications-resend-feedback';
+  resendFeedback.style.fontSize = 'var(--text-sm)';
+  resendFeedback.style.color = 'var(--color-error-text)';
+  resendFeedback.style.display = 'none';
+
+  var checkBtn = document.createElement('button');
+  checkBtn.type = 'button';
+  checkBtn.className = 'btn btn--ghost btn--sm';
+  checkBtn.style.color = 'var(--color-accent)';
+  checkBtn.textContent = 'Check status';
+
+  actionsEl.appendChild(resendBtn);
+  actionsEl.appendChild(checkBtn);
+  actionsEl.appendChild(resendFeedback);
+  block.appendChild(actionsEl);
+
+  // Wire resend button
+  resendBtn.addEventListener('click', function() {
+    resendFeedback.style.display = 'none';
+    resendFeedback.textContent = '';
+
+    resendBtn.disabled = true;
+    resendBtn.textContent = 'Sending...';
+
+    apiFetch('/v1/account/notifications/resend-verification', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-WRL-CSRF': '1' }
+    }).then(function(res) {
+      if (!res) {
+        // 401 handled by apiFetch
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend verification email';
+        return;
+      }
+
+      if (res.status === 429) {
+        var retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10) || 60;
+        startResendCooldown(block, retryAfter);
+        return;
+      }
+
+      if (res.ok) {
+        startResendCooldown(block, 60);
+        notificationsAnnounce('Verification email resent to ' + pendingEmail + '.');
+        return;
+      }
+
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Resend verification email';
+      resendFeedback.textContent = 'Could not resend (HTTP ' + res.status + '). Try again.';
+      resendFeedback.style.display = '';
+    }).catch(function() {
+      resendBtn.disabled = false;
+      resendBtn.textContent = 'Resend verification email';
+      resendFeedback.textContent = 'Connection failed. Check your network and try again.';
+      resendFeedback.style.display = '';
+    });
+  });
+
+  // Wire check status button
+  checkBtn.addEventListener('click', function() {
+    if (_verifyCheckPending) return;
+    // Walk up to the parent section so checkStatus can find the badge + block
+    var emailSection = block.closest('section') || block.parentNode;
+    checkStatus(emailSection, pendingEmail);
+  });
+
+  return block;
+}
+
+// ---------------------------------------------------------------------------
+// startResendCooldown -- disables resend button for N seconds with countdown
+// ---------------------------------------------------------------------------
+
+function startResendCooldown(statusBlock, seconds) {
+  if (_verifyResendTimer !== null) {
+    clearInterval(_verifyResendTimer);
+    _verifyResendTimer = null;
+  }
+
+  var resendBtn = statusBlock.querySelector('#notifications-resend-btn');
+  if (!resendBtn) return;
+
+  var remaining = seconds;
+
+  function updateCooldown() {
+    resendBtn.disabled = true;
+    resendBtn.setAttribute('aria-disabled', 'true');
+    resendBtn.setAttribute('aria-label',
+      'Resend verification email, available in ' + remaining + ' seconds');
+    resendBtn.textContent = 'Resend in ' + remaining + 's';
+  }
+
+  updateCooldown();
+
+  _verifyResendTimer = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(_verifyResendTimer);
+      _verifyResendTimer = null;
+      resendBtn.disabled = false;
+      resendBtn.removeAttribute('aria-disabled');
+      resendBtn.removeAttribute('aria-label');
+      resendBtn.textContent = 'Resend verification email';
+    } else {
+      updateCooldown();
+    }
+  }, 1000);
+}
+
+// ---------------------------------------------------------------------------
+// startVerificationWatch -- polls GET /v1/account/notifications on tab focus
+// ---------------------------------------------------------------------------
+
+function startVerificationWatch(pendingEmail, emailSection) {
+  // Remove any previous listener first
+  if (_verifyVisibilityFn !== null) {
+    document.removeEventListener('visibilitychange', _verifyVisibilityFn);
+    _verifyVisibilityFn = null;
+  }
+
+  _verifyVisibilityFn = function() {
+    if (document.visibilityState !== 'visible') return;
+    checkStatus(emailSection, pendingEmail);
+  };
+
+  document.addEventListener('visibilitychange', _verifyVisibilityFn);
+}
+
+// ---------------------------------------------------------------------------
+// checkStatus -- re-fetch notifications and handle verified state
+// ---------------------------------------------------------------------------
+
+function checkStatus(emailSection, pendingEmail) {
+  if (_verifyCheckPending) return;
+  _verifyCheckPending = true;
+
+  apiFetch('/v1/account/notifications', { credentials: 'same-origin' })
+    .then(function(res) {
+      if (!res || !res.ok) {
+        _verifyCheckPending = false;
+        return null;
+      }
+      return res.json();
+    })
+    .catch(function() {
+      _verifyCheckPending = false;
+      return null;
+    })
+    .then(function(data) {
+      _verifyCheckPending = false;
+      if (!data) return;
+
+      // Verified: pendingEmail cleared and emailVerified true
+      if (!data.pendingEmail && data.emailVerified) {
+        // Tear down timers and listener
+        notificationsNavigateCleanup();
+
+        // Remove verification status block
+        var statusBlock = emailSection.querySelector('#notifications-verify-status');
+        if (statusBlock) statusBlock.remove();
+
+        // Update the badge in the display row
+        var badge = emailSection.querySelector('.badge');
+        if (badge) {
+          badge.className = 'badge badge--pass';
+          badge.textContent = 'Verified';
+        }
+
+        // Announce and move focus to the display row
+        notificationsAnnounce('Email verified. Notifications are now active.');
+        var displayRow = emailSection.querySelector('#notifications-email-display');
+        if (displayRow) displayRow.focus();
+      }
+    })
+    .catch(function() {
+      _verifyCheckPending = false;
+    });
 }
 
 // ---------------------------------------------------------------------------
