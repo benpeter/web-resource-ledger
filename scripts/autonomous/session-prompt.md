@@ -151,3 +151,24 @@ After completing the phase, update docs/backlog.md:
 - Mark the completed item as done (strikethrough)
 - Move any deferred work to the parking lot
 - Record changes in outcome.md
+
+### Documentation & Surface Consistency (MANDATORY)
+
+Before creating the PR, evaluate whether your changes require updates to
+any of these downstream surfaces. Check each one — do not skip this step.
+
+| Surface | Path(s) | Update when... |
+|---------|---------|----------------|
+| **OpenAPI spec** | `openapi.yaml` | New/changed endpoints, request/response shapes, auth requirements, status codes, headers |
+| **Docs site** | `site/content/*.md` | New features, changed behavior, new parameters, changed limits, new auth flows |
+| **Landing page** | `landing/public/index.html` | Pricing/tier changes, new headline capabilities, feature list changes |
+| **MCP server** | `src/mcp.js` | New/changed API endpoints that should be exposed as MCP tools |
+| **Legal pages** | `landing/public/{terms,privacy,content-policy,refund-policy}.html`, `TERMS.md` | New data collection, new third-party service integrations, billing/pricing changes, new processing activities |
+
+**Rules:**
+1. If a surface needs updating, update it in the SAME PR — do not defer
+   to a follow-up issue.
+2. If a surface does not need updating, that's fine — but the evaluation
+   must happen.
+3. In `outcome.md`, add a "Surface consistency" section listing each
+   surface and what was done (updated, or why no update was needed).
