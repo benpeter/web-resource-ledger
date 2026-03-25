@@ -75,6 +75,7 @@ function rowToCapture(row) {
     quarantinedAt: row.quarantined_at ?? null,
     lastThreatCheckAt: row.last_threat_check_at ?? null,
     threatCheck: row.threat_check ?? null,
+    changeSummary: row.change_summary ? JSON.parse(row.change_summary) : null,
   };
 }
 
@@ -1776,4 +1777,48 @@ export async function listCapturesNeedingThreatCheck(db, olderThan, limit = 500)
     url: row.url,
     tenantId: row.tenant_id,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Change detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Find the most recent complete capture for a schedule created before the
+ * given capture. Uses two sequential queries to avoid OFFSET-based fragility
+ * with historical data.
+ *
+ * @param {D1Database} db
+ * @param {string} scheduleId
+ * @param {string} captureId  The current capture to look behind
+ * @returns {Promise<string|null>}  The previous capture's ID, or null if none
+ */
+export async function getPreviousCaptureId(db, scheduleId, captureId) {
+  const current = await db.prepare(
+    'SELECT created_at FROM captures WHERE id = ?',
+  ).bind(captureId).first();
+  if (!current) return null;
+
+  const previous = await db.prepare(
+    `SELECT id FROM captures
+     WHERE schedule_id = ? AND status = 'complete' AND created_at < ?
+     ORDER BY created_at DESC LIMIT 1`,
+  ).bind(scheduleId, current.created_at).first();
+
+  return previous?.id ?? null;
+}
+
+/**
+ * Persist a JSON change summary on a capture record. Called asynchronously
+ * after capture completion once the diff has been computed.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {object} summary  Plain JS object matching the change_summary JSON schema
+ * @returns {Promise<void>}
+ */
+export async function setChangeSummary(db, captureId, summary) {
+  await db.prepare(
+    'UPDATE captures SET change_summary = ? WHERE id = ?',
+  ).bind(JSON.stringify(summary), captureId).run();
 }
