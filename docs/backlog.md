@@ -213,9 +213,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Automated autoconsent update pipeline (#152) | When manual update lag causes CMP regressions | Phase 0059b |
 | [consider] Embed Stripe payment form instead of redirect (#147) | Billing UI shipped (Phase 0076) with redirect flow; activate if redirect causes UX friction | Phase 0058 → 0076 |
 | [consider] Fetch-based capture for non-HTML resources (#143) | When a user needs to capture PDFs, APIs, or static files | Product |
-| [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | When GTM efforts start (Phase 0066 ecosystem push) | GTM research |
-| [consider] SEO optimization for landing page (#136) | When GTM efforts start (Phase 0066) | GTM research |
-| [consider] Generative Engine Optimization / GEO (#137) | When GTM efforts start (Phase 0066) | GTM research |
+| [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | Phase 0066 shipped (ecosystem push); activate when measuring GTM impact | GTM research |
+| [consider] SEO optimization for landing page (#136) | Phase 0066 shipped; activate when organic search traffic is a priority | GTM research |
+| [consider] Generative Engine Optimization / GEO (#137) | Phase 0066 shipped; activate when AI search visibility is a priority | GTM research |
 | ~~[consider] Feature list and competitor comparison (#144)~~ | ~~When landing page content refresh (Phase 0074)~~ -- DONE (Phase 0074): Legal Evidence card with FRE 901/902 + eIDAS references on landing page, verification comparison table on docs site (Issue #142) | GTM research |
 
 ---
@@ -291,6 +291,7 @@ Completed items removed from active tracking:
 - ~~R42: Legal-evidence positioning~~ -- DONE (Phase 0074): Landing page updated with FRE 901(b)(9), 902(14), eIDAS Art. 41(2) references. New Legal Evidence docs guide page. Verification comparison table. No overclaiming -- "designed to support" language throughout. (Issue #142)
 - ~~R36: Email notifications~~ -- DONE (Phase 0072): 6 transactional notification types, Resend email delivery via Cloudflare Queue, RFC 8058 one-click unsubscribe, notification preferences API (GET/PUT), Notifications UI tab, GitHub OAuth email auto-population, 2 Coralogix alerts (Issue #111)
 - ~~R34: API versioning and stability commitment~~ -- DONE (Phase 0065): v1.0.0 version bump (openapi.yaml + package.json), CHANGELOG.md with retroactive history, DEPRECATION-POLICY.md (6-month notice, 30-day emergency), WRL-API-Version response header, CI version-sync enforcement, PR template (Issue #113)
+- ~~R35: MCP directory listings and ecosystem~~ -- DONE (Phase 0066): server.json updated to 2025-12-11 registry schema, glama.json for Glama auto-indexing, PRs submitted to punkpeye/awesome-mcp-servers (Legal) + appcypher/awesome-mcp-servers (Security) + iipc/awesome-web-archiving (Acquisition + Utilities), MCP.so submission, doc bugs fixed (capture_page→capture_url, batch_capture removed, cursor→offset), 6 MCP client integration examples (VS Code, Claude Code, Cursor, Cline, Windsurf, Generic) (Issue #114)
 
 ---
 
