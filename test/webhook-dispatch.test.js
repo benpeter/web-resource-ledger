@@ -208,6 +208,38 @@ describe('buildWebhookPayload', () => {
     const id2 = JSON.parse(buildWebhookPayload('capture.complete', record, {})).id;
     expect(id1).not.toBe(id2);
   });
+
+  it('capture.complete payload includes artifacts with screenshot, html, headers URLs', () => {
+    const record = makeCaptureRecord({ status: 'complete', completedAt: '2024-01-01T00:00:00.000Z' });
+    const parsed = JSON.parse(buildWebhookPayload('capture.complete', record, {}));
+    expect(parsed.data.artifacts).toBeDefined();
+    expect(parsed.data.artifacts.screenshot).toContain(record.captureId);
+    expect(parsed.data.artifacts.screenshot).toContain('/artifacts/screenshot');
+    expect(parsed.data.artifacts.html).toContain(record.captureId);
+    expect(parsed.data.artifacts.html).toContain('/artifacts/html');
+    expect(parsed.data.artifacts.headers).toContain(record.captureId);
+    expect(parsed.data.artifacts.headers).toContain('/artifacts/headers');
+  });
+
+  it('capture.complete artifacts URLs use VERIFICATION_BASE_URL when set', () => {
+    const record = makeCaptureRecord({ status: 'complete', completedAt: '2024-01-01T00:00:00.000Z' });
+    const parsed = JSON.parse(buildWebhookPayload('capture.complete', record, { VERIFICATION_BASE_URL: 'https://custom.example.com' }));
+    expect(parsed.data.artifacts.screenshot).toMatch(/^https:\/\/custom\.example\.com/);
+    expect(parsed.data.artifacts.html).toMatch(/^https:\/\/custom\.example\.com/);
+    expect(parsed.data.artifacts.headers).toMatch(/^https:\/\/custom\.example\.com/);
+  });
+
+  it('capture.failed payload does not include artifacts', () => {
+    const record = makeCaptureRecord({ status: 'failed', failedAt: '2024-01-01T00:00:00.000Z', error: 'render_timeout', retryable: false });
+    const parsed = JSON.parse(buildWebhookPayload('capture.failed', record, {}));
+    expect(parsed.data.artifacts).toBeUndefined();
+  });
+
+  it('capture.quarantined payload does not include artifacts', () => {
+    const record = makeCaptureRecord({ status: 'quarantined', quarantineReason: 'content_policy', quarantinedAt: '2024-01-01T00:00:00.000Z' });
+    const parsed = JSON.parse(buildWebhookPayload('capture.quarantined', record, {}));
+    expect(parsed.data.artifacts).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

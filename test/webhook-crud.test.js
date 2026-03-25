@@ -404,4 +404,23 @@ describe('POST /v1/webhooks/:id/ping', () => {
     });
     expect(res.status).toBe(401);
   });
+
+  it('response includes signatureHeader, timestampHeader, and sentPayload for verification', async () => {
+    const id = 'whk_' + 'b'.repeat(32);
+    await seedWebhook(env.DB, id, { tenantId: 'default' });
+
+    const res = await ping(id);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Signature echo fields -- present regardless of whether delivery succeeded
+    expect(typeof body.signatureHeader).toBe('string');
+    expect(body.signatureHeader).toMatch(/^t=\d+,v1=[a-f0-9]{64}$/);
+    expect(typeof body.timestampHeader).toBe('string');
+    expect(body.timestampHeader).toMatch(/^\d+$/);
+    expect(typeof body.sentPayload).toBe('string');
+    // sentPayload must be valid JSON (the ping event body)
+    const payload = JSON.parse(body.sentPayload);
+    expect(payload.type).toBe('ping');
+    expect(payload.data.webhookId).toBe(id);
+  });
 });
