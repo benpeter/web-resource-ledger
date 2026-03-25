@@ -12,7 +12,7 @@ export const tokens = {
   colors: {
     // Neutrals
     text:          '#1e2a36',
-    textMuted:     '#6e6a66',
+    textMuted:     '#595550',
     bg:            '#f7f6f5',
     surface:       '#ffffff',
     surfaceMuted:  '#f3f2f0',
