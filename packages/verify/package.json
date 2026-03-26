@@ -1,6 +1,6 @@
 {
   "name": "@w-r-l/verify",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Verify cryptographic integrity of WRL WACZ web capture bundles",
   "license": "SEE LICENSE IN LICENSE",
   "author": "Ben Peter <bp@ben-peter.com>",
