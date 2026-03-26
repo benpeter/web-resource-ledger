@@ -23,7 +23,8 @@
     "smoke": "./scripts/smoke-test.sh",
     "test:e2e": "npx playwright test --config=test/e2e/playwright.config.js",
     "build:docs": "cd site && npm run build",
-    "test:battery": "node scripts/test-battery.js"
+    "test:battery": "node scripts/test-battery.js",
+    "test:sync": "vitest run --config vitest.sync.config.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.12.21",

@@ -49,6 +49,8 @@ jobs:
       - if: steps.changes.outputs.code == 'true'
         run: npm test
       - if: steps.changes.outputs.code == 'true'
+        run: npm run test:sync
+      - if: steps.changes.outputs.code == 'true'
         run: npm run lint:api
       - if: steps.changes.outputs.code == 'false'
         run: echo "Docs-only change -- skipping tests and lint."

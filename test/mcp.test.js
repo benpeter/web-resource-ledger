@@ -2,7 +2,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
-import { seedApiKey, cleanDb } from './fixtures.js';
+import { seedApiKey, seedSchedule, cleanDb, TEST_SCHEDULE_ID } from './fixtures.js';
 import { createCapture } from '../src/db.js';
 
 // ---------------------------------------------------------------------------
@@ -68,6 +68,11 @@ async function cleanupCaptures() {
   await env.DB.prepare('DELETE FROM tenants').run();
 }
 
+async function cleanupSchedules() {
+  await env.DB.prepare('DELETE FROM schedules').run();
+  await env.DB.prepare('DELETE FROM tenants').run();
+}
+
 // ---------------------------------------------------------------------------
 // Protocol tests
 // ---------------------------------------------------------------------------
@@ -94,7 +99,7 @@ describe('MCP protocol -- initialize', () => {
 });
 
 describe('MCP protocol -- tools/list', () => {
-  it('lists all 4 WRL tools', async () => {
+  it('lists all 11 WRL tools', async () => {
     const res = await mcpPost({
       jsonrpc: '2.0',
       id: 1,
@@ -114,7 +119,14 @@ describe('MCP protocol -- tools/list', () => {
     expect(names).toContain('get_capture');
     expect(names).toContain('list_captures');
     expect(names).toContain('verify_capture');
-    expect(tools).toHaveLength(4);
+    expect(names).toContain('batch_capture');
+    expect(names).toContain('diff_captures');
+    expect(names).toContain('get_usage');
+    expect(names).toContain('list_schedules');
+    expect(names).toContain('create_schedule');
+    expect(names).toContain('delete_schedule');
+    expect(names).toContain('get_certificate');
+    expect(tools).toHaveLength(11);
   });
 
   it('each tool has a name, description, and inputSchema', async () => {
@@ -415,5 +427,318 @@ describe('tool: verify_capture -- not found', () => {
     expect(body.result.isError).toBe(true);
     const text = body.result.content[0].text;
     expect(text.toLowerCase()).toMatch(/not found|not yet complete/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: batch_capture
+// ---------------------------------------------------------------------------
+
+describe('tool: batch_capture -- happy path', () => {
+  afterEach(cleanupCaptures);
+
+  it('accepts two URLs and returns capture IDs in response text', async () => {
+    const res = await mcpPost(toolCall('batch_capture', {
+      urls: ['https://example.com', 'https://example.org'],
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toBeDefined();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text).toMatch(/cap_[a-f0-9]{32}/);
+    expect(text).toMatch(/2\/2.*accepted/i);
+  });
+});
+
+describe('tool: batch_capture -- insufficient scope', () => {
+  const READ_ONLY_KEY = 'wrl_live_' + 's'.repeat(43);
+
+  beforeEach(async () => {
+    await cleanupApiKeys();
+    await seedApiKey(env.DB, READ_ONLY_KEY, {
+      tenantId: 'test-batch-read-only',
+      scopes: ['read'],
+      name: 'batch-read-only-key',
+    });
+  });
+
+  afterEach(cleanupApiKeys);
+
+  it('returns scope error for key without capture scope', async () => {
+    const res = await mcpPost(
+      toolCall('batch_capture', { urls: ['https://example.com'] }),
+      `Bearer ${READ_ONLY_KEY}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('scope');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: diff_captures
+// ---------------------------------------------------------------------------
+
+describe('tool: diff_captures -- happy path', () => {
+  const DIFF_BASE_ID   = 'cap_' + 'f'.repeat(32);
+  const DIFF_TARGET_ID = 'cap_' + 'e'.repeat(31) + '0';
+
+  beforeEach(async () => {
+    await cleanupCaptures();
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, DIFF_BASE_ID, 'https://example.com/base', '1.2.3.4', 'default');
+    await create(env.DB, DIFF_TARGET_ID, 'https://example.com/target', '1.2.3.4', 'default');
+    await complete(env.DB, DIFF_BASE_ID, {
+      screenshot: `captures/${DIFF_BASE_ID}/screenshot.png`,
+      html: `captures/${DIFF_BASE_ID}/rendered.html`,
+      headers: `captures/${DIFF_BASE_ID}/headers.json`,
+    }, null, 'full');
+    await complete(env.DB, DIFF_TARGET_ID, {
+      screenshot: `captures/${DIFF_TARGET_ID}/screenshot.png`,
+      html: `captures/${DIFF_TARGET_ID}/rendered.html`,
+      headers: `captures/${DIFF_TARGET_ID}/headers.json`,
+    }, null, 'full');
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('returns diff summary for two complete captures', async () => {
+    const res = await mcpPost(toolCall('diff_captures', {
+      base_id: DIFF_BASE_ID,
+      target_id: DIFF_TARGET_ID,
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toBeDefined();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text).toContain(DIFF_BASE_ID);
+    expect(text).toContain(DIFF_TARGET_ID);
+    expect(text).toMatch(/overall changed/i);
+  });
+});
+
+describe('tool: diff_captures -- not found', () => {
+  it('returns isError: true for non-existent base capture ID', async () => {
+    const unknownId = 'cap_' + 'a'.repeat(32);
+    const res = await mcpPost(toolCall('diff_captures', {
+      base_id: unknownId,
+      target_id: 'cap_' + 'b'.repeat(32),
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('not found');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: get_usage
+// ---------------------------------------------------------------------------
+
+describe('tool: get_usage', () => {
+  beforeEach(async () => {
+    // The legacy CAPTURE_API_KEY auth uses tenantId 'default'.
+    // checkQuota requires a tenants row to exist -- ensure it here.
+    await env.DB.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind('default').run();
+  });
+
+  afterEach(async () => {
+    await env.DB.prepare('DELETE FROM tenants WHERE id = ?').bind('default').run();
+  });
+
+  it('returns usage information for the authenticated tenant', async () => {
+    const res = await mcpPost(toolCall('get_usage', {}));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toBeDefined();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toMatch(/usage|captures used/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: list_schedules
+// ---------------------------------------------------------------------------
+
+describe('tool: list_schedules -- empty', () => {
+  beforeEach(cleanupSchedules);
+  afterEach(cleanupSchedules);
+
+  it('returns "No schedules" message when none exist', async () => {
+    const res = await mcpPost(toolCall('list_schedules', {}));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('no schedules');
+  });
+});
+
+describe('tool: list_schedules -- with data', () => {
+  const LIST_SCHEDULE_ID = 'sch_' + 'a'.repeat(32);
+
+  beforeEach(async () => {
+    await cleanupSchedules();
+    await seedSchedule(env.DB, LIST_SCHEDULE_ID, {
+      tenantId: 'default',
+      url: 'https://example.com/scheduled',
+      name: 'My Test Schedule',
+      cron: '0 * * * *',
+    });
+  });
+
+  afterEach(cleanupSchedules);
+
+  it('lists the seeded schedule with its ID', async () => {
+    const res = await mcpPost(toolCall('list_schedules', {}));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text).toContain(LIST_SCHEDULE_ID);
+    expect(text).toContain('My Test Schedule');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: create_schedule
+// ---------------------------------------------------------------------------
+
+describe('tool: create_schedule -- happy path', () => {
+  afterEach(cleanupSchedules);
+
+  it('creates a schedule and returns its ID and next run time', async () => {
+    const res = await mcpPost(toolCall('create_schedule', {
+      url: 'https://example.com',
+      name: 'Hourly Check',
+      cron: '0 * * * *',
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toBeDefined();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text).toMatch(/sch_[a-f0-9]{32}/);
+    expect(text).toMatch(/schedule created/i);
+  });
+});
+
+describe('tool: create_schedule -- insufficient scope', () => {
+  const READ_ONLY_KEY = 'wrl_live_' + 't'.repeat(43);
+
+  beforeEach(async () => {
+    await cleanupApiKeys();
+    await seedApiKey(env.DB, READ_ONLY_KEY, {
+      tenantId: 'test-schedule-read-only',
+      scopes: ['read'],
+      name: 'schedule-read-only-key',
+    });
+  });
+
+  afterEach(cleanupApiKeys);
+
+  it('returns scope error for key without capture scope', async () => {
+    const res = await mcpPost(
+      toolCall('create_schedule', { url: 'https://example.com', name: 'Test', cron: '0 * * * *' }),
+      `Bearer ${READ_ONLY_KEY}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('scope');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: delete_schedule
+// ---------------------------------------------------------------------------
+
+describe('tool: delete_schedule -- happy path', () => {
+  const DEL_SCHEDULE_ID = 'sch_' + 'b'.repeat(32);
+
+  beforeEach(async () => {
+    await cleanupSchedules();
+    await seedSchedule(env.DB, DEL_SCHEDULE_ID, {
+      tenantId: 'default',
+      url: 'https://example.com',
+      name: 'Schedule To Delete',
+      cron: '0 * * * *',
+    });
+  });
+
+  afterEach(cleanupSchedules);
+
+  it('deletes the schedule and confirms deletion', async () => {
+    const res = await mcpPost(toolCall('delete_schedule', { schedule_id: DEL_SCHEDULE_ID }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('deleted');
+    expect(text).toContain(DEL_SCHEDULE_ID);
+  });
+});
+
+describe('tool: delete_schedule -- not found', () => {
+  it('returns isError: true for non-existent schedule ID', async () => {
+    const unknownId = 'sch_' + '0'.repeat(32);
+    const res = await mcpPost(toolCall('delete_schedule', { schedule_id: unknownId }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('not found');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: get_certificate
+// ---------------------------------------------------------------------------
+
+describe('tool: get_certificate -- happy path', () => {
+  const CERT_ID = 'cap_' + '4'.repeat(32);
+
+  beforeEach(async () => {
+    await cleanupCaptures();
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, CERT_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, CERT_ID, {
+      screenshot: `captures/${CERT_ID}/screenshot.png`,
+      html: `captures/${CERT_ID}/rendered.html`,
+      headers: `captures/${CERT_ID}/headers.json`,
+    }, { key: 'test-wacz-key', bundleHash: 'sha256:' + 'b'.repeat(64), size: 12345, keyId: null }, 'full');
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('returns certificate metadata for a complete capture with WACZ', async () => {
+    const res = await mcpPost(toolCall('get_certificate', { capture_id: CERT_ID }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result).toBeDefined();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text).toContain(CERT_ID);
+    expect(text.toLowerCase()).toContain('bundle hash');
+    expect(text.toLowerCase()).toContain('certificate');
+  });
+});
+
+describe('tool: get_certificate -- not found', () => {
+  it('returns isError: true for non-existent capture ID', async () => {
+    const unknownId = 'cap_' + '5'.repeat(32);
+    const res = await mcpPost(toolCall('get_certificate', { capture_id: unknownId }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    const text = body.result.content[0].text;
+    expect(text.toLowerCase()).toContain('not found');
   });
 });

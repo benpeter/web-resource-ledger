@@ -44,7 +44,7 @@ word "evidence" defensible.
 
 Expand WRL into a platform that other tools and agents build on.
 
-- ~~#45 **R15: MCP server for web evidence** [M]~~ -- DONE: MCP adapter with 4 tools (capture_url, get_capture, list_captures, verify_capture), Streamable HTTP transport, docs, server.json registry
+- ~~#45 **R15: MCP server for web evidence** [M]~~ -- DONE: MCP adapter with 4 tools (capture_url, get_capture, list_captures, verify_capture), Streamable HTTP transport, docs, server.json registry. Expanded to 11 tools with drift detection in Phase 0085 (Issue #202).
 - ~~#46 **R16: Queue migration for capture processing** [M]~~ -- DONE: Cloudflare Queue producer/consumer, exponential backoff retry, DLQ, 15-min rendering budget
 - ~~#47 **R17: Web UI for capture submission** [M]~~ -- DONE: Browser-based UI at GET /ui with auth gate, capture submission, list with pagination, detail view with polling, 38 tests, vanilla JS/CSS
 - ~~#48 **R18: Batch capture endpoint** [M]~~ -- DONE: POST /v1/captures/batch with 207 Multi-Status, per-URL SSRF validation, sequential rate limit consumption
@@ -135,6 +135,12 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Digest frequency configuration (daily, biweekly) | When users request non-weekly digest cadences | Phase 0072, out-of-scope |
 | [consider] SMS/push notification channels | When email alone proves insufficient for urgent alerts | Phase 0072, out-of-scope |
 | [consider] Provision RESEND_API_KEY secrets (staging + production) | Before production deployment; manual ops step via wrangler secret put | Phase 0072, iac-minion |
+
+### MCP (R15 expanded -- extensions)
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Extract shared transport-neutral business logic from mcp.js and index.js route handlers | When mcp.js exceeds ~1500 lines or a third transport is added | Phase 0085, margo |
 
 ### Scheduling (R28 shipped -- extensions)
 
