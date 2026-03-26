@@ -34,6 +34,7 @@ import {
   getTenantByStripeCustomerId,
 } from './db.js';
 import { dispatchNotification } from './email-dispatch.js';
+import { generateInvoiceRedirectUrl } from './invoice-redirect.js';
 
 const BILLING_CACHE = { 'Cache-Control': 'private, no-store' };
 
@@ -373,11 +374,15 @@ async function handleInvoiceFinalized(event, env, ctx) {
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
     : 'https://api.webresourceledger.com';
 
+  const portalUrl = invoice?.hosted_invoice_url
+    ? await generateInvoiceRedirectUrl(env.SESSION_SECRET, invoice.hosted_invoice_url, baseUrl)
+    : `${baseUrl}/ui#billing`;
+
   ctx.waitUntil(dispatchNotification(env, tenant.id, 'invoice_generated', {
     amountFormatted,
     currency,
     period,
-    portalUrl: invoice?.hosted_invoice_url || `${baseUrl}/ui#billing`,
+    portalUrl,
   }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: tenant.id })));
 
   ctx.waitUntil(log(env, 3, 'billing', {

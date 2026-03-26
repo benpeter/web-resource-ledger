@@ -30,6 +30,7 @@ import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, 
 import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
 import { handleGetVerifyEmail, handlePostVerifyEmail } from './email-verify.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
+import { handleBillingInvoiceRedirect } from './invoice-redirect.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
@@ -126,6 +127,8 @@ const routes = [
   ['POST',   /^\/v1\/notifications\/unsubscribe$/, handlePostUnsubscribe],
   ['GET',    /^\/v1\/notifications\/verify-email$/, handleGetVerifyEmail],
   ['POST',   /^\/v1\/notifications\/verify-email$/, handlePostVerifyEmail],
+  // Unauthenticated invoice redirect (rate-limited via AUTH_RATE_LIMITER in fetch handler)
+  ['GET',    /^\/v1\/billing\/invoice$/, handleBillingInvoiceRedirect],
   // Billing routes (session-gated in fetch handler via /v1/account/ prefix check)
   ['POST',   /^\/v1\/billing\/checkout$/, handleBillingCheckout],
   ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
@@ -148,6 +151,7 @@ function getRateLimitGroup(method, pathname) {
   if (pathname === '/v1/captures' || pathname === '/v1/captures/batch') return 'capture';
   if (pathname.startsWith('/v1/schedules')) return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
+  if (pathname === '/v1/billing/invoice') return 'auth';
   if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'account';
   if (pathname.startsWith('/auth/')) return 'auth';
   if (pathname.startsWith('/v1/notifications/unsubscribe')) return 'auth';
@@ -559,11 +563,13 @@ export default {
         }
       }
 
-      // Auth rate limit for /auth/* routes, /v1/notifications/unsubscribe, and /v1/notifications/verify-email
+      // Auth rate limit for /auth/* routes, /v1/notifications/unsubscribe,
+      // /v1/notifications/verify-email, and /v1/billing/invoice
       const isAuthRoute = pathname.startsWith('/auth/');
       const isUnsubscribeRoute = pathname.startsWith('/v1/notifications/unsubscribe');
       const isVerifyEmailRoute = pathname.startsWith('/v1/notifications/verify-email');
-      if (!response && (isAuthRoute || isUnsubscribeRoute || isVerifyEmailRoute) && env.AUTH_RATE_LIMITER) {
+      const isInvoiceRedirectRoute = pathname === '/v1/billing/invoice';
+      if (!response && (isAuthRoute || isUnsubscribeRoute || isVerifyEmailRoute || isInvoiceRedirectRoute) && env.AUTH_RATE_LIMITER) {
         const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
         const { success } = await env.AUTH_RATE_LIMITER.limit({ key: clientIp });
         if (!success) {
@@ -571,8 +577,9 @@ export default {
         }
       }
 
-      // Session auth gate for /v1/account/* and /v1/billing/* routes
-      const isAccountRoute = pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/');
+      // Session auth gate for /v1/account/* and /v1/billing/* routes,
+      // excluding /v1/billing/invoice which is unauthenticated.
+      const isAccountRoute = (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) && !isInvoiceRedirectRoute;
       if (!response && isAccountRoute) {
         // Rate limit: per-IP using AUTH_RATE_LIMITER
         if (env.AUTH_RATE_LIMITER) {
