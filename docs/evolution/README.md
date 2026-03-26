@@ -104,5 +104,6 @@ software development.
 | [0093-admin-dashboard](0093-admin-dashboard/) | Operator admin dashboard: tenant list, per-tenant detail, platform overview, admin auth gate, 3 API endpoints (Issue #203) |
 | [0094-sign-in-button-contrast-fix](0094-sign-in-button-contrast-fix/) | Fix CSS specificity bug: Sign-in button text unreadable in landing page header, WCAG AA contrast failure (Issue #225) |
 | [0095-fix-toctou-swap-verified-email](0095-fix-toctou-swap-verified-email/) | Fix TOCTOU gap in swapVerifiedEmail() WHERE clause — pin pending_email = ? (Issue #222) |
+| [0096-link-domain-matching](0096-link-domain-matching/) | Align email link domains with WRL sending domain instead of third-party URLs (Issue #216) |
 | [0097-table-flip](0097-table-flip/) | Flip comparison tables to standard features-as-rows orientation, fix docs layout overflow with scoped wide-content modifier (Issue #233) |
 | [0098-docs-nav](0098-docs-nav/) | Add 2-level hierarchy to docs left rail navigation with section grouping (Issue #235) |

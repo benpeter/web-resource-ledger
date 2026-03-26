@@ -30,6 +30,18 @@ to the standard features-as-rows orientation, and fixed the docs layout overflow
   `.comparison-highlight-col` and `.comparison-sticky-col` styles. Raised
   card-stack breakpoint from 767px to 1024px for the comparison table.
 
+### Follow-up (PR #246)
+
+A nefario orchestration session identified gaps in the initial implementation:
+
+- Landing card-stack breakpoint was not raised (still 767px vs docs' 1024px)
+- Dead `.comparison-highlight` CSS class was left in landing.css
+- `data-tool` attribute inconsistent with docs' `data-label`
+- Unused `comparison-table--flipped` class on table element
+- No WRL highlight in card-stack mode on landing page
+
+These were fixed in PR #246 (`fix/landing-comparison-cleanup`).
+
 ### Backlog changes
 
 No backlog changes. This phase resolves Issue #233 which was a refinement of
