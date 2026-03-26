@@ -102,3 +102,4 @@ software development.
 | [0091-seo-geo-optimization](0091-seo-geo-optimization/) | SEO + GEO optimization for landing page and docs site — structured data, FAQ, sitemaps, llms.txt (Issue #215) |
 | [0092-legal-flag-verify-cli](0092-legal-flag-verify-cli/) | --legal flag for verify CLI: 7-section plain-text and JSON legal reports with FRE 901(b)(9) and eIDAS Art. 41 references (Issue #166) |
 | [0093-admin-dashboard](0093-admin-dashboard/) | Operator admin dashboard: tenant list, per-tenant detail, platform overview, admin auth gate, 3 API endpoints (Issue #203) |
+| [0094-sign-in-button-contrast-fix](0094-sign-in-button-contrast-fix/) | Fix CSS specificity bug: Sign-in button text unreadable in landing page header, WCAG AA contrast failure (Issue #225) |
