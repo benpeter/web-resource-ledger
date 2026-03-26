@@ -103,3 +103,4 @@ software development.
 | [0092-legal-flag-verify-cli](0092-legal-flag-verify-cli/) | --legal flag for verify CLI: 7-section plain-text and JSON legal reports with FRE 901(b)(9) and eIDAS Art. 41 references (Issue #166) |
 | [0093-admin-dashboard](0093-admin-dashboard/) | Operator admin dashboard: tenant list, per-tenant detail, platform overview, admin auth gate, 3 API endpoints (Issue #203) |
 | [0094-sign-in-button-contrast-fix](0094-sign-in-button-contrast-fix/) | Fix CSS specificity bug: Sign-in button text unreadable in landing page header, WCAG AA contrast failure (Issue #225) |
+| [0095-fix-toctou-swap-verified-email](0095-fix-toctou-swap-verified-email/) | Fix TOCTOU gap in swapVerifiedEmail() WHERE clause — pin pending_email = ? (Issue #222) |

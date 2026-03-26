@@ -1395,9 +1395,10 @@ export async function setPendingEmail(db, tenantId, email) {
  *
  * @param {D1Database} db
  * @param {string} tenantId
+ * @param {string} expectedEmail - must match pending_email for the swap to proceed (TOCTOU guard)
  * @returns {Promise<{ ok: true, prefs: object } | { ok: false, error: string }>}
  */
-export async function swapVerifiedEmail(db, tenantId) {
+export async function swapVerifiedEmail(db, tenantId, expectedEmail) {
   const now = new Date().toISOString();
   const result = await db.prepare(
     `UPDATE notification_preferences
@@ -1408,8 +1409,8 @@ export async function swapVerifiedEmail(db, tenantId) {
             verification_sent_at = NULL,
             updated_at           = ?
       WHERE tenant_id = ?
-        AND pending_email IS NOT NULL`,
-  ).bind(now, tenantId).run();
+        AND pending_email = ?`,
+  ).bind(now, tenantId, expectedEmail).run();
 
   if (result.meta.changes === 0) {
     return { ok: false, error: 'no pending email verification found' };
