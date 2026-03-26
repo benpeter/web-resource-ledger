@@ -1,7 +1,7 @@
 ---
 layout: layouts/base.njk
 ---
-<div class="docs-content">
+<div class="docs-content{% if wideContent %} docs-content--wide{% endif %}">
   <article class="docs-prose">
     {{ content | safe }}
   </article>
