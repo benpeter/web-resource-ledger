@@ -8,6 +8,9 @@ export const UI_CSS = `
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Suppress focus ring on programmatically-focused non-interactive elements */
+[tabindex="-1"]:focus:not(:focus-visible) { outline: none; }
+
 html { font-size: 100%; }
 
 body {
