@@ -79,6 +79,38 @@ The certification PDF is generated deterministically from the capture record. It
 
 The document is designed for use alongside the WACZ bundle, not as a standalone substitute for it. Verification of the WACZ bundle remains the primary cryptographic assurance; the certification document provides the written description of process and system that supports a 902(13) argument.
 
+### Legal verification report
+
+The `--legal` flag on the `@w-r-l/verify` CLI produces a structured plain-text report designed to accompany a capture when submitted as evidence.
+
+```bash
+npx @w-r-l/verify <capture-url> --legal > verification-report.txt
+```
+
+The report is formatted as WRL-LEGAL-1.0 and contains seven sections:
+
+| Section | Contents |
+|---------|----------|
+| Summary | Plain-language pass/fail result and the captured URL |
+| Subject | Captured URL, capture time, and operator identity |
+| Check explanations | Each verification check described in non-technical terms |
+| Chain of custody | Narrative from capture request through signing and timestamping |
+| Legal standards | How the verification properties map to FRE 901(b)(9) and eIDAS Art. 41; does not claim admissibility |
+| Methodology | Description of the automated pipeline and the `@w-r-l/verify` tool |
+| Technical details | All cryptographic values untruncated: bundle hash, Ed25519 signature, RFC 3161 timestamp token, TSA certificate chain |
+
+No ANSI color codes are written -- the output is safe to save as a file or paste into a document. All cryptographic values appear in full; none are shortened.
+
+Standard and qualified timestamps are reported separately when both are present. The report identifies which tier applies to the capture and what that means under FRE and eIDAS.
+
+For a machine-readable version with the same sections as JSON fields, add `--json`:
+
+```bash
+npx @w-r-l/verify <capture-url> --legal --json > verification-report.json
+```
+
+The legal report supplements the WACZ bundle and the certification PDF -- it does not replace either. The WACZ bundle remains the primary cryptographic artifact. The certification PDF (available via `GET /v1/captures/{captureId}/certificate`) provides the operator's written description of the capture process in a form designed to support a Rule 902(13) foundation.
+
 ### Evidence foundation checklist
 
 The table below maps common opposing-counsel challenges to the technical properties WRL provides. This is practical trial-preparation guidance, not a formal analysis of which rule applies in any given case -- that analysis follows from the rule mapping above.

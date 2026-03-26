@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path';
 import { verifyWacz } from './verify.js';
 import { loadTrustedRoots } from './cms-verify.js';
 import { formatHuman, formatJson, formatJsonError } from './format.js';
+import { formatLegal, formatLegalJson } from './format-legal.js';
 import {
   resolveKey,
   isWrlCaptureUrl,
@@ -51,6 +52,7 @@ OPTIONS
   --trust-embedded     Use the embedded key (insecure, see below)
   --trust-root <path>  Additional trusted root certificate (PEM)
   --json               Output machine-readable JSON to stdout
+  --legal              Detailed verification report for legal proceedings
   --no-color           Disable colored output
   -h, --help           Show this help message
   --version            Show version number
@@ -84,6 +86,7 @@ TRUST MODEL
  *   trustEmbedded: boolean,
  *   trustRoots: string[],
  *   json: boolean,
+ *   legal: boolean,
  *   noColor: boolean,
  *   help: boolean,
  *   version: boolean,
@@ -99,13 +102,14 @@ export function parseArgs(argv) {
     trustEmbedded: false,
     trustRoots:    [],
     json:          false,
+    legal:         false,
     noColor:       false,
     help:          false,
     version:       false,
   };
 
   const VALUE_FLAGS = new Set(['--origin', '--key', '--key-file', '--trust-root']);
-  const BOOL_FLAGS  = new Set(['--trust-embedded', '--json', '--no-color', '-h', '--help', '--version']);
+  const BOOL_FLAGS  = new Set(['--trust-embedded', '--json', '--legal', '--no-color', '-h', '--help', '--version']);
 
   let i = 0;
   while (i < argv.length) {
@@ -131,6 +135,12 @@ export function parseArgs(argv) {
 
     if (arg === '--json') {
       opts.json = true;
+      i++;
+      continue;
+    }
+
+    if (arg === '--legal') {
+      opts.legal = true;
       i++;
       continue;
     }
@@ -397,7 +407,13 @@ export async function run(argv) {
     // -----------------------------------------------------------------------
     // Format and output
     // -----------------------------------------------------------------------
-    if (opts.json) {
+    if (opts.legal) {
+      if (opts.json) {
+        formatLegalJson(result, { version: getVersion() });
+      } else {
+        formatLegal(result, { version: getVersion() });
+      }
+    } else if (opts.json) {
       formatJson(result);
     } else {
       formatHuman(result, { noColor: opts.noColor });

@@ -63,6 +63,27 @@ npx @w-r-l/verify capture.wacz --trust-embedded
 
 Uses the key embedded in the WACZ. This proves the archive is internally consistent, but not that it came from a trusted operator.
 
+### Legal report
+
+```bash
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --legal
+```
+
+Produces a structured plain-text report designed for use in legal proceedings or formal documentation. No ANSI color codes are written -- the output is safe to redirect to a file or attach as a document.
+
+The report is organized into seven sections: a plain-language summary, a description of the subject (captured URL, capture time), per-check explanations in non-technical terms, a chain of custody narrative, applicable legal standards (FRE 901(b)(9) and eIDAS Art. 41), a methodology description, and full technical details with untruncated cryptographic values. The format version is WRL-LEGAL-1.0, which appears in the report header.
+
+Standard and qualified timestamps are reported separately when both are present. A standard RFC 3161 timestamp (DigiCert) is included for every capture. An eIDAS-qualified timestamp appears only when the capturing account has opted into a qualified Trust Service Provider; the report identifies which tier applies and what legal weight it carries.
+
+```bash
+# Machine-readable version of the same report
+npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --legal --json
+```
+
+`--legal --json` produces a JSON object with the same seven sections as structured fields. All cryptographic values are untruncated in both output modes.
+
+For a full explanation of the legal context and frameworks the report references, see the [Legal Evidence guide](https://webresourceledger.com/legal-evidence/).
+
 ### JSON output
 
 ```bash
@@ -121,6 +142,7 @@ The tool bundles the DigiCert Trusted Root G4 certificate. Use `--trust-root` to
 --key-file <path>    Read public key from file
 --trust-embedded     Use the embedded key (insecure)
 --trust-root <path>  Additional trusted root certificate (PEM)
+--legal              Produce a structured plain-text legal report (WRL-LEGAL-1.0)
 --json               Output machine-readable JSON to stdout
 --no-color           Disable colored output
 -h, --help           Show this help message
@@ -128,6 +150,8 @@ The tool bundles the DigiCert Trusted Root G4 certificate. Use `--trust-root` to
 ```
 
 `--origin`, `--key`, `--key-file`, and `--trust-embedded` are mutually exclusive.
+
+`--legal` can be combined with `--json` for a machine-readable version of the same report. `--legal` implies `--no-color` -- ANSI codes are never written in legal mode.
 
 ## Requirements
 
