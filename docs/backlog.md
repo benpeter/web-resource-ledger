@@ -315,6 +315,7 @@ Completed items removed from active tracking:
 - ~~R34: API versioning and stability commitment~~ -- DONE (Phase 0065): v1.0.0 version bump (openapi.yaml + package.json), CHANGELOG.md with retroactive history, DEPRECATION-POLICY.md (6-month notice, 30-day emergency), WRL-API-Version response header, CI version-sync enforcement, PR template (Issue #113)
 - ~~R35: MCP directory listings and ecosystem~~ -- DONE (Phase 0066): server.json updated to 2025-12-11 registry schema, glama.json for Glama auto-indexing, PRs submitted to punkpeye/awesome-mcp-servers (Legal) + appcypher/awesome-mcp-servers (Security) + iipc/awesome-web-archiving (Acquisition + Utilities), MCP.so submission, doc bugs fixed (capture_page→capture_url, batch_capture removed, cursor→offset), 6 MCP client integration examples (VS Code, Claude Code, Cursor, Cline, Windsurf, Generic) (Issue #114)
 - ~~R38: CDN for verification traffic~~ -- DONE (Phase 0068): Workers Cache API per-colo caching for verification endpoints, admin cache purge endpoint (URL-based, Free plan compatible), verify subdomain routing, Server-Timing + X-WRL-Cache headers, cache monitoring docs, key rotation runbook (Issue #116)
+- ~~Admin dashboard~~ -- DONE (Phase 0093): Operator dashboard at /admin with tenant list, per-tenant detail (usage history, keys, config), platform overview stats, admin auth gate, 3 API endpoints, 43 new tests (Issue #203)
 
 ---
 
