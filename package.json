@@ -24,7 +24,8 @@
     "test:e2e": "npx playwright test --config=test/e2e/playwright.config.js",
     "build:docs": "cd site && npm run build",
     "test:battery": "node scripts/test-battery.js",
-    "test:sync": "vitest run --config vitest.sync.config.ts"
+    "test:sync": "vitest run --config vitest.sync.config.ts",
+    "vendor:autoconsent": "node scripts/vendor-autoconsent.js"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.12.21",
