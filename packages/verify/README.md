@@ -159,4 +159,4 @@ If the version already exists on npm, the publish step exits cleanly.
 
 ## License
 
-[Apache 2.0](../../LICENSE)
+[PolyForm Shield 1.0.0](../../LICENSE)

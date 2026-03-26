@@ -1,6 +1,6 @@
 # Web Resource Ledger (WRL)
 
-[![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE) [![despicable](https://img.shields.io/badge/%E2%9A%97%EF%B8%8F-despicable-FFC107?style=flat&labelColor=FFF8E1)](https://github.com/benpeter/despicable-agents) [![99% Vibe Coded](https://img.shields.io/badge/99%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
+[![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE) [![despicable](https://img.shields.io/badge/%E2%9A%97%EF%B8%8F-despicable-FFC107?style=flat&labelColor=FFF8E1)](https://github.com/benpeter/despicable-agents) [![99% Vibe Coded](https://img.shields.io/badge/99%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
 
 Cryptographic evidence of web content -- capture what a page looked like, when, with proof anyone can verify.
 
@@ -504,4 +504,4 @@ By using this API, you agree to the [Terms of Service](TERMS.md).
 
 ## License
 
-[Apache 2.0](LICENSE)
+[PolyForm Shield 1.0.0](LICENSE) -- source-available. You may use, modify, and self-host WRL for any purpose except offering a competing web capture service. See [LICENSE](LICENSE) for the full text.

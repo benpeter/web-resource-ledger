@@ -13,7 +13,7 @@ Web Resource Ledger is a web capture API that produces cryptographically signed 
 - WACZ open archive format
 - REST API, MCP server, CLI verification tool
 - 200 free captures/month, usage-based pricing after
-- Self-hostable under Apache 2.0
+- Self-hostable under PolyForm Shield 1.0.0 (source-available; all uses permitted except competing web capture services)
 
 ## Use Cases
 

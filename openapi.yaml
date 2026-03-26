@@ -5,8 +5,8 @@ info:
   description: Capture web page screenshots, rendered HTML, and HTTP headers via headless Chromium.
   termsOfService: https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md
   license:
-    name: Apache 2.0
-    identifier: Apache-2.0
+    name: PolyForm Shield 1.0.0
+    url: https://polyformproject.org/licenses/shield/1.0.0/
   x-deprecation-policy: https://github.com/benpeter/web-resource-ledger/blob/main/DEPRECATION-POLICY.md
 
 servers:
