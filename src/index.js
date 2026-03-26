@@ -19,6 +19,7 @@ import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } 
 import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey, getCache } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
+import { htmlAdminDashboard } from './admin/admin-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
@@ -67,6 +68,8 @@ const routes = [
   ['GET',    /^\/health$/, handleHealth],
   // UI dashboard -- same-origin only; no CORS needed (browser-only, uses credentials via sessionStorage)
   ['GET',    /^\/ui$/, handleDashboard],
+  // Admin dashboard -- HTML shell served unauthenticated; auth happens client-side before API calls
+  ['GET',    /^\/admin$/, handleAdminDashboard],
   ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
@@ -754,6 +757,10 @@ function handleHealth() {
 
 function handleDashboard() {
   return htmlDashboard();
+}
+
+function handleAdminDashboard() {
+  return htmlAdminDashboard();
 }
 
 /**
