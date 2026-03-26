@@ -28,6 +28,210 @@ input, select, textarea {
 }
 
 /* ---------------------------------------------------------------------------
+   Site header (shared across all WRL subdomains)
+--------------------------------------------------------------------------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 56px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  gap: var(--space-4);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
+.site-header__logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.site-header__logo img {
+  width: 28px;
+  height: 28px;
+}
+
+.site-header__wordmark {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+}
+
+.site-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.site-header__nav a:not(.btn) {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.site-header__nav a:not(.btn):hover {
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}
+
+.site-header__nav a:not(.btn):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.site-header__username {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* ---------------------------------------------------------------------------
+   Site footer (shared across all WRL subdomains)
+--------------------------------------------------------------------------- */
+
+.site-footer {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  padding: 4rem 0 2rem;
+}
+
+.site-footer .container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.site-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.site-footer__brand img {
+  width: 28px;
+  height: 28px;
+}
+
+.site-footer__wordmark {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-primary-text);
+}
+
+.site-footer__tagline {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.7);
+}
+
+.site-footer nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.site-footer nav a {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.8);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+}
+
+.site-footer nav a:hover {
+  color: var(--color-primary-text);
+  background: rgba(248, 248, 250, 0.1);
+}
+
+.site-footer nav a:focus-visible {
+  outline: 2px solid var(--color-primary-text);
+  outline-offset: 2px;
+}
+
+.site-footer__bottom {
+  padding-top: var(--space-6);
+  border-top: 1px solid rgba(248, 248, 250, 0.15);
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.6);
+}
+
+.site-footer__links {
+  display: flex;
+  gap: 3rem;
+}
+
+.site-footer__heading {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(248, 248, 250, 0.5);
+  margin: 0 0 var(--space-3);
+}
+
+.site-footer__operator {
+  font-size: var(--text-sm);
+  color: rgba(248, 248, 250, 0.6);
+  margin: 0 0 var(--space-2);
+}
+
+.site-footer__operator a {
+  color: rgba(248, 248, 250, 0.7);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.site-footer__operator a:hover {
+  color: var(--color-primary-text);
+}
+
+@media (max-width: 767px) {
+  .site-header__wordmark { display: none; }
+  .site-header .container { padding: 0 var(--space-4); }
+  .site-footer .container { padding: 0 var(--space-4); }
+  .site-footer__links { flex-direction: column; gap: 2rem; }
+}
+
+@media (min-width: 768px) {
+  .site-footer__inner {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .site-footer__brand {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    App layout
 --------------------------------------------------------------------------- */
 

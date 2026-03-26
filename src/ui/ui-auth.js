@@ -133,82 +133,77 @@ function handleAuthSubmit(input, btn, errorEl) {
 // App shell (post-auth layout)
 // ---------------------------------------------------------------------------
 
+// Helper: create a link element
+function _makeLink(href, text, className) {
+  var a = document.createElement('a');
+  a.href = href;
+  a.textContent = text;
+  if (className) a.className = className;
+  return a;
+}
+
+// Helper: create a footer nav section with heading and links
+function _makeFooterNav(label, ariaLabel, links) {
+  var nav = document.createElement('nav');
+  nav.setAttribute('aria-label', ariaLabel);
+  var h2 = document.createElement('h2');
+  h2.className = 'site-footer__heading';
+  h2.textContent = label;
+  nav.appendChild(h2);
+  for (var i = 0; i < links.length; i++) {
+    nav.appendChild(_makeLink(links[i][0], links[i][1]));
+  }
+  return nav;
+}
+
 function renderAppShell() {
   var app = document.getElementById('app');
   // Safe: clearing mount point only -- no user content inserted via innerHTML
   app.innerHTML = '';
 
-  var nav = document.createElement('nav');
-  nav.className = 'app-nav';
-  nav.setAttribute('aria-label', 'Main navigation');
+  // --- Site header (shared across all WRL subdomains) ---
+  var siteHeader = document.createElement('header');
+  siteHeader.className = 'site-header';
+  siteHeader.setAttribute('role', 'banner');
 
-  var navLinks = document.createElement('div');
-  navLinks.className = 'nav-links';
+  var headerContainer = document.createElement('div');
+  headerContainer.className = 'container';
 
-  var capturesLink = document.createElement('a');
-  capturesLink.href = '#/captures';
-  capturesLink.className = 'nav-link';
-  capturesLink.textContent = 'Captures';
-  navLinks.appendChild(capturesLink);
+  var logoLink = document.createElement('a');
+  logoLink.href = 'https://webresourceledger.com';
+  logoLink.className = 'site-header__logo';
+  logoLink.setAttribute('aria-label', 'Web Resource Ledger home');
+  var logoImg = document.createElement('img');
+  logoImg.src = '/favicon.ico';
+  logoImg.width = 28;
+  logoImg.height = 28;
+  logoImg.alt = '';
+  logoImg.setAttribute('aria-hidden', 'true');
+  logoLink.appendChild(logoImg);
+  var headerWordmark = document.createElement('span');
+  headerWordmark.className = 'site-header__wordmark';
+  headerWordmark.textContent = 'Web Resource Ledger';
+  logoLink.appendChild(headerWordmark);
+  headerContainer.appendChild(logoLink);
 
-  if (_authMethod === 'session') {
-    var schedulesLink = document.createElement('a');
-    schedulesLink.href = '#/schedules';
-    schedulesLink.className = 'nav-link';
-    schedulesLink.textContent = 'Schedules';
-    navLinks.appendChild(schedulesLink);
+  var headerNav = document.createElement('nav');
+  headerNav.className = 'site-header__nav';
+  headerNav.setAttribute('aria-label', 'Main');
 
-    var billingLink = document.createElement('a');
-    billingLink.href = '#/billing';
-    billingLink.className = 'nav-link';
-    billingLink.textContent = 'Billing';
-    navLinks.appendChild(billingLink);
-
-    var notificationsLink = document.createElement('a');
-    notificationsLink.href = '#/notifications';
-    notificationsLink.className = 'nav-link';
-    notificationsLink.textContent = 'Notifications';
-    navLinks.appendChild(notificationsLink);
-
-    var settingsLink = document.createElement('a');
-    settingsLink.href = '#/settings';
-    settingsLink.className = 'nav-link';
-    settingsLink.textContent = 'Settings';
-    navLinks.appendChild(settingsLink);
-  }
-
-  nav.appendChild(navLinks);
-
-  var navActions = document.createElement('div');
-  navActions.className = 'nav-actions';
-
-  var docsLink = document.createElement('a');
-  docsLink.href = 'https://docs.webresourceledger.com';
-  docsLink.className = 'nav-link nav-link--external';
+  var docsLink = _makeLink('https://docs.webresourceledger.com', 'Docs', 'nav-link--external');
   docsLink.target = '_blank';
-  docsLink.rel = 'noopener noreferrer';
-  docsLink.appendChild(document.createTextNode('Docs'));
-  var docsIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  docsIcon.setAttribute('width', '12');
-  docsIcon.setAttribute('height', '12');
-  docsIcon.setAttribute('viewBox', '0 0 12 12');
-  docsIcon.setAttribute('aria-hidden', 'true');
-  docsIcon.setAttribute('fill', 'currentColor');
-  var docsIconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  docsIconPath.setAttribute('d', 'M3.5 3a.5.5 0 0 0 0 1H7L2.5 8.5a.5.5 0 0 0 .707.707L7.707 4.5V8a.5.5 0 0 0 1 0V3.5a.5.5 0 0 0-.5-.5H3.5z');
-  docsIcon.appendChild(docsIconPath);
-  docsLink.appendChild(docsIcon);
-  var docsScreenReader = document.createElement('span');
-  docsScreenReader.className = 'sr-only';
-  docsScreenReader.textContent = '(opens in new tab)';
-  docsLink.appendChild(docsScreenReader);
-  navActions.appendChild(docsLink);
+  docsLink.rel = 'noopener';
+  var srText = document.createElement('span');
+  srText.className = 'sr-only';
+  srText.textContent = ' (opens in new tab)';
+  docsLink.appendChild(srText);
+  headerNav.appendChild(docsLink);
 
   if (_authMethod === 'session' && _wrlUser) {
-    var username = document.createElement('span');
-    username.className = 'nav-username text-muted';
-    username.textContent = _wrlUser.githubLogin;
-    navActions.appendChild(username);
+    var usernameSpan = document.createElement('span');
+    usernameSpan.className = 'site-header__username';
+    usernameSpan.textContent = _wrlUser.githubLogin;
+    headerNav.appendChild(usernameSpan);
 
     var signOutBtn = document.createElement('button');
     signOutBtn.type = 'button';
@@ -233,7 +228,7 @@ function renderAppShell() {
         mountLogin();
       });
     });
-    navActions.appendChild(signOutBtn);
+    headerNav.appendChild(signOutBtn);
   } else {
     var disconnectBtn = document.createElement('button');
     disconnectBtn.type = 'button';
@@ -245,17 +240,97 @@ function renderAppShell() {
       renderLogin();
       mountLogin();
     });
-    navActions.appendChild(disconnectBtn);
+    headerNav.appendChild(disconnectBtn);
   }
 
-  nav.appendChild(navActions);
+  headerContainer.appendChild(headerNav);
+  siteHeader.appendChild(headerContainer);
+  app.appendChild(siteHeader);
 
+  // --- App navigation (secondary nav for app views) ---
+  var nav = document.createElement('nav');
+  nav.className = 'app-nav';
+  nav.setAttribute('aria-label', 'App navigation');
+
+  var navLinks = document.createElement('div');
+  navLinks.className = 'nav-links';
+
+  navLinks.appendChild(_makeLink('#/captures', 'Captures', 'nav-link'));
+
+  if (_authMethod === 'session') {
+    navLinks.appendChild(_makeLink('#/schedules', 'Schedules', 'nav-link'));
+    navLinks.appendChild(_makeLink('#/billing', 'Billing', 'nav-link'));
+    navLinks.appendChild(_makeLink('#/notifications', 'Notifications', 'nav-link'));
+    navLinks.appendChild(_makeLink('#/settings', 'Settings', 'nav-link'));
+  }
+
+  nav.appendChild(navLinks);
+  app.appendChild(nav);
+
+  // --- Main content area ---
   var main = document.createElement('main');
   main.id = 'view';
   main.className = 'view-container';
-
-  app.appendChild(nav);
   app.appendChild(main);
+
+  // --- Site footer (shared across all WRL subdomains) ---
+  var footer = document.createElement('footer');
+  footer.className = 'site-footer';
+  footer.setAttribute('role', 'contentinfo');
+
+  var footerContainer = document.createElement('div');
+  footerContainer.className = 'container';
+
+  var footerInner = document.createElement('div');
+  footerInner.className = 'site-footer__inner';
+
+  var footerBrandWrap = document.createElement('div');
+  var footerBrand = document.createElement('div');
+  footerBrand.className = 'site-footer__brand';
+  var footerWordmark = document.createElement('span');
+  footerWordmark.className = 'site-footer__wordmark';
+  footerWordmark.textContent = 'Web Resource Ledger';
+  footerBrand.appendChild(footerWordmark);
+  footerBrandWrap.appendChild(footerBrand);
+
+  var footerTagline = document.createElement('p');
+  footerTagline.className = 'site-footer__tagline';
+  footerTagline.textContent = 'Source code public under PolyForm Shield. Independently verifiable by design.';
+  footerBrandWrap.appendChild(footerTagline);
+  footerInner.appendChild(footerBrandWrap);
+
+  var footerLinksWrap = document.createElement('div');
+  footerLinksWrap.className = 'site-footer__links';
+  footerLinksWrap.appendChild(_makeFooterNav('Product', 'Product', [
+    ['https://docs.webresourceledger.com', 'Docs'],
+    ['https://docs.webresourceledger.com/api-reference/', 'API Reference'],
+    ['https://github.com/benpeter/web-resource-ledger', 'GitHub']
+  ]));
+  footerLinksWrap.appendChild(_makeFooterNav('Legal', 'Legal', [
+    ['https://webresourceledger.com/terms', 'Terms of Service'],
+    ['https://webresourceledger.com/privacy', 'Privacy Policy'],
+    ['https://webresourceledger.com/security', 'Security']
+  ]));
+  footerInner.appendChild(footerLinksWrap);
+  footerContainer.appendChild(footerInner);
+
+  var footerBottom = document.createElement('div');
+  footerBottom.className = 'site-footer__bottom';
+  var operatorP = document.createElement('p');
+  operatorP.className = 'site-footer__operator';
+  operatorP.textContent = 'Gerhard Benjamin Peter \u00b7 Weidenh\u00e4user Str. 73, 35037 Marburg \u00b7 ';
+  var operatorEmail = document.createElement('a');
+  operatorEmail.href = 'mailto:bp@ben-peter.com';
+  operatorEmail.textContent = 'bp@ben-peter.com';
+  operatorP.appendChild(operatorEmail);
+  footerBottom.appendChild(operatorP);
+  var copyrightP = document.createElement('p');
+  copyrightP.textContent = '\u00a9 2026 Web Resource Ledger';
+  footerBottom.appendChild(copyrightP);
+  footerContainer.appendChild(footerBottom);
+
+  footer.appendChild(footerContainer);
+  app.appendChild(footer);
 
   // Navigate to current hash or default
   route();

@@ -106,3 +106,4 @@ software development.
 | [0095-fix-toctou-swap-verified-email](0095-fix-toctou-swap-verified-email/) | Fix TOCTOU gap in swapVerifiedEmail() WHERE clause — pin pending_email = ? (Issue #222) |
 | [0097-table-flip](0097-table-flip/) | Flip comparison tables to standard features-as-rows orientation, fix docs layout overflow with scoped wide-content modifier (Issue #233) |
 | [0098-docs-nav](0098-docs-nav/) | Add 2-level hierarchy to docs left rail navigation with section grouping (Issue #235) |
+| [0099-unified-nav](0099-unified-nav/) | Unified navigation header and footer across all WRL subdomains: shared site-nav.css, site header on docs and app UI, full footer on all surfaces (Issue #224) |

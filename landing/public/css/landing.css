@@ -19,7 +19,7 @@
 
   /* Layout */
   --container-max: 1120px;
-  --header-height: 68px;
+  --header-height: 56px;
   --section-pad-v: var(--space-16);
 }
 
@@ -115,79 +115,8 @@ body {
 }
 
 /* ===================================================================
-   7. Site header
+   7. (Site header styles are in site-nav.css)
    =================================================================== */
-
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  height: var(--header-height);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.site-header .container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 100%;
-  gap: var(--space-4);
-}
-
-.site-header__logo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  text-decoration: none;
-  color: var(--color-text);
-  flex-shrink: 0;
-}
-
-.site-header__logo svg,
-.site-header__logo img {
-  width: 44px;
-  height: 44px;
-}
-
-.site-header__wordmark {
-  font-size: var(--text-md);
-  font-weight: var(--weight-bold);
-  letter-spacing: -0.01em;
-  color: var(--color-primary);
-}
-
-.site-header nav {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-}
-
-/* :not(.btn) excludes the Sign-in button so .btn--primary styles apply cleanly */
-.site-header nav a:not(.btn) {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-muted);
-  text-decoration: none;
-  border-radius: var(--radius-md);
-  white-space: nowrap;
-}
-
-.site-header nav a:not(.btn):hover {
-  color: var(--color-text);
-  background: var(--color-surface-muted);
-}
-
-.site-header nav a:not(.btn):focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.site-header nav .btn--primary:visited {
-  color: var(--color-primary-text);
-}
 
 /* ===================================================================
    8. Section base (landing override -- sections here are big)
@@ -688,101 +617,8 @@ body {
 }
 
 /* ===================================================================
-   15. Footer
+   15. (Site footer styles are in site-nav.css)
    =================================================================== */
-
-.site-footer {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  padding: var(--space-16) 0 var(--space-8);
-}
-
-.site-footer__inner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.site-footer__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.site-footer__brand svg,
-.site-footer__brand img {
-  width: 28px;
-  height: 28px;
-}
-
-.site-footer__wordmark {
-  font-size: var(--text-md);
-  font-weight: var(--weight-bold);
-  letter-spacing: -0.01em;
-  color: var(--color-primary-text);
-}
-
-.site-footer__tagline {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-sm);
-  color: rgba(248, 248, 250, 0.7);
-}
-
-.site-footer nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.site-footer nav a {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  color: rgba(248, 248, 250, 0.8);
-  text-decoration: none;
-  border-radius: var(--radius-md);
-}
-
-.site-footer nav a:hover {
-  color: var(--color-primary-text);
-  background: rgba(248, 248, 250, 0.1);
-}
-
-.site-footer__bottom {
-  padding-top: var(--space-6);
-  border-top: 1px solid rgba(248, 248, 250, 0.15);
-  font-size: var(--text-sm);
-  color: rgba(248, 248, 250, 0.6);
-}
-
-.site-footer__links {
-  display: flex;
-  gap: var(--space-12);
-}
-
-.site-footer__heading {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(248, 248, 250, 0.5);
-  margin: 0 0 var(--space-3);
-}
-
-.site-footer__operator {
-  font-size: var(--text-sm);
-  color: rgba(248, 248, 250, 0.6);
-  margin: 0 0 var(--space-2);
-}
-
-.site-footer__operator a {
-  color: rgba(248, 248, 250, 0.7);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.site-footer__operator a:hover {
-  color: var(--color-primary-text);
-}
 
 /* ===================================================================
    16. Article / prose layout (legal pages)
@@ -938,10 +774,6 @@ body {
     padding: 0 var(--space-4);
   }
 
-  .site-header__wordmark {
-    display: none;
-  }
-
   /* "Pay as you go" badge is shown on mobile — it describes the model, not just a recommendation */
 
   .article {
@@ -950,23 +782,5 @@ body {
 
   .article h2 {
     margin-top: var(--space-8);
-  }
-
-  .site-footer__links {
-    flex-direction: column;
-    gap: var(--space-8);
-  }
-}
-
-@media (min-width: 768px) {
-  .site-footer__inner {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
-
-  .site-footer__brand {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
