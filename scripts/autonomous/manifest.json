@@ -541,6 +541,82 @@
       "act": 9,
       "depends_on": [],
       "act_last": true
+    },
+    {
+      "phase": "0094",
+      "item": "SIGNIN-CSS",
+      "issue": 225,
+      "title": "Landing page sign-in button CSS fix",
+      "act": "9b",
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0095",
+      "item": "TOCTOU-FIX",
+      "issue": 222,
+      "title": "Fix TOCTOU gap in swapVerifiedEmail() WHERE clause",
+      "act": "9b",
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0096",
+      "item": "EMAIL-DOMAIN",
+      "issue": 216,
+      "title": "Align email link domains with sending domain",
+      "act": "9b",
+      "depends_on": [],
+      "act_last": true
+    },
+    {
+      "phase": "0097",
+      "item": "TABLE-FLIP",
+      "issue": 233,
+      "title": "Flip comparison table to standard orientation and fix docs layout overflow",
+      "act": 10,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0098",
+      "item": "DOCS-NAV",
+      "issue": 235,
+      "title": "Docs: add 2-level hierarchy to left rail navigation",
+      "act": 10,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0099",
+      "item": "UNIFIED-NAV",
+      "issue": 224,
+      "title": "Unify navigation header and footer across all WRL subdomains",
+      "act": 10,
+      "depends_on": [
+        "0094"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0100",
+      "item": "DIFF-OVERLAY",
+      "issue": 237,
+      "title": "Diff overlay mode: slider handle cannot be grabbed",
+      "act": 11,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0101",
+      "item": "DIFF-HISTORY",
+      "issue": 236,
+      "title": "Diff view for any two captures, not just latest scheduled run",
+      "act": 11,
+      "depends_on": [
+        "0100"
+      ],
+      "act_last": true
     }
   ]
 }
