@@ -516,7 +516,7 @@ pre:focus-within .copy-btn {
 
 /* ------------------------------------------------------------------ */
 /* Comparison table                                                     */
-/* Sync note: equivalent mobile card-stack pattern in landing.css       */
+/* Similar card-stack pattern in landing.css -- contexts differ, do not merge */
 /* ------------------------------------------------------------------ */
 
 .comparison-table-wrapper {
@@ -567,7 +567,7 @@ pre:focus-within .copy-btn {
 }
 
 /* Mobile card-stack */
-/* Sync note: equivalent pattern in landing/public/css/landing.css */
+/* Similar pattern in landing/public/css/landing.css -- contexts differ, do not merge */
 @media (max-width: 767px) {
   .comparison-table-wrapper {
     margin: var(--space-6) 0;

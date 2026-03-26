@@ -529,7 +529,7 @@ body {
 }
 
 /* Mobile card-stack for comparison table */
-/* Sync note: equivalent pattern exists in site/css/docs.css for the docs comparison table */
+/* Similar card-stack pattern in site/css/docs.css — contexts differ intentionally, do not merge */
 @media (max-width: 767px) {
   .comparison-table thead {
     position: absolute; width: 1px; height: 1px;
