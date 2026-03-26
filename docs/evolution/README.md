@@ -93,3 +93,4 @@ software development.
 | [0082-backend-fixes-batch](0082-backend-fixes-batch/) | Backend fixes batch: notification skip for approaching_limit, descriptive Content-Disposition filenames (Issues #187, #181, #214) |
 | [0083-merge-timestamp-checks](0083-merge-timestamp-checks/) | Merge timestamp checks: single "Time verification" row replacing separate Timestamp imprint and Qualified timestamp rows (Issue #167) |
 | [0084-email-verify-tests](0084-email-verify-tests/) | Email verification flow tests: 31 tests for token generation, GET/POST handlers, resend, and notification continuity (Issue #199) |
+| [0085-mcp-api-sync](0085-mcp-api-sync/) | Sync MCP server with current API surface and establish drift prevention (Issue #202) |
