@@ -25,7 +25,7 @@ tags:
   - name: signing
     description: Signing key management
   - name: admin
-    description: API key management (admin-only)
+    description: Administration endpoints (key management, tenant overview, usage statistics)
   - name: webhooks
     description: Outbound webhook registration and management
   - name: account
@@ -3670,7 +3670,7 @@ paths:
         Creates a new per-tenant API key and returns the raw key exactly once.
         Store the returned key immediately -- it cannot be retrieved after this response.
 
-        Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
+        Rate limited to 30 requests per 60 seconds per IP. Auth check happens after rate limit.
 
         ```bash
         curl -X POST https://api.webresourceledger.com/v1/admin/keys \
@@ -3855,7 +3855,7 @@ paths:
         Returns all API keys, optionally filtered by tenant. Revoked keys are
         excluded by default. Raw key values are never included.
 
-        Rate limited to 5 requests per 60 seconds per IP.
+        Rate limited to 30 requests per 60 seconds per IP.
 
         ```bash
         curl https://api.webresourceledger.com/v1/admin/keys \
@@ -4021,7 +4021,7 @@ paths:
         This operation is idempotent -- revoking an already-revoked key returns 200
         with the existing revocation record.
 
-        Rate limited to 5 requests per 60 seconds per IP.
+        Rate limited to 30 requests per 60 seconds per IP.
 
         ```bash
         curl -X DELETE "https://api.webresourceledger.com/v1/admin/keys/$KEY_HASH" \
@@ -4440,7 +4440,7 @@ paths:
         Returns per-tenant usage counters for the specified billing period.
         Defaults to the current calendar month (UTC) if no period is specified.
 
-        Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
+        Rate limited to 30 requests per 60 seconds per IP. Auth check happens after rate limit.
 
         ```bash
         # Current period usage
@@ -4533,7 +4533,7 @@ paths:
         Requires `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_CACHE_PURGE_TOKEN` environment
         variables to be configured. Returns 503 if not configured.
 
-        Rate limited to 5 requests per 60 seconds per IP. Auth check happens after rate limit.
+        Rate limited to 30 requests per 60 seconds per IP. Auth check happens after rate limit.
 
         ```bash
         # Purge signing key cache (e.g., after key rotation)
@@ -4636,6 +4636,329 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
+
+  /v1/admin/tenants:
+    get:
+      operationId: adminListTenants
+      summary: List all tenants with usage
+      description: >
+        Returns a list of all tenants with their current-period usage counters,
+        quota information, and active key count. Designed for the admin dashboard
+        tenant overview.
+
+        Rate limited to 30 requests per 60 seconds per IP.
+
+        ```bash
+        curl "https://api.webresourceledger.com/v1/admin/tenants" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+
+        # Specific billing period
+        curl "https://api.webresourceledger.com/v1/admin/tenants?period=2026-02" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: period
+          in: query
+          required: false
+          description: >
+            Billing period in YYYY-MM format. Defaults to the current calendar
+            month (UTC) if omitted.
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2026-03'
+      responses:
+        '200':
+          description: Tenant list with usage data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [tenantId, tier, billingStatus, hasPaymentMethod, currentPeriod, quota, keyCount]
+                      properties:
+                        tenantId:
+                          type: string
+                          example: default
+                        tier:
+                          type: string
+                          enum: [free, pro]
+                        billingStatus:
+                          type: string
+                          enum: [active, grace_period, blocked]
+                        hasPaymentMethod:
+                          type: boolean
+                        eidasQualified:
+                          type: boolean
+                        createdAt:
+                          type: string
+                          format: date-time
+                        currentPeriod:
+                          type: object
+                          properties:
+                            period:
+                              type: string
+                              example: '2026-03'
+                            captureCount:
+                              type: integer
+                            eidasCaptureCount:
+                              type: integer
+                            storageBytes:
+                              type: integer
+                            apiCallCount:
+                              type: integer
+                        quota:
+                          type: object
+                          properties:
+                            capturesPerMonth:
+                              type: ['integer', 'null']
+                              description: >
+                                Maximum captures per month. Null means unlimited
+                                (paying tenant with no admin override).
+                            storageBytes:
+                              type: ['integer', 'null']
+                              description: >
+                                Maximum storage in bytes. Null means unlimited.
+                        keyCount:
+                          type: integer
+                          description: Number of active (non-revoked) API keys.
+                  meta:
+                    type: object
+                    properties:
+                      totalTenants:
+                        type: integer
+                      period:
+                        type: string
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/admin/tenants/{tenantId}:
+    get:
+      operationId: adminGetTenant
+      summary: Get tenant detail
+      description: >
+        Returns detailed information for a single tenant including billing state,
+        usage history across multiple periods, active API keys, and configuration.
+
+        Rate limited to 30 requests per 60 seconds per IP.
+
+        ```bash
+        curl "https://api.webresourceledger.com/v1/admin/tenants/default" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+
+        # More history (up to 24 periods)
+        curl "https://api.webresourceledger.com/v1/admin/tenants/default?periods=12" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: default
+        - name: periods
+          in: query
+          required: false
+          description: >
+            Number of billing periods of history to return.
+            Positive integer, default 6, maximum 24.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+            default: 6
+      responses:
+        '200':
+          description: Tenant detail with usage history and keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenantId, tier, billingStatus, hasPaymentMethod, quota, keys, usageHistory]
+                properties:
+                  tenantId:
+                    type: string
+                  tier:
+                    type: string
+                    enum: [free, pro]
+                  billingStatus:
+                    type: string
+                    enum: [active, grace_period, blocked]
+                  gracePeriodEnd:
+                    type: ['string', 'null']
+                    format: date-time
+                  hasPaymentMethod:
+                    type: boolean
+                  paymentMethodAddedAt:
+                    type: ['string', 'null']
+                    format: date-time
+                  stripeCustomerId:
+                    type: ['string', 'null']
+                  eidasQualified:
+                    type: boolean
+                  config:
+                    type: object
+                    description: Tenant configuration overrides (admin-set).
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                  quota:
+                    type: object
+                    properties:
+                      capturesPerMonth:
+                        type: ['integer', 'null']
+                      storageBytes:
+                        type: ['integer', 'null']
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        keyHash:
+                          type: string
+                          description: SHA-256 hex hash of the API key.
+                        name:
+                          type: ['string', 'null']
+                        scopes:
+                          type: array
+                          items:
+                            type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        createdBy:
+                          type: ['string', 'null']
+                  usageHistory:
+                    type: array
+                    description: Usage counters per billing period, most recent first.
+                    items:
+                      type: object
+                      properties:
+                        period:
+                          type: string
+                          example: '2026-03'
+                        captureCount:
+                          type: integer
+                        storageBytes:
+                          type: integer
+                        apiCallCount:
+                          type: integer
+                        eidasCaptureCount:
+                          type: integer
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Tenant not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant 'nonexistent' not found"
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/admin/overview:
+    get:
+      operationId: adminGetOverview
+      summary: Get platform overview statistics
+      description: >
+        Returns platform-wide aggregate statistics: tenant counts by tier and
+        billing status, total captures (current period and all-time), storage,
+        and active API key count. Designed for the admin dashboard overview cards.
+
+        Rate limited to 30 requests per 60 seconds per IP.
+
+        ```bash
+        curl "https://api.webresourceledger.com/v1/admin/overview" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: period
+          in: query
+          required: false
+          description: >
+            Billing period in YYYY-MM format. Defaults to the current calendar
+            month (UTC) if omitted.
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2026-03'
+      responses:
+        '200':
+          description: Platform-wide aggregate statistics.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [totalTenants, totalCapturesCurrentPeriod, totalCapturesAllTime, currentPeriodStorageBytes, tenantsByTier, tenantsByBillingStatus, activeApiKeys, period]
+                properties:
+                  totalTenants:
+                    type: integer
+                  totalCapturesCurrentPeriod:
+                    type: integer
+                  totalCapturesAllTime:
+                    type: integer
+                  currentPeriodStorageBytes:
+                    type: integer
+                  totalEidasCaptures:
+                    type: integer
+                  tenantsByTier:
+                    type: object
+                    properties:
+                      free:
+                        type: integer
+                      pro:
+                        type: integer
+                  tenantsByBillingStatus:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      gracePeriod:
+                        type: integer
+                      blocked:
+                        type: integer
+                  activeApiKeys:
+                    type: integer
+                  period:
+                    type: string
+                    example: '2026-03'
+        '400':
+          $ref: '#/components/responses/Problem400'
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '429':
+          $ref: '#/components/responses/Problem429'
 
   /v1/account/usage:
     get:
