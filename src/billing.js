@@ -374,7 +374,7 @@ async function handleInvoiceFinalized(event, env, ctx) {
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
     : 'https://api.webresourceledger.com';
 
-  const portalUrl = invoice?.hosted_invoice_url
+  const portalUrl = invoice?.hosted_invoice_url && env.SESSION_SECRET
     ? await generateInvoiceRedirectUrl(env.SESSION_SECRET, invoice.hosted_invoice_url, baseUrl)
     : `${baseUrl}/ui#billing`;
 
