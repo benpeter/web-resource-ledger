@@ -7,6 +7,8 @@
 | Production  | `https://api.webresourceledger.com` | `wrl` |
 | Staging     | `https://staging.webresourceledger.com` | `wrl-staging` |
 
+For D1 schema, binding names, KV/R2 key patterns, and API route map, see [`docs/INTERNALS.md`](docs/INTERNALS.md).
+
 ---
 
 ## Monitoring
