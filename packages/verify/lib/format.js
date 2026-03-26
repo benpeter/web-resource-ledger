@@ -67,9 +67,11 @@ const CHECK_ORDER = [
  * @param {string} name
  * @returns {string}
  */
-function checkLabel(name) {
+export function checkLabel(name) {
   return CHECK_LABELS[name] ?? name;
 }
+
+export { CHECK_LABELS };
 
 // ---------------------------------------------------------------------------
 // Timestamp check merging
