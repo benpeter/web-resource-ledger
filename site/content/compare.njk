@@ -1,0 +1,216 @@
+---
+layout: layouts/doc.njk
+title: How WRL Compares
+description: Feature comparison of WRL with Wayback Machine, PageFreezer, Webrecorder, and 6 other web archiving and evidence tools. Last verified March 2026.
+---
+<h1>How WRL Compares</h1>
+
+<p>
+  A factual comparison of WRL with other web archiving and evidence tools. Each cell reflects publicly
+  documented capabilities as of March 2026. If something has changed,
+  <a href="https://github.com/benpeter/web-resource-ledger/issues">open an issue</a>.
+</p>
+
+<div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <caption class="sr-only">Feature comparison of web evidence and archiving tools</caption>
+    <thead aria-hidden="true">
+      <tr>
+        <th scope="col">Tool</th>
+        <th scope="col">Cryptographic Signing</th>
+        <th scope="col">Independent Timestamps</th>
+        <th scope="col">Public Verification</th>
+        <th scope="col">API Access</th>
+        <th scope="col">Standard Format</th>
+        <th scope="col">eIDAS Qualified</th>
+        <th scope="col">Open Source</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="comparison-highlight">
+        <th scope="row">WRL</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--pass">RFC 3161 (DigiCert TSA)</span></td>
+        <td data-label="Public Verification"><span class="badge badge--pass">Yes (no account needed)</span></td>
+        <td data-label="API Access"><span class="badge badge--pass">REST API, MCP</span></td>
+        <td data-label="Standard Format"><span class="badge badge--pass">WACZ</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--pass">Optional</span></td>
+        <td data-label="Open Source"><span class="badge badge--pass">Apache 2.0</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Wayback Machine</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--fail">No</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--fail">Crawl timestamps only</span></td>
+        <td data-label="Public Verification"><span class="badge badge--skip">Public access (no crypto)</span></td>
+        <td data-label="API Access"><span class="badge badge--skip">Yes (rate-limited)</span></td>
+        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--skip">Partial (some tools)</span></td>
+      </tr>
+      <tr>
+        <th scope="row">PageFreezer</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--skip">SHA-256 signing</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--skip">Stratum-1 clock (not RFC 3161)</span></td>
+        <td data-label="Public Verification"><span class="badge badge--fail">No (platform-only)</span></td>
+        <td data-label="API Access"><span class="badge badge--skip">Partner API</span></td>
+        <td data-label="Standard Format"><span class="badge badge--fail">PDF</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">No</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Hanzo</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--skip">Not documented</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--skip">Not documented</span></td>
+        <td data-label="Public Verification"><span class="badge badge--fail">No</span></td>
+        <td data-label="API Access"><span class="badge badge--fail">No</span></td>
+        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">No</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Page Vault</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--skip">SHA-256 hashing</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--skip">Internal timestamps</span></td>
+        <td data-label="Public Verification"><span class="badge badge--skip">Expert witness service</span></td>
+        <td data-label="API Access"><span class="badge badge--fail">No</span></td>
+        <td data-label="Standard Format"><span class="badge badge--fail">Proprietary / PDF</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">No</span></td>
+      </tr>
+      <tr>
+        <th scope="row">MirrorWeb</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--skip">SHA-1 per docs</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--skip">Timestamped (not RFC 3161)</span></td>
+        <td data-label="Public Verification"><span class="badge badge--fail">No (platform-only)</span></td>
+        <td data-label="API Access"><span class="badge badge--skip">Limited API</span></td>
+        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">No</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Stillio</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--fail">No</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--fail">Metadata only</span></td>
+        <td data-label="Public Verification"><span class="badge badge--fail">No</span></td>
+        <td data-label="API Access"><span class="badge badge--skip">Basic API</span></td>
+        <td data-label="Standard Format"><span class="badge badge--fail">PNG / JPEG</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">No</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Archive-It</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--fail">Checksums only</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--fail">Crawl timestamps</span></td>
+        <td data-label="Public Verification"><span class="badge badge--skip">Public access (no crypto)</span></td>
+        <td data-label="API Access"><span class="badge badge--pass">Yes (WASAPI)</span></td>
+        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">No</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Webrecorder</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--skip">WACZ-Auth spec (not default)</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--skip">RFC 3161 in spec (not default)</span></td>
+        <td data-label="Public Verification"><span class="badge badge--skip">Validator tools exist</span></td>
+        <td data-label="API Access"><span class="badge badge--pass">Browsertrix API</span></td>
+        <td data-label="Standard Format"><span class="badge badge--pass">WACZ + WARC</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
+        <td data-label="Open Source"><span class="badge badge--pass">Yes</span></td>
+      </tr>
+      <tr>
+        <th scope="row">Manual Screenshots + Notarization</th>
+        <td data-label="Cryptographic Signing"><span class="badge badge--skip">Notary attestation</span></td>
+        <td data-label="Independent Timestamps"><span class="badge badge--skip">Notary timestamp</span></td>
+        <td data-label="Public Verification"><span class="badge badge--skip">Via notary records</span></td>
+        <td data-label="API Access"><span class="badge badge--fail">No</span></td>
+        <td data-label="Standard Format"><span class="badge badge--fail">N/A</span></td>
+        <td data-label="eIDAS Qualified"><span class="badge badge--skip">Separate framework</span></td>
+        <td data-label="Open Source"><span class="badge badge--fail">N/A</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Notes</h2>
+
+<h3>Wayback Machine</h3>
+<p>
+  Massive scale (850B+ pages archived) and institutional credibility accepted by some courts. Captures
+  have no cryptographic signatures -- integrity relies on trust in the Internet Archive as an institution.
+  Rate-limited public API (15 req/min). The de facto reference for "what did this page look like" but not
+  designed as an evidence tool.
+</p>
+
+<h3>PageFreezer</h3>
+<p>
+  Enterprise-grade compliance platform (FedRAMP authorized, SOC 2). SHA-256 digital signatures with their
+  own timestamping infrastructure (Stratum-1 atomic clock, ESIGN Act compliant). Timestamps are not from
+  an independent third-party TSA per RFC 3161. Strong in social media archiving (Teams, Workplace) which
+  WRL does not offer. Verification is internal to their platform.
+</p>
+
+<h3>Hanzo</h3>
+<p>
+  Focused on dynamic content capture (SPAs, interactive elements) and eDiscovery workflows. SOC 2 Type 2
+  certified. No public API (confirmed by multiple review sources). Integrity approach is proprietary and
+  not publicly documented. Note: Hanzo (hanzo.co) the web archiving company is distinct from Hanzo AI
+  (hanzo.ai).
+</p>
+
+<h3>Page Vault</h3>
+<p>
+  Purpose-built for US litigation. Provides expert witness testimony and affidavit services for court
+  admissibility under FRE 901(b)(9) and FRE 902(13)/902(14). SHA-256 hashing with internal timestamps.
+  No API -- browser extension and managed capture service. WRL provides machine-verifiable proof; Page
+  Vault provides human-verifiable expert testimony.
+</p>
+
+<h3>MirrorWeb</h3>
+<p>
+  Financial services compliance focus (SEC 17a-4, FINRA 2210, FCA COBS 4). Documentation references
+  SHA-1 digital signatures, though this may have been updated (SHA-1 is cryptographically deprecated).
+  SOC 2 certified. Multi-channel archiving including social media and SMS.
+</p>
+
+<h3>Stillio</h3>
+<p>
+  Screenshot scheduling service, not an evidence tool. No integrity proofs, no cryptographic signing.
+  Useful for visual monitoring and brand tracking. Including Stillio illustrates the gap between
+  screenshot services and evidence services.
+</p>
+
+<h3>Archive-It</h3>
+<p>
+  Internet Archive's subscription archiving service for institutions. WARC format with MD5 and SHA-1
+  checksums via WASAPI (data integrity, not cryptographic authenticity). Strong in academic, government,
+  and cultural heritage sectors. Public access to archives but no cryptographic verification.
+</p>
+
+<h3>Webrecorder</h3>
+<p>
+  Created the WACZ format and authored the WACZ-Auth specification that defines signing for WACZ files.
+  WRL implements signing as a default on every capture; Webrecorder provides the specification and
+  tooling. Browsertrix (hosted service) does not appear to sign WACZ files by default. Open source,
+  self-hostable via Kubernetes. Different primary use case: site-wide preservation vs. WRL's
+  point-in-time evidence.
+</p>
+
+<h3>Manual Screenshots + Notarization</h3>
+<p>
+  Legally established with centuries of precedent. Entirely manual, no automation possible. Notary
+  attestation is broadly accepted by courts. Cost scales linearly with volume. WRL is faster, scalable,
+  and cheaper but has less legal track record.
+</p>
+
+<h2>Methodology</h2>
+
+<p>
+  All claims are based on publicly available documentation, product pages, and review platforms as of
+  March 2026. Where a capability could not be confirmed from public sources, the cell reads "Not
+  documented" rather than "No". We do not have accounts with every listed service -- claims reflect
+  what each service publicly represents, not hands-on testing of every feature. If any information is
+  outdated or incorrect, please
+  <a href="https://github.com/benpeter/web-resource-ledger/issues/new">open an issue</a>.
+</p>
+
+<p>See also the <a href="https://webresourceledger.com/#compare">summary comparison</a> on our landing page.</p>
