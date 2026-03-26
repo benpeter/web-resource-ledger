@@ -12,6 +12,16 @@ npm test
 
 This works immediately -- no accounts or API keys needed. The test suite is fully self-contained via Miniflare's simulated Workers runtime.
 
+## License
+
+This project is licensed under [PolyForm Shield 1.0.0](LICENSE), a source-available
+license. The source code is public and you are free to use, modify, and share it --
+but you may not use it to offer a product that competes with Web Resource Ledger.
+
+By submitting a pull request, you agree that your contribution is licensed under the
+same terms. If you have questions about whether your intended use is permitted, open
+an issue and ask.
+
 ## Full Local Development (optional)
 
 Running the actual capture pipeline requires:
@@ -128,4 +138,4 @@ Open a GitHub Issue for questions, bugs, or feature ideas. Before starting a lar
 
 - Security issues: see [SECURITY.md](SECURITY.md)
 - Code of conduct: all contributors must follow our [Code of Conduct](CODE_OF_CONDUCT.md)
-- License: contributions are licensed under [Apache 2.0](LICENSE)
+- License: [PolyForm Shield 1.0.0](LICENSE)

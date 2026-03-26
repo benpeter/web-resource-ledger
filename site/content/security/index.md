@@ -6,7 +6,7 @@ description: Web capture security and compliance — whitepaper, DPA, subprocess
 
 # Security and Compliance
 
-WRL's approach to security documentation is honest disclosure over marketing claims. Every technical assertion in these documents is verifiable against the open-source codebase at [github.com/benpeter/web-resource-ledger](https://github.com/benpeter/web-resource-ledger). Where WRL cannot make a claim — no SOC 2 certification, no 24/7 SOC, no physical isolation between tenants — the documents say so explicitly. Enterprise buyers should read these documents as technical evidence, not as sales material.
+WRL's approach to security documentation is honest disclosure over marketing claims. Every technical assertion in these documents is verifiable against the public codebase at [github.com/benpeter/web-resource-ledger](https://github.com/benpeter/web-resource-ledger). Where WRL cannot make a claim — no SOC 2 certification, no 24/7 SOC, no physical isolation between tenants — the documents say so explicitly. Enterprise buyers should read these documents as technical evidence, not as sales material.
 
 ---
 

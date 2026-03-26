@@ -2,7 +2,7 @@
   "name": "@w-r-l/verify",
   "version": "0.2.1",
   "description": "Verify cryptographic integrity of WRL WACZ web capture bundles",
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "author": "Ben Peter <bp@ben-peter.com>",
   "repository": {
     "type": "git",

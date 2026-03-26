@@ -149,7 +149,7 @@ The table below describes how verification works across different approaches. It
 
 | Approach | How verification works |
 |---|---|
-| Open-standard signed archives (WRL) | SHA-256 hashes per artifact, Ed25519 signature over the bundle manifest, RFC 3161 timestamp from an independent TSA. Verifier is a separate open-source package that resolves the signing key independently and confirms the certificate chain. All verification data is embedded in the bundle. |
+| Open-standard signed archives (WRL) | SHA-256 hashes per artifact, Ed25519 signature over the bundle manifest, RFC 3161 timestamp from an independent TSA. Verifier is a separate source-available package that resolves the signing key independently and confirms the certificate chain. All verification data is embedded in the bundle. |
 | Web archive services | Verification is typically the service's assertion that the archived copy matches the original capture. No cryptographic mechanism is provided to external parties to confirm independently. |
 | Enterprise capture platforms | Approaches vary. Some provide hash-based integrity checks; fewer provide independent timestamp authorities. Verification typically requires access to the platform. |
 | Browser extension tools | Capture is performed by the browser extension on the user's machine. Integrity depends on the extension's implementation; no independent timestamp is standard. Chain of custody depends on how the captured file is handled after capture. |

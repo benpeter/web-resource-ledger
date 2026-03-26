@@ -448,7 +448,7 @@ The following risks are known, accepted, and documented. Each is accompanied by 
 | TLS in transit | Cloudflare-managed TLS 1.2+ for all endpoints | Infrastructure (Cloudflare) |
 | AES-256 at rest | Cloudflare-managed for D1, R2, KV | Infrastructure (Cloudflare) |
 | Secret management | All secrets stored as Cloudflare Worker secrets; none in source code | `wrangler.toml`, 1Password WRL vault |
-| Open source codebase | Source code publicly auditable | github.com/benpeter/web-resource-ledger |
+| Public source code | Source code publicly auditable | github.com/benpeter/web-resource-ledger |
 
 ---
 
