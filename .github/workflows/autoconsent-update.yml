@@ -1,0 +1,195 @@
+name: Autoconsent Update
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  update-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      new_version: ${{ steps.check.outputs.new_version }}
+      old_version: ${{ steps.check.outputs.old_version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Check for update
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          INSTALLED=$(node -p "JSON.parse(require('fs').readFileSync('node_modules/@duckduckgo/autoconsent/package.json','utf8')).version")
+          LATEST=$(npm view @duckduckgo/autoconsent version)
+
+          if [ "$INSTALLED" = "$LATEST" ]; then
+            echo "Already on latest ($INSTALLED), skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Validate versions are semver-shaped
+          for v in "$INSTALLED" "$LATEST"; do
+            if ! echo "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+              echo "::error::Unexpected version format: $v"
+              exit 1
+            fi
+          done
+
+          # Check for existing PR for this version
+          EXISTING=$(gh pr list --search "autoconsent $LATEST in:title" --state open --json number --jq '.[0].number' || true)
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already open for $LATEST, skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "new_version=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "old_version=$INSTALLED" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Update autoconsent
+        if: steps.check.outputs.skip != 'true'
+        run: npm install @duckduckgo/autoconsent@latest
+
+      - name: Regenerate vendor files
+        if: steps.check.outputs.skip != 'true'
+        run: npm run vendor:autoconsent
+
+      - name: Run unit tests
+        if: steps.check.outputs.skip != 'true'
+        run: npm test
+
+      - name: Run sync tests
+        if: steps.check.outputs.skip != 'true'
+        run: npm run test:sync
+
+  battery:
+    needs: update-and-test
+    if: needs.update-and-test.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    environment: staging
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm install @duckduckgo/autoconsent@latest
+      - run: npm run vendor:autoconsent
+
+      - name: Run test battery
+        id: battery
+        continue-on-error: true
+        run: npm run test:battery 2>&1 | tee battery-output.txt
+        env:
+          WRL_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: battery-results
+          path: battery-output.txt
+
+  open-pr:
+    needs: [update-and-test, battery]
+    if: always() && needs.update-and-test.result == 'success' && needs.update-and-test.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm install @duckduckgo/autoconsent@latest
+      - run: npm run vendor:autoconsent
+
+      - name: Close stale autoconsent PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.update-and-test.outputs.new_version }}
+        run: |
+          gh pr list --search "chore: update autoconsent in:title" --state open --json number --jq '.[].number' | while read -r pr; do
+            gh pr close "$pr" --comment "Superseded by update to $VERSION" || true
+          done
+
+      - name: Create branch and commit
+        env:
+          VERSION: ${{ needs.update-and-test.outputs.new_version }}
+          OLD: ${{ needs.update-and-test.outputs.old_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="chore/autoconsent-${VERSION}"
+          git checkout -b "$BRANCH"
+          git add package.json package-lock.json src/vendor/autoconsent-script.js src/consent.js
+          git commit -m "chore: update autoconsent ${OLD} -> ${VERSION}"
+          git push -u origin "$BRANCH"
+
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        continue-on-error: true
+        with:
+          name: battery-results
+          path: .
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.update-and-test.outputs.new_version }}
+          OLD: ${{ needs.update-and-test.outputs.old_version }}
+          BATTERY_RESULT: ${{ needs.battery.result }}
+        run: |
+          BATTERY_STATUS="did not run"
+          if [ -f battery-output.txt ]; then
+            if [ "$BATTERY_RESULT" = "success" ]; then
+              BATTERY_STATUS="passed"
+            else
+              BATTERY_STATUS="failed (see details below)"
+            fi
+          fi
+
+          body_file=$(mktemp)
+          {
+            echo "## Autoconsent update: ${OLD} -> ${VERSION}"
+            echo ""
+            echo "Automated update of \`@duckduckgo/autoconsent\` to ${VERSION}."
+            echo ""
+            echo "- [Changelog](https://github.com/duckduckgo/autoconsent/releases)"
+            echo "- Unit tests: passed"
+            echo "- Battery tests: ${BATTERY_STATUS}"
+            echo ""
+            echo "<details>"
+            echo "<summary>Battery test output</summary>"
+            echo ""
+            echo '```'
+            cat battery-output.txt 2>/dev/null || echo "No battery output available"
+            echo '```'
+            echo ""
+            echo "</details>"
+          } > "$body_file"
+
+          gh pr create \
+            --title "chore: update autoconsent ${OLD} -> ${VERSION}" \
+            --body-file "$body_file" \
+            --base main \
+            --head "chore/autoconsent-${VERSION}"
+
+          rm -f "$body_file"
