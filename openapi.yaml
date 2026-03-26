@@ -32,6 +32,8 @@ tags:
     description: Tenant account information and usage
   - name: notifications
     description: Email notification preferences and one-click unsubscribe
+  - name: billing
+    description: Billing redirect endpoints (unauthenticated, HMAC-signed)
   - name: schedules
     description: Scheduled recurring captures (cron-style)
 
@@ -5242,6 +5244,63 @@ paths:
             text/html:
               schema:
                 type: string
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/billing/invoice:
+    get:
+      operationId: getBillingInvoiceRedirect
+      summary: Redirect to Stripe invoice via HMAC-signed token
+      security: []
+      description: >
+        Redirects the user to a Stripe hosted invoice URL. The token is an
+        HMAC-signed payload containing the target URL, generated when invoice
+        notification emails are sent.
+
+
+        This endpoint exists so that outbound emails use the WRL sending domain
+        for all links, avoiding spam filter penalties from domain mismatches.
+
+
+        Returns 302 redirect for valid tokens. Returns 200 HTML error page for
+        invalid, tampered, or missing tokens (no information leakage via status
+        codes). Only `invoice.stripe.com` URLs are accepted as redirect targets.
+
+
+        No authentication required. Rate-limited by IP.
+      tags: [billing]
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: HMAC-signed invoice redirect token from the email link.
+      responses:
+        '200':
+          description: HTML error page (invalid, tampered, or missing token).
+          content:
+            text/html:
+              schema:
+                type: string
+        '302':
+          description: Redirect to Stripe hosted invoice URL.
+          headers:
+            Location:
+              description: The Stripe hosted invoice URL.
+              schema:
+                type: string
+                format: uri
+            Cache-Control:
+              description: Prevents caching of the redirect.
+              schema:
+                type: string
+                example: 'no-store'
+            Referrer-Policy:
+              description: Prevents referrer leakage to Stripe.
+              schema:
+                type: string
+                example: 'no-referrer'
         '429':
           $ref: '#/components/responses/Problem429'
 

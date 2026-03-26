@@ -104,3 +104,4 @@ software development.
 | [0093-admin-dashboard](0093-admin-dashboard/) | Operator admin dashboard: tenant list, per-tenant detail, platform overview, admin auth gate, 3 API endpoints (Issue #203) |
 | [0094-sign-in-button-contrast-fix](0094-sign-in-button-contrast-fix/) | Fix CSS specificity bug: Sign-in button text unreadable in landing page header, WCAG AA contrast failure (Issue #225) |
 | [0095-fix-toctou-swap-verified-email](0095-fix-toctou-swap-verified-email/) | Fix TOCTOU gap in swapVerifiedEmail() WHERE clause — pin pending_email = ? (Issue #222) |
+| [0096-link-domain-matching](0096-link-domain-matching/) | HMAC-signed invoice redirect for email deliverability — align link domains with sending domain (Issue #216) |
