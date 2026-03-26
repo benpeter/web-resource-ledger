@@ -47,7 +47,21 @@ TSA:           DigiCert Timestamp Authority
 
 Exit code `0` means all checks passed. Exit code `1` means one or more checks failed. Exit code `2` means a usage error (bad arguments, missing file, or network failure fetching the key or bundle).
 
-For machine-readable output, add `--json`. For full CLI options, see the [verify package README](https://github.com/benpeter/web-resource-ledger/tree/main/packages/verify).
+For machine-readable output, add `--json`. For a legal report, add `--legal` (see below). For full CLI options, see the [verify package README](https://github.com/benpeter/web-resource-ledger/tree/main/packages/verify).
+
+### Legal report
+
+Add `--legal` to produce a structured plain-text report formatted for use in legal proceedings or formal documentation:
+
+```bash
+npx @w-r-l/verify https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 --legal
+```
+
+The report contains seven sections: a plain-language summary, a subject description, per-check explanations, a chain of custody narrative, applicable legal standards, a methodology description, and full technical details. All cryptographic values are untruncated. No ANSI color codes are written, so the output is safe to redirect to a file or paste into a document.
+
+Add `--json` alongside `--legal` for a machine-readable JSON version with the same seven sections as structured fields.
+
+For the legal context behind the report -- including how WRL captures map to FRE 901(b)(9) and eIDAS Art. 41 -- see [Legal Evidence](/legal-evidence/).
 
 ### REST API (server-side)
 
