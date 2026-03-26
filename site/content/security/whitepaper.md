@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Security Whitepaper
-description: Architecture, trust model, and security controls of the Web Resource Ledger platform.
+description: Web Resource Ledger security whitepaper — architecture, trust model, Ed25519 signing, API key storage, and web capture security controls.
 ---
 
 # Security Whitepaper

@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: MCP Server
-description: Use WRL with AI agents. Any MCP-compatible client can capture web pages, verify evidence, compare captures, manage schedules, and check usage without writing HTTP client code.
+description: MCP web capture for AI agents. Claude Code, Cursor, and Windsurf can capture pages and verify web evidence without writing HTTP client code.
 ---
 
 # MCP Server

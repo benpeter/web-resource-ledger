@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Batch Captures
-description: Submit multiple URLs in a single request, handle per-item results, and poll for completion.
+description: Submit up to 100 URLs in a single batch capture request, handle per-item results, and poll for completion via the WRL API.
 ---
 
 # Batch Captures

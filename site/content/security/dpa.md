@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Data Processing Agreement
-description: GDPR Article 28 Data Processing Agreement template for WRL enterprise customers.
+description: GDPR Article 28 Data Processing Agreement template for WRL enterprise customers. Documents roles, processing activities, and security measures.
 ---
 
 # Data Processing Agreement

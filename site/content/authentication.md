@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Authentication
-description: How to authenticate API requests, manage API keys, understand scopes, and rotate keys safely.
+description: How to authenticate WRL API requests using bearer tokens, manage per-tenant API keys, understand scopes, and rotate keys safely.
 ---
 
 # Authentication

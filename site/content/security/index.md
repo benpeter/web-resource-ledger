@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Security and Compliance
-description: Enterprise security documentation, compliance artifacts, and trust resources for WRL.
+description: Web capture security and compliance — whitepaper, DPA, subprocessors, incident response policy, and data retention for enterprise buyers.
 ---
 
 # Security and Compliance
