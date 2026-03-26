@@ -417,7 +417,163 @@ body {
 }
 
 /* ===================================================================
-   12. Pricing section
+   12. Features section
+   =================================================================== */
+
+.features-grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.feature-group-label {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  grid-column: 1 / -1;
+}
+
+.feature-group-label:not(:first-child) {
+  margin-top: var(--space-4);
+}
+
+.feature-item h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+.feature-item p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+@media (min-width: 768px) {
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .features-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* ===================================================================
+   13. Comparison table section
+   =================================================================== */
+
+/* Comparison table */
+.comparison-table-wrapper {
+  overflow-x: auto;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.comparison-table th[scope="col"] {
+  background: var(--color-surface-muted);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.comparison-table th[scope="row"] {
+  font-weight: var(--weight-bold);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  white-space: nowrap;
+}
+
+.comparison-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  vertical-align: middle;
+  font-size: var(--text-sm);
+}
+
+.comparison-highlight {
+  background: var(--color-surface-muted);
+}
+
+.comparison-highlight td,
+.comparison-highlight th {
+  font-weight: var(--weight-medium);
+}
+
+.compare-more,
+.features-more {
+  margin: var(--space-6) 0 0;
+  font-size: var(--text-sm);
+}
+
+.compare-more a,
+.features-more a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.compare-more a:hover,
+.features-more a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Mobile card-stack for comparison table */
+/* Similar card-stack pattern in site/css/docs.css — contexts differ intentionally, do not merge */
+@media (max-width: 767px) {
+  .comparison-table thead {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0,0,0,0);
+  }
+  .comparison-table tbody { display: block; }
+  .comparison-table tr {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--color-surface);
+  }
+  .comparison-table th[scope="row"] {
+    display: block;
+    font-size: var(--text-md);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0 0 var(--space-3);
+    margin-bottom: var(--space-2);
+    white-space: normal;
+  }
+  .comparison-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .comparison-table td::before {
+    content: attr(data-label);
+    font-weight: var(--weight-medium);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    margin-right: var(--space-3);
+  }
+  .comparison-table td:last-child { border-bottom: none; }
+}
+
+/* ===================================================================
+   14. Pricing section
    =================================================================== */
 
 .pricing-grid {
@@ -519,7 +675,7 @@ body {
 }
 
 /* ===================================================================
-   13. Footer
+   15. Footer
    =================================================================== */
 
 .site-footer {
@@ -616,7 +772,7 @@ body {
 }
 
 /* ===================================================================
-   14. Article / prose layout (legal pages)
+   16. Article / prose layout (legal pages)
    =================================================================== */
 
 .article {
@@ -714,7 +870,7 @@ body {
 }
 
 /* ===================================================================
-   15. Responsive adjustments
+   17. Responsive adjustments
    =================================================================== */
 
 @media (max-width: 767px) {

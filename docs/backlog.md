@@ -142,6 +142,12 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] SMS/push notification channels | When email alone proves insufficient for urgent alerts | Phase 0072, out-of-scope |
 | [consider] Provision RESEND_API_KEY secrets (staging + production) | Before production deployment; manual ops step via wrangler secret put | Phase 0072, iac-minion |
 
+### Docs Site
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Docs site SEO infrastructure (canonical tags, OG tags, BreadcrumbList) | When organic search traffic to docs is a priority | Phase 0090, seo-minion |
+
 ### MCP (R15 expanded -- extensions)
 
 | Item | Condition | Source |
@@ -232,7 +238,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | Phase 0066 shipped (ecosystem push); activate when measuring GTM impact | GTM research |
 | [consider] SEO optimization for landing page (#136) | Phase 0066 shipped; activate when organic search traffic is a priority | GTM research |
 | [consider] Generative Engine Optimization / GEO (#137) | Phase 0066 shipped; activate when AI search visibility is a priority | GTM research |
-| ~~[consider] Feature list and competitor comparison (#144)~~ | ~~When landing page content refresh (Phase 0074)~~ -- DONE (Phase 0074): Legal Evidence card with FRE 901/902 + eIDAS references on landing page, verification comparison table on docs site (Issue #142) | GTM research |
+| ~~[consider] Feature list and competitor comparison (#144)~~ | ~~When landing page content refresh~~ -- DONE (Phase 0090): Feature list section (10 capabilities) on landing page, summary comparison table (4 competitors), full comparison page on docs site (9 competitors × 7 columns) (Issue #144) | GTM research |
 
 ---
 

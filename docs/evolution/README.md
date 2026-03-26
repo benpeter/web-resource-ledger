@@ -98,3 +98,4 @@ software development.
 | [0087-llm-developer-reference](0087-llm-developer-reference/) | LLM-oriented developer reference for WRL internals: D1 schema, API routes, bindings, secrets, queues, crons (Issue #201) |
 | [0088-autoconsent-ci](0088-autoconsent-ci/) | Automated autoconsent update pipeline: GitHub Action for weekly vendor updates with test battery (Issue #152) |
 | [0089-landing-legal-section-ordering](0089-landing-legal-section-ordering/) | Landing page section reorder: Use Cases above How It Works, trust bar rejected, legal claims stay in use case card (Issue #207) |
+| [0090-feature-list-competitor-comparison](0090-feature-list-competitor-comparison/) | Feature list and competitor comparison table on landing page and docs site (Issue #144) |

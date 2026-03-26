@@ -64,10 +64,25 @@
       "REST API and MCP server",
       "Cookie consent dismissal",
       "eIDAS-qualified timestamps (optional)",
-      "FRE 901/902 evidence authentication support"
+      "FRE 901/902 evidence authentication support",
+      "Batch capture API",
+      "Webhook notifications",
+      "CLI verification tool",
+      "Screenshot and rendered HTML capture",
+      "HTTP header recording",
+      "Self-hostable (Apache 2.0)",
+      "Scheduled captures"
     ],
     "license": "https://github.com/benpeter/web-resource-ledger/blob/main/LICENSE",
     "isAccessibleForFree": true,
+    "applicationSubCategory": "Web Evidence",
+    "offers": {
+      "@type": "Offer",
+      "name": "Free tier",
+      "price": "0",
+      "priceCurrency": "EUR",
+      "availability": "https://schema.org/InStock"
+    },
     "author": {
       "@type": "Organization",
       "name": "Web Resource Ledger",
@@ -89,6 +104,7 @@
       </a>
       <nav aria-label="Main">
         <a href="#use-cases">Use Cases</a>
+        <a href="#features">Features</a>
         <a href="#how-it-works">How It Works</a>
         <a href="#pricing">Pricing</a>
         <a href="https://docs.webresourceledger.com">Docs</a>
@@ -155,8 +171,81 @@
       </div>
     </section>
 
+    <!-- Features -->
+    <section id="features" class="landing-section landing-section--muted" aria-labelledby="features-heading">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="features-heading">What You Get</h2>
+        </div>
+        <div class="features-grid">
+
+          <p class="feature-group-label">Evidence Integrity</p>
+
+          <div class="feature-item">
+            <h3>Ed25519 Digital Signatures</h3>
+            <p>Every capture is cryptographically signed. Proves who captured it and that nothing was altered.</p>
+          </div>
+
+          <div class="feature-item">
+            <h3>Independent Timestamps</h3>
+            <p>A third-party authority records when the capture happened. No one -- not even WRL -- can backdate it.</p>
+          </div>
+
+          <div class="feature-item">
+            <h3>Public Verification</h3>
+            <p>Share a link. Anyone can confirm authenticity -- no account, no trust required.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">How verification works &rarr;</a></p>
+          </div>
+
+          <div class="feature-item">
+            <h3>eIDAS Qualified Timestamps</h3>
+            <p>Optional EU-standard timestamps with legal presumption of accuracy across all member states.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/legal-evidence/">Legal evidence guide &rarr;</a></p>
+          </div>
+
+          <div class="feature-item">
+            <h3>CLI Verification Tool</h3>
+            <p>Verify captures offline with a single command. No network, no trust in us required.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">Verification docs &rarr;</a></p>
+          </div>
+
+          <p class="feature-group-label">Developer Experience</p>
+
+          <div class="feature-item">
+            <h3>REST API</h3>
+            <p>One POST, one signed evidence bundle. Batch captures, scheduled captures.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/api-reference/">API reference &rarr;</a></p>
+          </div>
+
+          <div class="feature-item">
+            <h3>MCP Server</h3>
+            <p>AI agents can capture and verify web pages with cryptographic proof.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/mcp/">MCP docs &rarr;</a></p>
+          </div>
+
+          <div class="feature-item">
+            <h3>Webhooks</h3>
+            <p>Get notified when captures complete. Integrate into any workflow.</p>
+            <p class="use-case-cta"><a href="https://docs.webresourceledger.com/webhooks/">Webhook docs &rarr;</a></p>
+          </div>
+
+          <div class="feature-item">
+            <h3>WACZ Standard Format</h3>
+            <p>Open archive format. Not locked to any vendor.</p>
+          </div>
+
+          <div class="feature-item">
+            <h3>Self-Hostable</h3>
+            <p>Deploy on your infrastructure. Your keys, your storage, your evidence chain.</p>
+          </div>
+
+        </div>
+        <p class="features-more"><a href="https://docs.webresourceledger.com/compare/">Full feature comparison across 9 tools &rarr;</a></p>
+      </div>
+    </section>
+
     <!-- How It Works -->
-    <section id="how-it-works" class="landing-section landing-section--muted" aria-labelledby="how-it-works-heading">
+    <section id="how-it-works" class="landing-section landing-section--white" aria-labelledby="how-it-works-heading">
       <div class="container">
         <div class="section-header">
           <h2 id="how-it-works-heading">How It Works</h2>
@@ -184,6 +273,67 @@
             </div>
           </li>
         </ol>
+      </div>
+    </section>
+
+    <!-- Compare -->
+    <section id="compare" class="landing-section landing-section--muted" aria-labelledby="compare-heading">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="compare-heading">How WRL Compares</h2>
+        </div>
+        <div class="comparison-table-wrapper">
+          <table class="comparison-table">
+            <caption class="sr-only">Comparison of WRL with other web evidence tools</caption>
+            <thead>
+              <tr>
+                <th scope="col">Tool</th>
+                <th scope="col">Crypto Signing</th>
+                <th scope="col">Independent Timestamps</th>
+                <th scope="col">Public Verification</th>
+                <th scope="col">Open Format</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="comparison-highlight">
+                <th scope="row">WRL</th>
+                <td data-label="Crypto Signing"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
+                <td data-label="Independent Timestamps"><span class="badge badge--pass">RFC 3161 (default)</span></td>
+                <td data-label="Public Verification"><span class="badge badge--pass">Yes (no account)</span></td>
+                <td data-label="Open Format"><span class="badge badge--pass">WACZ</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Wayback Machine</th>
+                <td data-label="Crypto Signing"><span class="badge badge--fail">No</span></td>
+                <td data-label="Independent Timestamps"><span class="badge badge--fail">No</span></td>
+                <td data-label="Public Verification"><span class="badge badge--skip">Public access (no crypto)</span></td>
+                <td data-label="Open Format"><span class="badge badge--pass">WARC</span></td>
+              </tr>
+              <tr>
+                <th scope="row">PageFreezer</th>
+                <td data-label="Crypto Signing"><span class="badge badge--skip">SHA-256</span></td>
+                <td data-label="Independent Timestamps"><span class="badge badge--skip">Proprietary clock</span></td>
+                <td data-label="Public Verification"><span class="badge badge--fail">No</span></td>
+                <td data-label="Open Format"><span class="badge badge--fail">PDF</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Webrecorder</th>
+                <td data-label="Crypto Signing"><span class="badge badge--skip">Spec exists (not default)</span></td>
+                <td data-label="Independent Timestamps"><span class="badge badge--skip">In spec (not default)</span></td>
+                <td data-label="Public Verification"><span class="badge badge--skip">Validator tools</span></td>
+                <td data-label="Open Format"><span class="badge badge--pass">WACZ + WARC</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Manual + Notary</th>
+                <td data-label="Crypto Signing"><span class="badge badge--skip">Notary attestation</span></td>
+                <td data-label="Independent Timestamps"><span class="badge badge--skip">Notary timestamp</span></td>
+                <td data-label="Public Verification"><span class="badge badge--skip">Via notary records</span></td>
+                <td data-label="Open Format"><span class="badge badge--fail">N/A</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="compare-more"><a href="https://docs.webresourceledger.com/compare/">Full comparison of 9 tools across 8 criteria &rarr;</a></p>
       </div>
     </section>
 

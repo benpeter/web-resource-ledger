@@ -1,0 +1,1 @@
+Task 1: Landing page -- features section + comparison summary + structured data update

@@ -12,6 +12,7 @@ export default {
     { title: "MCP Server", url: "/mcp/" },
     { title: "API Reference", url: "/api-reference/" },
     { title: "Architecture", url: "/architecture/" },
+    { title: "Compare", url: "/compare/" },
     // Security & Compliance
     { title: "Security & Compliance", url: "/security/" },
     { title: "Security Whitepaper", url: "/security/whitepaper/" },
