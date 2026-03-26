@@ -55,6 +55,12 @@ Expand WRL into a platform that other tools and agents build on.
 
 Deferred items with explicit activation triggers. Revisit when condition is met.
 
+### Developer Tooling
+
+| Item | Condition | Source |
+|------|-----------|--------|
+| [consider] Automated INTERNALS.md generation script | When D1 schema changes become frequent (>2 migrations per month) or staleness causes a dev incident | Phase 0087 |
+
 ### Auth (R12 shipped -- next wave)
 
 | Item | Condition | Source |
