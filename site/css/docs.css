@@ -267,9 +267,8 @@ body {
   box-sizing: border-box;
 }
 
-/* Wide content modifier — used by compare page to let the table breathe */
 .docs-content--wide {
-  max-width: calc(100vw - 240px - var(--space-12));
+  max-width: none;
 }
 
 @media (max-width: 767px) {
@@ -277,9 +276,6 @@ body {
     padding: var(--space-4) var(--space-4);
   }
 
-  .docs-content--wide {
-    max-width: 100%;
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -552,8 +548,8 @@ pre:focus-within .copy-btn {
 
 .comparison-table {
   width: 100%;
-  min-width: 800px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .comparison-table th[scope="col"] {
@@ -582,39 +578,28 @@ pre:focus-within .copy-btn {
   font-size: var(--text-sm);
 }
 
-/* Row highlight (old tools-as-rows orientation) */
-.comparison-highlight {
-  background: var(--color-surface-muted);
-}
-
-.comparison-highlight td,
-.comparison-highlight th {
-  font-weight: var(--weight-medium);
-}
-
-/* Column highlight (features-as-rows orientation) */
 .comparison-highlight-col {
   background: var(--color-surface-muted);
   font-weight: var(--weight-medium);
 }
 
-/* Sticky first column — feature names stay visible during horizontal scroll */
-.comparison-sticky-col {
+/* Sticky feature-name column */
+.comparison-table th[scope="row"],
+.comparison-table thead th:first-child {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--color-surface);
 }
 
-thead .comparison-sticky-col {
+.comparison-table thead th:first-child {
   background: var(--color-surface-muted);
   z-index: 2;
 }
 
-/* Card-stack breakpoint raised to 1024px — eliminates dead zone where
-   tablet users see a horizontally-scrolling table that doesn't fit */
+/* Mobile card-stack */
 /* Similar pattern in landing/public/css/landing.css -- contexts differ, do not merge */
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .comparison-table-wrapper {
     margin: var(--space-6) 0;
     padding: 0;
@@ -650,7 +635,7 @@ thead .comparison-sticky-col {
   }
 
   .comparison-table td::before {
-    content: attr(data-tool);
+    content: attr(data-label);
     font-weight: var(--weight-medium);
     font-size: var(--text-xs);
     text-transform: uppercase;
@@ -671,8 +656,8 @@ thead .comparison-sticky-col {
     white-space: normal;
   }
 
-  /* Disable sticky in card-stack mode */
-  .comparison-sticky-col {
-    position: static;
+  .comparison-table td.comparison-highlight-col {
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-sm);
   }
 }
