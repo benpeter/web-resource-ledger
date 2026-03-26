@@ -42,7 +42,7 @@ import { getSigningKeys } from './signing.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Creates and configures an McpServer instance with all four WRL tools.
+ * Creates and configures an McpServer instance with WRL tools.
  * Called once per request (stateless mode).
  *
  * @param {object} env   - Cloudflare Worker env bindings
@@ -240,7 +240,7 @@ function createMcpServer(env, ctx, auth, origin) {
     async ({ capture_id: captureId }) => {
       const record = await getCapture(env.DB, captureId);
 
-      if (!record) {
+      if (!record || record.tenantId !== auth.tenantId) {
         return {
           isError: true,
           content: [{ type: 'text', text: `Capture not found: ${captureId}` }],
@@ -414,6 +414,15 @@ function createMcpServer(env, ctx, auth, origin) {
             content: [{ type: 'text', text: 'Rate limit exceeded. Try again in 60 seconds.' }],
           };
         }
+      }
+
+      // Tenant isolation: verify caller owns the capture before running verification
+      const preCheck = await getCapture(env.DB, captureId);
+      if (!preCheck || preCheck.tenantId !== auth.tenantId) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Capture not found or not yet complete: ${captureId}` }],
+        };
       }
 
       const verification = await performVerification(
