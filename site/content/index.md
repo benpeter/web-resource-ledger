@@ -134,6 +134,9 @@ Receive real-time notifications when captures complete or fail.
 **[API Reference](/api-reference/)**
 Full endpoint details, request and response schemas, status codes, and rate limits.
 
+**[Architecture](/architecture/)**
+How WRL processes captures, signs bundles, and maintains the integrity chain.
+
 **[Security and Compliance](/security/)**
 Security whitepaper, DPA, subprocessor list, incident response policy, and data retention policy for enterprise buyers.
 
