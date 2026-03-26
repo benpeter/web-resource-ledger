@@ -56,8 +56,32 @@
       <details class="docs-nav-mobile">
         <summary>Menu</summary>
         <nav aria-label="Documentation mobile">
+          {% for group in site.nav %}
+          <div class="docs-nav-section">
+            <h2 class="docs-nav-heading">{{ group.section }}</h2>
+            <ul class="docs-nav-list">
+              {% for item in group.children %}
+              <li>
+                <a href="{{ item.url }}"
+                   {% if page.url == item.url %}aria-current="page"{% endif %}
+                   class="docs-nav-link">
+                  {{ item.title }}
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endfor %}
+        </nav>
+      </details>
+
+      {# Desktop: always-visible nav #}
+      <nav class="docs-nav-desktop" aria-label="Documentation">
+        {% for group in site.nav %}
+        <div class="docs-nav-section">
+          <h2 class="docs-nav-heading">{{ group.section }}</h2>
           <ul class="docs-nav-list">
-            {% for item in site.nav %}
+            {% for item in group.children %}
             <li>
               <a href="{{ item.url }}"
                  {% if page.url == item.url %}aria-current="page"{% endif %}
@@ -67,22 +91,8 @@
             </li>
             {% endfor %}
           </ul>
-        </nav>
-      </details>
-
-      {# Desktop: always-visible nav #}
-      <nav class="docs-nav-desktop" aria-label="Documentation">
-        <ul class="docs-nav-list">
-          {% for item in site.nav %}
-          <li>
-            <a href="{{ item.url }}"
-               {% if page.url == item.url %}aria-current="page"{% endif %}
-               class="docs-nav-link">
-              {{ item.title }}
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
+        </div>
+        {% endfor %}
       </nav>
     </aside>
 
