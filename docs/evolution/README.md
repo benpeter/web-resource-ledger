@@ -96,3 +96,4 @@ software development.
 | [0085-mcp-api-sync](0085-mcp-api-sync/) | Sync MCP server with current API surface and establish drift prevention (Issue #202) |
 | [0086-mermaid-architecture-diagrams](0086-mermaid-architecture-diagrams/) | Add Mermaid architecture diagrams to docs site: user interaction flows + capture pipeline & integrity chain (Issue #168) |
 | [0087-llm-developer-reference](0087-llm-developer-reference/) | LLM-oriented developer reference for WRL internals: D1 schema, API routes, bindings, secrets, queues, crons (Issue #201) |
+| [0088-autoconsent-ci](0088-autoconsent-ci/) | Automated autoconsent update pipeline: GitHub Action for weekly vendor updates with test battery (Issue #152) |
