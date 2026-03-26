@@ -146,7 +146,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 
 | Item | Condition | Source |
 |------|-----------|--------|
-| [consider] Docs site SEO infrastructure (canonical tags, OG tags, BreadcrumbList) | When organic search traffic to docs is a priority | Phase 0090, seo-minion |
+| ~~[consider] Docs site SEO infrastructure (canonical tags, OG tags, BreadcrumbList)~~ | ~~When organic search traffic to docs is a priority~~ -- DONE (Phase 0091): canonical URLs, OG/Twitter cards, WebSite JSON-LD, sitemap, robots.txt, llms.txt, frontmatter optimization (Issue #215) | Phase 0090, seo-minion |
 
 ### MCP (R15 expanded -- extensions)
 
@@ -236,8 +236,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Embed Stripe payment form instead of redirect (#147) | Billing UI shipped (Phase 0076) with redirect flow; activate if redirect causes UX friction | Phase 0058 → 0076 |
 | [consider] Fetch-based capture for non-HTML resources (#143) | When a user needs to capture PDFs, APIs, or static files | Product |
 | [consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148) | Phase 0066 shipped (ecosystem push); activate when measuring GTM impact | GTM research |
-| [consider] SEO optimization for landing page (#136) | Phase 0066 shipped; activate when organic search traffic is a priority | GTM research |
-| [consider] Generative Engine Optimization / GEO (#137) | Phase 0066 shipped; activate when AI search visibility is a priority | GTM research |
+| ~~[consider] SEO optimization for landing page (#136)~~ | ~~Phase 0066 shipped; activate when organic search traffic is a priority~~ -- DONE (Phase 0091): FAQ section, FAQPage/HowTo JSON-LD, AggregateOffer, OG/Twitter on all pages, sitemap fix, heading hierarchy fix (Issue #215) | GTM research |
+| ~~[consider] Generative Engine Optimization / GEO (#137)~~ | ~~Phase 0066 shipped; activate when AI search visibility is a priority~~ -- DONE (Phase 0091): llms.txt on both sites, citation-friendly FAQ content, comprehensive Schema.org coverage (Issue #215) | GTM research |
 | ~~[consider] Feature list and competitor comparison (#144)~~ | ~~When landing page content refresh~~ -- DONE (Phase 0090): Feature list section (10 capabilities) on landing page, summary comparison table (4 competitors), full comparison page on docs site (9 competitors × 7 columns) (Issue #144) | GTM research |
 
 ---
