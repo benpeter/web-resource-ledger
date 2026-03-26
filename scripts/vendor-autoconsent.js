@@ -16,8 +16,8 @@ const consentPath = resolve(root, 'src/consent.js');
 let pkg;
 try {
   pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-} catch {
-  console.error('autoconsent not installed. Run `npm install` first.');
+} catch (err) {
+  console.error('autoconsent not installed. Run `npm install` first.', err.message);
   process.exit(1);
 }
 const version = pkg.version;
@@ -26,8 +26,8 @@ const version = pkg.version;
 let scriptContent;
 try {
   scriptContent = readFileSync(distPath, 'utf8');
-} catch {
-  console.error('autoconsent dist layout changed -- expected dist/autoconsent.playwright.js');
+} catch (err) {
+  console.error('autoconsent dist layout changed -- expected dist/autoconsent.playwright.js', err.message);
   process.exit(1);
 }
 

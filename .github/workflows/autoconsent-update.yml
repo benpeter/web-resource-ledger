@@ -40,7 +40,7 @@ jobs:
 
           # Validate versions are semver-shaped
           for v in "$INSTALLED" "$LATEST"; do
-            if ! echo "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            if ! echo "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
               echo "::error::Unexpected version format: $v"
               exit 1
             fi
