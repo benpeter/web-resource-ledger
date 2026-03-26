@@ -387,7 +387,7 @@
           <h2 id="compare-heading">How WRL Compares</h2>
         </div>
         <div class="comparison-table-wrapper">
-          <table class="comparison-table comparison-table--flipped">
+          <table class="comparison-table">
             <caption class="sr-only">Comparison of WRL with other web evidence tools</caption>
             <thead>
               <tr>
@@ -402,35 +402,35 @@
             <tbody>
               <tr>
                 <th scope="row">Crypto Signing</th>
-                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
-                <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
-                <td data-tool="PageFreezer"><span class="badge badge--skip">SHA-256</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--skip">Spec exists (not default)</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary attestation</span></td>
+                <td class="comparison-highlight-col" data-label="WRL"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
+                <td data-label="Wayback Machine"><span class="badge badge--fail">No</span></td>
+                <td data-label="PageFreezer"><span class="badge badge--skip">SHA-256</span></td>
+                <td data-label="Webrecorder"><span class="badge badge--skip">Spec exists (not default)</span></td>
+                <td data-label="Manual + Notary"><span class="badge badge--skip">Notary attestation</span></td>
               </tr>
               <tr>
                 <th scope="row">Independent Timestamps</th>
-                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">RFC 3161 (default)</span></td>
-                <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
-                <td data-tool="PageFreezer"><span class="badge badge--skip">Proprietary clock</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--skip">In spec (not default)</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
+                <td class="comparison-highlight-col" data-label="WRL"><span class="badge badge--pass">RFC 3161 (default)</span></td>
+                <td data-label="Wayback Machine"><span class="badge badge--fail">No</span></td>
+                <td data-label="PageFreezer"><span class="badge badge--skip">Proprietary clock</span></td>
+                <td data-label="Webrecorder"><span class="badge badge--skip">In spec (not default)</span></td>
+                <td data-label="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
               </tr>
               <tr>
                 <th scope="row">Public Verification</th>
-                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Yes (no account)</span></td>
-                <td data-tool="Wayback Machine"><span class="badge badge--skip">Public access (no crypto)</span></td>
-                <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--skip">Validator tools</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--skip">Via notary records</span></td>
+                <td class="comparison-highlight-col" data-label="WRL"><span class="badge badge--pass">Yes (no account)</span></td>
+                <td data-label="Wayback Machine"><span class="badge badge--skip">Public access (no crypto)</span></td>
+                <td data-label="PageFreezer"><span class="badge badge--fail">No</span></td>
+                <td data-label="Webrecorder"><span class="badge badge--skip">Validator tools</span></td>
+                <td data-label="Manual + Notary"><span class="badge badge--skip">Via notary records</span></td>
               </tr>
               <tr>
                 <th scope="row">Open Format</th>
-                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">WACZ</span></td>
-                <td data-tool="Wayback Machine"><span class="badge badge--pass">WARC</span></td>
-                <td data-tool="PageFreezer"><span class="badge badge--fail">PDF</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
+                <td class="comparison-highlight-col" data-label="WRL"><span class="badge badge--pass">WACZ</span></td>
+                <td data-label="Wayback Machine"><span class="badge badge--pass">WARC</span></td>
+                <td data-label="PageFreezer"><span class="badge badge--fail">PDF</span></td>
+                <td data-label="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
+                <td data-label="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
               </tr>
             </tbody>
           </table>

@@ -506,17 +506,6 @@ body {
   font-size: var(--text-sm);
 }
 
-/* Row highlight (old tools-as-rows orientation) */
-.comparison-highlight {
-  background: var(--color-surface-muted);
-}
-
-.comparison-highlight td,
-.comparison-highlight th {
-  font-weight: var(--weight-medium);
-}
-
-/* Column highlight (features-as-rows orientation) */
 .comparison-highlight-col {
   background: var(--color-surface-muted);
   font-weight: var(--weight-medium);
@@ -541,9 +530,8 @@ body {
 }
 
 /* Mobile card-stack for comparison table (features-as-rows) */
-/* Each feature row becomes a card; tool names shown via data-tool */
 /* Similar card-stack pattern in site/css/docs.css — contexts differ intentionally, do not merge */
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .comparison-table thead {
     position: absolute; width: 1px; height: 1px;
     overflow: hidden; clip: rect(0,0,0,0);
@@ -573,7 +561,7 @@ body {
     border-bottom: 1px solid var(--color-border-subtle);
   }
   .comparison-table td::before {
-    content: attr(data-tool);
+    content: attr(data-label);
     font-weight: var(--weight-medium);
     font-size: var(--text-xs);
     text-transform: uppercase;
@@ -583,6 +571,10 @@ body {
     margin-right: var(--space-3);
   }
   .comparison-table td:last-child { border-bottom: none; }
+  .comparison-table td.comparison-highlight-col {
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-sm);
+  }
 }
 
 /* ===================================================================
