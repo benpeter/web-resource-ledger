@@ -251,9 +251,18 @@ body {
   box-sizing: border-box;
 }
 
+/* Wide content modifier — used by compare page to let the table breathe */
+.docs-content--wide {
+  max-width: calc(100vw - 240px - var(--space-12));
+}
+
 @media (max-width: 767px) {
   .docs-content {
     padding: var(--space-4) var(--space-4);
+  }
+
+  .docs-content--wide {
+    max-width: 100%;
   }
 }
 
@@ -557,6 +566,7 @@ pre:focus-within .copy-btn {
   font-size: var(--text-sm);
 }
 
+/* Row highlight (old tools-as-rows orientation) */
 .comparison-highlight {
   background: var(--color-surface-muted);
 }
@@ -566,9 +576,29 @@ pre:focus-within .copy-btn {
   font-weight: var(--weight-medium);
 }
 
-/* Mobile card-stack */
+/* Column highlight (features-as-rows orientation) */
+.comparison-highlight-col {
+  background: var(--color-surface-muted);
+  font-weight: var(--weight-medium);
+}
+
+/* Sticky first column — feature names stay visible during horizontal scroll */
+.comparison-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+}
+
+thead .comparison-sticky-col {
+  background: var(--color-surface-muted);
+  z-index: 2;
+}
+
+/* Card-stack breakpoint raised to 1024px — eliminates dead zone where
+   tablet users see a horizontally-scrolling table that doesn't fit */
 /* Similar pattern in landing/public/css/landing.css -- contexts differ, do not merge */
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   .comparison-table-wrapper {
     margin: var(--space-6) 0;
     padding: 0;
@@ -604,7 +634,7 @@ pre:focus-within .copy-btn {
   }
 
   .comparison-table td::before {
-    content: attr(data-label);
+    content: attr(data-tool);
     font-weight: var(--weight-medium);
     font-size: var(--text-xs);
     text-transform: uppercase;
@@ -623,5 +653,10 @@ pre:focus-within .copy-btn {
     padding: 0 0 var(--space-3);
     margin-bottom: var(--space-2);
     white-space: normal;
+  }
+
+  /* Disable sticky in card-stack mode */
+  .comparison-sticky-col {
+    position: static;
   }
 }

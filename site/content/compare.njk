@@ -2,6 +2,7 @@
 layout: layouts/doc.njk
 title: How WRL Compares
 description: Feature comparison of WRL with Wayback Machine, PageFreezer, Webrecorder, and 6 other web archiving and evidence tools. Last verified March 2026.
+wideContent: true
 ---
 <h1>How WRL Compares</h1>
 
@@ -12,120 +13,114 @@ description: Feature comparison of WRL with Wayback Machine, PageFreezer, Webrec
 </p>
 
 <div class="comparison-table-wrapper">
-  <table class="comparison-table">
+  <table class="comparison-table comparison-table--flipped">
     <caption class="sr-only">Feature comparison of web evidence and archiving tools</caption>
     <thead>
       <tr>
-        <th scope="col">Tool</th>
-        <th scope="col">Cryptographic Signing</th>
-        <th scope="col">Independent Timestamps</th>
-        <th scope="col">Public Verification</th>
-        <th scope="col">API Access</th>
-        <th scope="col">Standard Format</th>
-        <th scope="col">eIDAS Qualified</th>
-        <th scope="col">Source</th>
+        <th scope="col" class="comparison-sticky-col">Feature</th>
+        <th scope="col" class="comparison-highlight-col">WRL</th>
+        <th scope="col">Wayback Machine</th>
+        <th scope="col">PageFreezer</th>
+        <th scope="col">Hanzo</th>
+        <th scope="col">Page Vault</th>
+        <th scope="col">MirrorWeb</th>
+        <th scope="col">Stillio</th>
+        <th scope="col">Archive-It</th>
+        <th scope="col">Webrecorder</th>
+        <th scope="col">Manual + Notary</th>
       </tr>
     </thead>
     <tbody>
-      <tr class="comparison-highlight">
-        <th scope="row">WRL</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--pass">RFC 3161 (DigiCert TSA)</span></td>
-        <td data-label="Public Verification"><span class="badge badge--pass">Yes (no account needed)</span></td>
-        <td data-label="API Access"><span class="badge badge--pass">REST API, MCP</span></td>
-        <td data-label="Standard Format"><span class="badge badge--pass">WACZ</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--pass">Optional</span></td>
-        <td data-label="Source"><span class="badge badge--pass">PolyForm Shield</span></td>
+      <tr>
+        <th scope="row" class="comparison-sticky-col">Cryptographic Signing</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--skip">SHA-256 signing</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--skip">SHA-256 hashing</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--skip">SHA-1 per docs</span></td>
+        <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--fail">Checksums only</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--skip">WACZ-Auth spec (not default)</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary attestation</span></td>
       </tr>
       <tr>
-        <th scope="row">Wayback Machine</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--fail">No</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--fail">Crawl timestamps only</span></td>
-        <td data-label="Public Verification"><span class="badge badge--skip">Public access (no crypto)</span></td>
-        <td data-label="API Access"><span class="badge badge--skip">Yes (rate-limited)</span></td>
-        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--skip">Partial (some tools)</span></td>
+        <th scope="row" class="comparison-sticky-col">Independent Timestamps</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">RFC 3161 (DigiCert TSA)</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--fail">Crawl timestamps only</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--skip">Stratum-1 clock (not RFC 3161)</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--skip">Internal timestamps</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--skip">Timestamped (not RFC 3161)</span></td>
+        <td data-tool="Stillio"><span class="badge badge--fail">Metadata only</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--fail">Crawl timestamps</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--skip">RFC 3161 in spec (not default)</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
       </tr>
       <tr>
-        <th scope="row">PageFreezer</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--skip">SHA-256 signing</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--skip">Stratum-1 clock (not RFC 3161)</span></td>
-        <td data-label="Public Verification"><span class="badge badge--fail">No (platform-only)</span></td>
-        <td data-label="API Access"><span class="badge badge--skip">Partner API</span></td>
-        <td data-label="Standard Format"><span class="badge badge--fail">PDF</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--fail">No</span></td>
+        <th scope="row" class="comparison-sticky-col">Public Verification</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Yes (no account needed)</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--skip">Public access (no crypto)</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--fail">No (platform-only)</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--skip">Expert witness service</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--fail">No (platform-only)</span></td>
+        <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--skip">Public access (no crypto)</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--skip">Validator tools exist</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--skip">Via notary records</span></td>
       </tr>
       <tr>
-        <th scope="row">Hanzo</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--skip">Not documented</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--skip">Not documented</span></td>
-        <td data-label="Public Verification"><span class="badge badge--fail">No</span></td>
-        <td data-label="API Access"><span class="badge badge--fail">No</span></td>
-        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--fail">No</span></td>
+        <th scope="row" class="comparison-sticky-col">eIDAS Qualified</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Optional</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--skip">Separate framework</span></td>
       </tr>
       <tr>
-        <th scope="row">Page Vault</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--skip">SHA-256 hashing</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--skip">Internal timestamps</span></td>
-        <td data-label="Public Verification"><span class="badge badge--skip">Expert witness service</span></td>
-        <td data-label="API Access"><span class="badge badge--fail">No</span></td>
-        <td data-label="Standard Format"><span class="badge badge--fail">Proprietary / PDF</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--fail">No</span></td>
+        <th scope="row" class="comparison-sticky-col">API Access</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">REST API, MCP</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--skip">Yes (rate-limited)</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--skip">Partner API</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--skip">Limited API</span></td>
+        <td data-tool="Stillio"><span class="badge badge--skip">Basic API</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--pass">Yes (WASAPI)</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--pass">Browsertrix API</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--fail">No</span></td>
       </tr>
       <tr>
-        <th scope="row">MirrorWeb</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--skip">SHA-1 per docs</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--skip">Timestamped (not RFC 3161)</span></td>
-        <td data-label="Public Verification"><span class="badge badge--fail">No (platform-only)</span></td>
-        <td data-label="API Access"><span class="badge badge--skip">Limited API</span></td>
-        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--fail">No</span></td>
+        <th scope="row" class="comparison-sticky-col">Standard Format</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">WACZ</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--pass">WARC</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--fail">PDF</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--pass">WARC</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--fail">Proprietary / PDF</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--pass">WARC</span></td>
+        <td data-tool="Stillio"><span class="badge badge--fail">PNG / JPEG</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--pass">WARC</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
       </tr>
       <tr>
-        <th scope="row">Stillio</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--fail">No</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--fail">Metadata only</span></td>
-        <td data-label="Public Verification"><span class="badge badge--fail">No</span></td>
-        <td data-label="API Access"><span class="badge badge--skip">Basic API</span></td>
-        <td data-label="Standard Format"><span class="badge badge--fail">PNG / JPEG</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--fail">No</span></td>
-      </tr>
-      <tr>
-        <th scope="row">Archive-It</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--fail">Checksums only</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--fail">Crawl timestamps</span></td>
-        <td data-label="Public Verification"><span class="badge badge--skip">Public access (no crypto)</span></td>
-        <td data-label="API Access"><span class="badge badge--pass">Yes (WASAPI)</span></td>
-        <td data-label="Standard Format"><span class="badge badge--pass">WARC</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--fail">No</span></td>
-      </tr>
-      <tr>
-        <th scope="row">Webrecorder</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--skip">WACZ-Auth spec (not default)</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--skip">RFC 3161 in spec (not default)</span></td>
-        <td data-label="Public Verification"><span class="badge badge--skip">Validator tools exist</span></td>
-        <td data-label="API Access"><span class="badge badge--pass">Browsertrix API</span></td>
-        <td data-label="Standard Format"><span class="badge badge--pass">WACZ + WARC</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--fail">No</span></td>
-        <td data-label="Source"><span class="badge badge--pass">Yes</span></td>
-      </tr>
-      <tr>
-        <th scope="row">Manual Screenshots + Notarization</th>
-        <td data-label="Cryptographic Signing"><span class="badge badge--skip">Notary attestation</span></td>
-        <td data-label="Independent Timestamps"><span class="badge badge--skip">Notary timestamp</span></td>
-        <td data-label="Public Verification"><span class="badge badge--skip">Via notary records</span></td>
-        <td data-label="API Access"><span class="badge badge--fail">No</span></td>
-        <td data-label="Standard Format"><span class="badge badge--fail">N/A</span></td>
-        <td data-label="eIDAS Qualified"><span class="badge badge--skip">Separate framework</span></td>
-        <td data-label="Source"><span class="badge badge--fail">N/A</span></td>
+        <th scope="row" class="comparison-sticky-col">Source Available</th>
+        <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">PolyForm Shield</span></td>
+        <td data-tool="Wayback Machine"><span class="badge badge--skip">Partial (some tools)</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
+        <td data-tool="Webrecorder"><span class="badge badge--pass">Yes</span></td>
+        <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
       </tr>
     </tbody>
   </table>
