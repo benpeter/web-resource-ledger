@@ -2042,7 +2042,7 @@ export async function getTenantDetail(db, tenantId, periodLimit = 6) {
  *   tenantsByBillingStatus: { active: number, gracePeriod: number, blocked: number },
  *   totalCapturesCurrentPeriod: number,
  *   totalCapturesAllTime: number,
- *   totalStorageBytes: number,
+ *   currentPeriodStorageBytes: number,
  *   totalEidasCaptures: number,
  *   activeApiKeys: number
  * }>}
@@ -2086,7 +2086,7 @@ export async function getOverviewStats(db, period) {
     },
     totalCapturesCurrentPeriod: u.current_captures ?? 0,
     totalCapturesAllTime: u.all_time_captures ?? 0,
-    totalStorageBytes: u.current_storage ?? 0,
+    currentPeriodStorageBytes: u.current_storage ?? 0,
     totalEidasCaptures: u.current_eidas_captures ?? 0,
     activeApiKeys: t.active_api_keys ?? 0,
   };

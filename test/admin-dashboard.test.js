@@ -224,7 +224,7 @@ describe('DAL getOverviewStats -- empty database', () => {
     expect(stats.totalTenants).toBe(0);
     expect(stats.totalCapturesCurrentPeriod).toBe(0);
     expect(stats.totalCapturesAllTime).toBe(0);
-    expect(stats.totalStorageBytes).toBe(0);
+    expect(stats.currentPeriodStorageBytes).toBe(0);
     expect(stats.totalEidasCaptures).toBe(0);
     expect(stats.activeApiKeys).toBe(0);
     expect(stats.tenantsByTier.free).toBe(0);
@@ -577,7 +577,7 @@ describe('GET /v1/admin/overview -- success', () => {
         'totalCapturesAllTime',
         'totalCapturesCurrentPeriod',
         'totalEidasCaptures',
-        'totalStorageBytes',
+        'currentPeriodStorageBytes',
         'totalTenants',
       ].sort(),
     );

@@ -202,7 +202,7 @@ export async function handleAdminGetOverview(request, env, ctx) {
     totalTenants: stats.totalTenants,
     totalCapturesCurrentPeriod: stats.totalCapturesCurrentPeriod,
     totalCapturesAllTime: stats.totalCapturesAllTime,
-    totalStorageBytes: stats.totalStorageBytes,
+    currentPeriodStorageBytes: stats.currentPeriodStorageBytes,
     totalEidasCaptures: stats.totalEidasCaptures,
     tenantsByTier: stats.tenantsByTier,
     tenantsByBillingStatus: stats.tenantsByBillingStatus,

@@ -152,7 +152,7 @@ function buildTenantsContent(overview, tenants) {
   statsRow.appendChild(buildAdminStat(formatNumber(overview.totalTenants), 'Total Tenants'));
   statsRow.appendChild(buildAdminStat(formatNumber(activeCount), 'Active This Period'));
   statsRow.appendChild(buildAdminStat(formatNumber(overview.totalCapturesCurrentPeriod), 'Captures This Period'));
-  statsRow.appendChild(buildAdminStat(formatBytes(overview.totalStorageBytes), 'Total Storage'));
+  statsRow.appendChild(buildAdminStat(formatBytes(overview.currentPeriodStorageBytes), 'Storage This Period'));
   view.appendChild(statsRow);
 
   // --- Toolbar (refresh button) ---

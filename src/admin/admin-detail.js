@@ -315,7 +315,7 @@ function buildKeysSection(keys) {
     var nameTd = document.createElement('td');
     nameTd.style.fontFamily = 'var(--font-mono)';
     nameTd.style.fontSize = 'var(--text-sm)';
-    nameTd.textContent = k.name || k.keyHashPrefix || '(unnamed)';
+    nameTd.textContent = k.name || (k.keyHash ? k.keyHash.slice(0, 8) + '\\u2026' : '(unnamed)');
     tr.appendChild(nameTd);
 
     var scopesTd = document.createElement('td');
