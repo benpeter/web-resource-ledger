@@ -169,9 +169,9 @@ function buildCurrentPeriodSection(data) {
 
   // Usage bar if quota is finite
   var quota = data.quota;
-  if (quota && quota.captures !== null && quota.captures > 0) {
+  if (quota && quota.capturesPerMonth !== null && quota.capturesPerMonth > 0) {
     var used = current.captureCount || 0;
-    var pct = Math.min(100, Math.round((used / quota.captures) * 100));
+    var pct = Math.min(100, Math.round((used / quota.capturesPerMonth) * 100));
     var barWrap = document.createElement('div');
     barWrap.style.marginBottom = 'var(--space-4)';
 
@@ -179,7 +179,7 @@ function buildCurrentPeriodSection(data) {
     barLabel.className = 'text-muted';
     barLabel.style.fontSize = 'var(--text-sm)';
     barLabel.style.marginBottom = 'var(--space-2)';
-    barLabel.textContent = formatNumber(used) + ' / ' + formatNumber(quota.captures) + ' captures (' + pct + '%)';
+    barLabel.textContent = formatNumber(used) + ' / ' + formatNumber(quota.capturesPerMonth) + ' captures (' + pct + '%)';
     barWrap.appendChild(barLabel);
 
     var bar = document.createElement('div');
