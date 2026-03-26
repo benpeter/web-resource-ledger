@@ -7,7 +7,7 @@
  *   DELETE /v1/admin/keys/:keyHash -- revoke API key
  *
  * Auth: all routes use verifyAdminKey (infrastructure secret), NOT verifyApiKey.
- * Rate limit: ADMIN_RATE_LIMITER, 5 req/60s per IP.
+ * Rate limit: ADMIN_RATE_LIMITER, 30 req/60s per IP.
  *
  * Security invariants:
  *   - Raw key is NEVER logged; only returned in the 201 response body.

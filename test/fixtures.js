@@ -380,14 +380,40 @@ export async function seedUsageCounter(db, {
   captureCount = 0,
   storageBytes = 0,
   apiCallCount = 0,
+  eidasCaptureCount = 0,
 } = {}) {
   await db.batch([
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
     db.prepare(
-      `INSERT INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count)
-       VALUES (?, ?, ?, ?, ?)`,
-    ).bind(tenantId, period, captureCount, storageBytes, apiCallCount),
+      `INSERT INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count, eidas_capture_count)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).bind(tenantId, period, captureCount, storageBytes, apiCallCount, eidasCaptureCount),
   ]);
+}
+
+/**
+ * Seed a tenant row with customizable billing and tier columns.
+ * Uses INSERT OR REPLACE so the same tenantId can be updated in a test.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {object} overrides  column overrides
+ */
+export async function seedTenantWithTier(db, tenantId, {
+  tier = 'free',
+  billingStatus = 'active',
+  stripeCustomerId = null,
+  paymentMethodAddedAt = null,
+  eidasQualified = 0,
+  config = null,
+  createdAt = new Date().toISOString(),
+} = {}) {
+  await db.prepare(
+    `INSERT OR REPLACE INTO tenants
+       (id, tier, billing_status, stripe_customer_id, payment_method_added_at, eidas_qualified, config, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(tenantId, tier, billingStatus, stripeCustomerId, paymentMethodAddedAt, eidasQualified,
+    config ? JSON.stringify(config) : null, createdAt).run();
 }
 
 /**

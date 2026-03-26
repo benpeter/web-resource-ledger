@@ -6,7 +6,7 @@
 export const RATE_LIMITS = {
   capture: { limit: 10, period: 60 },   // per-tenant default (all authenticated endpoints)
   verify:  { limit: 60, period: 60 },    // per-IP (unauthenticated)
-  admin:   { limit: 5,  period: 60 },    // per-IP (admin)
+  admin:   { limit: 30, period: 60 },    // per-IP (admin)
   auth:    { limit: 20, period: 60 },    // per-IP (OAuth flow)
   account: { limit: 30, period: 60 },    // per-IP (account settings)
 };

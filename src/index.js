@@ -15,9 +15,11 @@ import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge } from './admin.js';
+import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
 import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey, getCache } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
+import { htmlAdminDashboard } from './admin/admin-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
@@ -66,6 +68,8 @@ const routes = [
   ['GET',    /^\/health$/, handleHealth],
   // UI dashboard -- same-origin only; no CORS needed (browser-only, uses credentials via sessionStorage)
   ['GET',    /^\/ui$/, handleDashboard],
+  // Admin dashboard -- HTML shell served unauthenticated; auth happens client-side before API calls
+  ['GET',    /^\/admin$/, handleAdminDashboard],
   ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
@@ -84,6 +88,12 @@ const routes = [
   ['POST',   /^\/v1\/admin\/cache\/purge$/, handleAdminCachePurge],
   ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handleGetTenantConfig],
   ['PUT',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/config$/, handlePutTenantConfig],
+  // Dashboard routes. List-tenants and overview use exact-match ($); tenant detail
+  // pattern is less specific but placed after the /config routes above so /config
+  // matches first when that path is requested.
+  ['GET',    /^\/v1\/admin\/tenants$/, handleAdminListTenants],
+  ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})$/, handleAdminGetTenant],
+  ['GET',    /^\/v1\/admin\/overview$/, handleAdminGetOverview],
   ['POST',   /^\/v1\/webhooks$/, handleCreateWebhook],
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
   ['DELETE', /^\/v1\/webhooks\/(whk_[a-f0-9]{32})$/, handleDeleteWebhook],
@@ -747,6 +757,10 @@ function handleHealth() {
 
 function handleDashboard() {
   return htmlDashboard();
+}
+
+function handleAdminDashboard() {
+  return htmlAdminDashboard();
 }
 
 /**
