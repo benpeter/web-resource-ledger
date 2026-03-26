@@ -190,7 +190,14 @@ function renderAppShell() {
   headerNav.className = 'site-header__nav';
   headerNav.setAttribute('aria-label', 'Main');
 
-  headerNav.appendChild(_makeLink('https://docs.webresourceledger.com', 'Docs'));
+  var docsLink = _makeLink('https://docs.webresourceledger.com', 'Docs', 'nav-link--external');
+  docsLink.target = '_blank';
+  docsLink.rel = 'noopener';
+  var srText = document.createElement('span');
+  srText.className = 'sr-only';
+  srText.textContent = ' (opens in new tab)';
+  docsLink.appendChild(srText);
+  headerNav.appendChild(docsLink);
 
   if (_authMethod === 'session' && _wrlUser) {
     var usernameSpan = document.createElement('span');
