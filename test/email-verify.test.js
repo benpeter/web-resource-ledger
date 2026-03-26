@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { cleanDb, createTestSession } from './fixtures.js';
 import { generateEmailVerifyToken, verifyEmailVerifyToken } from '../src/email-verify.js';
 import { generateUnsubscribeToken, verifyUnsubscribeToken } from '../src/unsubscribe.js';
+import { swapVerifiedEmail } from '../src/db.js';
 
 const VERIFY_URL = 'https://worker.test/v1/notifications/verify-email';
 const RESEND_URL = 'https://worker.test/v1/account/notifications/resend-verification';
@@ -341,11 +342,9 @@ describe('POST /v1/notifications/verify-email', () => {
   });
 
   it('stale token: fails when pending_email was changed after token was issued', async () => {
-    // NOTE: The existing pending_email cross-check (prefs.pendingEmail !== email)
-    // catches the common case, but swapVerifiedEmail() does not include
-    // AND pending_email = ? in its WHERE clause. A concurrent request could
-    // change pending_email between the check and the swap. See security review
-    // notes in docs/evolution/ for details. The fix is tracked separately.
+    // The pending_email cross-check (prefs.pendingEmail !== email) catches the
+    // common case. swapVerifiedEmail() also pins pending_email = ? in its WHERE
+    // clause as defense-in-depth against TOCTOU races. See #222.
     const { cookie } = await createTosSession({ githubId: 30003 });
     const tenantId = 'gh-30003';
 
@@ -650,5 +649,59 @@ describe('notification continuity', () => {
     expect(afterPrefs.email).toBe('new@example.com');
     expect(afterPrefs.pendingEmail).toBeNull();
     expect(afterPrefs.emailVerified).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. swapVerifiedEmail() direct unit tests (#222 TOCTOU guard)
+// ---------------------------------------------------------------------------
+
+describe('swapVerifiedEmail -- TOCTOU guard', () => {
+  it('rejects swap when expectedEmail does not match pending_email', async () => {
+    // Set up a tenant with a pending email
+    const { cookie } = await createTosSession({ githubId: 70001 });
+    const tenantId = 'gh-70001';
+    await SELF.fetch(NOTIF_URL, {
+      method: 'PUT',
+      headers: {
+        Cookie: cookie,
+        'CF-Connecting-IP': nextIp(),
+        'Content-Type': 'application/json',
+        'X-WRL-CSRF': '1',
+      },
+      body: JSON.stringify({ email: 'real@example.com' }),
+    });
+
+    // Call swapVerifiedEmail with wrong expectedEmail
+    const result = await swapVerifiedEmail(env.DB, tenantId, 'wrong@example.com');
+    expect(result.ok).toBe(false);
+
+    // Verify the row is unchanged: pending_email still set, email still null
+    const row = await env.DB.prepare(
+      'SELECT email, pending_email, email_verified FROM notification_preferences WHERE tenant_id = ?',
+    ).bind(tenantId).first();
+    expect(row.pending_email).toBe('real@example.com');
+    expect(row.email_verified).toBe(0);
+  });
+
+  it('succeeds when expectedEmail matches pending_email', async () => {
+    const { cookie } = await createTosSession({ githubId: 70002 });
+    const tenantId = 'gh-70002';
+    await SELF.fetch(NOTIF_URL, {
+      method: 'PUT',
+      headers: {
+        Cookie: cookie,
+        'CF-Connecting-IP': nextIp(),
+        'Content-Type': 'application/json',
+        'X-WRL-CSRF': '1',
+      },
+      body: JSON.stringify({ email: 'correct@example.com' }),
+    });
+
+    const result = await swapVerifiedEmail(env.DB, tenantId, 'correct@example.com');
+    expect(result.ok).toBe(true);
+    expect(result.prefs.email).toBe('correct@example.com');
+    expect(result.prefs.pendingEmail).toBeNull();
+    expect(result.prefs.emailVerified).toBe(true);
   });
 });

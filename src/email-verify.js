@@ -438,7 +438,7 @@ export async function handlePostVerifyEmail(request, env, ctx, _match) {
   }
 
   // Atomically promote pending_email -> email, email_verified = 1
-  const swapResult = await swapVerifiedEmail(env.DB, tenantId);
+  const swapResult = await swapVerifiedEmail(env.DB, tenantId, email);
 
   if (!swapResult.ok) {
     ctx.waitUntil(log(env, 4, 'email', {
