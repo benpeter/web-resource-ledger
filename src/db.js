@@ -1902,3 +1902,192 @@ export async function setChangeSummary(db, captureId, summary) {
     'UPDATE captures SET change_summary = ? WHERE id = ?',
   ).bind(JSON.stringify(summary), captureId).run();
 }
+
+// ---------------------------------------------------------------------------
+// Admin dashboard operations
+// ---------------------------------------------------------------------------
+
+/**
+ * List all tenants with their current-period usage counters in a single query.
+ * Active key count is included as a correlated subquery so no second round-trip
+ * is needed. Tenants with no usage row for the period return zeroed counters via
+ * COALESCE.
+ *
+ * @param {D1Database} db
+ * @param {string} period  'YYYY-MM' billing period (use computePeriod() for current)
+ * @returns {Promise<Array<{
+ *   id: string,
+ *   tier: string,
+ *   billingStatus: string,
+ *   paymentMethodAddedAt: string|null,
+ *   eidasQualified: boolean,
+ *   config: string|null,
+ *   createdAt: string,
+ *   captureCount: number,
+ *   storageBytes: number,
+ *   apiCallCount: number,
+ *   eidasCaptureCount: number,
+ *   keyCount: number
+ * }>>}
+ */
+export async function listTenantsWithUsage(db, period) {
+  const { results } = await db.prepare(
+    `SELECT
+       t.id,
+       t.tier,
+       t.billing_status,
+       t.payment_method_added_at,
+       t.eidas_qualified,
+       t.config,
+       t.created_at,
+       COALESCE(u.capture_count, 0) AS capture_count,
+       COALESCE(u.storage_bytes, 0) AS storage_bytes,
+       COALESCE(u.api_call_count, 0) AS api_call_count,
+       COALESCE(u.eidas_capture_count, 0) AS eidas_capture_count,
+       (SELECT COUNT(*) FROM api_keys ak WHERE ak.tenant_id = t.id AND ak.revoked = 0) AS key_count
+     FROM tenants t
+     LEFT JOIN usage_counters u
+       ON u.tenant_id = t.id AND u.period = ?
+     ORDER BY t.created_at DESC`,
+  ).bind(period).all();
+
+  return (results ?? []).map(row => ({
+    id: row.id,
+    tier: row.tier,
+    billingStatus: row.billing_status,
+    paymentMethodAddedAt: row.payment_method_added_at ?? null,
+    eidasQualified: Boolean(row.eidas_qualified),
+    config: row.config ?? null,
+    createdAt: row.created_at,
+    captureCount: row.capture_count,
+    storageBytes: row.storage_bytes,
+    apiCallCount: row.api_call_count,
+    eidasCaptureCount: row.eidas_capture_count,
+    keyCount: row.key_count,
+  }));
+}
+
+/**
+ * Return comprehensive data for a single tenant in one db.batch() round-trip:
+ * the tenant row, recent usage history, and active API key summaries.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {number} [periodLimit=6]  Number of billing periods of history to return
+ * @returns {Promise<{
+ *   tenant: object,
+ *   usageHistory: object[],
+ *   keys: object[]
+ * }|null>}  null if the tenant does not exist
+ */
+export async function getTenantDetail(db, tenantId, periodLimit = 6) {
+  const [tenantResult, usageResult, keysResult] = await db.batch([
+    db.prepare('SELECT * FROM tenants WHERE id = ?').bind(tenantId),
+    db.prepare(
+      `SELECT period, capture_count, storage_bytes, api_call_count, eidas_capture_count, updated_at
+       FROM usage_counters WHERE tenant_id = ? ORDER BY period DESC LIMIT ?`,
+    ).bind(tenantId, periodLimit),
+    db.prepare(
+      `SELECT key_hash, name, scopes, created_at, created_by
+       FROM api_keys WHERE tenant_id = ? AND revoked = 0 ORDER BY created_at DESC`,
+    ).bind(tenantId),
+  ]);
+
+  const tenantRow = tenantResult.results?.[0] ?? null;
+  if (!tenantRow) return null;
+
+  const tenant = {
+    id: tenantRow.id,
+    tier: tenantRow.tier,
+    billingStatus: tenantRow.billing_status,
+    gracePeriodEnd: tenantRow.grace_period_end ?? null,
+    paymentMethodAddedAt: tenantRow.payment_method_added_at ?? null,
+    stripeCustomerId: tenantRow.stripe_customer_id ?? null,
+    eidasQualified: Boolean(tenantRow.eidas_qualified),
+    config: tenantRow.config ?? null,
+    createdAt: tenantRow.created_at,
+    updatedAt: tenantRow.updated_at ?? null,
+  };
+
+  const usageHistory = (usageResult.results ?? []).map(row => ({
+    period: row.period,
+    captureCount: row.capture_count,
+    storageBytes: row.storage_bytes,
+    apiCallCount: row.api_call_count,
+    eidasCaptureCount: row.eidas_capture_count ?? 0,
+    updatedAt: row.updated_at ?? null,
+  }));
+
+  const keys = (keysResult.results ?? []).map(row => ({
+    keyHash: row.key_hash,
+    name: row.name,
+    scopes: JSON.parse(row.scopes),
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+  }));
+
+  return { tenant, usageHistory, keys };
+}
+
+/**
+ * Return platform-wide aggregate statistics in a single db.batch() round-trip.
+ * Tenant breakdown and usage aggregates are fetched simultaneously and merged
+ * into a flat result object.
+ *
+ * @param {D1Database} db
+ * @param {string} period  'YYYY-MM' billing period for current-period metrics
+ * @returns {Promise<{
+ *   totalTenants: number,
+ *   tenantsByTier: { free: number, pro: number },
+ *   tenantsByBillingStatus: { active: number, gracePeriod: number, blocked: number },
+ *   totalCapturesCurrentPeriod: number,
+ *   totalCapturesAllTime: number,
+ *   totalStorageBytes: number,
+ *   totalEidasCaptures: number,
+ *   activeApiKeys: number
+ * }>}
+ */
+export async function getOverviewStats(db, period) {
+  const [tenantsResult, usageResult] = await db.batch([
+    db.prepare(
+      `SELECT
+         COUNT(*) AS total_tenants,
+         SUM(CASE WHEN tier = 'free' THEN 1 ELSE 0 END) AS free_count,
+         SUM(CASE WHEN tier = 'pro' THEN 1 ELSE 0 END) AS pro_count,
+         SUM(CASE WHEN billing_status = 'active' THEN 1 ELSE 0 END) AS active_count,
+         SUM(CASE WHEN billing_status = 'grace_period' THEN 1 ELSE 0 END) AS grace_count,
+         SUM(CASE WHEN billing_status = 'blocked' THEN 1 ELSE 0 END) AS blocked_count,
+         (SELECT COUNT(*) FROM api_keys WHERE revoked = 0) AS active_api_keys
+       FROM tenants`,
+    ),
+    db.prepare(
+      `SELECT
+         SUM(CASE WHEN period = ? THEN capture_count ELSE 0 END) AS current_captures,
+         SUM(capture_count) AS all_time_captures,
+         SUM(CASE WHEN period = ? THEN storage_bytes ELSE 0 END) AS current_storage,
+         SUM(CASE WHEN period = ? THEN eidas_capture_count ELSE 0 END) AS current_eidas_captures
+       FROM usage_counters`,
+    ).bind(period, period, period),
+  ]);
+
+  const t = tenantsResult.results?.[0] ?? {};
+  const u = usageResult.results?.[0] ?? {};
+
+  return {
+    totalTenants: t.total_tenants ?? 0,
+    tenantsByTier: {
+      free: t.free_count ?? 0,
+      pro: t.pro_count ?? 0,
+    },
+    tenantsByBillingStatus: {
+      active: t.active_count ?? 0,
+      gracePeriod: t.grace_count ?? 0,
+      blocked: t.blocked_count ?? 0,
+    },
+    totalCapturesCurrentPeriod: u.current_captures ?? 0,
+    totalCapturesAllTime: u.all_time_captures ?? 0,
+    totalStorageBytes: u.current_storage ?? 0,
+    totalEidasCaptures: u.current_eidas_captures ?? 0,
+    activeApiKeys: t.active_api_keys ?? 0,
+  };
+}
