@@ -164,7 +164,8 @@ body {
   flex-wrap: wrap;
 }
 
-.site-header nav a {
+/* :not(.btn) excludes the Sign-in button so .btn--primary styles apply cleanly */
+.site-header nav a:not(.btn) {
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -174,14 +175,18 @@ body {
   white-space: nowrap;
 }
 
-.site-header nav a:hover {
+.site-header nav a:not(.btn):hover {
   color: var(--color-text);
   background: var(--color-surface-muted);
 }
 
-.site-header nav a:focus-visible {
+.site-header nav a:not(.btn):focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+.site-header nav .btn--primary:visited {
+  color: var(--color-primary-text);
 }
 
 /* ===================================================================
