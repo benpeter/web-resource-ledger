@@ -3,6 +3,20 @@ name: Deploy to Staging
 on:
   push:
     branches: [main]
+    # Non-code paths that don't affect the Worker runtime.
+    # Docs/site/landing have their own deploy workflows.
+    # Update this list when adding new non-code directories.
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'site/**'
+      - 'landing/**'
+      - 'packages/**'
+      - 'scripts/autonomous/**'
+      - 'LICENSE'
+      - 'TERMS.md'
+      - '.github/workflows/vibe-coded-badge.yml'
+      - '.github/actions/vibe-badge/**'
   workflow_dispatch:
 
 permissions:
