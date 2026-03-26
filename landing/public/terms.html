@@ -22,23 +22,21 @@
 
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/css/design-system.css">
+  <link rel="stylesheet" href="/css/site-nav.css">
   <link rel="stylesheet" href="/css/landing.css">
 </head>
 <body>
 
   <a class="sr-only skip-link" href="#content">Skip to content</a>
 
-  <!-- Shared header: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <!-- Site header (shared across all WRL subdomains) -->
   <header class="site-header" role="banner">
     <div class="container">
-      <a href="/" class="site-header__logo" aria-label="Web Resource Ledger home">
+      <a href="https://webresourceledger.com" class="site-header__logo" aria-label="Web Resource Ledger home">
         <img src="/assets/logo-w-check.svg" width="28" height="28" alt="" aria-hidden="true">
         <span class="site-header__wordmark">Web Resource Ledger</span>
       </a>
-      <nav aria-label="Main">
-        <a href="/#how-it-works">How It Works</a>
-        <a href="/#use-cases">Use Cases</a>
-        <a href="/#pricing">Pricing</a>
+      <nav class="site-header__nav" aria-label="Main">
         <a href="https://docs.webresourceledger.com">Docs</a>
         <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
       </nav>
@@ -128,7 +126,7 @@
     </div>
   </main>
 
-  <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
+  <!-- Site footer (shared across all WRL subdomains) -->
   <footer class="site-footer" role="contentinfo">
     <div class="container">
       <div class="site-footer__inner">

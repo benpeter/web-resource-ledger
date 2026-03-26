@@ -93,8 +93,8 @@ body {
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: 56px;
+  height: calc(100vh - 56px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
