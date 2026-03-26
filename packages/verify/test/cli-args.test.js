@@ -60,6 +60,17 @@ describe('parseArgs -- boolean flags', () => {
     const opts = parseArgs(['--trust-embedded', 'file.wacz']);
     assert.strictEqual(opts.trustEmbedded, true);
   });
+
+  it('--legal sets legal: true', () => {
+    const opts = parseArgs(['--legal', 'file.wacz']);
+    assert.strictEqual(opts.legal, true);
+  });
+
+  it('--legal --json sets both legal and json to true', () => {
+    const opts = parseArgs(['--legal', '--json', 'file.wacz']);
+    assert.strictEqual(opts.legal, true);
+    assert.strictEqual(opts.json, true);
+  });
 });
 
 describe('parseArgs -- value flags', () => {
@@ -147,6 +158,7 @@ describe('parseArgs -- defaults', () => {
     assert.strictEqual(opts.trustEmbedded, false);
     assert.deepStrictEqual(opts.trustRoots, []);
     assert.strictEqual(opts.json, false);
+    assert.strictEqual(opts.legal, false);
     assert.strictEqual(opts.noColor, false);
     assert.strictEqual(opts.help, false);
     assert.strictEqual(opts.version, false);

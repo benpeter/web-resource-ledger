@@ -168,6 +168,10 @@ const ALGORITHMS = [
 const LINE = '---------------------------------------------------------------------------';
 const DOUBLE = '===========================================================================';
 
+function shellQuote(s) {
+  return "'" + String(s ?? '').replace(/'/g, "'\\''") + "'";
+}
+
 function toolLine(version) {
   return `@w-r-l/verify ${version} (Node.js ${process.versions.node}, ` +
     `${process.platform} ${process.arch})`;
@@ -236,8 +240,20 @@ export function formatLegal(result, opts = {}) {
   }
 
   const checks = result.checks ?? [];
-  const applicable = checks.filter(c => c.status !== 'skip');
-  const passed = applicable.filter(c => c.status === 'pass');
+
+  // Display order for legal report -- all checks shown individually
+  const checkOrder = [
+    'artifactHashes',
+    'bundleHash',
+    'signature',
+    'timestamp',
+    'qualifiedTimestamp',
+    'timestampChain',
+  ];
+
+  // Summary counts use only checks that appear in Section 3
+  const reportedChecks = checks.filter(c => checkOrder.includes(c.name));
+  const applicable = reportedChecks.filter(c => c.status !== 'skip');
   const failed = applicable.filter(c => c.status === 'fail');
 
   if (failed.length === 0) {
@@ -285,16 +301,6 @@ export function formatLegal(result, opts = {}) {
   out.push('3. VERIFICATION CHECKS PERFORMED');
   out.push(LINE);
   out.push('');
-
-  // Display order for legal report -- all checks shown individually
-  const checkOrder = [
-    'artifactHashes',
-    'bundleHash',
-    'signature',
-    'timestamp',
-    'qualifiedTimestamp',
-    'timestampChain',
-  ];
 
   let subNum = 1;
   for (const name of checkOrder) {
@@ -482,9 +488,9 @@ export function formatLegal(result, opts = {}) {
   ));
   out.push('');
   // Build command from result, not process.argv (security: avoid leaking paths)
-  let cmd = `  npx @w-r-l/verify@${version} ${result.source ?? '<file-or-url>'}`;
+  let cmd = `  npx @w-r-l/verify@${version} ${shellQuote(result.source ?? '<file-or-url>')}`;
   if (kr?.source === 'origin' && kr.origin) {
-    cmd += ` --origin ${kr.origin}`;
+    cmd += ` --origin ${shellQuote(kr.origin)}`;
   } else if (kr?.source === 'embedded') {
     cmd += ' --trust-embedded';
   }
