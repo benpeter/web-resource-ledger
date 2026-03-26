@@ -377,7 +377,7 @@ async function handleInvoiceFinalized(event, env, ctx) {
     amountFormatted,
     currency,
     period,
-    portalUrl: invoice?.hosted_invoice_url || `${baseUrl}/ui#billing`,
+    portalUrl: `${baseUrl}/ui#billing`,
   }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: tenant.id })));
 
   ctx.waitUntil(log(env, 3, 'billing', {
