@@ -1,0 +1,30 @@
+# Web Resource Ledger (WRL)
+
+> Tamper-evident web archiving with cryptographic proof. Captures web pages with Ed25519 signatures, RFC 3161 timestamps, and optional eIDAS-qualified timestamps. Produces signed WACZ bundles that anyone can independently verify.
+
+## Product
+
+Web Resource Ledger is a web capture API that produces cryptographically signed evidence bundles. Each capture includes a rendered screenshot, HTML snapshot, HTTP headers, and resource manifest -- all bundled into a signed WACZ archive.
+
+- Ed25519 digital signatures on every capture
+- RFC 3161 independent timestamps (default)
+- eIDAS-qualified timestamps (optional, EU legal standard)
+- Public verification URLs (no account needed)
+- WACZ open archive format
+- REST API, MCP server, CLI verification tool
+- 200 free captures/month, usage-based pricing after
+- Self-hostable under Apache 2.0
+
+## Use Cases
+
+- Legal evidence: FRE 901(b)(9) and FRE 902(14) authentication, eIDAS Art. 41(2) timestamps
+- Compliance archiving: timestamped, tamper-evident records for regulatory audits
+- AI agent grounding: MCP server for verifiable web observations
+- Journalism: preserve sources with cryptographic proof
+
+## Links
+
+- Docs: https://docs.webresourceledger.com
+- API Reference: https://docs.webresourceledger.com/api-reference/
+- GitHub: https://github.com/benpeter/web-resource-ledger
+- Pricing: https://webresourceledger.com/#pricing

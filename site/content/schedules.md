@@ -2,6 +2,7 @@
 layout: layouts/doc.njk
 title: Scheduled Captures
 description: Automate recurring captures with cron-style schedules. WRL runs each schedule at its configured interval and submits a new capture automatically.
+noindex: true
 ---
 
 # Scheduled Captures

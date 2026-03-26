@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Data Retention and Deletion
-description: How long WRL retains data and how tenant data is deleted on request.
+description: WRL data retention periods — how long capture data, ephemeral data, and account data are retained, and how to request deletion under GDPR.
 ---
 
 # Data Retention and Deletion

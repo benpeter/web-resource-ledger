@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Getting Started
-description: Capture a web page with cryptographic proof of authenticity in three steps. Ed25519 signatures and RFC 3161 timestamps that anyone can independently verify.
+description: Capture a web page with cryptographic proof in three steps. Ed25519 signatures and RFC 3161 timestamps — web capture API quickstart guide.
 ---
 
 # Getting Started

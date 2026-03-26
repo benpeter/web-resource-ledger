@@ -99,3 +99,4 @@ software development.
 | [0088-autoconsent-ci](0088-autoconsent-ci/) | Automated autoconsent update pipeline: GitHub Action for weekly vendor updates with test battery (Issue #152) |
 | [0089-landing-legal-section-ordering](0089-landing-legal-section-ordering/) | Landing page section reorder: Use Cases above How It Works, trust bar rejected, legal claims stay in use case card (Issue #207) |
 | [0090-feature-list-competitor-comparison](0090-feature-list-competitor-comparison/) | Feature list and competitor comparison table on landing page and docs site (Issue #144) |
+| [0091-seo-geo-optimization](0091-seo-geo-optimization/) | SEO + GEO optimization for landing page and docs site — structured data, FAQ, sitemaps, llms.txt (Issue #215) |

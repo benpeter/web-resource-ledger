@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Resource Ledger -- Cryptographic Evidence of Web Content</title>
-  <meta name="description" content="Web evidence you can prove. Capture web pages with Ed25519 signatures, RFC 3161 timestamps, and optional eIDAS-qualified timestamps. Signed WACZ bundles anyone can independently verify.">
+  <meta name="description" content="Capture web pages with Ed25519 signatures and RFC 3161 timestamps. Signed WACZ bundles anyone can verify. Free tier, usage-based pricing.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://webresourceledger.com/">
 
@@ -16,7 +16,7 @@
   <meta property="og:site_name" content="Web Resource Ledger">
 
   <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Web Resource Ledger -- Cryptographic Evidence of Web Content">
   <meta name="twitter:description" content="Capture web pages with Ed25519 signatures and RFC 3161 timestamps. Proof anyone can verify.">
 
@@ -36,6 +36,7 @@
     "alternateName": "WRL",
     "url": "https://webresourceledger.com/",
     "logo": "https://webresourceledger.com/assets/logo-w-check.svg",
+    "description": "Cryptographic evidence of web content. Captures web pages with tamper-evident proof anyone can verify.",
     "sameAs": ["https://github.com/benpeter/web-resource-ledger"],
     "contactPoint": {
       "@type": "ContactPoint",
@@ -77,17 +78,119 @@
     "isAccessibleForFree": true,
     "applicationSubCategory": "Web Evidence",
     "offers": {
-      "@type": "Offer",
-      "name": "Free tier",
-      "price": "0",
+      "@type": "AggregateOffer",
       "priceCurrency": "EUR",
-      "availability": "https://schema.org/InStock"
+      "lowPrice": "0",
+      "offerCount": "3",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free tier",
+          "description": "200 captures per month",
+          "price": "0",
+          "priceCurrency": "EUR"
+        },
+        {
+          "@type": "Offer",
+          "name": "Usage-based",
+          "description": "Pay per capture after free tier",
+          "price": "0.05",
+          "priceCurrency": "EUR"
+        },
+        {
+          "@type": "Offer",
+          "name": "Enterprise",
+          "description": "Custom volume pricing and SLA",
+          "price": "0",
+          "priceCurrency": "EUR",
+          "priceSpecification": {
+            "@type": "PriceSpecification",
+            "priceCurrency": "EUR",
+            "eligibleQuantity": {
+              "@type": "QuantitativeValue",
+              "minValue": 100000
+            }
+          }
+        }
+      ]
     },
     "author": {
       "@type": "Organization",
       "name": "Web Resource Ledger",
       "url": "https://webresourceledger.com/"
     }
+  }
+  </script>
+
+  <!-- Structured Data: HowTo (GEO value for AI retrieval pipelines) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to capture web evidence with WRL",
+    "description": "Three steps to create cryptographic evidence of web content.",
+    "step": [
+      {
+        "@type": "HowToStep",
+        "position": 1,
+        "name": "Capture",
+        "text": "Submit a URL. WRL renders the page in a headless browser, captures a screenshot, the rendered HTML, and HTTP headers -- recording what the page looked like at that moment."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 2,
+        "name": "Sign",
+        "text": "Every artifact is hashed, bundled into a WACZ archive, and signed with Ed25519. An independent RFC 3161 timestamp from a third-party authority anchors the capture to a specific point in time."
+      },
+      {
+        "@type": "HowToStep",
+        "position": 3,
+        "name": "Verify",
+        "text": "Share the verification link with anyone. They can confirm the content has not been altered and the timestamp is authentic -- no account needed, no trust in you required."
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data: FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How does WRL differ from a screenshot or PDF?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Cryptographic signatures prove the capture is unaltered. Independent timestamps prove when it was made. The WACZ bundle includes all page resources, not just an image. Anyone can verify without trusting the capturer."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is WRL evidence admissible in court?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "WRL captures meet the technical requirements of FRE 901(b)(9) and FRE 902(14) for self-authenticating evidence, and eIDAS Art. 41(2) for qualified timestamps. However, WRL provides the technical foundation -- consult legal counsel for jurisdiction-specific admissibility."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I verify a capture without an account?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Every capture has a public verification URL. Verification checks signatures and timestamps using the CLI tool or web verifier. No account or API key is required."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I self-host WRL?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. WRL is open source under the Apache 2.0 license. You can deploy it on your own Cloudflare Workers infrastructure. The hosted service at api.webresourceledger.com is the same codebase."
+        }
+      }
+    ]
   }
   </script>
 </head>
@@ -107,6 +210,7 @@
         <a href="#features">Features</a>
         <a href="#how-it-works">How It Works</a>
         <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
         <a href="https://docs.webresourceledger.com">Docs</a>
         <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
       </nav>
@@ -417,6 +521,33 @@
       </div>
     </section>
 
+    <!-- FAQ -->
+    <section class="landing-section landing-section--muted faq" id="faq" aria-labelledby="faq-heading">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="faq-heading">Frequently Asked Questions</h2>
+        </div>
+        <dl class="faq__list">
+          <div class="faq__item">
+            <dt class="faq__question">How does WRL differ from a screenshot or PDF?</dt>
+            <dd class="faq__answer">Cryptographic signatures prove the capture is unaltered. Independent timestamps prove when it was made. The WACZ bundle includes all page resources, not just an image. Anyone can verify without trusting the capturer.</dd>
+          </div>
+          <div class="faq__item">
+            <dt class="faq__question">Is WRL evidence admissible in court?</dt>
+            <dd class="faq__answer">WRL captures meet the technical requirements of FRE 901(b)(9) and FRE 902(14) for self-authenticating evidence, and eIDAS Art. 41(2) for qualified timestamps. However, WRL provides the technical foundation -- consult legal counsel for jurisdiction-specific admissibility.</dd>
+          </div>
+          <div class="faq__item">
+            <dt class="faq__question">Can I verify a capture without an account?</dt>
+            <dd class="faq__answer">Yes. Every capture has a public verification URL. Verification checks signatures and timestamps using the CLI tool or web verifier. No account or API key is required.</dd>
+          </div>
+          <div class="faq__item">
+            <dt class="faq__question">Can I self-host WRL?</dt>
+            <dd class="faq__answer">Yes. WRL is open source under the Apache 2.0 license. You can deploy it on your own Cloudflare Workers infrastructure. The hosted service at api.webresourceledger.com is the same codebase.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
   </main>
 
   <!-- Shared footer: update in all pages (index, 404, privacy, refund-policy, terms, content-policy) -->
@@ -433,14 +564,14 @@
 
         <div class="site-footer__links">
           <nav aria-label="Product">
-            <h4 class="site-footer__heading">Product</h4>
+            <h2 class="site-footer__heading">Product</h2>
             <a href="https://docs.webresourceledger.com">Docs</a>
             <a href="https://api.webresourceledger.com/ui">Web UI</a>
             <a href="https://docs.webresourceledger.com/api-reference/">API Reference</a>
             <a href="https://github.com/benpeter/web-resource-ledger">GitHub</a>
           </nav>
           <nav aria-label="Legal">
-            <h4 class="site-footer__heading">Legal</h4>
+            <h2 class="site-footer__heading">Legal</h2>
             <a href="/terms">Terms of Service</a>
             <a href="/privacy">Privacy Policy</a>
             <a href="/security">Security</a>

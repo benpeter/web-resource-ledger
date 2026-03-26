@@ -1,6 +1,8 @@
 export default {
   title: "WRL Documentation",
   baseUrl: "https://webresourceledger.com",
+  docsUrl: "https://docs.webresourceledger.com",
+  description: "Developer documentation for Web Resource Ledger — cryptographic web evidence API with Ed25519 signatures and RFC 3161 timestamps.",
   nav: [
     { title: "Getting Started", url: "/" },
     { title: "Authentication", url: "/authentication/" },

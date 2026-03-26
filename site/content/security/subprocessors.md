@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Subprocessors
-description: Third-party services that process data on behalf of WRL and its customers.
+description: Third-party subprocessors used by WRL — cloud infrastructure, storage, timestamp authorities, and services that process customer capture data.
 ---
 
 # Subprocessors

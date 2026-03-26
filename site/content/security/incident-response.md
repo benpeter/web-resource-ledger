@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Incident Response
-description: How WRL detects, assesses, and responds to security incidents.
+description: WRL incident response policy — how security incidents are detected, triaged, contained, and disclosed to affected customers and regulators.
 ---
 
 # Incident Response
