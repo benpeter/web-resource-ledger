@@ -8,7 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default function (eleventyConfig) {
   // Syntax highlighting (Prism, build-time)
-  eleventyConfig.addPlugin(syntaxHighlight);
+  eleventyConfig.addPlugin(syntaxHighlight, {
+    init({ Prism }) {
+      Prism.languages.mermaid = {}; // passthrough — preserves class for client-side rendering
+    },
+  });
 
   // Copy site CSS, JS, and assets
   eleventyConfig.addPassthroughCopy("css");

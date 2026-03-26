@@ -11,6 +11,7 @@ export default {
     { title: "Webhooks", url: "/webhooks/" },
     { title: "MCP Server", url: "/mcp/" },
     { title: "API Reference", url: "/api-reference/" },
+    { title: "Architecture", url: "/architecture/" },
     // Security & Compliance
     { title: "Security & Compliance", url: "/security/" },
     { title: "Security Whitepaper", url: "/security/whitepaper/" },
