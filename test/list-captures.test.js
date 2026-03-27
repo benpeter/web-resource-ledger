@@ -656,4 +656,17 @@ describe('GET /v1/captures -- schedule_id filter', () => {
     const body = await res.json();
     expect(body.detail).toContain('schedule_id');
   });
+
+  it('list projection includes scheduleId for complete captures with a schedule', async () => {
+    await completeCapture(env.DB, CAP_SCHED, {
+      screenshot: `captures/${CAP_SCHED}/screenshot.png`,
+      html: `captures/${CAP_SCHED}/rendered.html`,
+    });
+    const res = await listCaptures({ status: 'complete' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const item = body.data.find(d => d.id === CAP_SCHED);
+    expect(item).toBeDefined();
+    expect(item.scheduleId).toBe(TEST_SCHEDULE_ID);
+  });
 });

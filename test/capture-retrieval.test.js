@@ -14,6 +14,7 @@ import {
   cleanDb,
   seedApiKey,
   seedCapture,
+  seedSchedule,
   createTestSession,
   TEST_TENANT_KEY,
   TEST_TENANT_KEY_B,
@@ -157,6 +158,34 @@ describe('GET /v1/captures/{id} -- tenant isolation', () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`);
     const body = await res.json();
     expect(body.ip).toBeUndefined();
+  });
+
+  it('response includes changeSummary when present', async () => {
+    const schedId = 'sch_' + 'e'.repeat(32);
+    const capId = 'cap_' + 'c'.repeat(32);
+    const prevId = 'cap_' + 'd'.repeat(32);
+    const cs = { changed: true, previousCaptureId: prevId, html: { changed: true }, screenshot: { changed: false }, headers: { changed: false } };
+    await seedSchedule(env.DB, schedId, { tenantId: TENANT_A_ID });
+    await seedCapture(env.DB, capId, {
+      tenantId: TENANT_A_ID,
+      status: 'complete',
+      completedAt: new Date().toISOString(),
+      artifacts: { screenshot: `captures/${capId}/screenshot.png`, html: `captures/${capId}/rendered.html` },
+      changeSummary: cs,
+      scheduleId: schedId,
+    });
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${capId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.changeSummary).toEqual(cs);
+    expect(body.scheduleId).toBe(schedId);
+  });
+
+  it('response omits changeSummary and scheduleId when absent', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`);
+    const body = await res.json();
+    expect(body.changeSummary).toBeUndefined();
+    expect(body.scheduleId).toBeUndefined();
   });
 
   it('security headers present on 200', async () => {

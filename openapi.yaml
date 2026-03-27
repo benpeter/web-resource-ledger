@@ -629,6 +629,33 @@ components:
         scheduleId:
           type: ['string', 'null']
           description: ID of the schedule that triggered this capture, if any. Null for manually submitted captures.
+        changeSummary:
+          type: object
+          description: >
+            Summary of what changed compared to the previous scheduled capture of
+            the same URL. Present only on captures produced by a schedule that has
+            a prior capture to compare against.
+          properties:
+            changed:
+              type: boolean
+              description: True if any artifact changed.
+            previousCaptureId:
+              $ref: '#/components/schemas/CaptureId'
+            html:
+              type: object
+              properties:
+                changed:
+                  type: boolean
+            screenshot:
+              type: object
+              properties:
+                changed:
+                  type: boolean
+            headers:
+              type: object
+              properties:
+                changed:
+                  type: boolean
 
     CaptureSummary:
       type: object

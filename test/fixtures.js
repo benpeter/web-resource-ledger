@@ -440,14 +440,15 @@ export async function seedCapture(db, id, {
   render = null,
   captureSettings = null,
   scheduleId = null,
+  changeSummary = null,
 } = {}) {
   await db.batch([
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
     db.prepare(
       `INSERT OR IGNORE INTO captures
          (id, tenant_id, url, ip, status, created_at, completed_at, failed_at,
-          error, retryable, render_quality, artifacts, wacz, render, capture_settings, schedule_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          error, retryable, render_quality, artifacts, wacz, render, capture_settings, schedule_id, change_summary)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       id, tenantId, url, ip, status, createdAt, completedAt, failedAt,
       error,
@@ -458,6 +459,7 @@ export async function seedCapture(db, id, {
       render ? JSON.stringify(render) : null,
       captureSettings ? JSON.stringify(captureSettings) : null,
       scheduleId,
+      changeSummary ? JSON.stringify(changeSummary) : null,
     ),
   ]);
 }

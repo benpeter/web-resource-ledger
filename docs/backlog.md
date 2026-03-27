@@ -160,7 +160,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 |------|-----------|--------|
 | [consider] Schedule pause/resume (PATCH endpoint) | Schema supports it (`paused` column); expose when tenants need to pause without deleting | Phase 0059, lucy/margo scope review |
 | [consider] Schedule-specific webhook events | Beyond capture.complete/failed; when schedule monitoring is requested | Phase 0059, out-of-scope |
-| [consider] Change detection between scheduled captures | Diff/comparison of captures from same schedule; when a user requests it | Phase 0059, out-of-scope |
+| ~~[consider] Change detection between scheduled captures~~ | ~~Diff/comparison of captures from same schedule; when a user requests it~~ -- DONE (Phase 0106): UI capture picker for comparing any two captures of same URL, changeSummary/scheduleId surfaced in API (Issue #236) | Phase 0059, out-of-scope |
 
 ### Billing (R29 shipped -- extensions)
 
