@@ -38,7 +38,7 @@
       </a>
       <nav class="site-header__nav" aria-label="Main">
         <a href="https://docs.webresourceledger.com">Docs</a>
-        <a href="https://api.webresourceledger.com/auth/login" class="btn btn--primary btn--sm">Sign in</a>
+        <a href="https://api.webresourceledger.com/auth/login?from=landing" class="btn btn--primary btn--sm">Sign in</a>
       </nav>
     </div>
   </header>
@@ -47,7 +47,7 @@
     <div class="container">
       <article class="article">
         <h1>Privacy Policy</h1>
-        <p class="article__meta">Effective: 2026-03-23</p>
+        <p class="article__meta">Effective: 2026-03-27</p>
 
         <h2>Controller</h2>
         <p>Gerhard Benjamin Peter (sole proprietor)<br>
@@ -112,6 +112,16 @@
         <h3>Usage Data</h3>
         <p>We track monthly capture counts and storage usage per tenant for quota enforcement. This is operational data tied to your tenant ID.</p>
 
+        <h3>Website Analytics</h3>
+        <p>We count page visits across all WRL properties (landing page, documentation, API) using <strong>Pirsch Analytics</strong>, a privacy-focused analytics service operated by Emvi Software GmbH in Germany. Pirsch operates entirely server-side:</p>
+        <ul>
+          <li><strong>No cookies</strong> are set for analytics purposes</li>
+          <li><strong>No client-side JavaScript</strong> is loaded for analytics</li>
+          <li>Your <strong>IP address</strong> is transmitted to Pirsch for session fingerprinting but is <strong>never stored</strong> &mdash; it is hashed with a daily-rotating salt and discarded within milliseconds</li>
+          <li>The resulting hash is domain-specific and cannot be used for cross-site tracking</li>
+        </ul>
+        <p>We also track anonymous conversion events (signup, first API capture, payment activation) to understand how visitors become users. These events include your tenant ID but no personal data beyond what is listed above.</p>
+
         <h2>Legal Basis for Processing</h2>
         <table>
           <thead>
@@ -156,6 +166,11 @@
               <td>Usage counters</td>
               <td>Contract performance (quota enforcement)</td>
               <td>Art. 6(1)(b)</td>
+            </tr>
+            <tr>
+              <td>Analytics data (IP, User-Agent, page URL)</td>
+              <td>Legitimate interest (understanding visitor traffic to improve the service)</td>
+              <td>Art. 6(1)(f)</td>
             </tr>
           </tbody>
         </table>
@@ -259,6 +274,12 @@
               <td>The URL submitted for capture (may contain personal data in query strings)</td>
               <td>USA</td>
             </tr>
+            <tr>
+              <td>Pirsch Analytics (Emvi Software GmbH)</td>
+              <td>Privacy-focused website analytics (server-side, no cookies)</td>
+              <td>IP address (processed transiently, never stored), User-Agent, page URL, Referer</td>
+              <td>Germany (EU)</td>
+            </tr>
           </tbody>
         </table>
         <p>We maintain data processing agreements with our infrastructure providers as required by GDPR Article 28. For a detailed list of all subprocessors including data transfer mechanisms, see our <a href="https://docs.webresourceledger.com/security/subprocessors/">Subprocessor List</a>.</p>
@@ -305,7 +326,7 @@
         <a href="https://datenschutz.hessen.de">https://datenschutz.hessen.de</a></p>
 
         <h2>International Data Transfers</h2>
-        <p>Some of our processors (GitHub, DigiCert, Sectigo, Stripe, Resend, Google) are based in the USA. Cloudflare processes data globally across its network. These transfers are conducted under appropriate safeguards, including the EU-US Data Privacy Framework and Standard Contractual Clauses where applicable. See the <a href="https://docs.webresourceledger.com/security/subprocessors/">Subprocessor List</a> for the specific transfer mechanism for each processor.</p>
+        <p>Some of our processors (GitHub, DigiCert, Sectigo, Stripe, Resend, Google) are based in the USA. Cloudflare processes data globally across its network. These transfers are conducted under appropriate safeguards, including the EU-US Data Privacy Framework and Standard Contractual Clauses where applicable. Pirsch Analytics processes all data exclusively on servers within the European Union (Germany). No international data transfer is required for analytics. See the <a href="https://docs.webresourceledger.com/security/subprocessors/">Subprocessor List</a> for the specific transfer mechanism for each processor.</p>
 
         <h2>Children</h2>
         <p>WRL is not directed at children under 16. We do not knowingly collect personal data from children. If you believe a child has provided us with personal data, contact us at <a href="mailto:bp@ben-peter.com">bp@ben-peter.com</a> and we will delete it.</p>

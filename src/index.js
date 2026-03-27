@@ -34,6 +34,7 @@ import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
 import { generateCertificate } from './certificate.js';
+import { trackEventRaw } from './pirsch.js';
 
 // tva
 
@@ -233,6 +234,24 @@ async function handleCaptureMessage(msg, env, ctx) {
   }
 
   if (result.ok === true) {
+    // First-capture detection: query BEFORE incrementing
+    try {
+      const priorCaptures = await env.DB.prepare(
+        'SELECT COALESCE(SUM(capture_count), 0) AS total FROM usage_counters WHERE tenant_id = ?'
+      ).bind(tenantId).first('total');
+
+      if (priorCaptures === 0) {
+        ctx.waitUntil(
+          trackEventRaw(env, 'First Capture', { url, ip }, {
+            tenantId,
+            captureId,
+          }, { property: 'api' }) ?? Promise.resolve()
+        );
+      }
+    } catch (err) {
+      console.warn('wrl:pirsch_first_capture_check_fail', { captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+    }
+
     const eidasCaptures = result.qualifiedTimestampStatus === 'present' ? 1 : 0;
     ctx.waitUntil(
       incrementUsage(env.DB, tenantId, {

@@ -47,6 +47,7 @@ export default defineWorkersConfig({
             STRIPE_WEBHOOK_SECRET: 'whsec_test_placeholder_for_testing',
             STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder_for_testing',
             STRIPE_CAPTURE_PRICE_ID: 'price_test_placeholder_for_testing',
+            PIRSCH_ACCESS_KEY: 'test-pirsch-key-for-vitest',
           },
           // Queue producers come from wrangler.test.toml; consumers are
           // omitted there to prevent auto-consumption during tests.

@@ -31,6 +31,7 @@ import {
   getEffectiveScheduleLimit,
 } from './db.js';
 import { log } from './log.js';
+import { trackEvent } from './pirsch.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const ALLOWED_CREATE_FIELDS = new Set(['url', 'cron', 'name']);
@@ -149,6 +150,11 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
     authMethod: auth.authMethod,
     responseStatus: 201,
   }) ?? Promise.resolve());
+
+  ctx.waitUntil(trackEvent(request, env, 'Schedule Created', {
+    tenantId: auth.tenantId,
+    scheduleId: id,
+  }, { property: 'api' }) ?? Promise.resolve());
 
   return jsonResponse(record, 201);
 }
