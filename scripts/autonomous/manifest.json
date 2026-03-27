@@ -599,6 +599,15 @@
       "act_last": true
     },
     {
+      "phase": "0102",
+      "item": "PIRSCH-TRACKING",
+      "issue": 248,
+      "title": "Implement Pirsch Analytics server-side tracking with cross-domain funnel attribution",
+      "act": "10b",
+      "depends_on": [],
+      "act_last": true
+    },
+    {
       "phase": "0100",
       "item": "DIFF-OVERLAY",
       "issue": 237,
