@@ -43,6 +43,9 @@ fi
 # Strip trailing slash
 SMOKE_URL="${SMOKE_URL%/}"
 
+# User-Agent avoids Cloudflare bot detection on datacenter IPs (GH Actions)
+SMOKE_UA="wrl-smoke-test/1.0 (GitHub Actions; +https://github.com/benpeter/web-resource-ledger)"
+
 PASS_COUNT=0
 FAIL_COUNT=0
 TOTAL=0
@@ -53,7 +56,7 @@ fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); TOTAL=$((TOTAL + 1)); echo "  FAIL: $1"
 
 # --- Check 1: Health ---
 echo "Check 1: Health endpoint"
-HEALTH=$(curl -sf -w '\n%{http_code}' "${SMOKE_URL}/health" 2>/dev/null) || true
+HEALTH=$(curl -sf -A "$SMOKE_UA" -w '\n%{http_code}' "${SMOKE_URL}/health" 2>/dev/null) || true
 HEALTH_CODE=$(echo "$HEALTH" | tail -1)
 HEALTH_BODY=$(echo "$HEALTH" | sed '$d')
 
@@ -69,7 +72,7 @@ fi
 
 # --- Check 2: Security headers ---
 echo "Check 2: Security headers"
-HEADERS=$(curl -sI "${SMOKE_URL}/health" 2>/dev/null)
+HEADERS=$(curl -sI -A "$SMOKE_UA" "${SMOKE_URL}/health" 2>/dev/null)
 HEADER_OK=true
 
 for h in "Referrer-Policy" "X-Content-Type-Options" "X-Frame-Options" "Strict-Transport-Security"; do
@@ -92,7 +95,7 @@ fi
 
 # --- Check 3: Signing key ---
 echo "Check 3: Signing key endpoint"
-SK=$(curl -sf "${SMOKE_URL}/.well-known/signing-key" 2>/dev/null) || true
+SK=$(curl -sf -A "$SMOKE_UA" "${SMOKE_URL}/.well-known/signing-key" 2>/dev/null) || true
 
 if echo "$SK" | jq -e '.algorithm == "Ed25519" and .publicKey != null' >/dev/null 2>&1; then
   pass "/.well-known/signing-key returns Ed25519 key"
@@ -106,7 +109,7 @@ if [ "$SMOKE_SKIP_CAPTURE" = "1" ]; then
 else
   echo "Check 4: Capture round-trip"
 
-  CREATE=$(curl -sf -w '\n%{http_code}' \
+  CREATE=$(curl -sf -A "$SMOKE_UA" -w '\n%{http_code}' \
     -X POST "${SMOKE_URL}/v1/captures" \
     -H "Authorization: Bearer ${SMOKE_API_KEY}" \
     -H "Content-Type: application/json" \
@@ -123,7 +126,7 @@ else
     ELAPSED=0
     STATUS=""
     while [ "$ELAPSED" -lt "$SMOKE_TIMEOUT" ]; do
-      POLL=$(curl -sf -H "Authorization: Bearer ${SMOKE_API_KEY}" \
+      POLL=$(curl -sf -A "$SMOKE_UA" -H "Authorization: Bearer ${SMOKE_API_KEY}" \
         "${SMOKE_URL}/v1/captures/${CAPTURE_ID}/status" 2>/dev/null) || true
       STATUS=$(echo "$POLL" | jq -r '.status // empty' 2>/dev/null)
 
@@ -155,7 +158,7 @@ else
   MATCH=false
 
   while [ "$ATTEMPTS" -lt "$MAX_ATTEMPTS" ]; do
-    DEPLOYED_SHA=$(curl -sf "${SMOKE_URL}/health" 2>/dev/null | jq -r '.build.commit // empty')
+    DEPLOYED_SHA=$(curl -sf -A "$SMOKE_UA" "${SMOKE_URL}/health" 2>/dev/null | jq -r '.build.commit // empty')
     if [ "$DEPLOYED_SHA" = "$EXPECTED_COMMIT" ]; then
       MATCH=true
       break
@@ -179,7 +182,7 @@ else
   echo "Check 6: Verify subdomain ($VERIFY_URL)"
 
   # 6a: Health endpoint responds 200
-  VH=$(curl -sf -w '\n%{http_code}' "${VERIFY_URL}/health" 2>/dev/null) || true
+  VH=$(curl -sf -A "$SMOKE_UA" -w '\n%{http_code}' "${VERIFY_URL}/health" 2>/dev/null) || true
   VH_CODE=$(echo "$VH" | tail -1)
   if [ "$VH_CODE" = "200" ]; then
     pass "verify /health returns 200"
@@ -188,7 +191,7 @@ else
   fi
 
   # 6b: Signing-key endpoint returns valid JSON
-  VSK=$(curl -sf "${VERIFY_URL}/.well-known/signing-key" 2>/dev/null) || true
+  VSK=$(curl -sf -A "$SMOKE_UA" "${VERIFY_URL}/.well-known/signing-key" 2>/dev/null) || true
   if echo "$VSK" | jq -e '.algorithm == "Ed25519" and .publicKey != null' >/dev/null 2>&1; then
     pass "verify /.well-known/signing-key returns Ed25519 key"
   else
@@ -196,7 +199,7 @@ else
   fi
 
   # 6c: Cache headers on signing-key endpoint
-  VSK_HEADERS=$(curl -sI "${VERIFY_URL}/.well-known/signing-key" 2>/dev/null) || true
+  VSK_HEADERS=$(curl -sI -A "$SMOKE_UA" "${VERIFY_URL}/.well-known/signing-key" 2>/dev/null) || true
   VSK_CC=$(echo "$VSK_HEADERS" | grep -i '^cache-control:' | tr -d '\r')
   VSK_ST=$(echo "$VSK_HEADERS" | grep -i '^server-timing:' | tr -d '\r')
 
@@ -213,7 +216,7 @@ else
   fi
 
   # 6d: Non-verify path returns 404
-  VBLOCK=$(curl -sf -w '\n%{http_code}' -o /dev/null "${VERIFY_URL}/v1/captures" 2>/dev/null) || true
+  VBLOCK=$(curl -sf -A "$SMOKE_UA" -w '\n%{http_code}' -o /dev/null "${VERIFY_URL}/v1/captures" 2>/dev/null) || true
   VBLOCK_CODE=$(echo "$VBLOCK" | tail -1)
   if [ "$VBLOCK_CODE" = "404" ]; then
     pass "verify /v1/captures returns 404 (blocked as expected)"
