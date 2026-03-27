@@ -364,6 +364,18 @@ function loadCaptures(url, currentId, currentCreatedAt, list, moreBtn, statusReg
         list.appendChild(li);
       }
 
+      // If all captures were the current one, hide the picker
+      if (count === 0 && !cursorParam) {
+        var section = list.closest('.compare-section');
+        if (section) {
+          var toggle = section.querySelector('.compare-toggle');
+          if (toggle) toggle.hidden = true;
+          list.parentNode.hidden = true;
+        }
+        statusRegion.textContent = '';
+        return;
+      }
+
       // Update status for screen readers
       if (!cursorParam) {
         statusRegion.textContent = count + ' capture' + (count !== 1 ? 's' : '') + ' available';
@@ -378,6 +390,8 @@ function loadCaptures(url, currentId, currentCreatedAt, list, moreBtn, statusReg
       } else {
         moreBtn.hidden = true;
       }
+    }).catch(function() {
+      statusRegion.textContent = 'Could not load captures.';
     });
   }).catch(function() {
     var sp = list.parentNode.querySelector('.detail-spinner');
