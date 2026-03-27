@@ -242,6 +242,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] SEO optimization for landing page (#136)~~ | ~~Phase 0066 shipped; activate when organic search traffic is a priority~~ -- DONE (Phase 0091): FAQ section, FAQPage/HowTo JSON-LD, AggregateOffer, OG/Twitter on all pages, sitemap fix, heading hierarchy fix (Issue #215) | GTM research |
 | ~~[consider] Generative Engine Optimization / GEO (#137)~~ | ~~Phase 0066 shipped; activate when AI search visibility is a priority~~ -- DONE (Phase 0091): llms.txt on both sites, citation-friendly FAQ content, comprehensive Schema.org coverage (Issue #215) | GTM research |
 | ~~[consider] Feature list and competitor comparison (#144)~~ | ~~When landing page content refresh~~ -- DONE (Phase 0090): Feature list section (10 capabilities) on landing page, summary comparison table (4 competitors), full comparison page on docs site (9 competitors × 7 columns) (Issue #144) | GTM research |
+| [consider] DMCA takedown FAQ question (#255) | When a DMCA/takedown evidence docs page exists to serve as link target | Phase 0104 |
+| [consider] FAQ/JSON-LD drift prevention CI check | When FAQ is expanded again or when a drift bug is discovered | Phase 0104 |
+| [consider] Landing page title tag evaluation | When SEO strategy warrants broader title changes beyond meta description | Phase 0104 |
 
 ---
 
