@@ -36,6 +36,7 @@ export default {
         { title: "Subprocessors", url: "/security/subprocessors/" },
         { title: "Incident Response", url: "/security/incident-response/" },
         { title: "Data Retention", url: "/security/data-retention/" },
+        { title: "SWGDE Alignment", url: "/security/swgde-compliance/" },
       ],
     },
   ],
