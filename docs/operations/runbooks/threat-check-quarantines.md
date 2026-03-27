@@ -1,3 +1,10 @@
+---
+alert: "[WRL] Threat Check Quarantines"
+events:
+  - threatcheck.quarantine
+priority: P3
+---
+
 # Runbook: [WRL] Threat Check Quarantines
 
 ## What fires this

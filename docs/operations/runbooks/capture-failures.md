@@ -1,3 +1,10 @@
+---
+alert: "[WRL] Capture Failures"
+events:
+  - capture.fail
+priority: P1
+---
+
 # Runbook: [WRL] Capture Failures
 
 ## What fires this

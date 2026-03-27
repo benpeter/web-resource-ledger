@@ -1,3 +1,10 @@
+---
+alert: "[WRL] Qualified TSA Failures"
+events:
+  - capture.qtsa_fail
+priority: P2
+---
+
 # Runbook: [WRL] Qualified TSA Failures
 
 ## What fires this

@@ -1,3 +1,10 @@
+---
+alert: "[WRL] Threat Check API Failures"
+events:
+  - threatcheck.api_fail
+priority: P2
+---
+
 # Runbook: [WRL] Threat Check API Failures
 
 ## What fires this

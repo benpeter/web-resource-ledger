@@ -23,6 +23,10 @@ The response includes a `build` object with `commit`, `version`, `env`, and `dep
 
 **Alert rules:** See [docs/operations/alerts.md](docs/operations/alerts.md) for alert definitions, thresholds, and provisioning.
 
+**Automated investigation:** Alert-triggered auto-investigation is documented
+in [docs/operations/auto-investigation.md](docs/operations/auto-investigation.md).
+Investigation results appear as GitHub Issues with the `auto-investigated` label.
+
 **Audit log schema:** See [docs/audit-log-schema.md](docs/audit-log-schema.md) for event names, fields, and Coralogix queries.
 
 **GitHub Actions:**

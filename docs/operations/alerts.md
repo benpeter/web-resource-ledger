@@ -30,6 +30,8 @@ percentage-based alert (e.g., >10%) would fire on 1 failure out of 3 captures
 
 **Runbook:** [capture-failures.md](runbooks/capture-failures.md)
 
+**Automated investigation:** This alert triggers an automated investigation.
+
 ---
 
 ### [WRL] TSA Failures
@@ -73,6 +75,8 @@ tenants who have paid for eIDAS-level compliance.
 
 **Runbook:** [qualified-tsa-failures.md](runbooks/qualified-tsa-failures.md)
 
+**Automated investigation:** This alert triggers an automated investigation.
+
 ---
 
 ### [WRL] Auth Failure Spike
@@ -94,6 +98,8 @@ mistakes expected during key rotation.
 
 **Runbook:** [auth-failure-spike.md](runbooks/auth-failure-spike.md)
 
+**Automated investigation:** This alert triggers an automated investigation.
+
 ---
 
 ### [WRL] Worker Errors (5xx)
@@ -113,6 +119,8 @@ itself is broken, not that a target URL is flaky. Queue-consumer failures are
 captured separately by the Capture Failures alert.
 
 **Runbook:** [worker-errors.md](runbooks/worker-errors.md)
+
+**Automated investigation:** This alert triggers an automated investigation.
 
 ---
 
@@ -169,6 +177,8 @@ requests and are not covered by this alert. Rescan failures appear in
 
 **Runbook:** [threat-check-api-failures.md](runbooks/threat-check-api-failures.md)
 
+**Automated investigation:** This alert triggers an automated investigation.
+
 ---
 
 ### [WRL] Email Delivery Failures
@@ -190,6 +200,10 @@ issue. Five failures in 30 minutes indicates a sustained delivery problem —
 credential failure, provider outage, or rate limiting — that warrants
 investigation. P2 (not P1) because captures continue to succeed; email is
 a notification channel, not a data-integrity path.
+
+**Runbook:** [email-delivery-failures.md](runbooks/email-delivery-failures.md)
+
+**Automated investigation:** This alert triggers an automated investigation.
 
 ---
 
@@ -250,6 +264,11 @@ unauthorized key creation is required.
 ---
 
 ## Design Decisions
+
+**Automated investigation webhooks.** In addition to email notifications, six
+actionable alerts (P1 and P2) fire a webhook to the WRL Worker, which dispatches
+a GitHub Actions workflow for automated investigation by Claude Code. Results are
+posted as GitHub Issues. See [auto-investigation.md](auto-investigation.md) for details.
 
 **Absolute counts, not ratios.** All alerts use absolute-count thresholds instead
 of percentage-based ratios. At WRL's traffic volume (max 10 captures/minute per

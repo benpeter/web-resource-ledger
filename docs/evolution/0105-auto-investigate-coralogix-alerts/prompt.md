@@ -1,0 +1,1 @@
+When Coralogix fires an alert, Claude Code should automatically investigate using the existing runbooks, query Coralogix logs, diagnose the issue, and post findings to GitHub Issues -- replacing the manual 'get email, open laptop, run queries' loop. Source: GitHub Issue #139.

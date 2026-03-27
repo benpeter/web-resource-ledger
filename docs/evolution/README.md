@@ -111,3 +111,4 @@ software development.
 | [0102-pirsch-analytics](0102-pirsch-analytics/) | Server-side Pirsch Analytics tracking across all three Workers: page views, funnel events, OAuth attribution passthrough, zero client-side JS (Issue #248) |
 | [0103-swgde-docs-alignment](0103-swgde-docs-alignment/) | SWGDE Best Practices alignment mapping page and cross-references for forensic web capture documentation (Issue #259) |
 | [0104-segment-faq-landing-page](0104-segment-faq-landing-page/) | Segment-targeted FAQ expansion: 12 questions across legal, OSINT, compliance, brand protection with FAQPage JSON-LD (Issue #255) |
+| [0105-auto-investigate-coralogix-alerts](0105-auto-investigate-coralogix-alerts/) | Automated Coralogix alert investigation via webhook receiver, GitHub Actions, and Claude Code (Issue #139) |
