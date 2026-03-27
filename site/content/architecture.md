@@ -122,11 +122,11 @@ flowchart TD
 
     subgraph Verification
         W -.->|independent check| AA{5 checks}
-        AA --> AB["1. artifactHashes<br/>each file matches manifest hash"]
-        AA --> AC["2. bundleHash<br/>SHA-256 of canonical manifest"]
-        AA --> AD["3. signature<br/>Ed25519 via server key lookup"]
-        AA --> AE["4. timestamp<br/>RFC 3161 messageImprint"]
-        AA --> AF["5. qualifiedTimestamp<br/>eIDAS messageImprint"]
+        AA --> AB["artifactHashes<br/>each file matches manifest hash"]
+        AA --> AC["bundleHash<br/>SHA-256 of canonical manifest"]
+        AA --> AD["signature<br/>Ed25519 via server key lookup"]
+        AA --> AE["timestamp<br/>RFC 3161 messageImprint"]
+        AA --> AF["qualifiedTimestamp<br/>eIDAS messageImprint"]
         AD -.->|key resolved from| AG["/.well-known/signing-key"]
     end
 
