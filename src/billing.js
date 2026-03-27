@@ -34,6 +34,7 @@ import {
   getTenantByStripeCustomerId,
 } from './db.js';
 import { dispatchNotification } from './email-dispatch.js';
+import { trackEventRaw } from './pirsch.js';
 
 const BILLING_CACHE = { 'Cache-Control': 'private, no-store' };
 
@@ -331,6 +332,15 @@ async function handleCheckoutCompleted(event, env, ctx) {
   if (tenant.billingStatus !== 'active') {
     await setBillingStatus(env.DB, tenant.id, 'active');
   }
+
+  ctx.waitUntil(
+    trackEventRaw(env, 'Payment Activated', {
+      url: 'https://api.webresourceledger.com/billing/webhook',
+    }, {
+      tenantId: tenant.id,
+      stripeCustomerId: customerId,
+    }, { property: 'api' }) ?? Promise.resolve()
+  );
 
   ctx.waitUntil(log(env, 3, 'billing', {
     event: 'billing.checkout_completed',

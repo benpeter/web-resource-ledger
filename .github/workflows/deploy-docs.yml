@@ -7,6 +7,7 @@ on:
       - 'site/**'
       - 'openapi.yaml'
       - 'src/design-system.css'
+      - 'src/pirsch.js'
   workflow_dispatch:
 
 # Note: CLOUDFLARE_API_TOKEN must have Workers Scripts:Edit and Workers Routes:Edit
@@ -69,3 +70,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: site
           command: deploy
+          secrets: |
+            PIRSCH_ACCESS_KEY
+        env:
+          PIRSCH_ACCESS_KEY: ${{ secrets.WRL_PIRSCH_ACCESS_KEY }}

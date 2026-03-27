@@ -43,6 +43,7 @@ import {
   getNotificationPreferences,
   upsertNotificationPreferences,
 } from './db.js';
+import { trackEvent } from './pirsch.js';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -83,6 +84,47 @@ function githubFetch(env) {
   return env._githubFetch || fetch;
 }
 
+/**
+ * Extract and sanitize attribution data from the login request.
+ * Values are attacker-controlled — truncate, validate, and allowlist.
+ *
+ * @param {Request} request
+ * @returns {{ from?: string, referer?: string, utmSource?: string, utmMedium?: string, utmCampaign?: string }}
+ */
+function sanitizeAttribution(request) {
+  const url = new URL(request.url);
+  const referer = request.headers.get('Referer');
+
+  let cleanReferer = null;
+  if (referer) {
+    try {
+      const parsed = new URL(referer);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        cleanReferer = referer.slice(0, 512);
+      }
+    } catch { cleanReferer = null; }
+  }
+
+  const UTM_RE = /^[\w.+\-@ ]{0,256}$/;
+  const sanitizeUtm = (val) => {
+    if (!val) return undefined;
+    const trimmed = val.slice(0, 256);
+    return UTM_RE.test(trimmed) ? trimmed : undefined;
+  };
+
+  const ALLOWED_FROM = ['landing', 'docs', 'api', 'direct'];
+  const fromParam = url.searchParams.get('from');
+  const from = ALLOWED_FROM.includes(fromParam) ? fromParam : undefined;
+
+  return {
+    from,
+    referer: cleanReferer,
+    utmSource: sanitizeUtm(url.searchParams.get('utm_source')),
+    utmMedium: sanitizeUtm(url.searchParams.get('utm_medium')),
+    utmCampaign: sanitizeUtm(url.searchParams.get('utm_campaign')),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
@@ -113,9 +155,10 @@ export async function handleAuthLogin(request, env, ctx) {
 
   // Store state + codeVerifier in KV, TTL 600s (10 minutes)
   // SECURITY: state value is not logged -- only stored in KV under the key
+  const attribution = sanitizeAttribution(request);
   await env.KV.put(
     `oauth_state:${state}`,
-    JSON.stringify({ codeVerifier, createdAt: new Date().toISOString() }),
+    JSON.stringify({ codeVerifier, createdAt: new Date().toISOString(), ...attribution }),
     { expirationTtl: 600 },
   );
 
@@ -396,6 +439,16 @@ export async function handleAuthCallback(request, env, ctx) {
           emailSource: 'github',
         });
       }
+
+      // Pirsch: track new user signup with attribution from login step
+      const source = stateData.from || 'direct';
+      const signupMeta = { tenantId, provider: 'github', source };
+      if (stateData.utmSource) signupMeta.utm_source = stateData.utmSource;
+      if (stateData.utmMedium) signupMeta.utm_medium = stateData.utmMedium;
+      if (stateData.utmCampaign) signupMeta.utm_campaign = stateData.utmCampaign;
+      if (stateData.referer) signupMeta.referer = stateData.referer;
+
+      ctx.waitUntil(trackEvent(request, env, 'Signup', signupMeta, { property: 'api' }) ?? Promise.resolve());
     }
   } catch (err) {
     ctx.waitUntil(log(env, 5, 'oauth', {

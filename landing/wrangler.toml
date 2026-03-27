@@ -1,25 +1,20 @@
 name = "wrl-landing"
 compatibility_date = "2026-03-13"
+main = "src/index.js"
 
 [assets]
 directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
 
 routes = [
   { pattern = "webresourceledger.com", custom_domain = true },
   { pattern = "www.webresourceledger.com", custom_domain = true }
 ]
 
-# Security headers cannot be set via wrangler.toml for static assets workers.
-# They must be applied via Cloudflare Transform Rules (account dashboard) or
-# by adding a Worker script that wraps the asset fetch.
+# Security headers are now applied in src/index.js (Worker fetch handler).
+# Previously these were applied via Cloudflare Transform Rules since pure-asset
+# Workers cannot set response headers. With run_worker_first = true, the Worker
+# handles all requests and injects headers directly.
 #
-# Desired headers for all responses:
-#   Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; font-src 'none'; script-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
-#   X-Content-Type-Options: nosniff
-#   X-Frame-Options: DENY
-#   Referrer-Policy: strict-origin-when-cross-origin
-#   Permissions-Policy: camera=(), microphone=(), geolocation=()
-#
-# Note: script-src 'none' is correct -- the landing page has zero JavaScript.
-# JSON-LD in <script type="application/ld+json"> is not executed by browsers
-# and is unaffected by script-src.
+# Canonical header values: see SECURITY_HEADERS in src/index.js

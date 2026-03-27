@@ -7,6 +7,7 @@ on:
       - 'landing/**'
       - 'src/design-system.css'
       - 'site/assets/*.svg'
+      - 'src/pirsch.js'
   workflow_dispatch:
 
 # Note: CLOUDFLARE_API_TOKEN must have Workers Scripts:Edit and Workers Routes:Edit
@@ -37,3 +38,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: landing
           command: deploy
+          secrets: |
+            PIRSCH_ACCESS_KEY
+        env:
+          PIRSCH_ACCESS_KEY: ${{ secrets.WRL_PIRSCH_ACCESS_KEY }}

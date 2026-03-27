@@ -6,7 +6,7 @@ description: Third-party subprocessors used by WRL — cloud infrastructure, sto
 
 # Subprocessors
 
-Last updated: 2026-03-25
+Last updated: 2026-03-27
 
 > **What this page is:** WRL runs on Cloudflare's infrastructure and integrates with a small set of external services to authenticate users, process payments, send email, screen URLs for threats, and issue cryptographic timestamps. This page lists every third-party service that processes data on behalf of WRL or its customers, what data each service receives, and the legal mechanism that governs the transfer. No service receives personal data beyond what is strictly necessary for its function.
 
@@ -105,3 +105,14 @@ If you object to a planned addition, contact [bp@ben-peter.com](mailto:bp@ben-pe
 **Data location:** USA
 **Transfer mechanism:** EU-US Data Privacy Framework + Standard Contractual Clauses
 **DPA / Privacy:** [cloud.google.com/terms/data-processing-addendum](https://cloud.google.com/terms/data-processing-addendum)
+
+---
+
+### Pirsch Analytics
+
+**Entity:** Emvi Software GmbH (Germany)
+**Purpose:** Privacy-focused website analytics (server-side, no cookies) — WRL counts page visits and anonymous conversion events across all WRL properties
+**Data processed:** IP address (processed transiently for session fingerprinting, never stored — hashed with a daily-rotating salt and discarded within milliseconds), User-Agent, page URL, Referer
+**Data location:** Germany (EU)
+**Transfer mechanism:** None required (EU only)
+**DPA / Privacy:** [pirsch.io/privacy](https://pirsch.io/privacy)
