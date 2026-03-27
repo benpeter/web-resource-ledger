@@ -1,14 +1,16 @@
 # Web Resource Ledger (WRL)
 
-[![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE) [![despicable](https://img.shields.io/badge/%E2%9A%97%EF%B8%8F-despicable-FFC107?style=flat&labelColor=FFF8E1)](https://github.com/benpeter/despicable-agents) [![98% Vibe Coded](https://img.shields.io/badge/98%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
+[![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE) [![98% Vibe Coded](https://img.shields.io/badge/98%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
 
 Cryptographic evidence of web content -- capture what a page looked like, when, with proof anyone can verify.
 
 Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519-signed WACZ bundle. The verification URL works for anyone -- no account needed. Deploy on your own infrastructure; your captures, your keys, your evidence.
 
+WRL was built almost entirely by an LLM (Claude) with a human directing the work. Every phase -- from MVP to production -- is documented in [`docs/evolution/`](docs/evolution/). The prompts, agent debates, decisions, and outcomes are all public.
+
 For comprehensive guides on authentication, verification, batch captures, and MCP integration, see [docs.webresourceledger.com](https://docs.webresourceledger.com).
 
-> **Status:** Early development, single-operator deployment. The API is functional and deployed but pre-1.0. See the [roadmap](#roadmap) for what's coming.
+> **Status:** Production service, single-operator deployment. All three roadmap acts are complete. The API is pre-1.0 but functional, deployed, and serving real traffic.
 
 ## What you get
 
@@ -414,17 +416,19 @@ npm run smoke
 
 ## Roadmap
 
-WRL follows a three-act development plan:
+WRL followed a three-act development plan. All three acts are complete:
 
-1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closes the trust gaps for single-operator use.
-2. **Evidence-Grade** (in progress) -- RFC 3161 timestamps, per-tenant keys (complete), audit logging. Makes "evidence" independently verifiable.
-3. **Infrastructure** -- MCP server, web UI, batch capture, scheduled captures. Expands WRL into a platform other tools build on.
+1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closed trust gaps for single-operator use.
+2. **Evidence-Grade** (complete) -- RFC 3161 timestamps, per-tenant keys, audit logging. Made captures independently verifiable.
+3. **Infrastructure** (complete) -- MCP server, web UI, batch capture, scheduled captures, docs site, landing page, usage metering, webhooks. Expanded WRL into a platform.
 
-See [`docs/backlog.md`](docs/backlog.md) for the full roadmap and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.
+See [`docs/backlog.md`](docs/backlog.md) for the ongoing backlog and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.
 
-## Built with despicable-agents
+## How WRL Was Built
 
-WRL was built using [despicable-agents](https://github.com/benpeter/despicable-agents), a multi-agent orchestration framework. Every phase of development is documented in [`docs/evolution/`](docs/evolution/) -- the prompts, decisions, and outcomes are all there.
+WRL is a production web evidence service. It is also a documented experiment in LLM-driven software development. A human defined what to build and made product decisions; an LLM (Claude) wrote virtually all the code, tests, infrastructure, and documentation.
+
+The full build history is in [`docs/evolution/`](docs/evolution/) -- 60+ phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
 
 ## Reference
 

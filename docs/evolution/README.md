@@ -107,3 +107,4 @@ software development.
 | [0097-table-flip](0097-table-flip/) | Flip comparison tables to standard features-as-rows orientation, fix docs layout overflow with scoped wide-content modifier (Issue #233) |
 | [0098-docs-nav](0098-docs-nav/) | Add 2-level hierarchy to docs left rail navigation with section grouping (Issue #235) |
 | [0099-unified-nav](0099-unified-nav/) | Unified navigation header and footer across all WRL subdomains: shared site-nav.css, site header on docs and app UI, full footer on all surfaces (Issue #224) |
+| [0100-honest-positioning](0100-honest-positioning/) | Honest positioning update: acknowledge where WRL loses, credit Webrecorder, add "When to Use Something Else" sections, update stale status copy, add "How WRL Was Built" docs page |

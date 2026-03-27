@@ -24,6 +24,7 @@ export default {
         { title: "MCP Server", url: "/mcp/" },
         { title: "Architecture", url: "/architecture/" },
         { title: "Compare", url: "/compare/" },
+        { title: "How It Was Built", url: "/about/" },
       ],
     },
     {

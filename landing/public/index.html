@@ -302,7 +302,7 @@
 
           <div class="feature-item">
             <h3>eIDAS Qualified Timestamps</h3>
-            <p>Optional EU-standard timestamps with legal presumption of accuracy across all member states.</p>
+            <p>EU-standard timestamps with legal presumption of accuracy. Code complete, production rollout pending.</p>
             <p class="use-case-cta"><a href="https://docs.webresourceledger.com/legal-evidence/">Legal evidence guide &rarr;</a></p>
           </div>
 
@@ -334,7 +334,7 @@
 
           <div class="feature-item">
             <h3>WACZ Standard Format</h3>
-            <p>Open archive format. Not locked to any vendor.</p>
+            <p>Open archive format created by <a href="https://webrecorder.net">Webrecorder</a>. Not locked to any vendor.</p>
           </div>
 
           <div class="feature-item">
@@ -392,49 +392,101 @@
               <tr>
                 <th scope="col">Feature</th>
                 <th scope="col" class="comparison-highlight-col">WRL</th>
-                <th scope="col">Wayback Machine</th>
-                <th scope="col">PageFreezer</th>
-                <th scope="col">Webrecorder</th>
                 <th scope="col">Manual + Notary</th>
+                <th scope="col"><a href="https://webrecorder.net">Webrecorder</a></th>
+                <th scope="col"><a href="https://web.archive.org">Wayback Machine</a></th>
+                <th scope="col"><a href="https://pagefreezer.com">PageFreezer</a></th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <th scope="row">Crypto Signing</th>
                 <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Ed25519 (every capture)</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary attestation</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--skip">Spec exists (not default)</span></td>
                 <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
                 <td data-tool="PageFreezer"><span class="badge badge--skip">SHA-256</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--skip">Spec exists (not default)</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary attestation</span></td>
               </tr>
               <tr>
                 <th scope="row">Independent Timestamps</th>
                 <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">RFC 3161 (default)</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--skip">In spec (not default)</span></td>
                 <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
                 <td data-tool="PageFreezer"><span class="badge badge--skip">Proprietary clock</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--skip">In spec (not default)</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
               </tr>
               <tr>
                 <th scope="row">Public Verification</th>
                 <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">Yes (no account)</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--skip">Via notary records</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--skip">Validator tools</span></td>
                 <td data-tool="Wayback Machine"><span class="badge badge--skip">Public access (no crypto)</span></td>
                 <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--skip">Validator tools</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--skip">Via notary records</span></td>
               </tr>
               <tr>
                 <th scope="row">Open Format</th>
                 <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--pass">WACZ</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
                 <td data-tool="Wayback Machine"><span class="badge badge--pass">WARC</span></td>
                 <td data-tool="PageFreezer"><span class="badge badge--fail">PDF</span></td>
-                <td data-tool="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
-                <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Social Media Archiving</th>
+                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
+                <td data-tool="PageFreezer"><span class="badge badge--pass">8+ platforms</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Scheduled Bulk Monitoring</th>
+                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--pass">Browsertrix</span></td>
+                <td data-tool="Wayback Machine"><span class="badge badge--skip">Automated crawls</span></td>
+                <td data-tool="PageFreezer"><span class="badge badge--pass">Daily+ crawls</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Expert Witness Service</th>
+                <td class="comparison-highlight-col" data-tool="WRL"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Manual + Notary"><span class="badge badge--pass">Yes</span></td>
+                <td data-tool="Webrecorder"><span class="badge badge--fail">No</span></td>
+                <td data-tool="Wayback Machine"><span class="badge badge--skip">$250 affidavit</span></td>
+                <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p class="compare-more"><a href="https://docs.webresourceledger.com/compare/">Full comparison across 10 tools and 7 criteria &rarr;</a></p>
+        <p class="compare-more"><a href="https://docs.webresourceledger.com/compare/">Full comparison across 14 tools -- including where WRL is not the right choice &rarr;</a></p>
+      </div>
+    </section>
+
+    <!-- Not For -->
+    <section id="not-for" class="landing-section landing-section--white" aria-labelledby="not-for-heading">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="not-for-heading">When to Use Something Else</h2>
+          <p>WRL does one thing well: on-demand, API-driven evidence capture with cryptographic proof. These tools are better choices for other needs:</p>
+        </div>
+        <div class="use-cases-grid">
+          <article class="card use-case-card">
+            <h3>Open-source web archiving at scale</h3>
+            <p>Need to crawl and preserve entire websites? <a href="https://webrecorder.net">Webrecorder</a> created the WACZ format WRL uses and offers Browsertrix for large-scale archiving. Self-hostable, open source, backed by national libraries worldwide.</p>
+          </article>
+          <article class="card use-case-card">
+            <h3>Bulk compliance monitoring</h3>
+            <p>Need to monitor thousands of URLs daily for regulatory compliance? <a href="https://pagefreezer.com">PageFreezer</a> and <a href="https://mirrorweb.com">MirrorWeb</a> are built for continuous, enterprise-scale archiving with compliance dashboards.</p>
+          </article>
+          <article class="card use-case-card">
+            <h3>Social media archiving</h3>
+            <p>Need to capture Twitter, LinkedIn, TikTok, or Slack? <a href="https://hanzo.co">Hanzo</a> and <a href="https://pagefreezer.com">PageFreezer</a> integrate with platform APIs to capture posts, comments, reactions, and deletions.</p>
+          </article>
+          <article class="card use-case-card">
+            <h3>Court-ready evidence with expert testimony</h3>
+            <p>Need affidavits, expert witnesses, and established court precedent? <a href="https://page-vault.com">Page Vault</a> has had evidence admitted in 10+ federal court cases and provides expert witness services WRL does not offer.</p>
+          </article>
+        </div>
       </div>
     </section>
 
