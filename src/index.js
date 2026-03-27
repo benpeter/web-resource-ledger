@@ -1573,6 +1573,7 @@ async function handleListCaptures(request, env, ctx) {
     if (r.status === 'complete') {
       summary.completedAt = r.completedAt;
       summary.renderQuality = r.renderQuality ?? 'full';
+      if (r.scheduleId) summary.scheduleId = r.scheduleId;
       if (r.wacz) {
         summary.timestamps = {
           standard: r.wacz.timestampStatus === 'present',
@@ -1743,6 +1744,9 @@ async function handleGetCapture(request, env, ctx, match) {
   if (record.captureSettings) {
     body.captureSettings = record.captureSettings;
   }
+
+  if (record.changeSummary) body.changeSummary = record.changeSummary;
+  if (record.scheduleId) body.scheduleId = record.scheduleId;
 
   if (record.wacz) {
     body.wacz = {

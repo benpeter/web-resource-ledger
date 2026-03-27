@@ -159,6 +159,32 @@ describe('GET /v1/captures/{id} -- tenant isolation', () => {
     expect(body.ip).toBeUndefined();
   });
 
+  it('response includes changeSummary when present', async () => {
+    const capId = 'cap_' + 'c'.repeat(32);
+    const prevId = 'cap_' + 'd'.repeat(32);
+    const cs = { changed: true, previousCaptureId: prevId, html: { changed: true }, screenshot: { changed: false }, headers: { changed: false } };
+    await seedCapture(env.DB, capId, {
+      tenantId: TENANT_A_ID,
+      status: 'complete',
+      completedAt: new Date().toISOString(),
+      artifacts: { screenshot: `captures/${capId}/screenshot.png`, html: `captures/${capId}/rendered.html` },
+      changeSummary: cs,
+      scheduleId: 'sched_test123',
+    });
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${capId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.changeSummary).toEqual(cs);
+    expect(body.scheduleId).toBe('sched_test123');
+  });
+
+  it('response omits changeSummary and scheduleId when absent', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`);
+    const body = await res.json();
+    expect(body.changeSummary).toBeUndefined();
+    expect(body.scheduleId).toBeUndefined();
+  });
+
   it('security headers present on 200', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`);
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
