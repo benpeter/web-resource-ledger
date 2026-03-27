@@ -1,3 +1,10 @@
+---
+alert: "[WRL] Worker Errors (5xx)"
+events:
+  - http.5xx
+priority: P1
+---
+
 # Runbook: [WRL] Worker Errors (5xx)
 
 ## What fires this

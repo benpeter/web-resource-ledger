@@ -1,3 +1,10 @@
+---
+alert: "[WRL] New API Key Created"
+events:
+  - admin.key_create
+priority: P4
+---
+
 # Runbook: [WRL] New API Key Created
 
 ## What fires this

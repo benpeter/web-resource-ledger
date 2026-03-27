@@ -1,3 +1,10 @@
+---
+alert: "[WRL] TSA Failures"
+events:
+  - capture.tsa_fail
+priority: P3
+---
+
 # Runbook: [WRL] TSA Failures
 
 ## What fires this

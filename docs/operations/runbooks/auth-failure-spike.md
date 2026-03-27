@@ -1,3 +1,10 @@
+---
+alert: "[WRL] Auth Failure Spike"
+events:
+  - security.auth_fail
+priority: P1
+---
+
 # Runbook: [WRL] Auth Failure Spike
 
 ## What fires this

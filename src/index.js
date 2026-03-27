@@ -30,6 +30,7 @@ import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, 
 import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
 import { handleGetVerifyEmail, handlePostVerifyEmail } from './email-verify.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
+import { handleCoralogixWebhook } from './coralogix-webhook.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
@@ -132,6 +133,8 @@ const routes = [
   ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
   // Stripe webhook (public -- signature-verified internally)
   ['POST',   /^\/v1\/stripe\/webhook$/, handleStripeWebhook],
+  // Coralogix alert webhook (public -- Bearer token verified internally)
+  ['POST',   /^\/v1\/webhooks\/coralogix$/, handleCoralogixWebhook],
 ];
 
 function getAllowedOrigin(request, env) {

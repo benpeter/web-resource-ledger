@@ -181,6 +181,9 @@ max_retries = 0
 #   GOOGLE_WEB_RISK_API_KEY -- Google Web Risk API key (without this, threat checks degrade gracefully)
 # Cache purge (set via wrangler secret put):
 #   CLOUDFLARE_CACHE_PURGE_TOKEN -- API token with Cache Purge permission for the zone
+# Coralogix webhook auth (set via wrangler secret put):
+#   CORALOGIX_WEBHOOK_SECRET -- shared secret for Coralogix webhook validation
+#   GITHUB_DISPATCH_TOKEN    -- fine-grained PAT, actions:write scope only (90-day expiry)
 [vars]
 ENABLE_EDGE_CACHE = "true"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"

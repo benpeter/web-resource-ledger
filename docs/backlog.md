@@ -209,7 +209,9 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Automatic rollback on smoke failure | When deploy frequency >1/day or team size >1 | iac-minion, cd-pipeline |
 | ~~[consider] Tag-based release versioning~~ | ~~Done (Phase 0065): v1.0.0 stability commitment, CI version sync, annotated tags~~ | ux-strategy-minion, cd-pipeline |
 | [consider] queue_consumer_no_wait_for_wait_until compat flag (#159) | When Coralogix shows long queue consumer invocations (>60s p95) | Phase 0059b scaling research |
-| [consider] Auto-investigate Coralogix alerts with Claude Code (#139) | When alert volume makes manual triage unsustainable | Phase 0046 |
+| ~~[consider] Auto-investigate Coralogix alerts with Claude Code (#139)~~ | ~~When alert volume makes manual triage unsustainable~~ -- DONE (Phase 0105): webhook receiver in existing Worker, GitHub Actions investigation workflow, Claude Code runbook execution, dedup via `alert:{slug}` labels, 6 of 10 alerts participate (Issue #139) | Phase 0046 |
+| [consider] Resolve-to-GitHub-comment | When investigation comments prove reliable in production over several alert cycles; currently resolve webhook acknowledged with 200 but no GitHub interaction | Phase 0105 |
+| [consider] Coralogix MCP in CI | When a Coralogix API key can be safely injected into GitHub Actions; enables direct log queries in the investigation workflow instead of relying on operator's local MCP config | Phase 0105 |
 | [consider] Disaster recovery strategy + D1 backups (#149) | Before first paying customer | observability-minion |
 
 ### Product Features

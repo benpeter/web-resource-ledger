@@ -463,6 +463,30 @@ export async function seedCapture(db, id, {
 }
 
 // ---------------------------------------------------------------------------
+// Coralogix alert payload factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a minimal valid Coralogix alert payload.
+ * Sensible defaults are provided so individual tests only override what matters.
+ *
+ * @param {object} overrides
+ */
+export function makeCoralogixAlertPayload(overrides = {}) {
+  return {
+    alert_id: 'test-alert-' + Date.now(),
+    alert_name: '[WRL] Capture Failures',
+    alert_action: 'triggered',
+    alert_url: 'https://eu2.app.coralogix.com/test',
+    hit_count: '5',
+    application_name: 'wrl',
+    subsystem_name: 'capture',
+    event_severity: 'critical',
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Shared byte and HTML constants
 // ---------------------------------------------------------------------------
 
