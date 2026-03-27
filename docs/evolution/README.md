@@ -112,3 +112,4 @@ software development.
 | [0103-swgde-docs-alignment](0103-swgde-docs-alignment/) | SWGDE Best Practices alignment mapping page and cross-references for forensic web capture documentation (Issue #259) |
 | [0104-segment-faq-landing-page](0104-segment-faq-landing-page/) | Segment-targeted FAQ expansion: 12 questions across legal, OSINT, compliance, brand protection with FAQPage JSON-LD (Issue #255) |
 | [0105-auto-investigate-coralogix-alerts](0105-auto-investigate-coralogix-alerts/) | Automated Coralogix alert investigation via webhook receiver, GitHub Actions, and Claude Code (Issue #139) |
+| [0106-diff-view-any-two-captures](0106-diff-view-any-two-captures/) | Compare any two captures of the same URL from the dashboard, not just the latest scheduled pair (Issue #236) |
