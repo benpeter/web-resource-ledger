@@ -127,7 +127,7 @@ flowchart TD
         AA --> AD[3. signature\nEd25519 via server key lookup]
         AA --> AE[4. timestamp\nRFC 3161 messageImprint]
         AA --> AF[5. qualifiedTimestamp\neIDAS messageImprint]
-        AD -.->|key resolved from| AG[/.well-known/signing-key]
+        AD -.->|key resolved from| AG["/.well-known/signing-key"]
     end
 
     style WACZ fill:#f0f4ff,stroke:#6b7adc
