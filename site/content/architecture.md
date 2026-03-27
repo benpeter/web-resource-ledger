@@ -85,48 +85,48 @@ flowchart TD
         A([HTTP Request]) --> B[Authentication]
         B --> C[Rate Limiting]
         C --> D[Quota Check]
-        D --> E[URL Validation\nSSRF prevention]
-        E --> F[Threat Screening\nGoogle Web Risk]
-        F --> G[(Database\npending record)]
+        D --> E["URL Validation<br/>SSRF prevention"]
+        E --> F["Threat Screening<br/>Google Web Risk"]
+        F --> G[("Database<br/>pending record")]
         G --> H[Queue]
         H --> I([202 Accepted])
     end
 
     subgraph Processing
-        H --> J[Browser Rendering\nheadless Chromium]
+        H --> J["Browser Rendering<br/>headless Chromium"]
         J --> K[Screenshot before consent]
-        K --> L[Cookie Consent Dismissal\nautoconsent]
+        K --> L["Cookie Consent Dismissal<br/>autoconsent"]
         L --> M[Screenshot after consent]
         M --> N[Rendered HTML + HTTP Headers]
     end
 
     subgraph WACZ["WACZ Assembly & Integrity Chain"]
         N --> O[Build WARC archive]
-        O --> P[SHA-256 each artifact\nWARC · CDXJ · pages.jsonl]
-        P --> Q[datapackage.json manifest\nresources array with hashes]
-        Q --> R[bundleHash =\nSHA-256 of canonical JSON]
-        R --> S[Ed25519 signature\nover bundleHash bytes]
-        R --> T[RFC 3161 timestamp\nfrom independent TSA]
-        R --> U[eIDAS qualified timestamp\nfrom qualified TSA]
-        S --> V[datapackage-digest.json\nsignatures array]
+        O --> P["SHA-256 each artifact<br/>WARC · CDXJ · pages.jsonl"]
+        P --> Q["datapackage.json manifest<br/>resources array with hashes"]
+        Q --> R["bundleHash =<br/>SHA-256 of canonical JSON"]
+        R --> S["Ed25519 signature<br/>over bundleHash bytes"]
+        R --> T["RFC 3161 timestamp<br/>from independent TSA"]
+        R --> U["eIDAS qualified timestamp<br/>from qualified TSA"]
+        S --> V["datapackage-digest.json<br/>signatures array"]
         T --> V
         U --> V
         V --> W[WACZ ZIP bundle]
     end
 
     subgraph Completion
-        W --> X[(Object Storage\nhash-addressed)]
-        X --> Y[(Database\ncomplete record)]
+        W --> X[("Object Storage<br/>hash-addressed")]
+        X --> Y[("Database<br/>complete record")]
         Y --> Z([Webhook dispatch])
     end
 
     subgraph Verification
         W -.->|independent check| AA{5 checks}
-        AA --> AB[1. artifactHashes\neach file matches manifest hash]
-        AA --> AC[2. bundleHash\nSHA-256 of canonical manifest]
-        AA --> AD[3. signature\nEd25519 via server key lookup]
-        AA --> AE[4. timestamp\nRFC 3161 messageImprint]
-        AA --> AF[5. qualifiedTimestamp\neIDAS messageImprint]
+        AA --> AB["1. artifactHashes<br/>each file matches manifest hash"]
+        AA --> AC["2. bundleHash<br/>SHA-256 of canonical manifest"]
+        AA --> AD["3. signature<br/>Ed25519 via server key lookup"]
+        AA --> AE["4. timestamp<br/>RFC 3161 messageImprint"]
+        AA --> AF["5. qualifiedTimestamp<br/>eIDAS messageImprint"]
         AD -.->|key resolved from| AG["/.well-known/signing-key"]
     end
 

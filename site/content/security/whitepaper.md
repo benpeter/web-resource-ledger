@@ -40,22 +40,22 @@ flowchart TB
     end
 
     subgraph WRL["WRL System (Cloudflare)"]
-        WORKER["Cloudflare Worker\n(src/index.js)"]
-        D1[("D1 (SQLite)\nMetadata")]
-        R2[("R2\nArtifact Storage")]
-        KV["Workers KV\nSessions / OAuth State"]
-        QUEUE["Capture Queue\n(wrl-captures)"]
-        BROWSER["Browser Rendering\n(headless Chromium)"]
+        WORKER["Cloudflare Worker<br/>(src/index.js)"]
+        D1[("D1 (SQLite)<br/>Metadata")]
+        R2[("R2<br/>Artifact Storage")]
+        KV["Workers KV<br/>Sessions / OAuth State"]
+        QUEUE["Capture Queue<br/>(wrl-captures)"]
+        BROWSER["Browser Rendering<br/>(headless Chromium)"]
     end
 
     subgraph External["External Services"]
-        GITHUB["GitHub\n(OAuth identity)"]
-        DIGICERT["DigiCert\n(RFC 3161 TSA)"]
-        SECTIGO["Sectigo\n(eIDAS qualified TSA)"]
-        WEBRISK["Google Web Risk\n(threat screening)"]
-        STRIPE["Stripe\n(payments)"]
-        CORALOGIX["Coralogix EU2\n(structured logs)"]
-        RESEND["Resend\n(transactional email)"]
+        GITHUB["GitHub<br/>(OAuth identity)"]
+        DIGICERT["DigiCert<br/>(RFC 3161 TSA)"]
+        SECTIGO["Sectigo<br/>(eIDAS qualified TSA)"]
+        WEBRISK["Google Web Risk<br/>(threat screening)"]
+        STRIPE["Stripe<br/>(payments)"]
+        CORALOGIX["Coralogix EU2<br/>(structured logs)"]
+        RESEND["Resend<br/>(transactional email)"]
     end
 
     API_CONSUMER -- "Bearer API key (HTTPS)" --> WORKER
@@ -111,22 +111,22 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph Entry["Entry Points"]
-        IP["Client IP\n(CF-Connecting-IP)"]
-        GH["GitHub Identity\n(OAuth)"]
-        EMAIL["Email\n(manual opt-in)"]
+        IP["Client IP<br/>(CF-Connecting-IP)"]
+        GH["GitHub Identity<br/>(OAuth)"]
+        EMAIL["Email<br/>(manual opt-in)"]
     end
 
     subgraph Transform["Transformations (src/ip-hash.js, src/oauth.js)"]
-        HMAC["HMAC-SHA-256\ndaily key rotation"]
-        DISCARD["Access token\ndiscarded after /user"]
-        SHA256["Session ID\nSHA-256 hashed"]
+        HMAC["HMAC-SHA-256<br/>daily key rotation"]
+        DISCARD["Access token<br/>discarded after /user"]
+        SHA256["Session ID<br/>SHA-256 hashed"]
     end
 
     subgraph Storage["Storage"]
-        LOGS["Coralogix EU2\n(cip pseudonym only)"]
-        D1_GH["D1: github_users\n(githubId, githubLogin, tenantId)"]
-        D1_SESS["D1: sessions\n(idHash only)"]
-        D1_NOTIF["D1: notification_preferences\n(email, if opted in)"]
+        LOGS["Coralogix EU2<br/>(cip pseudonym only)"]
+        D1_GH["D1: github_users<br/>(githubId, githubLogin, tenantId)"]
+        D1_SESS["D1: sessions<br/>(idHash only)"]
+        D1_NOTIF["D1: notification_preferences<br/>(email, if opted in)"]
     end
 
     IP --> HMAC --> LOGS
