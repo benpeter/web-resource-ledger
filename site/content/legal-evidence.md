@@ -152,6 +152,8 @@ Article 41(3) further provides that a qualified electronic timestamp issued by a
 
 The previous sections addressed the legal standards. This section and the next compare WRL's approach against the methods practitioners most commonly use today.
 
+Digital forensics examiners evaluating WRL against professional standards can refer to the [SWGDE Alignment](/security/swgde-compliance/) page. It maps WRL's capture pipeline to SWGDE Best Practices for Acquiring Online Content (21-F-001, Version 1.1), working through each relevant section of the standard and noting where WRL's automated-pipeline approach differs from the manual-examiner model the document describes.
+
 | Approach | Integrity proof | Time proof | Independent verification | Scalability |
 |---|---|---|---|---|
 | Screenshot + affidavit | Affiant's testimony that the screenshot was not altered | Affiant's testimony about when the screenshot was taken | None -- no method exists for a third party to confirm the screenshot matches the original page | Manual; one screenshot per URL per person |

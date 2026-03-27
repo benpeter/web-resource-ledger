@@ -50,6 +50,14 @@ This document specifies how long WRL retains each category of data and what happ
 
 ---
 
+## SWGDE Alignment
+
+SWGDE Best Practices for Acquiring Online Content (21-F-001, Version 1.1) is the primary professional standard that digital forensics examiners, investigators, and attorneys use to evaluate whether a web capture workflow is methodologically sound. The SWGDE Alignment page maps WRL's automated capture pipeline to each relevant section of that document -- covering hash verification, documentation, chain of custody, and tool validation requirements -- and is explicit about where WRL's approach differs from the manual-examiner model the standard describes. The goal is an honest technical comparison, not a certification claim.
+
+[Read the SWGDE Alignment Mapping →](/security/swgde-compliance/)
+
+---
+
 ## Privacy Policy
 
 The Privacy Policy covers the full data inventory, the legal basis for each processing activity, and GDPR rights for data subjects. Unlike the DPA (which is a contract between WRL and enterprise customers as processors), the Privacy Policy addresses WRL's relationship with the individuals whose data it processes as controller.

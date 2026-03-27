@@ -111,7 +111,7 @@ The `verifyUrl` included in every capture record also renders as a human-readabl
 | **Time verification** (`timeVerification`) | An independent timestamp authority recorded the time of capture. Shows the strongest available tier: qualified electronic timestamp (eIDAS Art. 41) when present, otherwise standard RFC 3161 timestamp. |
 | **Timestamp chain** (`timestampChain`) | The timestamp was signed by a certificate authority in a trusted chain (CLI only). Confirms the TSA itself is legitimate. |
 
-When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture -- meaning the capture cannot have been backdated.
+When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture -- meaning the capture cannot have been backdated. WRL's SHA-256 hashing and documentation practices align with SWGDE Best Practices for Acquiring Online Content sections 7.3 and 7.5; see [SWGDE Alignment](/security/swgde-compliance/) for the full mapping.
 
 For how these technical properties map to legal authentication standards (FRE 901/902, eIDAS), see [Legal Evidence](/legal-evidence/). To obtain a certification document designed to support a Rule 902(13) self-authentication foundation, use `GET /v1/captures/{captureId}/certificate` or the "Download Certificate" button in the web UI -- see [Certified records](/legal-evidence/#rule-90213-certified-records).
 
