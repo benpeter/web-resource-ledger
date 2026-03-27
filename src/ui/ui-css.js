@@ -1984,6 +1984,7 @@ input, select, textarea {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
 }
 
 .diff-overlay-line {
@@ -1994,6 +1995,7 @@ input, select, textarea {
   background: var(--color-primary);
   pointer-events: none;
   transform: translateX(-50%);
+  z-index: 2;
 }
 
 .diff-overlay-slider {
@@ -2006,6 +2008,8 @@ input, select, textarea {
   border-radius: 50%;
   border: 2px solid var(--color-primary-text);
   cursor: col-resize;
+  z-index: 3;
+  pointer-events: auto;
 }
 
 .diff-overlay-slider:focus-visible {
