@@ -8,6 +8,7 @@ on:
       - 'src/design-system.css'
       - 'site/assets/*.svg'
       - 'src/pirsch.js'
+      - 'src/log.js'
   workflow_dispatch:
 
 # Note: CLOUDFLARE_API_TOKEN must have Workers Scripts:Edit and Workers Routes:Edit
@@ -40,5 +41,7 @@ jobs:
           command: deploy
           secrets: |
             PIRSCH_ACCESS_KEY
+            CORALOGIX_SEND_KEY
         env:
           PIRSCH_ACCESS_KEY: ${{ secrets.WRL_PIRSCH_ACCESS_KEY }}
+          CORALOGIX_SEND_KEY: ${{ secrets.WRL_CORALOGIX_SEND_KEY }}

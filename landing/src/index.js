@@ -1,5 +1,6 @@
 // tva
 import { trackHit } from '../../src/pirsch.js';
+import { log } from '../../src/log.js';
 
 /**
  * Security headers for the landing site.
@@ -30,6 +31,14 @@ export default {
     }
 
     ctx.waitUntil(trackHit(request, env, { property: 'landing' }) ?? Promise.resolve());
+
+    const { pathname } = new URL(request.url);
+    ctx.waitUntil(log(env, 3, 'pageview', {
+      event: 'pageview',
+      subdomain: 'landing',
+      path: pathname,
+      status: response.status,
+    }) ?? Promise.resolve());
 
     return new Response(response.body, {
       status: response.status,

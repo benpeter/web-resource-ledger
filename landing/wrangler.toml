@@ -12,6 +12,12 @@ routes = [
   { pattern = "www.webresourceledger.com", custom_domain = true }
 ]
 
+[vars]
+CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
+APPLICATION_NAME = "wrl-landing"
+
+# CORALOGIX_SEND_KEY must be set via: wrangler secret put CORALOGIX_SEND_KEY
+
 # Security headers are now applied in src/index.js (Worker fetch handler).
 # Previously these were applied via Cloudflare Transform Rules since pure-asset
 # Workers cannot set response headers. With run_worker_first = true, the Worker

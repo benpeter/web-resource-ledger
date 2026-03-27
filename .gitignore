@@ -42,3 +42,4 @@ docs/history/nefario-reports/2026-03-26-1001*
 test/e2e/.auth-state.json
 test-results/
 playwright-report/
+.worktrees/
