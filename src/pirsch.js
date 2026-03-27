@@ -1,5 +1,7 @@
 // tva
 
+import { log } from './log.js';
+
 const HIT_ENDPOINT = 'https://api.pirsch.io/api/v1/hit';
 const EVENT_ENDPOINT = 'https://api.pirsch.io/api/v1/event';
 
@@ -23,10 +25,10 @@ function _send(env, endpoint, body) {
       },
       body: JSON.stringify(body),
     }).catch((err) => {
-      console.warn('wrl:pirsch_fail', { endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
     });
   } catch (err) {
-    console.warn('wrl:pirsch_fail', { endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
+    log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
     return;
   }
 }

@@ -454,7 +454,7 @@ export async function handlePostUnsubscribe(request, env, ctx, _match) {
   if (!dbResult.ok) {
     // eventType was already validated in verifyUnsubscribeToken -- this path
     // should not be reached, but log it defensively rather than silently failing
-    console.error('wrl:unsubscribe:db_error', { tenantId, eventType, error: dbResult.error });
+    log(env, 5, 'unsubscribe', { event: 'unsubscribe.db_error', tenantId, eventType, error: dbResult.error });
     const html = renderDonePage({ success: false });
     return new Response(html, {
       status: 200,

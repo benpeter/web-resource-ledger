@@ -252,7 +252,7 @@ async function handleCaptureMessage(msg, env, ctx) {
         );
       }
     } catch (err) {
-      console.warn('wrl:pirsch_first_capture_check_fail', { captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+      log(env, 4, 'pirsch', { event: 'pirsch.first_capture_check_fail', captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
     }
 
     const eidasCaptures = result.qualifiedTimestampStatus === 'present' ? 1 : 0;
@@ -271,7 +271,7 @@ async function handleCaptureMessage(msg, env, ctx) {
           eidasCaptures,
         })
       ).catch((err) => {
-        console.warn('wrl:usage_increment_fail', { captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'usage', { event: 'usage.increment_fail', captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
     );
     msg.ack();
@@ -884,7 +884,7 @@ async function handleCreateCapture(request, env, ctx) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -1048,7 +1048,7 @@ async function handleCreateCapture(request, env, ctx) {
   // Step 8b: Store pre-capture threat check result
   ctx.waitUntil(
     setCaptureThreatCheck(env.DB, captureId, threat.degraded ? 'unavailable' : 'pass')
-      .catch(err => console.warn('threat check storage failed', err))
+      .catch(err => log(env, 4, 'capture', { event: 'capture.threat_check_storage_fail', errorMessage: String(err?.message ?? '').slice(0, 128) }))
   );
 
   // Step 9: Log capture accepted (bridge event: ties captureId to keyName for correlation)
@@ -1123,7 +1123,7 @@ async function handleBatchCapture(request, env, ctx) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -1346,7 +1346,7 @@ async function handleBatchCapture(request, env, ctx) {
     // Store pre-capture threat check result
     ctx.waitUntil(
       setCaptureThreatCheck(env.DB, captureId, threat.degraded ? 'unavailable' : 'pass')
-        .catch(err => console.warn('threat check storage failed', err))
+        .catch(err => log(env, 4, 'capture', { event: 'capture.threat_check_storage_fail', errorMessage: String(err?.message ?? '').slice(0, 128) }))
     );
 
     // Log accepted and stage for queue dispatch
@@ -1424,7 +1424,7 @@ async function handleListCaptures(request, env, ctx) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -1988,7 +1988,7 @@ async function handleDiffCaptures(request, env, ctx, match) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        console.warn('wrl:usage_increment_fail', { tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -2110,12 +2110,12 @@ async function handleDiffCaptures(request, env, ctx, match) {
 
     if (baseHeadersObj) {
       try { baseHeadersRaw = JSON.parse(await baseHeadersObj.text()); } catch (err) {
-        console.warn('wrl:diff_headers_parse_fail', { captureId: id1, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'capture', { event: 'capture.diff_headers_parse_fail', captureId: id1, errorMessage: String(err?.message ?? '').slice(0, 128) });
       }
     }
     if (targetHeadersObj) {
       try { targetHeadersRaw = JSON.parse(await targetHeadersObj.text()); } catch (err) {
-        console.warn('wrl:diff_headers_parse_fail', { captureId: id2, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        log(env, 4, 'capture', { event: 'capture.diff_headers_parse_fail', captureId: id2, errorMessage: String(err?.message ?? '').slice(0, 128) });
       }
     }
   }

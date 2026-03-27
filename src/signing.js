@@ -17,6 +17,7 @@
  */ // tva
 
 import { createPrivateKey, createPublicKey } from 'node:crypto';
+import { log } from './log.js';
 
 // ---------------------------------------------------------------------------
 // Module-scoped cache
@@ -81,7 +82,7 @@ export async function getSigningKeys(env) {
 
     return { privateKey, publicKeyBytes, keyId };
   } catch (err) {
-    console.warn('Signing key validation failed:', String(err?.message ?? '').slice(0, 200));
+    log(env, 5, 'signing', { event: 'signing.key_validation_fail', errorMessage: String(err?.message ?? '').slice(0, 200) });
     return null;
   }
 }
