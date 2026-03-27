@@ -161,6 +161,232 @@ function buildMetadataSection(data) {
 }
 
 // ---------------------------------------------------------------------------
+// Compare captures -- inline picker for arbitrary diff comparison
+// ---------------------------------------------------------------------------
+
+function buildCompareSection(currentId, data) {
+  var section = document.createElement('section');
+  section.className = 'section detail-section compare-section';
+
+  var h2 = document.createElement('h2');
+  h2.textContent = 'Compare Captures';
+  section.appendChild(h2);
+
+  // Quick-compare link (when changeSummary exists from scheduled capture)
+  if (data.changeSummary && data.changeSummary.previousCaptureId) {
+    var quickLink = document.createElement('a');
+    quickLink.href = '#/diff/' + data.changeSummary.previousCaptureId + '/' + currentId;
+    quickLink.className = 'detail-url-link';
+    quickLink.textContent = data.changeSummary.changed === true
+      ? 'Compare with previous capture (changes detected)'
+      : 'Compare with previous capture (no changes)';
+    section.appendChild(quickLink);
+  }
+
+  // Toggle button for the picker
+  var pickerId = 'compare-picker-' + currentId;
+  var toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'btn btn--ghost compare-toggle';
+  toggleBtn.textContent = 'Compare with another capture\u2026';
+  toggleBtn.setAttribute('aria-expanded', 'false');
+  toggleBtn.setAttribute('aria-controls', pickerId);
+  section.appendChild(toggleBtn);
+
+  // Picker container (hidden by default)
+  var picker = document.createElement('div');
+  picker.id = pickerId;
+  picker.className = 'compare-picker';
+  picker.hidden = true;
+
+  // Status region for screen readers
+  var statusRegion = document.createElement('div');
+  statusRegion.className = 'compare-picker-status';
+  statusRegion.setAttribute('aria-live', 'polite');
+  statusRegion.setAttribute('role', 'status');
+  picker.appendChild(statusRegion);
+
+  // Capture list
+  var list = document.createElement('ul');
+  list.className = 'compare-picker-list';
+  list.setAttribute('aria-label', 'Captures of this URL');
+  picker.appendChild(list);
+
+  // Load more button
+  var moreBtn = document.createElement('button');
+  moreBtn.type = 'button';
+  moreBtn.className = 'btn btn--ghost compare-picker-more';
+  moreBtn.textContent = 'Load more';
+  moreBtn.hidden = true;
+  picker.appendChild(moreBtn);
+
+  section.appendChild(picker);
+
+  // State
+  var loaded = false;
+  var cursor = null;
+
+  toggleBtn.addEventListener('click', function() {
+    var expanded = picker.hidden;
+    picker.hidden = !expanded;
+    toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+
+    if (expanded && !loaded) {
+      loaded = true;
+      loadCaptures(data.url, currentId, data.createdAt, list, moreBtn, statusRegion, null);
+    }
+
+    if (expanded) {
+      // Focus first non-current link in the list
+      setTimeout(function() {
+        var first = list.querySelector('a.compare-picker-item:not(.compare-picker-item--current)');
+        if (first) first.focus();
+      }, 0);
+    }
+  });
+
+  // Escape key closes the picker
+  picker.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      picker.hidden = true;
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      toggleBtn.focus();
+    }
+  });
+
+  moreBtn.addEventListener('click', function() {
+    if (cursor) {
+      loadCaptures(data.url, currentId, data.createdAt, list, moreBtn, statusRegion, cursor);
+    }
+  });
+
+  // Store cursor setter on moreBtn for loadCaptures to update
+  moreBtn._setCursor = function(c) { cursor = c; };
+
+  return section;
+}
+
+function loadCaptures(url, currentId, currentCreatedAt, list, moreBtn, statusRegion, cursorParam) {
+  // Show loading state
+  if (!cursorParam) {
+    statusRegion.textContent = 'Loading captures\u2026';
+    var spinner = document.createElement('div');
+    spinner.className = 'detail-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+    list.parentNode.insertBefore(spinner, list);
+  }
+
+  var apiUrl = '/v1/captures?url=' + encodeURIComponent(url)
+    + '&status=complete&limit=20&sort=-created_at';
+  if (cursorParam) {
+    apiUrl += '&cursor=' + encodeURIComponent(cursorParam);
+  }
+
+  apiFetch(apiUrl).then(function(res) {
+    // Remove spinner if present
+    var sp = list.parentNode.querySelector('.detail-spinner');
+    if (sp) sp.remove();
+
+    if (!res || !res.ok) {
+      statusRegion.textContent = 'Could not load captures.';
+      return;
+    }
+    res.json().then(function(body) {
+      var captures = body.data || [];
+
+      // Client-side exact URL filter (API uses prefix matching)
+      captures = captures.filter(function(c) { return c.url === url; });
+
+      if (!cursorParam && captures.length === 0) {
+        // No other captures -- hide the entire section
+        var section = list.closest('.compare-section');
+        if (section) {
+          // Only hide the toggle and picker, keep quick-compare if present
+          var toggle = section.querySelector('.compare-toggle');
+          if (toggle) toggle.hidden = true;
+          list.parentNode.hidden = true;
+        }
+        statusRegion.textContent = '';
+        return;
+      }
+
+      var count = 0;
+      for (var i = 0; i < captures.length; i++) {
+        var cap = captures[i];
+        var li = document.createElement('li');
+
+        if (cap.id === currentId) {
+          // Current capture -- show but disabled
+          var span = document.createElement('span');
+          span.className = 'compare-picker-item compare-picker-item--current';
+
+          var dateSpan = document.createElement('span');
+          dateSpan.className = 'compare-picker-item-date';
+          dateSpan.textContent = formatDatetime(cap.createdAt);
+          span.appendChild(dateSpan);
+
+          var badge = document.createElement('span');
+          badge.className = 'compare-picker-item-badge';
+          badge.textContent = '(current)';
+          span.appendChild(badge);
+
+          li.appendChild(span);
+        } else {
+          // Selectable capture -- link to diff view
+          var a = document.createElement('a');
+          a.className = 'compare-picker-item';
+
+          // Order by date: base (older) first, target (newer) second
+          var currentDate = new Date(currentCreatedAt);
+          var capDate = new Date(cap.createdAt);
+          if (capDate < currentDate) {
+            a.href = '#/diff/' + cap.id + '/' + currentId;
+          } else {
+            a.href = '#/diff/' + currentId + '/' + cap.id;
+          }
+
+          var aDate = document.createElement('span');
+          aDate.className = 'compare-picker-item-date';
+          aDate.textContent = formatDatetime(cap.createdAt);
+          a.appendChild(aDate);
+
+          if (cap.scheduleId) {
+            var sBadge = document.createElement('span');
+            sBadge.className = 'compare-picker-item-badge compare-picker-item-badge--scheduled';
+            sBadge.textContent = 'Scheduled';
+            a.appendChild(sBadge);
+          }
+
+          li.appendChild(a);
+          count++;
+        }
+
+        list.appendChild(li);
+      }
+
+      // Update status for screen readers
+      if (!cursorParam) {
+        statusRegion.textContent = count + ' capture' + (count !== 1 ? 's' : '') + ' available';
+      } else {
+        statusRegion.textContent = count + ' more capture' + (count !== 1 ? 's' : '') + ' loaded';
+      }
+
+      // Pagination
+      if (body.pagination && body.pagination.hasMore && body.pagination.cursor) {
+        moreBtn.hidden = false;
+        moreBtn._setCursor(body.pagination.cursor);
+      } else {
+        moreBtn.hidden = true;
+      }
+    });
+  }).catch(function() {
+    var sp = list.parentNode.querySelector('.detail-spinner');
+    if (sp) sp.remove();
+    statusRegion.textContent = 'Could not load captures.';
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Full (complete) capture layout
 // ---------------------------------------------------------------------------
 
@@ -277,27 +503,8 @@ function renderDetailComplete(view, id, data) {
   artifactsSection.appendChild(artList);
   card.appendChild(artifactsSection);
 
-  // Compare with previous (only when changeSummary has previousCaptureId)
-  if (data.changeSummary && data.changeSummary.previousCaptureId) {
-    var compareSection = document.createElement('section');
-    compareSection.className = 'section detail-section';
-
-    var compareH2 = document.createElement('h2');
-    compareH2.textContent = 'Changes';
-    compareSection.appendChild(compareH2);
-
-    var compareLink = document.createElement('a');
-    compareLink.href = '#/diff/' + data.changeSummary.previousCaptureId + '/' + id;
-    compareLink.className = 'detail-url-link';
-
-    if (data.changeSummary.changed === true) {
-      compareLink.textContent = 'Compare with previous capture (changes detected)';
-    } else {
-      compareLink.textContent = 'Compare with previous capture (no changes)';
-    }
-    compareSection.appendChild(compareLink);
-    card.appendChild(compareSection);
-  }
+  // Compare captures section
+  card.appendChild(buildCompareSection(id, data));
 
   // Verification link (only when WACZ is present)
   if (data.wacz) {
