@@ -428,7 +428,7 @@ export async function handleAuthCallback(request, env, ctx) {
         await env.KV.put(`first_key:${tenantId}`, rawKey, { expirationTtl: 3600 });
       } else {
         // Hash collision (astronomically rare) -- log but don't fail the OAuth flow
-        console.error('wrl:oauth:first_key_collision', { tenantId, reason: result.reason });
+        log(env, 5, 'oauth', { event: 'oauth.first_key_collision', tenantId, reason: result.reason });
       }
 
       // 3g: Auto-populate notification_preferences with GitHub email if available
@@ -555,7 +555,7 @@ export async function handleAuthLogout(request, env, ctx) {
           await deleteSession(env.DB, idHash);
         } catch (err) {
           // Log but don't fail -- we still clear the cookie
-          console.error('wrl:oauth:logout_delete_error', { errorMessage: String(err?.message ?? '').slice(0, 128) });
+          log(env, 5, 'oauth', { event: 'oauth.logout_delete_error', errorMessage: String(err?.message ?? '').slice(0, 128) });
         }
 
         ctx.waitUntil(log(env, 3, 'oauth', {
@@ -603,7 +603,7 @@ export async function handleAuthSession(request, env, ctx) {
   try {
     user = await findGitHubUser(env.DB, auth.githubId);
   } catch (err) {
-    console.error('wrl:oauth:session_user_lookup_error', { errorMessage: String(err?.message ?? '').slice(0, 128) });
+    log(env, 5, 'oauth', { event: 'oauth.session_user_lookup_error', errorMessage: String(err?.message ?? '').slice(0, 128) });
     return problemResponse(500, 'Session service error');
   }
 

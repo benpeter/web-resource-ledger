@@ -96,6 +96,14 @@ Key principles that apply to all work here:
   unless a framework adds specific, demonstrable value.
   Don't default to React, Vue, Tailwind CSS, jQuery, etc. just because they're popular.
   Always ask: "What does this dependency give me that I can't do simply without it?"
+- **Log to Coralogix, never console** -- all error and warning logging must use
+  `log(env, severity, subsystem, data)` from `src/log.js`, not `console.warn/error`.
+  The only exceptions are: (1) `log.js` itself (Coralogix can't log its own failures),
+  (2) pure utility functions without `env` access (`cdxj.js`, `ip-hash.js`), and
+  (3) third-party vendor code (`src/vendor/`). `console.*` calls are invisible in
+  production unless someone runs `wrangler tail` at the exact right moment.
+  Internal helpers without `env` (e.g., `capture.js` browser session helpers) also
+  get an exception, but prefer threading `env` through when practical.
 - **Fail loudly, degrade intentionally** -- silent `catch {}` blocks are forbidden.
   Every catch must either log the error or handle a specific, named error type.
   When a feature degrades (e.g., timestamp unavailable), the system must distinguish

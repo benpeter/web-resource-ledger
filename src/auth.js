@@ -150,7 +150,7 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
       record = await getApiKeyRecord(env.DB, sha256hex);
     } catch (err) {
       // D1 I/O failure: fail loudly, do NOT fall through to legacy
-      console.error('wrl:auth:kv_error', { errorMessage: String(err?.message ?? '').slice(0, 128) });
+      log(env, 5, 'security', { event: 'security.kv_error', errorMessage: String(err?.message ?? '').slice(0, 128) });
       return {
         ok: false,
         response: problemResponse(500, 'Authentication service error'),
@@ -175,7 +175,7 @@ export async function verifyApiKey(request, env, { requiredScope = 'capture' } =
 
       // Validate tenantId -- callers rely on this contract
       if (!TENANT_ID_RE.test(record.tenantId)) {
-        console.error('wrl:auth:invalid_tenant_id', { keyHashPrefix: sha256hex.slice(0, 8) });
+        log(env, 5, 'security', { event: 'security.invalid_tenant_id', keyHashPrefix: sha256hex.slice(0, 8) });
         return {
           ok: false,
           response: problemResponse(500, 'Tenant configuration error'),

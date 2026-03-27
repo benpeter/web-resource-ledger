@@ -24,6 +24,7 @@
 
 import { getSession } from './db.js';
 import { hashApiKey } from './auth.js';
+import { log } from './log.js';
 import { problemResponse } from './responses.js';
 
 const COOKIE_NAME = '__Host-wrl_session';
@@ -227,7 +228,7 @@ export async function verifySession(request, env) {
   try {
     session = await getSession(env.DB, idHash);
   } catch (err) {
-    console.error('wrl:session:db_error', { errorMessage: String(err?.message ?? '').slice(0, 128) });
+    log(env, 5, 'session', { event: 'session.db_error', errorMessage: String(err?.message ?? '').slice(0, 128) });
     return {
       ok: false,
       response: problemResponse(500, 'Session service error'),

@@ -155,18 +155,12 @@ describe('pirsch -- trackEventRaw payload', () => {
 
 describe('pirsch -- error resilience', () => {
   it('resolves without throwing when fetch rejects', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
     fetchMock
       .get(PIRSCH_ORIGIN)
       .intercept({ path: HIT_PATH, method: 'POST' })
       .replyWithError(new Error('Network error'));
 
+    // Errors are logged to Coralogix (no-op in test env without CORALOGIX_ENDPOINT)
     await expect(trackHit(mockRequest(), mockEnv, {})).resolves.not.toThrow();
-    expect(warnSpy).toHaveBeenCalledWith(
-      'wrl:pirsch_fail',
-      expect.objectContaining({ endpoint: 'https://api.pirsch.io/api/v1/hit' }),
-    );
-    warnSpy.mockRestore();
   });
 });

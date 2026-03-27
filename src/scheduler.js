@@ -228,7 +228,8 @@ export async function handleScheduledTick(controller, env, ctx) {
           : Math.round(count * ratio);
         if (actualCount > 0) {
           incrementUsage(env.DB, tenantId, { captures: actualCount }).catch((err) => {
-            console.warn('wrl:schedule_usage_increment_fail', {
+            log(env, 4, 'usage', {
+              event: 'usage.increment_fail',
               tenantId,
               count: actualCount,
               errorMessage: String(err?.message ?? '').slice(0, 128),
