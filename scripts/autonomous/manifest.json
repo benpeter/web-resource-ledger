@@ -608,11 +608,38 @@
       "act_last": true
     },
     {
+      "phase": "0103",
+      "item": "SWGDE-DOCS",
+      "issue": 259,
+      "title": "Align docs with SWGDE Best Practices for Acquiring Online Content",
+      "act": 11,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0104",
+      "item": "FAQ-SEGMENT",
+      "issue": 255,
+      "title": "Segment-targeted FAQ section with schema.org markup",
+      "act": 11,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0105",
+      "item": "ALERT-AUTO",
+      "issue": 139,
+      "title": "Auto-investigate Coralogix alerts with Claude Code",
+      "act": 11,
+      "depends_on": [],
+      "act_last": true
+    },
+    {
       "phase": "0100",
       "item": "DIFF-OVERLAY",
       "issue": 237,
       "title": "Diff overlay mode: slider handle cannot be grabbed",
-      "act": 11,
+      "act": 12,
       "depends_on": [],
       "act_last": false
     },
@@ -621,10 +648,48 @@
       "item": "DIFF-HISTORY",
       "issue": 236,
       "title": "Diff view for any two captures, not just latest scheduled run",
-      "act": 11,
+      "act": 12,
       "depends_on": [
         "0100"
       ],
+      "act_last": true
+    },
+    {
+      "phase": "0106",
+      "item": "PIPELINES",
+      "issue": 206,
+      "title": "Pluggable capture pipeline architecture",
+      "act": 13,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0107",
+      "item": "QUEUE-FLAG",
+      "issue": 159,
+      "title": "Queue compat flag investigation for capture queue",
+      "act": 13,
+      "depends_on": [],
+      "act_last": false
+    },
+    {
+      "phase": "0108",
+      "item": "FETCH-CAPTURE",
+      "issue": 143,
+      "title": "Fetch-based capture for non-HTML web resources",
+      "act": 13,
+      "depends_on": [
+        "0106"
+      ],
+      "act_last": true
+    },
+    {
+      "phase": "0109",
+      "item": "STRIPE-EMBED",
+      "issue": 147,
+      "title": "Embed Stripe payment form instead of redirect",
+      "act": 14,
+      "depends_on": [],
       "act_last": true
     }
   ]
