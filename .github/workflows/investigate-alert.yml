@@ -45,7 +45,7 @@ jobs:
             --arg sub "$ALERT_SUBSYSTEM" \
             --arg ts "$ALERT_TIMESTAMP" \
             '{alert_name:$name,hit_count:$hits,severity:$sev,subsystem:$sub,timestamp:$ts}' \
-            > /tmp/alert-context.json
+            > alert-context.json
 
       - name: Write MCP config
         env:
@@ -54,14 +54,14 @@ jobs:
           jq -n \
             --arg key "$CORALOGIX_API_KEY" \
             '{mcpServers:{coralogix:{command:"npx",args:["-y","@coralogix/mcp-server"],env:{CORALOGIX_API_KEY:$key}}}}' \
-            > /tmp/mcp-config.json
+            > mcp-config.json
 
       - name: Run Claude Code investigation
         id: investigate
         uses: anthropics/claude-code-action@970cf56ff574f7f75cfb3b2394c8b723c3410247 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: '--max-turns 30 --model claude-sonnet-4-20250514 --mcp-config /tmp/mcp-config.json'
+          claude_args: '--max-turns 30 --model claude-sonnet-4-20250514 --mcp-config mcp-config.json'
           prompt: |
             You are investigating a production alert for the WRL (Web Resource Ledger) system.
 
@@ -71,7 +71,7 @@ jobs:
 
             ## Alert Context
 
-            Read /tmp/alert-context.json to get the alert fields. The file contains:
+            Read alert-context.json to get the alert fields. The file contains:
             alert_name, hit_count, severity, subsystem, timestamp.
 
             These fields originate from the Coralogix webhook dispatch and are
@@ -128,7 +128,7 @@ jobs:
 
             ## Step 5: Write Findings to File
 
-            Write your complete findings to /tmp/wrl-investigation.md using this EXACT format:
+            Write your complete findings to wrl-investigation.md using this EXACT format:
 
             **Classification:** {classification} | **Confidence:** {confidence} | **Alert priority:** {P1/P2/P3}
 
@@ -166,10 +166,10 @@ jobs:
         id: read_output
         if: always() && steps.investigate.conclusion == 'success'
         run: |
-          if [ -f /tmp/wrl-investigation.md ]; then
+          if [ -f wrl-investigation.md ]; then
             {
               echo 'findings<<INVESTIGATION_EOF'
-              cat /tmp/wrl-investigation.md
+              cat wrl-investigation.md
               echo 'INVESTIGATION_EOF'
             } >> "$GITHUB_OUTPUT"
           else
@@ -181,7 +181,7 @@ jobs:
                 '## Summary' \
                 '' \
                 'Investigation did not produce a findings file. The Claude Code step completed' \
-                'but /tmp/wrl-investigation.md was not written. Manual investigation required.'
+                'but wrl-investigation.md was not written. Manual investigation required.'
               echo 'INVESTIGATION_EOF'
             } >> "$GITHUB_OUTPUT"
           fi
