@@ -46,12 +46,21 @@ jobs:
             '{alert_name:$name,hit_count:$hits,severity:$sev,subsystem:$sub,timestamp:$ts}' \
             > /tmp/alert-context.json
 
+      - name: Write MCP config
+        env:
+          CORALOGIX_API_KEY: ${{ secrets.WRL_CORALOGIX_API_KEY }}
+        run: |
+          jq -n \
+            --arg key "$CORALOGIX_API_KEY" \
+            '{mcpServers:{coralogix:{command:"npx",args:["-y","@coralogix/mcp-server"],env:{CORALOGIX_API_KEY:$key}}}}' \
+            > /tmp/mcp-config.json
+
       - name: Run Claude Code investigation
         id: investigate
         uses: anthropics/claude-code-action@970cf56ff574f7f75cfb3b2394c8b723c3410247 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: '--max-turns 30 --model claude-sonnet-4-20250514'
+          claude_args: '--max-turns 30 --model claude-sonnet-4-20250514 --mcp-config /tmp/mcp-config.json'
           prompt: |
             You are investigating a production alert for the WRL (Web Resource Ledger) system.
 
@@ -85,16 +94,17 @@ jobs:
 
             ## Step 2: Execute Diagnostic Steps
 
-            Follow the "Check" section of the runbook. For each Coralogix query mentioned
-            in the runbook, document what you would query and what to look for. Since direct
-            Coralogix access is not available in this environment, focus on:
-            - Reading the runbook's diagnostic steps
-            - Checking recent git history for related changes: git log --oneline -20
-            - Reviewing the relevant source code for recent modifications
-            - Checking if any related GitHub Issues already exist
+            Follow the "Check" section of the runbook. You have access to the Coralogix
+            MCP server -- use it to execute the queries from the runbook directly.
 
-            Record concrete evidence where available. Note what queries an operator should
-            run manually in Coralogix for definitive diagnosis.
+            For each diagnostic step in the runbook:
+            1. Run the Coralogix query using the MCP tools (query_logs, get_logs)
+            2. Analyze the results for error patterns, affected tenants, URLs
+            3. Check recent git history for related changes: git log --oneline -20
+            4. Check if any related GitHub Issues already exist
+
+            If the Coralogix MCP server is unavailable, fall back to documenting what
+            queries an operator should run manually.
 
             ## Step 3: Assess Causes
 
@@ -136,8 +146,8 @@ jobs:
             <details>
             <summary>Diagnostic queries ({N} queries)</summary>
 
-            | Step | Query/Action | Expected Result |
-            |------|-------------|----------------|
+            | Step | Query/Action | Result |
+            |------|-------------|--------|
             | ... | ... | ... |
 
             </details>
@@ -182,43 +192,21 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           FINDINGS: ${{ steps.read_output.outputs.findings }}
         run: |
-          # Derive alert slug for label matching
           ALERT_SLUG=$(echo "$ALERT_NAME" | sed 's/\[WRL\] //' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/-$//')
           LABEL="alert:${ALERT_SLUG}"
-
-          # Check for existing open issue with this alert label
           EXISTING=$(gh issue list --state open --label "$LABEL" --json number --jq '.[0].number // empty')
-
+          body_file=$(mktemp)
           if [ -n "$EXISTING" ]; then
-            # Append a comment to the existing issue
-            body_file=$(mktemp)
-            cat > "$body_file" <<COMMENT_EOF
-## Update -- $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-${FINDINGS}
-
----
-*[Investigation log](${RUN_URL})*
-COMMENT_EOF
+            printf '## Update -- %s\n\n%s\n\n---\n*[Investigation log](%s)*\n' \
+              "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$FINDINGS" "$RUN_URL" > "$body_file"
             gh issue comment "$EXISTING" --body-file "$body_file"
-            rm -f "$body_file"
           else
-            # Create a new issue
-            body_file=$(mktemp)
-            cat > "$body_file" <<ISSUE_EOF
-${FINDINGS}
-
----
-- **Alert rule:** ${ALERT_NAME}
-- **Coralogix:** ${ALERT_URL}
-- **Investigation log:** [GitHub Actions run](${RUN_URL})
-
-*Auto-investigated by Claude Code at $(date -u +"%Y-%m-%dT%H:%M:%SZ").*
-ISSUE_EOF
+            printf '%s\n\n---\n- **Alert rule:** %s\n- **Coralogix:** %s\n- **Investigation log:** [GitHub Actions run](%s)\n\n*Auto-investigated by Claude Code at %s.*\n' \
+              "$FINDINGS" "$ALERT_NAME" "$ALERT_URL" "$RUN_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$body_file"
             gh issue create \
               --title "[WRL Alert] ${ALERT_NAME}" \
               --body-file "$body_file" \
               --label "$LABEL" \
               --label "auto-investigated"
-            rm -f "$body_file"
           fi
+          rm -f "$body_file"
