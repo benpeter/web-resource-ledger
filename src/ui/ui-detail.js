@@ -233,7 +233,7 @@ function buildCompareSection(currentId, data) {
 
     if (expanded && !loaded) {
       loaded = true;
-      loadCaptures(data.url, currentId, data.createdAt, list, moreBtn, statusRegion, null);
+      loadCompareCaptures(data.url, currentId, data.createdAt, list, moreBtn, statusRegion, null);
     }
 
     if (expanded) {
@@ -256,7 +256,7 @@ function buildCompareSection(currentId, data) {
 
   moreBtn.addEventListener('click', function() {
     if (cursor) {
-      loadCaptures(data.url, currentId, data.createdAt, list, moreBtn, statusRegion, cursor);
+      loadCompareCaptures(data.url, currentId, data.createdAt, list, moreBtn, statusRegion, cursor);
     }
   });
 
@@ -266,7 +266,7 @@ function buildCompareSection(currentId, data) {
   return section;
 }
 
-function loadCaptures(url, currentId, currentCreatedAt, list, moreBtn, statusRegion, cursorParam) {
+function loadCompareCaptures(url, currentId, currentCreatedAt, list, moreBtn, statusRegion, cursorParam) {
   // Show loading state
   if (!cursorParam) {
     statusRegion.textContent = 'Loading captures\u2026';
