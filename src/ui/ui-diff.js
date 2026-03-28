@@ -280,7 +280,6 @@ function buildScreenshotSection(id1, id2, normalised) {
 
   var sliderLine = document.createElement('div');
   sliderLine.className = 'diff-overlay-line';
-  sliderLine.setAttribute('aria-hidden', 'true');
   overlayContainer.appendChild(sliderLine);
 
   var sliderHandle = document.createElement('div');
@@ -467,12 +466,28 @@ function initOverlaySlider(initialPct) {
   function applyPct(val) {
     pct = Math.max(0, Math.min(100, val));
     topImg.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
-    sliderHandle.style.left = pct + '%';
     line.style.left = pct + '%';
+    sliderHandle.style.left = pct + '%';
     sliderHandle.setAttribute('aria-valuenow', String(Math.round(pct)));
   }
 
+  // Keep handle vertically centered in the visible portion of the container
+  function updateHandlePosition() {
+    var cRect = container.getBoundingClientRect();
+    var cHeight = container.offsetHeight;
+    // Clamp to visible region of the container within the viewport
+    var visTop = Math.max(0, -cRect.top);
+    var visBottom = Math.min(cHeight, window.innerHeight - cRect.top);
+    var centerY = (visTop + visBottom) / 2;
+    // Clamp so handle doesn't escape the container
+    centerY = Math.max(20, Math.min(cHeight - 20, centerY));
+    sliderHandle.style.top = centerY + 'px';
+  }
+
   applyPct(pct);
+  updateHandlePosition();
+  window.addEventListener('scroll', updateHandlePosition, { passive: true });
+  window.addEventListener('resize', updateHandlePosition, { passive: true });
 
   sliderHandle.addEventListener('keydown', function(e) {
     if (e.key === 'ArrowRight')     { e.preventDefault(); applyPct(pct + 5); }
@@ -491,6 +506,8 @@ function initOverlaySlider(initialPct) {
 
   sliderHandle.addEventListener('mousedown', function(e) { e.preventDefault(); dragging = true; });
   sliderHandle.addEventListener('touchstart', function() { dragging = true; }, { passive: true });
+  line.addEventListener('mousedown', function(e) { e.preventDefault(); dragging = true; applyPct(getPctFromEvent(e)); });
+  line.addEventListener('touchstart', function(e) { dragging = true; applyPct(getPctFromEvent(e)); }, { passive: true });
   document.addEventListener('mousemove',  function(e) { if (dragging) applyPct(getPctFromEvent(e)); });
   document.addEventListener('touchmove',  function(e) { if (dragging) applyPct(getPctFromEvent(e)); }, { passive: true });
   document.addEventListener('mouseup',   function() { dragging = false; });

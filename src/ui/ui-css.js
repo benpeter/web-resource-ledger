@@ -2071,25 +2071,52 @@ a.compare-picker-item:focus-visible {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 3px;
   background: var(--color-primary);
-  pointer-events: none;
+  pointer-events: auto;
   transform: translateX(-50%);
   z-index: 2;
+  cursor: col-resize;
 }
 
+/* Wider invisible hit area around the line */
+.diff-overlay-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 27px;
+  cursor: col-resize;
+}
+
+/* Grip handle — positioned by JS to stay in viewport while scrolling */
 .diff-overlay-slider {
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 24px;
-  height: 24px;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 40px;
   background: var(--color-primary);
-  border-radius: 50%;
+  border-radius: 4px;
   border: 2px solid var(--color-primary-text);
   cursor: col-resize;
   z-index: 3;
   pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: top 0.05s linear;
+}
+
+/* Drag grip dots */
+.diff-overlay-slider::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 20px;
+  background-image: radial-gradient(circle, var(--color-primary-text) 1.5px, transparent 1.5px);
+  background-size: 4px 4px;
+  opacity: 0.8;
 }
 
 .diff-overlay-slider:focus-visible {
