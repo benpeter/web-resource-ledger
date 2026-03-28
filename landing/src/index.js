@@ -30,7 +30,9 @@ export default {
       headers.set(key, value);
     }
 
-    ctx.waitUntil(trackHit(request, env, { property: 'landing' }) ?? Promise.resolve());
+    if (response.status < 400) {
+      ctx.waitUntil(trackHit(request, env, { property: 'landing' }) ?? Promise.resolve());
+    }
 
     const { pathname } = new URL(request.url);
     ctx.waitUntil(log(env, 3, 'pageview', {
