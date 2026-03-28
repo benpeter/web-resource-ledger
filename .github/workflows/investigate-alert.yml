@@ -166,15 +166,16 @@ jobs:
         id: read_output
         if: always() && steps.investigate.conclusion == 'success'
         run: |
+          DELIM="FINDINGS_$(openssl rand -hex 8)"
           if [ -f wrl-investigation.md ]; then
             {
-              echo 'findings<<INVESTIGATION_EOF'
+              echo "findings<<${DELIM}"
               cat wrl-investigation.md
-              echo 'INVESTIGATION_EOF'
+              echo "${DELIM}"
             } >> "$GITHUB_OUTPUT"
           else
             {
-              echo 'findings<<INVESTIGATION_EOF'
+              echo "findings<<${DELIM}"
               printf '%s\n' \
                 '**Classification:** unclear | **Confidence:** low | **Alert priority:** unknown' \
                 '' \
@@ -182,7 +183,7 @@ jobs:
                 '' \
                 'Investigation did not produce a findings file. The Claude Code step completed' \
                 'but wrl-investigation.md was not written. Manual investigation required.'
-              echo 'INVESTIGATION_EOF'
+              echo "${DELIM}"
             } >> "$GITHUB_OUTPUT"
           fi
 
