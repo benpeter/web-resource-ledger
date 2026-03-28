@@ -118,3 +118,22 @@ Key principles that apply to all work here:
   the test suite must include at least one assertion that the integration actually
   works end-to-end.
 
+## Dashboard UI Architecture
+
+The dashboard (`src/ui/`) uses **no framework** — vanilla JS with DOM APIs.
+All view modules (`ui-submit.js`, `ui-detail.js`, `ui-diff.js`, etc.) export
+a JS string constant that `ui-shell.js` concatenates into a single `<script>`
+block via template literals.
+
+**This means all functions share one flat scope.** There is no module
+isolation. A function named `loadCaptures` in `ui-detail.js` will shadow
+one with the same name in `ui-submit.js`. This has caused production bugs.
+
+Rules when editing `src/ui/`:
+- **Prefix function names** with the view name: `detail_loadCaptures`,
+  `submit_loadCaptures`, or use a distinctive name like `loadCompareCaptures`.
+- **Before adding a function**, grep all `src/ui/*.js` files for the name
+  to confirm it doesn't collide.
+- **Module-level variables** (`_listEl`, `_captures`, etc.) are also global —
+  same collision risk applies. Use view-specific prefixes.
+

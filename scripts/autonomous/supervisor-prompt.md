@@ -483,6 +483,36 @@ If your session dies mid-run:
 3. Clean up worktrees: `git worktree list` then `git worktree remove <path> --force`
 4. Pick up from the first non-success phase
 
+## Handback summary (MANDATORY)
+
+When handing control back to the operator after an autonomous run, write
+a summary to `~/WRL-<acts>-followup.md` (e.g. `~/WRL-11-12-followup.md`)
+and present it in the conversation. The summary has two sections:
+
+### 1. Compromises made without operator input
+
+Decisions and workarounds the supervisor made autonomously that the
+operator should be aware of. These are things that would normally warrant
+a human judgment call but were resolved to keep the run moving. Examples:
+- Infrastructure changes (WAF rules, DNS, bot protection toggled)
+- Secrets provisioned or rotated
+- Phases marked success despite partial failures
+- CI workflow changes to unblock the pipeline
+- Evolution log corrections (misnumbered directories, missing files)
+
+For each: state what was done, why, and what to verify.
+
+### 2. Human follow-up actions required
+
+Things the supervisor could not do autonomously. For each item:
+- What needs to be done (specific commands or steps)
+- Why it's needed (what breaks without it)
+- Reference to the section in the followup file
+
+After writing the file, create a TRO task (`/tro-fast t`) for each
+follow-up action, referencing the file and section number. This ensures
+nothing falls through the cracks between autonomous sessions.
+
 ## Execution log
 
 Maintain `docs/evolution/0041-autonomous-execution/` as a running record:

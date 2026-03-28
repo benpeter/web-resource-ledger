@@ -37,7 +37,7 @@ fi
 readonly DRY_RUN="${1:-}"
 
 # Redact API key in all output
-log() { echo "$@"; }
+log() { echo "$@" >&2; }
 err() { echo "ERROR: $*" >&2; }
 
 # --- Alert Definitions ---
@@ -426,7 +426,7 @@ new_api_key_created_payload() {
         "condition": {
           "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
           "threshold": 0,
-          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_1_OR_UNSPECIFIED"}
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_5_OR_UNSPECIFIED"}
         },
         "override": {"priority": "ALERT_DEF_PRIORITY_P4"}
       }]
@@ -520,15 +520,19 @@ webhook_data_payload() {
   # Variable reference: $ALERT_ID, $ALERT_NAME, $ALERT_ACTION, $ALERT_URL,
   #   $HIT_COUNT, $APPLICATION_NAME, $SUBSYSTEM_NAME, $EVENT_SEVERITY
   # $ALERT_ACTION is "triggered" or "resolved" -- used by the receiver to open/close incidents.
+  local webhook_uuid
+  webhook_uuid=$(uuidgen | tr '[:upper:]' '[:lower:]')
   jq -n \
     --arg name    "$WEBHOOK_NAME" \
     --arg url     "$WEBHOOK_TARGET_URL" \
     --arg secret  "$WEBHOOK_SECRET" \
+    --arg uuid    "$webhook_uuid" \
     '{
       "name": $name,
       "type": "GENERIC",
       "url":  $url,
       "genericWebhook": {
+        "uuid": $uuid,
         "method": "POST",
         "headers": {
           "Content-Type":  "application/json",
@@ -556,7 +560,7 @@ create_webhook_integration() {
     else
       log "[DRY-RUN] [CREATE] Webhook '$WEBHOOK_NAME' -> $WEBHOOK_TARGET_URL"
     fi
-    webhook_data_payload | jq '{data: .}'
+    webhook_data_payload | jq '{data: .}' >&2
     # Return a placeholder external ID so dry-run can continue to show alert payloads
     echo "0"
     return 0
