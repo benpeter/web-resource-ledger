@@ -162,49 +162,38 @@ jobs:
 
             {Did the runbook match observed conditions? Note any discrepancies.}
 
-      - name: Read investigation output
-        id: read_output
-        if: always() && steps.investigate.conclusion == 'success'
-        run: |
-          DELIM="FINDINGS_$(openssl rand -hex 8)"
-          if [ -f wrl-investigation.md ]; then
-            {
-              echo "findings<<${DELIM}"
-              cat wrl-investigation.md
-              echo "${DELIM}"
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo "findings<<${DELIM}"
-              printf '%s\n' \
-                '**Classification:** unclear | **Confidence:** low | **Alert priority:** unknown' \
-                '' \
-                '## Summary' \
-                '' \
-                'Investigation did not produce a findings file. The Claude Code step completed' \
-                'but wrl-investigation.md was not written. Manual investigation required.'
-              echo "${DELIM}"
-            } >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Create or update GitHub Issue
-        if: always() && steps.read_output.conclusion == 'success'
+        if: always() && steps.investigate.conclusion == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          FINDINGS: ${{ steps.read_output.outputs.findings }}
         run: |
+          # Read findings directly from file — avoids GITHUB_OUTPUT size/delimiter issues
+          if [ -f wrl-investigation.md ]; then
+            FINDINGS_FILE=wrl-investigation.md
+          else
+            FINDINGS_FILE=$(mktemp)
+            printf '%s\n' \
+              '**Classification:** unclear | **Confidence:** low | **Alert priority:** unknown' \
+              '' '## Summary' '' \
+              'Investigation did not produce a findings file. Manual investigation required.' \
+              > "$FINDINGS_FILE"
+          fi
+
           ALERT_SLUG=$(echo "$ALERT_NAME" | sed 's/\[WRL\] //' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/-$//')
           LABEL="alert:${ALERT_SLUG}"
           EXISTING=$(gh issue list --state open --label "$LABEL" --json number --jq '.[0].number // empty')
+
           body_file=$(mktemp)
           if [ -n "$EXISTING" ]; then
-            printf '## Update -- %s\n\n%s\n\n---\n*[Investigation log](%s)*\n' \
-              "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$FINDINGS" "$RUN_URL" > "$body_file"
+            printf '## Update -- %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$body_file"
+            cat "$FINDINGS_FILE" >> "$body_file"
+            printf '\n\n---\n*[Investigation log](%s)*\n' "$RUN_URL" >> "$body_file"
             gh issue comment "$EXISTING" --body-file "$body_file"
           else
-            printf '%s\n\n---\n- **Alert rule:** %s\n- **Coralogix:** %s\n- **Investigation log:** [GitHub Actions run](%s)\n\n*Auto-investigated by Claude Code at %s.*\n' \
-              "$FINDINGS" "$ALERT_NAME" "$ALERT_URL" "$RUN_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$body_file"
+            cat "$FINDINGS_FILE" > "$body_file"
+            printf '\n\n---\n- **Alert rule:** %s\n- **Coralogix:** %s\n- **Investigation log:** [GitHub Actions run](%s)\n\n*Auto-investigated by Claude Code at %s.*\n' \
+              "$ALERT_NAME" "$ALERT_URL" "$RUN_URL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$body_file"
             gh issue create \
               --title "[WRL Alert] ${ALERT_NAME}" \
               --body-file "$body_file" \
