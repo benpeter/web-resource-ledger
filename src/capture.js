@@ -12,7 +12,7 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. Consent has a 2s hard timeout within the
- *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle(max) + 2.5s scroll + 2s consent + 2s post ≈ 29.5s worst-case; in practice load fires in 2-5s).
+ *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 10s partial-or-(3s settle + 2.5s scroll + 2s consent + 2s post) ≈ 30s worst-case; in practice load fires in 2-5s).
  *   Partial captures skip consent entirely.
  *
  * Called from queue consumer. For retryable errors, does NOT write KV
@@ -89,7 +89,8 @@ const SETTLE_MAX_MS = 3000;
 const SETTLE_QUIESCENCE_MS = 500;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
-const PARTIAL_SCREENSHOT_TIMEOUT_MS = 3000;
+const PARTIAL_BUDGET_MS = 10000;
+const PARTIAL_SCREENSHOT_TIMEOUT_MS = 8000;
 const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 
 // ---------------------------------------------------------------------------
@@ -516,7 +517,7 @@ async function defaultRenderer(browserBinding, url) {
     });
 
     // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
-    // Post-load: 3s settle(max) + 2s consent + 2s post-processing well within the 15-min queue consumer wall clock
+    // On timeout: 10s partial capture budget. On success: 3s settle + 2s consent + 2s post. Well within 15-min wall clock.
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
     } catch (navError) {
@@ -532,8 +533,9 @@ async function defaultRenderer(browserBinding, url) {
           throw navError;
         }
 
-        // 2000ms budget: renderer has been running ~20.5s (load timed out); leaves margin for R2/KV post-work
-        const deadline = Date.now() + 2000;
+        // 10s budget for partial capture (screenshot + HTML extraction).
+        // The 10-min RENDER_DEADLINE_MS leaves plenty of headroom.
+        const deadline = Date.now() + PARTIAL_BUDGET_MS;
         const remainingMs = () => Math.max(0, deadline - Date.now());
 
         if (remainingMs() < 500) throw new Error('Deadline exceeded before partial capture could complete');
