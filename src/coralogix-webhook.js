@@ -208,10 +208,14 @@ export async function handleCoralogixWebhook(request, env, ctx) {
     return problemResponse(400, `Missing required fields: ${missing.join(', ')}`);
   }
 
-  // Validate alert_action -- Coralogix sends 'triggered' and 'resolved' (past tense)
-  if (body.alert_action !== 'triggered' && body.alert_action !== 'resolved') {
+  // Normalize alert_action -- Coralogix sends 'trigger'/'resolve' in tests,
+  // 'triggered'/'resolved' in real alerts
+  const ACTION_MAP = { trigger: 'triggered', resolve: 'resolved', triggered: 'triggered', resolved: 'resolved' };
+  const normalizedAction = ACTION_MAP[body.alert_action];
+  if (!normalizedAction) {
     return problemResponse(400, `alert_action must be 'triggered' or 'resolved'; got '${body.alert_action}'`);
   }
+  body.alert_action = normalizedAction;
 
   // Log receipt on every valid webhook
   ctx.waitUntil(log(env, 3, 'alert', {
