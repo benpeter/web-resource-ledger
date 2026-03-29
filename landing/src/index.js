@@ -18,6 +18,12 @@ const SECURITY_HEADERS = {
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.hostname === 'www.webresourceledger.com') {
+      url.hostname = 'webresourceledger.com';
+      return Response.redirect(url.toString(), 301);
+    }
+
     let response;
     try {
       response = await env.ASSETS.fetch(request);
@@ -34,11 +40,10 @@ export default {
       ctx.waitUntil(trackHit(request, env, { property: 'landing' }) ?? Promise.resolve());
     }
 
-    const { pathname } = new URL(request.url);
     ctx.waitUntil(log(env, 3, 'pageview', {
       event: 'pageview',
       subdomain: 'landing',
-      path: pathname,
+      path: url.pathname,
       status: response.status,
     }) ?? Promise.resolve());
 
