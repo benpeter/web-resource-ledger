@@ -208,8 +208,8 @@ export async function handleCoralogixWebhook(request, env, ctx) {
     return problemResponse(400, `Missing required fields: ${missing.join(', ')}`);
   }
 
-  // Normalize alert_action -- Coralogix sends 'trigger'/'resolve' in tests,
-  // 'triggered'/'resolved' in real alerts
+  // Normalize alert_action -- Coralogix sends 'trigger'/'resolve' (no -d suffix).
+  // We normalize to 'triggered'/'resolved' for internal consistency.
   const ACTION_MAP = { trigger: 'triggered', resolve: 'resolved', triggered: 'triggered', resolved: 'resolved' };
   const normalizedAction = ACTION_MAP[body.alert_action];
   if (!normalizedAction) {

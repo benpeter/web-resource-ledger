@@ -519,7 +519,7 @@ webhook_data_payload() {
   # payload field: JSON string with Coralogix template variables.
   # Variable reference: $ALERT_ID, $ALERT_NAME, $ALERT_ACTION, $ALERT_URL,
   #   $HIT_COUNT, $APPLICATION_NAME, $SUBSYSTEM_NAME, $EVENT_SEVERITY
-  # $ALERT_ACTION is "triggered" or "resolved" -- used by the receiver to open/close incidents.
+  # $ALERT_ACTION is "trigger" or "resolve" -- Coralogix uses present tense without -d suffix.
   local webhook_uuid
   webhook_uuid=$(uuidgen | tr '[:upper:]' '[:lower:]')
   jq -n \
