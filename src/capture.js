@@ -122,7 +122,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
   try {
     const RENDER_DEADLINE_MS = 600000; // 10 min hard cap within 15-min queue consumer budget
     const renderWithDeadline = Promise.race([
-      renderer(env.BROWSER, url),
+      renderer(env, url),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Render deadline exceeded')), RENDER_DEADLINE_MS)),
     ]);
     const [renderResult, headerResult] = await Promise.allSettled([
@@ -435,20 +435,23 @@ function waitForSettle(page, maxMs = SETTLE_MAX_MS) {
  *
  * NOT exported -- injected as default renderer via performCapture() parameter.
  *
- * @param {unknown} browserBinding Cloudflare BROWSER binding
+ * @param {object} env Worker environment bindings (uses env.BROWSER + log())
  * @param {string} url
  * @returns {Promise<{ screenshot: Uint8Array, screenshotBefore: Uint8Array|null,
  *   html: string, partial: boolean, render: object, consent: object|null }>}
  */
-async function defaultRenderer(browserBinding, url) {
+async function defaultRenderer(env, url) {
   const renderStart = Date.now();
-  const browser = await getOrCreateSession(browserBinding);
+  const browser = await getOrCreateSession(env.BROWSER);
   const tSession = Date.now();
 
   // Defensive orphan cleanup: close any contexts left by a prior session user
+  let orphanContextsClosed = 0;
   for (const ctx of browser.contexts()) {
     await ctx.close();
+    orphanContextsClosed++;
   }
+  await log(env, 3, 'capture', { event: 'render.default.session_acquired', url, sessionAcquireMs: tSession - renderStart, orphanContextsClosed });
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -484,6 +487,7 @@ async function defaultRenderer(browserBinding, url) {
           }
         }
         if (isMainFrame) {
+          log(env, 3, 'capture', { event: 'render.default.cross_domain_blocked', url, blockedUrl: route.request().url() });
           await route.abort('blockedbyclient');
           return;
         }
@@ -506,6 +510,7 @@ async function defaultRenderer(browserBinding, url) {
 
     page = await context.newPage();
     const tContext = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.context_ready', url, contextSetupMs: tContext - tSession });
 
     // Response monitoring for total page size
     page.on('response', (resp) => {
@@ -520,14 +525,17 @@ async function defaultRenderer(browserBinding, url) {
     // On timeout: 10s partial capture budget. On success: 3s settle + 2s consent + 2s post. Well within 15-min wall clock.
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
+      await log(env, 3, 'capture', { event: 'render.default.nav_success', url, navigationMs: Date.now() - tContext, subresourceCount, totalBytes });
     } catch (navError) {
       if (navError.name === 'TimeoutError') {
         const tNav = Date.now();
         // Check if DOM has at least loaded before attempting partial capture
         const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
+        await log(env, 3, 'capture', { event: 'render.default.nav_timeout', url, navigationMs: tNav - tContext, readyState, totalBytes, subresourceCount });
         if (readyState !== 'interactive' && readyState !== 'complete') {
           // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
           if (totalBytes === 0) {
+            await log(env, 3, 'capture', { event: 'render.default.nav_no_response', url, navigationMs: tNav - tContext, totalBytes });
             throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
           }
           throw navError;
@@ -540,6 +548,7 @@ async function defaultRenderer(browserBinding, url) {
 
         if (remainingMs() < 500) throw new Error('Deadline exceeded before partial capture could complete');
 
+        await log(env, 3, 'capture', { event: 'render.default.partial_start', url, readyState, budgetMs: PARTIAL_BUDGET_MS });
         try {
           // Cap viewport for tall pages
           const pageHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -558,6 +567,7 @@ async function defaultRenderer(browserBinding, url) {
           ]);
           const tContent = Date.now();
 
+          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, screenshotMs: tScreenshot - tNav, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart });
           return {
             screenshot,
             html,
@@ -580,6 +590,7 @@ async function defaultRenderer(browserBinding, url) {
             screenshotBefore: null,
           };
         } catch (err) {
+          await log(env, 3, 'capture', { event: 'render.default.partial_fail', url, errorMessage: String(err?.message ?? '').slice(0, 256) });
           throw new Error(
             `Partial capture failed: ${err?.message ?? 'unknown'}`,
             { cause: err },
@@ -589,7 +600,10 @@ async function defaultRenderer(browserBinding, url) {
       throw navError;
     }
 
-    if (limitExceeded) throw new Error(limitExceeded);
+    if (limitExceeded) {
+      await log(env, 3, 'capture', { event: 'render.default.limit_exceeded', url, limit: limitExceeded, subresourceCount, totalBytes });
+      throw new Error(limitExceeded);
+    }
     const tNav = Date.now();
 
     // Adaptive settle: wait for in-flight requests to drain (or hard cap).
@@ -598,28 +612,36 @@ async function defaultRenderer(browserBinding, url) {
 
     // SECURITY: async response events can push totalBytes past MAX_PAGE_BYTES
     // during the settle delay. Re-check after settling.
-    if (limitExceeded) throw new Error(limitExceeded);
+    if (limitExceeded) {
+      await log(env, 3, 'capture', { event: 'render.default.limit_exceeded', url, limit: limitExceeded, subresourceCount, totalBytes });
+      throw new Error(limitExceeded);
+    }
     const tSettle = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.settle_complete', url, settleMs: settle.settleMs, settleReason: settle.settleReason, pendingAtCap: settle.pendingAtCap });
 
     // Validate rendered page is actual content (not Chromium error / blank)
     const renderCheck = await detectRenderFailure(page);
     if (renderCheck.failed) {
+      await log(env, 3, 'capture', { event: 'render.default.render_check_fail', url, reason: renderCheck.reason });
       throw new Error(`Captured page is not target content (${renderCheck.reason})`);
     }
 
     // Trigger lazy-loaded images by scrolling the viewport
     const scrollMs = await triggerLazyLoading(page);
     const tScroll = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.lazy_load_complete', url, scrollMs });
 
     // Cap screenshot height to prevent memory exhaustion
     const pageHeight = await page.evaluate(() => document.body.scrollHeight);
     if (pageHeight > MAX_PAGE_HEIGHT) {
+      await log(env, 3, 'capture', { event: 'render.default.viewport_capped', url, originalHeight: pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
       await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
     }
 
     // Before-screenshot MUST be taken before injecting autoconsent
     const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
     const tPreConsent = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, screenshotMs: tPreConsent - tScroll });
 
     let consent;
     try {
@@ -646,19 +668,24 @@ async function defaultRenderer(browserBinding, url) {
       };
     }
     const tConsent = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, status: consent.status, cmp: consent.cmp, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
 
     // After-screenshot only when consent was successfully dismissed
     let screenshot;
-    if (consent.status === 'dismissed') {
+    const tookAfterScreenshot = consent.status === 'dismissed';
+    if (tookAfterScreenshot) {
       screenshot = await page.screenshot({ fullPage: true, type: 'png' });
     } else {
       screenshot = screenshotBefore;
     }
     const tScreenshot = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, screenshotMs: tScreenshot - tConsent, tookAfterScreenshot });
 
     const html = await page.content();
     const tContent = Date.now();
+    await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, contentMs: tContent - tScreenshot, htmlLength: html.length });
 
+    await log(env, 3, 'capture', { event: 'render.default.complete', url, durationMs: tContent - renderStart, partial: false });
     return {
       screenshot,
       html,
@@ -691,7 +718,7 @@ async function defaultRenderer(browserBinding, url) {
       context.close().then(() => browser.close()),
       new Promise((r) => setTimeout(r, 3000)),
     ]).catch((err) => {
-      console.warn('wrl:capture_cleanup_fail', err?.message);
+      log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
 }
