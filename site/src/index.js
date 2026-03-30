@@ -28,6 +28,9 @@ export default {
     for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
       headers.set(key, value);
     }
+    if (response.headers.get('content-type')?.startsWith('text/html')) {
+      headers.set('Cache-Control', 'private');
+    }
 
     if (response.status < 400) {
       ctx.waitUntil(trackHit(request, env, { property: 'docs' }) ?? Promise.resolve());
