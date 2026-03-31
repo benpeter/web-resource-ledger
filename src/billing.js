@@ -20,6 +20,7 @@ import {
   createPortalSession,
   createCustomer,
   createSubscription,
+  updateInvoice,
 } from './stripe.js';
 import {
   verifyStripeSignature,
@@ -32,6 +33,7 @@ import {
   setPaymentMethodAdded,
   setBillingStatus,
   getTenantByStripeCustomerId,
+  clearStripeInvoiceCache,
 } from './db.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { trackEventRaw } from './pirsch.js';
@@ -109,6 +111,7 @@ export async function handleBillingCheckout(request, env, ctx) {
       customer: customerId,
       mode: 'subscription',
       'line_items[0][price]': env.STRIPE_CAPTURE_PRICE_ID,
+      'subscription_data[billing_cycle_anchor_config][day_of_month]': '1',
       success_url: returnUrl,
       cancel_url: returnUrl,
     });
@@ -283,6 +286,9 @@ async function dispatchWebhookEvent(event, env, ctx) {
     case 'checkout.session.completed':
       await handleCheckoutCompleted(event, env, ctx);
       break;
+    case 'invoice.created':
+      await handleInvoiceCreated(event, env, ctx);
+      break;
     case 'invoice.finalized':
       await handleInvoiceFinalized(event, env, ctx);
       break;
@@ -346,6 +352,30 @@ async function handleCheckoutCompleted(event, env, ctx) {
     event: 'billing.checkout_completed',
     tenantId: tenant.id,
     stripeCustomerId: customerId,
+  }) ?? Promise.resolve());
+}
+
+/**
+ * invoice.created: Stripe has created a draft invoice.
+ * Disable auto_advance so the invoice stays in draft until manually finalized.
+ * This gives us time to review usage and run a final meter flush before charging.
+ */
+async function handleInvoiceCreated(event, env, ctx) {
+  const invoice = event.data?.object;
+  if (!invoice?.id || invoice.status !== 'draft') return;
+
+  const customerId = invoice.customer;
+  if (!customerId) return;
+
+  const tenant = await getTenantByStripeCustomerId(env.DB, customerId);
+  if (!tenant) return;
+
+  await updateInvoice(env, invoice.id, { auto_advance: false });
+
+  ctx.waitUntil(log(env, 3, 'billing', {
+    event: 'billing.invoice_draft_held',
+    tenantId: tenant.id,
+    stripeInvoiceId: invoice.id,
   }) ?? Promise.resolve());
 }
 
@@ -478,6 +508,9 @@ async function handleSubscriptionDeleted(event, env, ctx) {
   if (tenant.billingStatus !== 'blocked') {
     await setBillingStatus(env.DB, tenant.id, 'blocked');
   }
+
+  // Clear cached invoice so UI doesn't show stale amounts
+  await clearStripeInvoiceCache(env.DB, tenant.id);
 
   ctx.waitUntil(log(env, 4, 'billing', {
     event: 'billing.subscription_deleted',

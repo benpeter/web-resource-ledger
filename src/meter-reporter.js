@@ -1,6 +1,6 @@
 // tva
-import { computePeriod } from './db.js';
-import { reportMeterEvent } from './stripe.js';
+import { computePeriod, cacheStripeInvoice, clearStripeInvoiceCache } from './db.js';
+import { reportMeterEvent, getUpcomingInvoice } from './stripe.js';
 import { log } from './log.js';
 
 /**
@@ -168,10 +168,46 @@ export async function reportPendingMeterEvents(env, ctx) {
     }
   }
 
+  // --- Second pass: cache upcoming invoice amounts per customer ---
+  // Collect unique stripeCustomerId → tenantId pairs from processed rows
+  const customerMap = new Map();
+  for (const row of results) {
+    if (row.stripe_customer_id && !customerMap.has(row.stripe_customer_id)) {
+      customerMap.set(row.stripe_customer_id, row.tenant_id);
+    }
+  }
+
+  let invoiceCachedCount = 0;
+  let invoiceFailedCount = 0;
+
+  for (const [customerId, tenantId] of customerMap) {
+    try {
+      const invoice = await getUpcomingInvoice(env, customerId);
+      if (invoice) {
+        await cacheStripeInvoice(env.DB, tenantId, invoice.amount_due, invoice.currency);
+        invoiceCachedCount++;
+      } else {
+        // No active subscription -- clear stale cache
+        await clearStripeInvoiceCache(env.DB, tenantId);
+      }
+    } catch (err) {
+      // Log warning, keep stale cache -- next hourly run retries
+      log(env, 4, 'meter', {
+        event: 'meter.invoice_cache_fail',
+        tenantId,
+        stripeCustomerId: customerId,
+        errorMessage: String(err?.message ?? '').slice(0, 256),
+      });
+      invoiceFailedCount++;
+    }
+  }
+
   log(env, 3, 'meter', {
     event: 'meter.report_cycle_complete',
     reportedCount,
     failedCount,
+    invoiceCachedCount,
+    invoiceFailedCount,
     durationMs: Date.now() - startMs,
     periods,
   });

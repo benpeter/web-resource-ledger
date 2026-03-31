@@ -270,9 +270,13 @@ function buildPeriodSummary(usageData) {
 
   // Stat 2: Current charges
   var charges = billing.currentCharges || {};
+  var chargesLabel = 'Current charges';
+  if (charges.source === 'local' && usageData.hasPaymentMethod) {
+    chargesLabel = 'Current charges (estimated)';
+  }
   statsRow.appendChild(buildStatCell(
     formatCurrency(charges.amount != null ? charges.amount : 0),
-    'Current charges'
+    chargesLabel
   ));
 
   // Stat 3: Current tier with sr-only description

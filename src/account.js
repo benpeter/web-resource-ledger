@@ -477,6 +477,8 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
   }
 
   let hasPaymentMethod, billingStatus, gracePeriodEnd, quota, captureCount, storageBytes, period;
+  let invoiceCacheCents = null;
+  let invoiceCacheCurrency = null;
 
   if (result.allowed) {
     // Common case: under both limits, checkQuota returns full data.
@@ -487,13 +489,24 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     captureCount     = result.captureCount;
     storageBytes     = result.storageBytes;
     period           = result.period;
+
+    // Read invoice cache for paid tenants
+    if (hasPaymentMethod) {
+      const cacheRow = await env.DB.prepare(
+        'SELECT stripe_invoice_amount_cents, stripe_invoice_currency FROM tenants WHERE id = ?',
+      ).bind(tenantId).first();
+      invoiceCacheCents    = cacheRow?.stripe_invoice_amount_cents ?? null;
+      invoiceCacheCurrency = cacheRow?.stripe_invoice_currency ?? null;
+    }
   } else {
     // Already over a limit or billing blocked. checkQuota returns a limited shape.
     // Read the tenant + usage rows directly to build a complete response.
     period = result.period ?? computePeriod();
     const [tenantRow, usageRow] = await env.DB.batch([
       env.DB.prepare(
-        'SELECT config, payment_method_added_at, billing_status, grace_period_end FROM tenants WHERE id = ?',
+        `SELECT config, payment_method_added_at, billing_status, grace_period_end,
+                stripe_invoice_amount_cents, stripe_invoice_currency
+         FROM tenants WHERE id = ?`,
       ).bind(tenantId),
       env.DB.prepare(
         'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
@@ -504,6 +517,8 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     hasPaymentMethod     = tenantData?.payment_method_added_at != null;
     billingStatus        = tenantData?.billing_status ?? 'active';
     gracePeriodEnd       = tenantData?.grace_period_end ?? null;
+    invoiceCacheCents    = tenantData?.stripe_invoice_amount_cents ?? null;
+    invoiceCacheCurrency = tenantData?.stripe_invoice_currency ?? null;
     quota                = getEffectiveQuota(hasPaymentMethod, config);
     const usageData      = usageRow.results?.[0];
     captureCount         = usageData?.capture_count ?? 0;
@@ -522,17 +537,25 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     : (quota?.capturesPerMonth ?? null);
 
   const charges = calculateCharges(captureCount);
+
+  // Use Stripe-authoritative amount for paid tenants when cache is available
+  const useStripeCache = hasPaymentMethod && invoiceCacheCents !== null;
+  const chargeAmount   = useStripeCache ? invoiceCacheCents / 100 : charges.amount;
+  const chargeCurrency = useStripeCache ? (invoiceCacheCurrency ?? 'eur').toUpperCase() : charges.currency;
+  const chargeSource   = useStripeCache ? 'stripe' : 'local';
+
   const billing = {
     currentCharges: {
-      amount:   charges.amount,
-      currency: charges.currency,
+      amount:   chargeAmount,
+      currency: chargeCurrency,
+      source:   chargeSource,
     },
     tier:  charges.currentTier,
     tiers: charges.tiers,
     invoiceThreshold: {
       amount:   INVOICE_THRESHOLD_EUR,
       currency: 'EUR',
-      met:      charges.amount >= INVOICE_THRESHOLD_EUR,
+      met:      chargeAmount >= INVOICE_THRESHOLD_EUR,
     },
   };
 

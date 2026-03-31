@@ -94,6 +94,9 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `grace_period_end` | TEXT | nullable | ISO 8601. Non-null only when `billing_status = 'grace_period'` |
 | `payment_method_added_at` | TEXT | nullable | ISO 8601. Set once when `checkout.session.completed` fires; never unset |
 | `eidas_qualified` | INTEGER | NOT NULL, default `0` | App-layer 0/1. Per-tenant opt-in for eIDAS qualified timestamps |
+| `stripe_invoice_amount_cents` | INTEGER | nullable | Cached Stripe upcoming invoice `amount_due` in cents. Updated hourly by meter reporter |
+| `stripe_invoice_currency` | TEXT | nullable | Cached Stripe invoice currency (e.g. `eur`). Updated with `stripe_invoice_amount_cents` |
+| `stripe_invoice_cached_at` | TEXT | nullable | ISO 8601. When the invoice cache was last refreshed |
 
 #### `captures`
 

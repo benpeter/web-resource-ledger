@@ -4,7 +4,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { cleanDb, createTestSession, seedGithubUser } from './fixtures.js';
-import { setStripeCustomerId, setPaymentMethodAdded, setBillingStatus } from '../src/db.js';
+import { setStripeCustomerId, setPaymentMethodAdded, setBillingStatus, cacheStripeInvoice, clearStripeInvoiceCache } from '../src/db.js';
 
 beforeEach(async () => {
   await cleanDb(env.DB);
@@ -107,6 +107,11 @@ describe('POST /v1/billing/checkout', () => {
     const stripeCalls = fetch.mock.calls;
     const customerCall = stripeCalls.find(([u]) => String(u).includes('/v1/customers'));
     expect(customerCall).toBeDefined();
+
+    // Verify checkout session includes billing_cycle_anchor_config
+    const checkoutCall = stripeCalls.find(([u]) => String(u).includes('/v1/checkout/sessions'));
+    const checkoutBody = checkoutCall[1]?.body;
+    expect(checkoutBody).toContain('subscription_data%5Bbilling_cycle_anchor_config%5D%5Bday_of_month%5D=1');
   });
 
   it('reuses existing Stripe customer ID', async () => {
@@ -350,6 +355,42 @@ describe('POST /v1/stripe/webhook', () => {
     expect(row.billing_status).toBe('blocked');
   });
 
+  it('handles invoice.created and disables auto_advance on draft invoices', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_inv_created');
+
+    // Stub fetch to intercept the invoice update call
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('api.stripe.com/v1/invoices/in_draft_123')) {
+        return new Response(JSON.stringify({ id: 'in_draft_123', auto_advance: false }), { status: 200 });
+      }
+      // Coralogix, Pirsch, etc.
+      return new Response('{}', { status: 200 });
+    }));
+
+    const event = {
+      id: 'evt_inv_created_1',
+      type: 'invoice.created',
+      data: { object: { id: 'in_draft_123', customer: 'cus_inv_created', status: 'draft' } },
+    };
+    const rawBody = JSON.stringify(event);
+    const { header } = await computeStripeSignature(rawBody, webhookSecret);
+
+    const res = await SELF.fetch('https://wrl.test/v1/stripe/webhook', {
+      method: 'POST',
+      headers: { 'Stripe-Signature': header },
+      body: rawBody,
+    });
+    expect(res.status).toBe(200);
+
+    // Verify the invoice update API was called with auto_advance=false
+    const invoiceCall = fetch.mock.calls.find(([u]) => String(u).includes('/v1/invoices/in_draft_123'));
+    expect(invoiceCall).toBeDefined();
+    const invoiceBody = invoiceCall[1]?.body;
+    expect(invoiceBody).toContain('auto_advance=false');
+  });
+
   it('silently acknowledges unhandled event types', async () => {
     const event = {
       id: 'evt_unhandled_1',
@@ -386,5 +427,119 @@ describe('POST /v1/stripe/webhook', () => {
     });
     // Should NOT be 401 (no session required)
     expect(res.status).toBe(200);
+  });
+
+  it('subscription.deleted clears invoice cache', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_cache_del');
+    await setPaymentMethodAdded(env.DB, session.tenantId);
+    await cacheStripeInvoice(env.DB, session.tenantId, 1250, 'eur');
+
+    // Verify cache was written
+    const before = await env.DB.prepare(
+      'SELECT stripe_invoice_amount_cents FROM tenants WHERE id = ?',
+    ).bind(session.tenantId).first();
+    expect(before.stripe_invoice_amount_cents).toBe(1250);
+
+    const event = {
+      id: 'evt_cache_del_1',
+      type: 'customer.subscription.deleted',
+      data: { object: { customer: 'cus_cache_del', id: 'sub_cache_del' } },
+    };
+    const rawBody = JSON.stringify(event);
+    const { header } = await computeStripeSignature(rawBody, webhookSecret);
+
+    const res = await SELF.fetch('https://wrl.test/v1/stripe/webhook', {
+      method: 'POST',
+      headers: { 'Stripe-Signature': header },
+      body: rawBody,
+    });
+    expect(res.status).toBe(200);
+
+    const after = await env.DB.prepare(
+      'SELECT stripe_invoice_amount_cents, stripe_invoice_currency, stripe_invoice_cached_at FROM tenants WHERE id = ?',
+    ).bind(session.tenantId).first();
+    expect(after.stripe_invoice_amount_cents).toBeNull();
+    expect(after.stripe_invoice_currency).toBeNull();
+    expect(after.stripe_invoice_cached_at).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Invoice cache DB functions
+// ---------------------------------------------------------------------------
+
+describe('Invoice cache DB functions', () => {
+  it('cacheStripeInvoice writes and reads correctly', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+
+    await cacheStripeInvoice(env.DB, session.tenantId, 4200, 'eur');
+
+    const row = await env.DB.prepare(
+      'SELECT stripe_invoice_amount_cents, stripe_invoice_currency, stripe_invoice_cached_at FROM tenants WHERE id = ?',
+    ).bind(session.tenantId).first();
+    expect(row.stripe_invoice_amount_cents).toBe(4200);
+    expect(row.stripe_invoice_currency).toBe('eur');
+    expect(row.stripe_invoice_cached_at).not.toBeNull();
+  });
+
+  it('clearStripeInvoiceCache nulls all columns', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await cacheStripeInvoice(env.DB, session.tenantId, 1000, 'eur');
+
+    await clearStripeInvoiceCache(env.DB, session.tenantId);
+
+    const row = await env.DB.prepare(
+      'SELECT stripe_invoice_amount_cents, stripe_invoice_currency, stripe_invoice_cached_at FROM tenants WHERE id = ?',
+    ).bind(session.tenantId).first();
+    expect(row.stripe_invoice_amount_cents).toBeNull();
+    expect(row.stripe_invoice_currency).toBeNull();
+    expect(row.stripe_invoice_cached_at).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /v1/account/usage -- source field
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/account/usage source field', () => {
+  it('returns source: stripe when paid tenant has cached invoice', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_usage_stripe');
+    await setPaymentMethodAdded(env.DB, session.tenantId);
+    await cacheStripeInvoice(env.DB, session.tenantId, 750, 'eur');
+
+    const res = await SELF.fetch('https://wrl.test/v1/account/usage', {
+      headers: { Cookie: session.cookie },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.billing.currentCharges.source).toBe('stripe');
+    expect(body.billing.currentCharges.amount).toBe(7.5);
+    expect(body.billing.currentCharges.currency).toBe('EUR');
+  });
+
+  it('returns source: local for free tenants', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+
+    const res = await SELF.fetch('https://wrl.test/v1/account/usage', {
+      headers: { Cookie: session.cookie },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.billing.currentCharges.source).toBe('local');
+  });
+
+  it('returns source: local for paid tenant without cache', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_no_cache');
+    await setPaymentMethodAdded(env.DB, session.tenantId);
+
+    const res = await SELF.fetch('https://wrl.test/v1/account/usage', {
+      headers: { Cookie: session.cookie },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.billing.currentCharges.source).toBe('local');
   });
 });

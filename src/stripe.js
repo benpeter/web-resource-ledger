@@ -52,16 +52,22 @@ export function flattenParams(obj, prefix = '') {
  * @returns {Promise<object>}
  */
 export async function stripeRequest(env, method, path, params) {
-  const url = `${STRIPE_BASE}${path}`;
+  let url = `${STRIPE_BASE}${path}`;
   const headers = {
     'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
     'Stripe-Version': STRIPE_API_VERSION,
-    'Content-Type': 'application/x-www-form-urlencoded',
   };
 
-  const body = params && Object.keys(params).length > 0
-    ? new URLSearchParams(flattenParams(params)).toString()
-    : undefined;
+  let body;
+  if (params && Object.keys(params).length > 0) {
+    const encoded = new URLSearchParams(flattenParams(params)).toString();
+    if (method === 'GET') {
+      url += `?${encoded}`;
+    } else {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      body = encoded;
+    }
+  }
 
   const response = await fetch(url, { method, headers, body });
   const data = await response.json();
@@ -112,10 +118,39 @@ export function createSubscription(env, params) {
 }
 
 /**
+ * POST /v1/invoices/:id
+ * @param {{ STRIPE_SECRET_KEY: string }} env
+ * @param {string} invoiceId
+ * @param {object} params
+ */
+export function updateInvoice(env, invoiceId, params) {
+  return stripeRequest(env, 'POST', `/v1/invoices/${invoiceId}`, params);
+}
+
+/**
  * POST /v1/billing/meter_events
  * @param {{ STRIPE_SECRET_KEY: string }} env
  * @param {object} params
  */
 export function reportMeterEvent(env, params) {
   return stripeRequest(env, 'POST', '/v1/billing/meter_events', params);
+}
+
+/**
+ * GET /v1/invoices/upcoming
+ * Returns the upcoming invoice for a customer, or null if no active subscription.
+ *
+ * @param {{ STRIPE_SECRET_KEY: string }} env
+ * @param {string} customerId
+ * @returns {Promise<object|null>}
+ */
+export async function getUpcomingInvoice(env, customerId) {
+  try {
+    return await stripeRequest(env, 'GET', '/v1/invoices/upcoming', {
+      customer: customerId,
+    });
+  } catch (err) {
+    if (err.status === 404) return null;
+    throw err;
+  }
 }
