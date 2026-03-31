@@ -90,7 +90,6 @@ const SETTLE_QUIESCENCE_MS = 500;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
 const PARTIAL_BUDGET_MS = 10000;
-const PARTIAL_SCREENSHOT_TIMEOUT_MS = 8000;
 const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 
 // ---------------------------------------------------------------------------
@@ -557,7 +556,7 @@ async function defaultRenderer(env, url, captureId) {
             await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
           }
 
-          const screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: Math.min(PARTIAL_SCREENSHOT_TIMEOUT_MS, remainingMs()) });
+          const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
           const tScreenshot = Date.now();
 
           if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
