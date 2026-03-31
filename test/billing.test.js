@@ -503,6 +503,9 @@ describe('Invoice cache DB functions', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /v1/account/usage source field', () => {
+  // Use a distinct IP to avoid exhausting AUTH_RATE_LIMITER shared with other billing tests
+  const ip = '10.99.0.1';
+
   it('returns source: stripe when paid tenant has cached invoice', async () => {
     const session = await setupSessionAndTenant(env.DB, env);
     await setStripeCustomerId(env.DB, session.tenantId, 'cus_usage_stripe');
@@ -510,7 +513,7 @@ describe('GET /v1/account/usage source field', () => {
     await cacheStripeInvoice(env.DB, session.tenantId, 750, 'eur');
 
     const res = await SELF.fetch('https://wrl.test/v1/account/usage', {
-      headers: { Cookie: session.cookie },
+      headers: { Cookie: session.cookie, 'CF-Connecting-IP': ip },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -523,7 +526,7 @@ describe('GET /v1/account/usage source field', () => {
     const session = await setupSessionAndTenant(env.DB, env);
 
     const res = await SELF.fetch('https://wrl.test/v1/account/usage', {
-      headers: { Cookie: session.cookie },
+      headers: { Cookie: session.cookie, 'CF-Connecting-IP': ip },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -536,7 +539,7 @@ describe('GET /v1/account/usage source field', () => {
     await setPaymentMethodAdded(env.DB, session.tenantId);
 
     const res = await SELF.fetch('https://wrl.test/v1/account/usage', {
-      headers: { Cookie: session.cookie },
+      headers: { Cookie: session.cookie, 'CF-Connecting-IP': ip },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
