@@ -89,6 +89,30 @@ describe('stripeRequest', () => {
     expect(opts.body).toBeUndefined();
   });
 
+  it('puts params in query string for GET requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'inv_upcoming' }), { status: 200 }),
+    ));
+
+    await stripeRequest(env, 'GET', '/v1/invoices/upcoming', { customer: 'cus_123' });
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/invoices/upcoming?customer=cus_123');
+    expect(opts.body).toBeUndefined();
+    expect(opts.headers['Content-Type']).toBeUndefined();
+  });
+
+  it('puts params in body for POST requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'cus_new' }), { status: 200 }),
+    ));
+
+    await stripeRequest(env, 'POST', '/v1/customers', { email: 'a@b.com' });
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).not.toContain('?');
+    expect(opts.body).toContain('email=a%40b.com');
+    expect(opts.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
+  });
+
   it('throws on non-2xx with Stripe error message', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
       new Response(JSON.stringify({

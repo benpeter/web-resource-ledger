@@ -168,6 +168,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 |------|-----------|--------|
 | ~~[should] Wire Stripe meter event reporting into capture pipeline~~ | ~~When first paying tenant onboards~~ -- DONE (Phase 0060): hourly batch reporter with idempotency keys, graduated pricing module, billing dashboard endpoint (Issue #108) | Phase 0058 |
 | ~~[consider] Stripe Checkout returnUrl from client config~~ | ~~Partially addressed: Phase 0076 billing UI sets returnUrl to `/ui#/billing`; full configurability not needed~~ | Phase 0058 → 0076 |
+| [consider] Daily full-refresh invoice cache for inactive tenants | When inactive tenants accumulate stale cached amounts that confuse the billing UI | Phase 0107, deferred |
+| [consider] eIDAS charges in invoice cache | When eIDAS line items are broken out separately in Stripe invoices | Phase 0107, deferred |
 
 ### Security
 

@@ -1060,6 +1060,43 @@ export async function getTenantBilling(db, tenantId) {
 }
 
 /**
+ * Cache the upcoming Stripe invoice amount for a tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {number} amountCents  Stripe amount_due in cents
+ * @param {string} currency     e.g. 'eur'
+ * @returns {Promise<void>}
+ */
+export async function cacheStripeInvoice(db, tenantId, amountCents, currency) {
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE tenants
+     SET stripe_invoice_amount_cents = ?, stripe_invoice_currency = ?,
+         stripe_invoice_cached_at = ?, updated_at = ?
+     WHERE id = ?`,
+  ).bind(amountCents, currency, now, now, tenantId).run();
+}
+
+/**
+ * Clear the cached Stripe invoice data for a tenant.
+ * Used when a subscription is deleted or Stripe returns 404 (no subscription).
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<void>}
+ */
+export async function clearStripeInvoiceCache(db, tenantId) {
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE tenants
+     SET stripe_invoice_amount_cents = NULL, stripe_invoice_currency = NULL,
+         stripe_invoice_cached_at = NULL, updated_at = ?
+     WHERE id = ?`,
+  ).bind(now, tenantId).run();
+}
+
+/**
  * Set the eidas_qualified flag for a tenant. Creates the tenant row if absent.
  *
  * @param {D1Database} db
