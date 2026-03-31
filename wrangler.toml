@@ -189,7 +189,7 @@ ENABLE_EDGE_CACHE = "true"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
-TSA_URL = "https://timestamp.digicert.com"
+TSA_URL = "http://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
 # Auth credential set via: wrangler secret put QUALIFIED_TSA_AUTH
 # (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
@@ -360,7 +360,7 @@ ENABLE_EDGE_CACHE = "true"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
-TSA_URL = "https://timestamp.digicert.com"
+TSA_URL = "http://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
 # Auth credential set via: wrangler secret put QUALIFIED_TSA_AUTH --env staging
 # (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
