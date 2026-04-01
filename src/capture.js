@@ -811,8 +811,13 @@ async function triggerLazyLoading(page) {
   // Settle: wait for the force-loaded image requests to complete
   await waitForSettle(page, 3000);
 
-  // Scroll back to top before screenshots
+  // Scroll back to top before screenshots.
+  // Allow compositor to re-rasterize off-screen tiles -- at 4x scale the
+  // bottom of an 8000px page is ~32k pixels that need repainting after
+  // scroll position changes.  Without this pause, page.screenshot()
+  // captures stale/blank tiles at the bottom.
   await page.evaluate(() => window.scrollTo(0, 0));
+  await new Promise((r) => setTimeout(r, 500));
 
   return Date.now() - start;
 }
