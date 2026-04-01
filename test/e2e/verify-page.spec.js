@@ -71,6 +71,11 @@ test('serves public verification page without authentication', async ({ page }) 
       // Cloudflare injects its analytics beacon on edge-served pages.
       // The CSP may block it -- that's not our code's fault.
       if (text.includes('cloudflareinsights.com')) return;
+      // The verify page fetches /v1/captures/{id} for optional metadata
+      // enrichment. This requires auth, so it 404s for public visitors.
+      // The fetch catches this gracefully (.catch(() => null)) but the
+      // browser still logs a console error for the failed network request.
+      if (text.includes('status of 404')) return;
       consoleErrors.push(text);
     }
   });
