@@ -89,7 +89,7 @@ const SETTLE_MAX_MS = 3000;
 const SETTLE_QUIESCENCE_MS = 500;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
-const PARTIAL_BUDGET_MS = 10000;
+const PARTIAL_BUDGET_MS = 120000;
 const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 
 // ---------------------------------------------------------------------------
@@ -543,7 +543,7 @@ async function defaultRenderer(env, url, captureId) {
           throw navError;
         }
 
-        // 10s budget for partial capture (screenshot + HTML extraction).
+        // 120s budget for partial capture (screenshot up to 90s + HTML extraction).
         // The 10-min RENDER_DEADLINE_MS leaves plenty of headroom.
         const deadline = Date.now() + PARTIAL_BUDGET_MS;
         const remainingMs = () => Math.max(0, deadline - Date.now());
@@ -558,7 +558,7 @@ async function defaultRenderer(env, url, captureId) {
             await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
           }
 
-          const screenshot = await page.screenshot({ fullPage: true, type: 'png' });
+          const screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: 90000 });
           const tScreenshot = Date.now();
 
           if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
@@ -641,7 +641,7 @@ async function defaultRenderer(env, url, captureId) {
     }
 
     // Before-screenshot MUST be taken before injecting autoconsent
-    const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
+    const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png', timeout: 90000 });
     const tPreConsent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
 
@@ -676,7 +676,7 @@ async function defaultRenderer(env, url, captureId) {
     let screenshot;
     const tookAfterScreenshot = consent.status === 'dismissed';
     if (tookAfterScreenshot) {
-      screenshot = await page.screenshot({ fullPage: true, type: 'png' });
+      screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: 90000 });
     } else {
       screenshot = screenshotBefore;
     }
