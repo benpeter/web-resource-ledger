@@ -254,6 +254,8 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         consentDurationMs: consent?.durationMs ?? null,
         settleMs: render?.settleMs ?? null,
         settleReason: render?.settleReason ?? null,
+        screenshotBytes: screenshot.byteLength,
+        screenshotBeforeBytes: screenshotBefore?.byteLength ?? null,
         ...(render?.stages ?? {}),
       });
       if (consent?._error) {
@@ -567,7 +569,7 @@ async function defaultRenderer(env, url, captureId) {
           ]);
           const tContent = Date.now();
 
-          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart });
+          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart });
           return {
             screenshot,
             html,
@@ -641,7 +643,7 @@ async function defaultRenderer(env, url, captureId) {
     // Before-screenshot MUST be taken before injecting autoconsent
     const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png' });
     const tPreConsent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll });
+    await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
 
     let consent;
     try {
@@ -679,7 +681,7 @@ async function defaultRenderer(env, url, captureId) {
       screenshot = screenshotBefore;
     }
     const tScreenshot = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: tScreenshot - tConsent, tookAfterScreenshot });
+    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: tScreenshot - tConsent, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
 
     const html = await page.content();
     const tContent = Date.now();

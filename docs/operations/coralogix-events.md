@@ -75,9 +75,9 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.render_check_fail` | Rendered page is not target content (reason) |
 | 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs) |
 | 3 | `render.default.viewport_capped` | Viewport height capped for screenshot (originalHeight, cappedHeight) |
-| 3 | `render.default.screenshot_before` | Pre-consent screenshot taken (screenshotMs) |
+| 3 | `render.default.screenshot_before` | Pre-consent screenshot taken (screenshotMs, screenshotBytes) |
 | 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, consentMs, errorName) |
-| 3 | `render.default.screenshot_after` | Post-consent screenshot taken or reused (screenshotMs, tookAfterScreenshot) |
+| 3 | `render.default.screenshot_after` | Post-consent screenshot taken or reused (screenshotMs, tookAfterScreenshot, screenshotBytes) |
 | 3 | `render.default.content_extracted` | HTML content extracted (contentMs, htmlLength) |
 | 3 | `render.default.complete` | Full render pipeline finished (durationMs) |
 | 4 | `render.default.cleanup_fail` | Browser context/session cleanup failed (errorMessage) |
