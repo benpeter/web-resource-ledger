@@ -166,7 +166,7 @@ function buildBillingContent(usageData, settingsData) {
   }
 
   // Section A: Status banner (conditional)
-  var banner = buildStatusBanner(usageData);
+  var banner = billing_buildStatusBanner(usageData);
   if (banner) view.appendChild(banner);
 
   // Refresh row (below banner, above sections)
@@ -195,7 +195,7 @@ function buildBillingContent(usageData, settingsData) {
 // Section A: Status banner
 // ---------------------------------------------------------------------------
 
-function buildStatusBanner(usageData) {
+function billing_buildStatusBanner(usageData) {
   var status = usageData.billingStatus;
   if (status !== 'grace_period' && status !== 'blocked') return null;
 
