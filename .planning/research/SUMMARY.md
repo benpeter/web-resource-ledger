@@ -3,7 +3,51 @@
 **Synthesized:** 2026-04-30
 **Source documents:** STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md
 
-## TL;DR
+---
+
+## Synthesis Adjustments After Review (2026-04-30)
+
+After the initial synthesis, three things shifted based on owner review. They override the corresponding sections below — the original synthesis is preserved as audit trail.
+
+1. **`#206` moves from "last" to "early" — reframed as an experimentation harness, not a production multi-pipeline system.** Owner's intent for pluggable pipelines is to A/B different capture strategies (safe-shot vs. aggressive-consent, with-subresources vs. without, etc.) against the same URLs while doing the fidelity work, not to support a hypothetical second production pipeline. That changes everything about its sequencing and interface scope:
+   - Lands as Phase 2 (after audit, before any `#257` area), not Phase 9.
+   - Selection is **per-capture** (request param / header / admin-pinned tenant flag), not per-environment.
+   - Interface stays minimal — just enough to register variant pipelines and route a capture through one. No lifecycle gold-plating.
+   - The existing browser pipeline becomes the `default` variant.
+   - Subsequent `#257` areas ship their work as new pipeline *variants*, then promote to default once evidence supports it.
+
+2. **`#257` Area 4 (WACZ subresource completeness) reframes from "ship CDP-based capture" to "experiment to decide *should we?*".** The issue body itself frames Area 4 as *"Evaluate whether WARC should include key subresources for offline replay fidelity"* — a question, not a commitment. FEATURES.md raised the same doubt (evidence-grade vs. archive-grade). The original synthesis over-weighted Area 4 because it had the most architectural risk and concrete library/CDP questions. The right framing is: build a `subresources-on` variant pipeline against the audit corpus; compare WACZ outputs and replayability; decide based on evidence; don't pre-commit to shipping it as default.
+
+3. **"Phase 2: Infrastructure Pre-conditions" mostly dissolves.** It was justified by:
+   - Screenshot diff-flood for rescan customers — **no customers exist yet**, blast radius is zero. The `screenshotVersion` field is unnecessary; Area 3 can change parameters freely.
+   - `captureSettings` schema versioning — still useful but lower urgency without external API consumers depending on the schema.
+   - WACZ determinism unit test — still real, but lands inside Area 4's experimentation phase as a pre-condition there, not a separate phase.
+
+### Updated phase sequence (overrides "Recommended Phase Sequence" below)
+
+```
+0. Pre-flight cleanup (3 surgical bug fixes)
+1. Audit (URL battery + Coralogix baselines + CDP-availability spike)
+2. #206 — thin pipeline harness for per-capture variant selection
+3. Area 3 — settle / screenshot foundation (shipped as variant)
+4. Area 1 — dynamic content (variant)
+5. Area 6 — render-failure resilience (variant)
+6. Area 5 — bot-protection annotation (mostly metadata; minimal pipeline impact)
+7. Area 2 — consent (variant: "safe-shot" vs. "aggressive")
+8. Area 4 — subresource experiment (decide should-we from evidence; determinism unit test lands here as pre-condition)
+```
+
+The original "build #206 last so the abstraction is informed by stable code" recommendation from ARCHITECTURE.md optimizes for clean abstraction. The owner's actual goal is iteration speed during fidelity work — a different optimization target.
+
+### Process notes worth carrying to evolution log
+
+- The codebase mapper read `package.json` from local working tree (1 commit behind `origin/main`) without flagging that as a snapshot point. STACK.md (codebase) listed `@duckduckgo/autoconsent ^14.66.0` while origin/main was already on `^14.75.0` (PR #276 / d042b44). This poisoned the research input.
+- The research delegate ignored an explicit "verify versions live, NOT training data" instruction and emitted `14.72.0` as the latest npm version. Actual latest is `14.75.0`.
+- Both have been corrected in-place. Future codebase mapping passes should either run against `origin/main` or stamp the working-tree commit hash they snapshotted.
+
+---
+
+## TL;DR (original synthesis — read alongside Synthesis Adjustments above)
 
 Research confirmed the milestone's shape: all six #257 areas are justified, the audit-first approach is essential, and #206 should follow #257. The most significant finding is that **subresource capture (Area 4) depends on a gating unknown** — whether `@cloudflare/playwright` exposes CDP `Network.getResponseBody` — which must be verified before committing to that area's approach. Screenshot parameter changes (Area 3) carry a hidden blast radius: any change to DPR or timing invalidates all prior diff baselines, requiring a versioned cutover plan rather than a simple config tweak. The recommended build order is settle→dynamic→resilience→bot-annotation→consent→subresources→pipeline, with a determinism unit test and `captureSettings` schema versioning landing as pre-conditions before the main work begins.
 
@@ -24,10 +68,10 @@ Research confirmed the milestone's shape: all six #257 areas are justified, the 
   - **Confidence:** HIGH
   - **Roadmap impact:** Phase-shaping — this change triggers diff-detection breakage (per PITFALLS.md) and requires a `screenshotVersion` cutover plan in Area 3.
 
-- **Decision:** Upgrade `@duckduckgo/autoconsent` from `14.66.0` to `14.72.0`
-  - **Rationale:** +6 minor versions of CMP rulesets. Actively maintained. Low-risk semver-minor upgrade via existing vendor script.
+- **Decision:** Track `@duckduckgo/autoconsent` via existing CI auto-update pipeline (Phase 0088, PR #229)
+  - **Rationale:** WRL already runs an automated update pipeline that opens PRs as upstream releases land. Origin/main is already on `^14.75.0` (PR #276). No manual bump action required for this milestone.
   - **Confidence:** HIGH
-  - **Roadmap impact:** Implementation-detail for Area 2.
+  - **Roadmap impact:** No phase needed. The original research draft proposed a manual bump from `14.66.0` to `14.72.0` — both numbers were wrong (local working tree was stale relative to origin/main, and the agent emitted a stale npm version from training data). Patched 2026-04-30.
 
 - **Decision:** Upgrade `@cloudflare/playwright` from `^1.1.2` to `^1.3.0`
   - **Rationale:** v1.3.0 replaced chunked CDP with plain CDP. May fix edge-case issues and is prerequisite context for Area 4 CDP work. Low-risk semver-minor.
@@ -149,7 +193,7 @@ ARCHITECTURE.md recommends CDP `Network.enable` + `Network.getResponseBody` for 
 - **Why this position:** Low-risk metadata enrichment; independent of subresource work; benefits from failure classification in Phase 5.
 
 ### Phase 7: Area 2 — Cookie Consent and Overlay Dismissal
-- **Goal:** Autoconsent upgrade to v14.72.0, enriched consent status (`noRejectOption`), consent timeout evaluation (2s→3s if audit warrants), generic overlay detection heuristic (annotate, not dismiss), paywall annotation
+- **Goal:** Enriched consent status (`noRejectOption`), consent timeout evaluation (2s→3s if audit warrants), generic overlay detection heuristic (annotate, not dismiss), paywall annotation. *Autoconsent version itself is auto-tracked by existing CI — not a phase task.*
 - **Maps to:** #257 Area 2
 - **Inherited pitfalls:** Cross-origin iframe silent failure, autoconsent wrong-choice bug, 2s timeout too short, `captureSettings` schema changes (mitigated by Phase 2 versioning)
 - **Pre-conditions:** Schema versioning from Phase 2; CMP failure data from audit
@@ -183,7 +227,7 @@ ARCHITECTURE.md recommends CDP `Network.enable` + `Network.getResponseBody` for 
 
 ### (b) Answer during phase-level research before that phase starts
 - **CDP `newCDPSession()` availability on `@cloudflare/playwright`** — gate for Area 4 approach. Verify during audit or Phase 2 as a spike. If unavailable, fall back to `page.on('response')` + `response.body()`.
-- **Autoconsent v14.72.0 breaking changes** — test vendored bundle upgrade before Area 2 work
+- **Autoconsent rule-format drift during milestone window** — monitor PRs from the auto-update pipeline; if rule format changes break the consent flow, reconcile before continuing Area 2
 - **Bot-protection detection false-positive rate** — run a test battery of known-protected sites before Area 5 implementation
 - **Partial WACZ signing implications** — if signing partial captures, must mark `renderQuality: 'partial'` in `datapackage.json` to prevent misrepresentation
 

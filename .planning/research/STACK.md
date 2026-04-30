@@ -12,7 +12,7 @@
 | `@cloudflare/playwright` | `^1.1.2` (latest: `1.3.0`, upstream PW `1.58.2`) | Consider upgrading to `1.3.0` but not re-evaluating |
 | WACZ format | v1.1.1 | Spec lock (v1.2.0 exists but out of scope) |
 | Ed25519 signing + RFC 3161 (Sectigo TSA) | — | Signing pipeline lock |
-| `@duckduckgo/autoconsent` | `^14.66.0` (vendored) | Library lock (version upgrade is in scope) |
+| `@duckduckgo/autoconsent` | `^14.75.0` (origin/main, PR #276) | Library lock (this milestone may bump further if upstream releases land) |
 | `fflate` | `^0.8.2` | ZIP/WACZ bundling lock |
 | Cloudflare Queues, R2, D1, KV | — | Infrastructure lock |
 | `vitest` + `@cloudflare/vitest-pool-workers` | `3.2.4` / `0.12.21` | Test stack lock |
@@ -43,7 +43,7 @@
 
 | Technology / Pattern | Version | Purpose | Confidence | CF-Workers compatible? | Why over alternatives |
 |---|---|---|---|---|---|
-| `@duckduckgo/autoconsent` upgrade | `14.72.0` (latest as of 2026-04-30; WRL vendored at `14.66.0`) | +6 minor versions of new CMP rulesets (bandcamp, various EU sites). Actively maintained with automated rule additions. | **HIGH** | ✅ Yes (vendored) | Only viable library. Regular automated releases add 1-3 sites per release. |
+| `@duckduckgo/autoconsent` upgrade | **already at `14.75.0` on origin/main**; npm latest verified 2026-04-30 = `14.75.0` | WRL has an automated update pipeline (Phase 0088, PR #229) that auto-bumps via PR. No manual upgrade needed for this milestone unless a specific newer release ships during the work. | **HIGH** | ✅ Yes (vendored) | Only viable library. Regular automated releases add 1-3 sites per release. **Original research draft incorrectly claimed `14.72.0` was latest based on training data despite an explicit instruction to verify live — patched 2026-04-30 after user catch.** |
 | Enriched consent metadata schema | Custom | Distinguish `notDetected` / `noRejectOption` / `optOutFailed` / `timeout` / `dismissed` in captureSettings | **HIGH** | ✅ Yes | Current schema has `result: 'success'|'notDetected'|'failed'`. Extend with `noRejectOption` (CMP detected but no opt-out button — accept-only CMPs per #156). |
 | Generic overlay dismissal heuristic | Custom JS | Dismiss non-CMP overlays: newsletter popups, age gates, notification prompts, login walls | **MEDIUM** | ✅ Yes | CSS heuristic: find elements with `position:fixed`, `z-index > 999`, covering >30% viewport. Look for close/dismiss buttons. Run AFTER autoconsent. Risk: false positives on sticky navbars — needs careful threshold tuning. |
 | Paywall detection annotation | Custom JS | Detect (NOT bypass) soft/hard paywalls for metadata enrichment | **MEDIUM** | ✅ Yes | Check for common paywall indicators: `<meta name="robots" content="noindex">` + truncated content, `.paywall-overlay`, `data-paywall`, Piano/Tinypass/Zuora DOM elements. Annotate in `captureSettings.paywall` — no bypass. |
@@ -217,7 +217,7 @@
 
 5. **Partial WACZ signing**: If we sign partial captures as WACZ, do we need to clearly mark them in `datapackage.json` to prevent a partial capture from being presented as a full one in court? Likely yes — add `renderQuality: 'partial'` and `partialReason` to the datapackage metadata.
 
-6. **Autoconsent v14.72.0 breaking changes**: Need to test vendored bundle upgrade path. The `vendor-autoconsent.js` script handles this, but 6 minor versions may include rule format changes.
+6. **Autoconsent upgrades**: WRL already runs the auto-update pipeline. The risk is upstream rule-format changes during the milestone window — the existing `vendor-autoconsent.js` + CI workflow handles regeneration, so this is monitor-not-block.
 
 7. **Generic overlay dismissal false positives**: The CSS heuristic for non-CMP overlays (`position:fixed, z-index > 999, >30% viewport`) will false-positive on sticky navigation bars, floating chat widgets, and cookie banners that autoconsent already handles. Needs careful sequencing: autoconsent first, then generic overlay check only if autoconsent found nothing.
 

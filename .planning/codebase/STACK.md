@@ -38,7 +38,7 @@ From `package.json` (root):
 | `@cloudflare/vitest-pool-workers` | `0.12.21` (devDep) | Runs Vitest tests inside Miniflare with Workers runtime semantics |
 | `vitest` | `3.2.4` (devDep) | Unit + integration test runner |
 | `@playwright/test` | `^1.58.2` (devDep) | E2E tests against staging (`test/e2e/`) |
-| `@duckduckgo/autoconsent` | `^14.66.0` | Cookie banner dismissal during capture; bundled in `src/vendor/autoconsent-script.js` and `src/vendor/autoconsent.playwright.js` (vendored via `scripts/vendor-autoconsent.js`) |
+| `@duckduckgo/autoconsent` | `^14.75.0` (origin/main; local working tree was `^14.66.0` at mapping time) | Cookie banner dismissal during capture; bundled in `src/vendor/autoconsent-script.js` and `src/vendor/autoconsent.playwright.js` (vendored via `scripts/vendor-autoconsent.js`); auto-bumped by the autoconsent CI pipeline (Phase 0088, PR #229). **Note:** the codebase mapper read this from the local working tree rather than `origin/main` and was 1 commit behind (PR #276 / d042b44). Treat any version-sensitive claim in this doc as a snapshot of local working tree, not necessarily current `origin/main`. |
 | `@modelcontextprotocol/sdk` | `^1.27.1` | Exposes the API as an MCP server (`src/mcp.js` — `McpServer`, `WebStandardStreamableHTTPServerTransport`) |
 | `croner` | `^10.0.1` | Cron expression validation and next-run calculation for tenant schedules (`src/cron.js`) |
 | `diff-match-patch-es` | `1.0.1` | Character-level HTML diffing (`src/diff.js`) |
