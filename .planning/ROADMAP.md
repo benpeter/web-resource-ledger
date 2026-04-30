@@ -33,7 +33,11 @@
 
 **Pre-conditions:** None
 
-**Estimated plans:** 2 (small: pre-flight fixes; medium: audit + baselines)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 00-01-PLAN.md — Pre-flight cleanup: PRE-01/02/03 atomic-commit PR + staging→prod deploy gate + evolution log 0108
+- [ ] 00-02-PLAN.md — Capture-quality audit: URL battery (≥20 URLs), before corpus, Coralogix 30-day baselines, failure-mode ranking, CDP-availability spike + evolution log 0109
 
 **Success criteria:**
 1. Billing grace-period/blocked banner renders correctly for tenants in those billing states — the `buildStatusBanner` collision is eliminated and the billing-side function responds to `usageData` as designed.
