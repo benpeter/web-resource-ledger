@@ -36,8 +36,18 @@
 **Plans:** 2 plans
 
 Plans:
+
+**Wave 1**
 - [ ] 00-01-PLAN.md — Pre-flight cleanup: PRE-01/02/03 atomic-commit PR + staging→prod deploy gate + evolution log 0108
+
+**Wave 2** *(blocked on Wave 1 deploy + 24h Coralogix observation — PRE-02 logging fix must be live before audit measurement)*
 - [ ] 00-02-PLAN.md — Capture-quality audit: URL battery (≥20 URLs), before corpus, Coralogix 30-day baselines, failure-mode ranking, CDP-availability spike + evolution log 0109
+
+**Cross-cutting constraints:**
+- QG-04 (evolution log per phase) and QG-05 (backlog review per phase) appear in both plans
+- QG-06 (Coralogix logging discipline) demonstrated by PRE-02 in Plan A; enforced by grep on `console.warn/error` going forward
+- QG-07 (UI prefix rule for `src/ui/*.js`) demonstrated by PRE-01 (`billing_*`) and PRE-03 (`submit_*`) in Plan A
+- Test execution constraint: `npm test` consumes ~8 GB and may not run concurrently — Wave 2 enforces serial execution against Wave 1's targeted vitest run
 
 **Success criteria:**
 1. Billing grace-period/blocked banner renders correctly for tenants in those billing states — the `buildStatusBanner` collision is eliminated and the billing-side function responds to `usageData` as designed.
