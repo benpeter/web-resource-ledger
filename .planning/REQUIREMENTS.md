@@ -171,16 +171,74 @@ Tracked but deferred. May or may not become a future milestone.
 
 ## Traceability
 
-To be populated by `gsd-roadmapper`. Each requirement maps to exactly one phase.
+Each v1 requirement maps to exactly one phase. Phase assignments derived from ROADMAP.md (2026-04-30).
 
 | Requirement | Phase | Status |
 |---|---|---|
-| _(roadmapper fills this in)_ | | |
+| PRE-01 | Phase 0: Foundation | Pending |
+| PRE-02 | Phase 0: Foundation | Pending |
+| PRE-03 | Phase 0: Foundation | Pending |
+| AUDIT-01 | Phase 0: Foundation | Pending |
+| AUDIT-02 | Phase 0: Foundation | Pending |
+| AUDIT-03 | Phase 0: Foundation | Pending |
+| AUDIT-04 | Phase 0: Foundation | Pending |
+| AUDIT-05 | Phase 0: Foundation | Pending |
+| HARNESS-01 | Phase 1: Pipeline Harness | Pending |
+| HARNESS-02 | Phase 1: Pipeline Harness | Pending |
+| HARNESS-03 | Phase 1: Pipeline Harness | Pending |
+| HARNESS-04 | Phase 1: Pipeline Harness | Pending |
+| HARNESS-05 | Phase 1: Pipeline Harness | Pending |
+| HARNESS-06 | Phase 1: Pipeline Harness | Pending |
+| HARNESS-07 | Phase 1: Pipeline Harness | Pending |
+| SCRN-01 | Phase 2: Screenshot & Settle | Pending |
+| SCRN-02 | Phase 2: Screenshot & Settle | Pending |
+| SCRN-03 | Phase 2: Screenshot & Settle | Pending |
+| SCRN-04 | Phase 2: Screenshot & Settle | Pending |
+| SCRN-05 | Phase 2: Screenshot & Settle | Pending |
+| SCRN-06 | Phase 2: Screenshot & Settle | Pending |
+| DYN-01 | Phase 3: Dynamic Content | Pending |
+| DYN-02 | Phase 3: Dynamic Content | Pending |
+| DYN-03 | Phase 3: Dynamic Content | Pending |
+| DYN-04 | Phase 3: Dynamic Content | Pending |
+| DYN-05 | Phase 3: Dynamic Content | Pending |
+| RES-01 | Phase 4: Render-Failure Resilience | Pending |
+| RES-02 | Phase 4: Render-Failure Resilience | Pending |
+| RES-03 | Phase 4: Render-Failure Resilience | Pending |
+| RES-04 | Phase 4: Render-Failure Resilience | Pending |
+| RES-05 | Phase 4: Render-Failure Resilience | Pending |
+| RES-06 | Phase 4: Render-Failure Resilience | Pending |
+| BOT-01 | Phase 5: Bot-Protection Annotation | Pending |
+| BOT-02 | Phase 5: Bot-Protection Annotation | Pending |
+| BOT-03 | Phase 5: Bot-Protection Annotation | Pending |
+| BOT-04 | Phase 5: Bot-Protection Annotation | Pending |
+| BOT-05 | Phase 5: Bot-Protection Annotation | Pending |
+| BOT-06 | Phase 5: Bot-Protection Annotation | Pending |
+| CON-01 | Phase 6: Cookie Consent & Overlays | Pending |
+| CON-02 | Phase 6: Cookie Consent & Overlays | Pending |
+| CON-03 | Phase 6: Cookie Consent & Overlays | Pending |
+| CON-04 | Phase 6: Cookie Consent & Overlays | Pending |
+| CON-05 | Phase 6: Cookie Consent & Overlays | Pending |
+| CON-06 | Phase 6: Cookie Consent & Overlays | Pending |
+| SUB-01 | Phase 7: Subresource Experiment | Pending |
+| SUB-02 | Phase 7: Subresource Experiment | Pending |
+| SUB-03 | Phase 7: Subresource Experiment | Pending |
+| SUB-04 | Phase 7: Subresource Experiment | Pending |
+| SUB-05 | Phase 7: Subresource Experiment | Pending |
+| SUB-06 | Phase 7: Subresource Experiment | Pending |
+| SUB-07 | Phase 7: Subresource Experiment | Pending |
+| QG-01 | Phase 2: Screenshot & Settle | Pending |
+| QG-02 | Phase 7: Subresource Experiment | Pending |
+| QG-03 | Phase 3: Dynamic Content | Pending |
+| QG-04 | Phase 0: Foundation | Pending |
+| QG-05 | Phase 0: Foundation | Pending |
+| QG-06 | Phase 0: Foundation | Pending |
+| QG-07 | Phase 0: Foundation | Pending |
 
-**Coverage targets:**
-- v1 requirements: 56 total
-- All must map to phases (0 unmapped at handoff)
+**Coverage:**
+- v1 requirements: 58 total
+- Mapped to phases: 58
+- Unmapped: 0 ✓
 
 ---
 
-*Requirements defined: 2026-04-30 after research synthesis + post-review reframe (sequencing-B, #143 parked, #206 as early experimentation harness, Area 4 as should-we experiment, no rescan-customer concerns).*
+*Requirements defined: 2026-04-30 after research synthesis + post-review reframe (sequencing-B, #143 parked, #206 as early experimentation harness, Area 4 as should-we experiment, no rescan-customer concerns). Traceability populated: 2026-04-30 by roadmapper.*
