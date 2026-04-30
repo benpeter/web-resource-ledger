@@ -89,7 +89,7 @@
 Phase 0 is two parallel-ish workstreams that establish the measurement and code-hygiene baseline for the rest of the milestone:
 
 1. **Pre-flight cleanup (PRE-01/02/03):** three surgical bug fixes in existing files. Strictly hygiene to land before any audit measurements run, so baselines reflect a clean system. PRE-01 is an active production bug (billing banner broken for grace_period/blocked tenants); PRE-02 is a silent catch swallowing DB failures in the scheduler; PRE-03 is duplicate-name harmless-today (both bodies identical) but violates the prefix rule.
-2. **Capture-quality audit (AUDIT-01..05):** hand-curated URL battery committed to `.planning/audit/url-battery.md`, "before" capture corpus produced through the production WRL API (R2-key references only, no WACZs in git), Coralogix-derived 30-day baseline document at `.planning/audit/AUDIT.md`, prioritized failure-mode ranking, and a CDP-availability spike that gives Phase 7 a yes/no answer on `Network.getResponseBody` via `@cloudflare/playwright`. **Expected spike result on the pinned `1.1.2`: NO** — CDP support landed in v1.3.0 [VERIFIED: WebSearch + npm view] and the upgrade is deferred to Phase 1 per CONTEXT.md D-CD.
+2. **Capture-quality audit (AUDIT-01..05):** hand-curated URL battery committed to `.planning/audit/url-battery.md`, "before" capture corpus produced through the production WRL API (R2-key references only, no WACZs in git), Coralogix-derived 30-day baseline document at `.planning/audit/AUDIT.md`, prioritized failure-mode ranking, and a CDP-availability spike that gives Phase 7 a yes/no answer on `Network.getResponseBody` via `@cloudflare/playwright`. **Expected spike result on the pinned `1.1.2`: NO** — CDP support landed in v1.3.0 [VERIFIED: WebSearch + npm view] and the upgrade is deferred to Phase 1 per CONTEXT.md §"Claude's Discretion" (`@cloudflare/playwright` upgrade defer).
 
 Plus QG-04..07 process conventions: this phase establishes the standard (evolution log, backlog review, log discipline, UI prefix) and is the first to be evaluated against it.
 
@@ -810,29 +810,34 @@ CONTEXT.md §domain explicitly says *"no new gating mechanism is being designed 
 **Detection:** `scripts/check-version-sync.sh` runs in CI; mismatched version markers fail the build.
 **Mitigation:** PRE fixes don't touch version markers, so this should be clean. If failure occurs, fix root cause (don't skip with `--no-verify`).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact DataPrime `percentile` function name.**
+   **RESOLVED:** defer to execute-phase probe; B-03 task runs a single test query with `LIMIT 5` first to confirm function name before issuing the full query.
    - What we know: ops-runbook skill demonstrates DataPrime queries but does not use percentiles in its examples. The `groupby true aggregate percentile(...)` syntax is plausible Lucene-family DataPrime but unverified.
    - What's unclear: Whether the function is `percentile`, `approx_percentile`, `quantile`, or something else; whether it takes the percentile as 0-1 or 0-100.
    - Recommendation: Execute-phase task validates one query against the live Coralogix endpoint first, before paste-running all nine. Update `AUDIT.md` §4 with the verified syntax.
 
 2. **`limitExceeded` field structure.**
+   **RESOLVED:** defer to execute-phase; B-03 samples one `capture.partial` log first.
    - What we know: `src/capture.js:504-505` constructs a string `Page exceeded ${MAX_SUBRESOURCES} subresource limit` and assigns it to `limitExceeded`. We don't know whether this string lands as its own structured field in the Coralogix log payload or only as part of an enclosing message.
    - What's unclear: Whether to query with `$d.limitExceeded != null` or `$d ~~ 'subresource limit'`.
    - Recommendation: Execute-phase samples a `capture.partial` log entry to disambiguate.
 
 3. **Browser-hour billing accuracy.**
+   **RESOLVED:** labeled as proxy in AUDIT.md; cross-check against CF dashboard and note delta.
    - What we know: The proxy `sum(durationMs) / 3600000` over `capture.success + capture.partial` events is the closest available approximation.
    - What's unclear: Whether Cloudflare's actual billing meters something different (idle session time? per-page time? per-context time?).
    - Recommendation: Mark the value in `AUDIT.md` as "browser-hour proxy from emitted logs" and note the discrepancy from CF's billing readout if it's known.
 
 4. **Which 20 URLs?**
+   **RESOLVED:** defer to execute-phase per Plan B-02 checkpoint task; planner-at-execute-time selects from CONTEXT.md categories with developer approval.
    - What we know: The selection criteria, the area split, and the constraint that no two URLs fail the same way.
    - What's unclear: The actual URLs.
    - Recommendation: Defer to plan-time. The planner runs fresh web research and picks the list — committing it here would freeze stale URLs.
 
 5. **`test/audit/` vs `test/integration/audit/` for the CDP spike.**
+   **RESOLVED:** `test/integration/audit/cdp-availability.test.js` (matches existing integration include glob; chosen in Plan B-01).
    - What we know: CONTEXT.md suggests `test/audit/cdp-availability.test.js`. The integration config's `include` glob is `test/integration/**/*.test.js`.
    - What's unclear: Whether to broaden the include glob or move the file under `test/integration/`.
    - Recommendation: Place at `test/integration/audit/cdp-availability.test.js`. Inherits glob, no config change. Audit-related grouping is preserved via the subdirectory.
