@@ -22,7 +22,7 @@ function safeUrl(urlStr) {
   return null;
 }
 
-function formatDate(isoStr) {
+function submit_formatDate(isoStr) {
   if (!isoStr) return '';
   try {
     return new Date(isoStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -435,7 +435,7 @@ function handleSubmit(urlInput, submitBtn, formErrorEl) {
       var detail;
       // 429 with limitType: 'quota' means monthly capture limit reached
       if (res.status === 429 && data && data.limitType === 'quota') {
-        var resetDate = data.resetsAt ? formatDate(data.resetsAt) : '';
+        var resetDate = data.resetsAt ? submit_formatDate(data.resetsAt) : '';
         detail = 'Monthly capture limit reached.' +
           (resetDate ? ' Your quota resets on ' + resetDate + '.' : '') +
           ' View usage in Settings.';
