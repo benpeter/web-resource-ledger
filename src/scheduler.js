@@ -135,7 +135,17 @@ export async function handleScheduledTick(controller, env, ctx) {
       const threat = await checkUrl(schedule.url, env).catch(() => ({ safe: true, degraded: true }));
       if (!threat.safe) {
         nextRunAt = nextRunAfter(schedule.cron, new Date(controller.scheduledTime));
-        await advanceSchedule(env.DB, schedule.id, nextRunAt, null, 'blocked').catch(() => {});
+        await advanceSchedule(env.DB, schedule.id, nextRunAt, null, 'blocked').catch((err) => {
+          ctx.waitUntil(log(env, 5, 'schedule', {
+            event: 'schedule.advance_failed',
+            scheduleId: schedule.id,
+            tenantId,
+            url: schedule.url,
+            blockReason: 'threat',
+            errorClass: err?.constructor?.name,
+            errorMessage: String(err?.message ?? '').slice(0, 128),
+          }) ?? Promise.resolve());
+        });
         ctx.waitUntil(log(env, 4, 'schedule', {
           event: 'schedule.blocked_threat',
           scheduleId: schedule.id,
