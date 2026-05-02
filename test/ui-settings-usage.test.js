@@ -265,8 +265,11 @@ describe('SUBMIT_VIEW_JS -- 429 quota error handling', () => {
     expect(SUBMIT_VIEW_JS).toContain('View usage in Settings');
   });
 
-  it('includes formatDate helper for reset date formatting', () => {
-    expect(SUBMIT_VIEW_JS).toContain('function formatDate');
+  it('includes submit_formatDate helper for reset date formatting', () => {
+    // Renamed from formatDate -> submit_formatDate per UI prefix rule (PRE-03,
+    // CLAUDE.md §Dashboard UI Architecture). The unprefixed formatDate now
+    // lives only in ui-settings.js.
+    expect(SUBMIT_VIEW_JS).toContain('function submit_formatDate');
   });
 });
 
