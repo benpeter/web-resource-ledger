@@ -24,6 +24,16 @@ function _send(env, endpoint, body) {
         Authorization: `Bearer ${env.PIRSCH_ACCESS_KEY}`,
       },
       body: JSON.stringify(body),
+    }).then((res) => {
+      // Pirsch returns 200 even when it later drops a hit as bot traffic, so a 2xx
+      // is "accepted" and we stay silent (a bot-drop is not actionable). A non-2xx
+      // is a real failure -- 401 = invalid/rotated access key, 400 = validation,
+      // 429 = rate limit -- which would otherwise silently halt all analytics with
+      // no trace. Fail loudly so a dead key surfaces in Coralogix, not weeks later
+      // via a "no traffic" email.
+      if (!res.ok) {
+        log(env, 4, 'pirsch', { event: 'pirsch.send_rejected', endpoint, status: res.status });
+      }
     }).catch((err) => {
       log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
     });
