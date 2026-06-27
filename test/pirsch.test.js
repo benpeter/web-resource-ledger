@@ -1,6 +1,7 @@
 import { fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { trackHit, trackEvent, trackEventRaw } from '../src/pirsch.js';
+import * as logModule from '../src/log.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -162,5 +163,40 @@ describe('pirsch -- error resilience', () => {
 
     // Errors are logged to Coralogix (no-op in test env without CORALOGIX_ENDPOINT)
     await expect(trackHit(mockRequest(), mockEnv, {})).resolves.not.toThrow();
+  });
+
+  it('logs pirsch.send_rejected on a non-2xx response (e.g. 401 dead key)', async () => {
+    const logSpy = vi.spyOn(logModule, 'log').mockImplementation(() => undefined);
+
+    fetchMock
+      .get(PIRSCH_ORIGIN)
+      .intercept({ path: HIT_PATH, method: 'POST' })
+      .reply(401, 'unauthorized');
+
+    await expect(trackHit(mockRequest(), mockEnv, {})).resolves.not.toThrow();
+
+    expect(logSpy).toHaveBeenCalledWith(
+      mockEnv,
+      4,
+      'pirsch',
+      expect.objectContaining({ event: 'pirsch.send_rejected', status: 401 }),
+    );
+
+    logSpy.mockRestore();
+  });
+
+  it('stays silent on a 200 response (bot-drops are not actionable)', async () => {
+    const logSpy = vi.spyOn(logModule, 'log').mockImplementation(() => undefined);
+
+    fetchMock
+      .get(PIRSCH_ORIGIN)
+      .intercept({ path: HIT_PATH, method: 'POST' })
+      .reply(200, 'ok');
+
+    await trackHit(mockRequest(), mockEnv, {});
+
+    expect(logSpy).not.toHaveBeenCalled();
+
+    logSpy.mockRestore();
   });
 });
