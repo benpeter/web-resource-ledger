@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "@cloudflare/playwright": "^1.1.2",
-    "@duckduckgo/autoconsent": "^14.75.0",
+    "@duckduckgo/autoconsent": "^16.1.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "croner": "^10.0.1",
     "diff-match-patch-es": "1.0.1",
