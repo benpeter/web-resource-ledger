@@ -319,6 +319,54 @@ If an issue exists, read its findings before re-investigating.
 
 ---
 
+## Pirsch Analytics
+
+### Query visitor stats (is traffic being recorded?)
+
+The write-only access key (`pa_...`) cannot read stats. Exchange the OAuth
+client credentials for a token first. Domain ID for webresourceledger.com
+is `0DdKAMZgZ2` (also in `~/.secrets` as `WRL_PIRSCH_DOMAIN_ID`).
+
+```bash
+source ~/.secrets
+TOKEN=$(curl -s -X POST https://api.pirsch.io/api/v1/token \
+  -H "Content-Type: application/json" \
+  -d "{\"client_id\":\"$WRL_PIRSCH_CLIENT_ID\",\"client_secret\":\"$WRL_PIRSCH_CLIENT_SECRET\"}" \
+  | jq -r .access_token)
+curl -s "https://api.pirsch.io/api/v1/statistics/visitor?id=$WRL_PIRSCH_DOMAIN_ID&from=2026-07-01&to=2026-07-13" \
+  -H "Authorization: Bearer $TOKEN" | jq -r '.[] | "\(.day[:10]) visitors=\(.visitors) views=\(.views)"'
+```
+
+An error of `"Domain not found."` usually means the `id` parameter was
+empty/wrong, not that the domain is gone — list domains with
+`GET /api/v1/domain` using the same token.
+
+### "Didn't receive any traffic" warning emails
+
+Pirsch sends these twice daily (00:00/12:00 UTC) while the domain records
+zero traffic (threshold: 1 day). Debug order:
+
+1. Check `pirsch` subsystem in Coralogix (all three apps: `wrl`,
+   `wrl-landing`, `wrl-docs`): `pirsch.send_rejected` = Pirsch refused the
+   hit (400 = validation, e.g. bot request without User-Agent; 401 = dead
+   key). No events at all = sends aren't happening.
+2. Check the landing site is actually served BY THE WORKER:
+   `curl -sI https://webresourceledger.com/` must show
+   `content-security-policy` and `cache-control: private`. If instead you
+   see `cf-cache-status: HIT` with `cache-control: public, max-age=0,
+   must-revalidate` and no security headers, the deployed Worker version
+   lost `assets.run_worker_first` and Cloudflare serves assets directly —
+   no tracking, no headers. Root cause July 2026: deploy workflow used
+   wrangler-action's bundled wrangler 3.90.0, which silently drops the
+   field (fixed in PR #289 by `npm ci` + a post-deploy CSP assertion).
+   Verify deployed flag: `GET /accounts/{acct}/workers/scripts/wrl-landing/versions/{id}`
+   → `resources.script_runtime.assets.raw_run_worker_first`.
+3. Remember Pirsch returns 200 and then silently drops hits it considers
+   bot traffic — datacenter IPs and headless UAs never show up in stats.
+   Test recovery with a real browser UA from a residential IP.
+
+---
+
 ## Resend (email)
 
 ### Check recent email deliveries
