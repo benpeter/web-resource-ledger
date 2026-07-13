@@ -2,14 +2,20 @@ name = "wrl-docs"
 compatibility_date = "2026-03-13"
 main = "src/index.js"
 
-[assets]
-directory = "./_output"
-binding = "ASSETS"
-run_worker_first = true
-
+# routes must stay ABOVE the [assets] section: TOML assigns every key after a
+# section header to that section, so placing routes below [assets] turns it
+# into the unknown field assets.routes, which wrangler silently ignores.
 routes = [
   { pattern = "docs.webresourceledger.com", custom_domain = true }
 ]
+
+[assets]
+directory = "./_output"
+binding = "ASSETS"
+# run_worker_first is required: without it, requests for existing assets are
+# served directly from Cloudflare's asset cache and the Worker never runs --
+# no security headers, no Cache-Control: private, no Pirsch tracking.
+run_worker_first = true
 
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"

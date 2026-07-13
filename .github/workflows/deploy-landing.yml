@@ -26,6 +26,20 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      # Install the repo-pinned wrangler. Without a local install,
+      # wrangler-action falls back to its bundled wrangler 3.90.0, which does
+      # not know assets.run_worker_first and silently drops it -- deploying
+      # the landing site in serve-directly mode where the Worker (security
+      # headers, Pirsch tracking) never runs. That exact failure shipped on
+      # 2026-03-30 and again on 2026-06-27.
+      - name: Install dependencies (pins wrangler version)
+        run: npm ci
+
       - name: Copy design-system.css
         run: cp src/design-system.css landing/public/css/design-system.css
 
@@ -45,3 +59,22 @@ jobs:
         env:
           PIRSCH_ACCESS_KEY: ${{ secrets.WRL_PIRSCH_ACCESS_KEY }}
           CORALOGIX_SEND_KEY: ${{ secrets.WRL_CORALOGIX_SEND_KEY }}
+
+      # Assert the Worker actually fronts the site. If run_worker_first got
+      # dropped (old wrangler, config drift), assets are served straight from
+      # the CDN cache: no CSP header, no tracking -- and nothing fails. This
+      # check turns that silent regression into a red deploy.
+      - name: Verify Worker serves the site
+        run: |
+          for i in 1 2 3 4 5 6; do
+            headers=$(curl -sI --max-time 10 https://webresourceledger.com/ || true)
+            if echo "$headers" | grep -qi '^content-security-policy:'; then
+              echo "OK: Worker security headers present"
+              exit 0
+            fi
+            echo "Attempt $i: CSP header missing, retrying in 10s..."
+            sleep 10
+          done
+          echo "FAIL: Worker is not serving webresourceledger.com (no CSP header)."
+          echo "Likely cause: assets.run_worker_first missing from the deployed version."
+          exit 1
