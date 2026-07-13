@@ -77,3 +77,22 @@ jobs:
         env:
           PIRSCH_ACCESS_KEY: ${{ secrets.WRL_PIRSCH_ACCESS_KEY }}
           CORALOGIX_SEND_KEY: ${{ secrets.WRL_CORALOGIX_SEND_KEY }}
+
+      # Assert the Worker actually fronts the site. If run_worker_first got
+      # dropped (old wrangler, config drift), assets are served straight from
+      # the CDN cache: no CSP header, no tracking -- and nothing fails. This
+      # check turns that silent regression into a red deploy.
+      - name: Verify Worker serves the site
+        run: |
+          for i in 1 2 3 4 5 6; do
+            headers=$(curl -sI --max-time 10 https://docs.webresourceledger.com/ || true)
+            if echo "$headers" | grep -qi '^content-security-policy:'; then
+              echo "OK: Worker security headers present"
+              exit 0
+            fi
+            echo "Attempt $i: CSP header missing, retrying in 10s..."
+            sleep 10
+          done
+          echo "FAIL: Worker is not serving docs.webresourceledger.com (no CSP header)."
+          echo "Likely cause: assets.run_worker_first missing from the deployed version."
+          exit 1
