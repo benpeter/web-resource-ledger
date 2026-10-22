@@ -26,6 +26,11 @@ on it, which passed. The battery half failed in a useful way:
   the battery did not finish. Polling now lives in
   `scripts/lib/battery-poll.js`, retries network errors, non-2xx responses and
   non-JSON bodies until the deadline, and polls every 10 seconds instead of 3.
+- A two-site test run showed the battery polled `GET /v1/captures/{id}`,
+  which answers 404 until a capture is complete. A failed capture therefore
+  looked like a poll timeout after 20 minutes; the old battery had the same
+  flaw, which is part of why its runs "timed out" on most sites. It now polls
+  `/v1/captures/{id}/status` and fetches the record once that says complete.
 - A test run with a stale key showed a second gap: a baseline in which every
   capture errored compared as "0 regressions" and passed. The comparison now
   refuses a baseline without a completed capture.

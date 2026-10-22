@@ -24,7 +24,8 @@ describe('pollCapture', () => {
     };
     const result = await pollCapture('cap_1', opts(fetchImpl));
     expect(result).toMatchObject({ captureId: 'cap_1', status: 'complete', renderQuality: 'full' });
-    expect(calls).toBe(3);
+    // error, pending, complete on /status, then the record
+    expect(calls).toBe(4);
   });
 
   it('keeps polling after a non-2xx response and after a body that is not JSON', async () => {

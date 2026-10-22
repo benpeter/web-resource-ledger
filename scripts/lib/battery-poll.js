@@ -3,6 +3,11 @@
  * battery-poll.js -- submit and poll battery captures without letting one
  * network error end the run.
  *
+ * Polls GET /v1/captures/{id}/status, which reports pending, complete and
+ * failed. GET /v1/captures/{id} answers 404 until a capture is complete, so
+ * polling it made every failed capture look like a timeout. The full record
+ * is fetched once the status says complete.
+ *
  * The first battery run of phase 0111 crashed on a single ECONNRESET while
  * polling 21 captures every 3 seconds: the error escaped Promise.all and
  * killed the script before it wrote any results. Network errors, non-2xx
@@ -55,17 +60,23 @@ export async function pollCapture(captureId, { fetchImpl, baseUrl, apiKey, timeo
   while (now() < deadline) {
     await sleep(intervalMs);
     try {
-      const resp = await fetchImpl(`${baseUrl}/v1/captures/${captureId}`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!resp.ok) {
-        lastProblem = `HTTP ${resp.status}`;
+      const headers = { Authorization: `Bearer ${apiKey}` };
+      const statusResp = await fetchImpl(`${baseUrl}/v1/captures/${captureId}/status`, { headers });
+      if (!statusResp.ok) {
+        lastProblem = `status HTTP ${statusResp.status}`;
         continue;
       }
-      const data = await resp.json();
-      if (data.status === 'complete' || data.status === 'failed') {
-        return { captureId, ...data };
+      const state = await statusResp.json();
+      if (state.status === 'failed') {
+        return { captureId, ...state };
       }
+      if (state.status !== 'complete') continue;
+      const recordResp = await fetchImpl(`${baseUrl}/v1/captures/${captureId}`, { headers });
+      if (!recordResp.ok) {
+        lastProblem = `record HTTP ${recordResp.status}`;
+        continue;
+      }
+      return { captureId, ...(await recordResp.json()) };
     } catch (err) {
       lastProblem = describeError(err);
     }
