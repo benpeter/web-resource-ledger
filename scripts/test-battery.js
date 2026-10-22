@@ -10,22 +10,30 @@
  * Usage:
  *   node scripts/test-battery.js                    # uses staging
  *   WRL_BASE=https://... WRL_KEY=... node scripts/test-battery.js
+ *   node scripts/test-battery.js --out results.json # also write results as JSON
+ *   node scripts/test-battery.js --only GitHub,BBC  # only these site labels
+ *
+ * Staging processes two captures at a time, so a full run takes about ten
+ * minutes. BATTERY_POLL_TIMEOUT_MS (default 20 minutes) bounds the wait per
+ * capture, counted from submission. The weekly autoconsent workflow runs this
+ * twice and compares the runs with scripts/battery-compare.js.
  *
  * Requires: WRL_KEY env var or ~/.wrl-keys sourced with STAGING_API_KEY
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { parseArgs } from 'node:util';
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
 const BASE_URL = process.env.WRL_BASE || 'https://staging.webresourceledger.com';
-const POLL_TIMEOUT_MS = 300_000;
+const POLL_TIMEOUT_MS = Number(process.env.BATTERY_POLL_TIMEOUT_MS) || 1_200_000;
 const POLL_INTERVAL_MS = 3000;
 
-const SITES = [
+const ALL_SITES = [
   // Baseline
   { url: 'https://example.com', label: 'example.com' },
   { url: 'https://github.com', label: 'GitHub' },
@@ -57,6 +65,21 @@ const SITES = [
   { url: 'https://analytics.explodingtopics.com/website', label: 'ExplodingTopics' },
   { url: 'https://www.semrush.com/trending-websites/global/all/', label: 'Semrush' },
 ];
+
+const { values: args } = parseArgs({
+  options: {
+    out: { type: 'string' },
+    only: { type: 'string' },
+  },
+});
+
+const onlyLabels = args.only ? new Set(args.only.split(',').map((l) => l.trim()).filter(Boolean)) : null;
+const SITES = onlyLabels ? ALL_SITES.filter((s) => onlyLabels.has(s.label)) : ALL_SITES;
+if (onlyLabels && SITES.length !== onlyLabels.size) {
+  const known = new Set(ALL_SITES.map((s) => s.label));
+  console.error(`Unknown site label(s): ${[...onlyLabels].filter((l) => !known.has(l)).join(', ')}`);
+  process.exit(2);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,6 +194,12 @@ async function pollCapture(apiKey, captureId) {
 
 const apiKey = getApiKey();
 console.log(`\nWRL Test Battery — ${BASE_URL}`);
+try {
+  const health = await (await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(10_000) })).json();
+  console.log(`Deployed build: ${health.build?.commit ?? 'unknown'} (${health.build?.deployedAt ?? 'unknown'})`);
+} catch (err) {
+  console.log(`Deployed build: unknown (${err.message})`);
+}
 console.log(`${'='.repeat(90)}\n`);
 
 // Phase 1: Check robots.txt for all sites concurrently
@@ -218,7 +247,7 @@ console.log(`\nPolling ${pending.length} captures (timeout ${POLL_TIMEOUT_MS / 1
 const pollResults = await Promise.all(
   pending.map(async (site) => {
     const result = await pollCapture(apiKey, site.captureId);
-    const status = result.error ? 'error' : result.status;
+    const status = result.status || 'error';
     const quality = result.renderQuality || '';
     console.log(`  ${site.label.padEnd(18)} ${status} ${quality}`);
     return { label: site.label, result };
@@ -226,7 +255,7 @@ const pollResults = await Promise.all(
 );
 
 for (const { label, result } of pollResults) {
-  if (result.error) {
+  if (result.error && !result.status) {
     results.push({ label, status: 'error', reason: result.error });
     continue;
   }
@@ -283,6 +312,11 @@ if (completed.length > 0) {
   for (const r of completed) {
     console.log(`  ${r.label.padEnd(18)} ${r.captureId}`);
   }
+}
+
+if (args.out) {
+  writeFileSync(args.out, JSON.stringify(results, null, 2) + '\n');
+  console.log(`\nResults written to ${args.out}`);
 }
 
 const passed = results.filter((r) => r.status === 'complete').length;

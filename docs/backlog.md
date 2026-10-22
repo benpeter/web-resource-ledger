@@ -109,7 +109,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] E2E staging test for CMP iframe consent detection | When staging test infrastructure supports real Playwright browser | test-minion, Phase 0033 |
 | ~~[should] Inject autoconsent into late-loading CMP iframes~~ | ~~When NYT-style lazy CMPs need support~~ | DONE (Phase 0033 refinement, framenavigated listener) |
 | ~~[should] Update vendored autoconsent to fix Sourcepoint opt-out~~ | ~~When Sourcepoint selector mismatch causes opt-out failure on Guardian/Spiegel/Zeit~~ | DONE (Phase 0059b: v14.59.0 → v14.63.0, Sourcepoint fixes in v14.61.0) |
-| [consider] Automated autoconsent update pipeline (#152) | When manual update lag causes CMP regressions | Phase 0059b |
+| ~~[consider] Automated autoconsent update pipeline (#152)~~ | ~~When manual update lag causes CMP regressions~~ -- DONE (Phase 0088 weekly workflow; Phase 0111: the battery tests the update itself, CI runs on its PRs) | Phase 0059b |
 | [consider] Distinguish timeout vs failed in consent API result | When audit consumers need to differentiate CMP engagement outcomes | ux-strategy-minion, Phase 0033 |
 | [consider] Screenshot height cap configurability | When a user reports capped screenshots as a problem | edge-minion, capture-endpoint |
 | [consider] Viewport parameterization | When a user reports viewport size as a problem | 0017-advisory: api-design, security |
@@ -238,7 +238,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | ~~[consider] Fix --color-text-muted contrast on landing page~~ | App token fixed in Phase 0080 (#595550); landing page uses own CSS — apply local override when a11y audit runs | Phase 0052 → 0080 |
 | [consider] Ghost button border contrast (--color-border) | When a11y audit runs; global token change affects entire UI. Consider --color-border-interactive token | Phase 0080, deferred |
 | [consider] Paywall and accept-only CMP handling (#156) | When a user needs to capture paywall/accept-only sites | Phase 0059b |
-| [consider] Automated autoconsent update pipeline (#152) | When manual update lag causes CMP regressions | Phase 0059b |
+| ~~[consider] Automated autoconsent update pipeline (#152)~~ | ~~When manual update lag causes CMP regressions~~ -- DONE (Phase 0088 weekly workflow; Phase 0111: the battery tests the update itself, CI runs on its PRs) | Phase 0059b |
 | [consider] Embed Stripe payment form instead of redirect (#147) | Billing UI shipped (Phase 0076) with redirect flow; activate if redirect causes UX friction | Phase 0058 → 0076 |
 | [consider] Fetch-based capture for non-HTML resources (#143) | When a user needs to capture PDFs, APIs, or static files | Product |
 | ~~[consider] GTM metrics: Cloudflare Web Analytics + Search Console (#148)~~ | ~~Phase 0066 shipped (ecosystem push); activate when measuring GTM impact~~ -- DONE (Phase 0102): Server-side Pirsch Analytics tracking across all three Workers (landing, docs, API), cross-domain funnel attribution via `?from=` params, 4 business events (Signup, First Capture, Payment Activated, Schedule Created), zero client-side JS (Issue #248). Cloudflare Web Analytics dropped in favor of Pirsch (server-side only, GDPR-compliant, cross-domain fingerprint). Search Console is a separate manual step. | GTM research |
