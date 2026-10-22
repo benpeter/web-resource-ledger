@@ -367,6 +367,7 @@ async function handleCaptureMessage(msg, env, ctx) {
   } else if (!result.retryable) {
     // Already written to D1 as failed by performCapture
     msg.ack();
+    ctx.waitUntil(trackCaptureEvent(env, 'Capture Failed', msg.body) ?? Promise.resolve());
     // Dispatch webhooks after ack -- must not block capture completion
     ctx.waitUntil((async () => {
       try {

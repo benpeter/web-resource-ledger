@@ -52,8 +52,9 @@ The consumer sends `First Capture`, `Capture Completed` (meta: `source`,
 `qualified`) and `Capture Failed` (meta: `source`) from `src/analytics.js`.
 `source` is `dashboard` or `api`, set by the two HTTP producers along with the
 submitter's user agent, or derived as `mcp` or `schedule` from the message.
-`Capture Failed` fires once per capture, when it fails for good (dead-letter
-queue or the fourth catastrophic attempt), not on retries.
+`Capture Failed` fires once per capture, when it fails for good: a
+non-retryable failure, the dead-letter queue, or the fourth catastrophic
+attempt. Retries don't send it.
 
 ## No account identifiers
 
