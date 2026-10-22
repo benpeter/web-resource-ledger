@@ -48,6 +48,8 @@ export default defineWorkersConfig({
             STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder_for_testing',
             STRIPE_CAPTURE_PRICE_ID: 'price_test_placeholder_for_testing',
             PIRSCH_ACCESS_KEY: 'test-pirsch-key-for-vitest',
+            // Production excludes internal tenants from analytics; tests mirror that for 'default'.
+            ANALYTICS_EXCLUDE_TENANTS: 'default',
           },
           // Queue producers come from wrangler.test.toml; consumers are
           // omitted there to prevent auto-consumption during tests.
