@@ -12,7 +12,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
-import { checkQuota, FREE_CAPTURE_LIMIT } from './quotas.js';
+import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
@@ -863,6 +863,14 @@ function buildQuotaHeaders(quotaCheck) {
   };
 }
 
+// 429 detail for a storage_limit refusal.
+function storageLimitDetail(quotaCheck) {
+  if (quotaCheck.hasPaymentMethod) {
+    return `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+  }
+  return `Storage quota reached (${formatStorage(quotaCheck.used)} of ${formatStorage(quotaCheck.limit)}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`;
+}
+
 async function handleCreateCapture(request, env, ctx) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
@@ -939,20 +947,13 @@ async function handleCreateCapture(request, env, ctx) {
         ? `Free tier limit reached (${quotaCheck.used}/${quotaCheck.limit}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`
         : isCaptureLimit
           ? `Monthly capture quota reached (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
-          : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+          : storageLimitDetail(quotaCheck);
 
       // 3c: Notify tenant when free tier limit is reached
-      if (quotaCheck.reason === 'payment_required') {
-        const baseUrl = env.VERIFICATION_BASE_URL
-          ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
-          : 'https://api.webresourceledger.com';
-        ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', {
-          used: quotaCheck.used,
-          limit: quotaCheck.limit,
-          period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
-          addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
-          resetsAt: quotaCheck.resetsAt,
-        }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId })));
+      const limitEmail = limitReachedEmailData(env, quotaCheck);
+      if (limitEmail) {
+        ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', limitEmail)
+          .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId })));
       }
 
       return problemResponse(429, detail, quotaHeaders, {
@@ -1200,7 +1201,13 @@ async function handleBatchCapture(request, env, ctx) {
         ? `Batch of ${body.urls.length} captures would exceed free tier limit (${quotaCheck.used}/${quotaCheck.limit}). Add a payment method to continue capturing.`
         : isCaptureLimit
           ? `Batch of ${body.urls.length} captures would exceed monthly quota (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
-          : `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+          : storageLimitDetail(quotaCheck);
+
+      const limitEmail = limitReachedEmailData(env, quotaCheck);
+      if (limitEmail) {
+        ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', limitEmail)
+          .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId })));
+      }
 
       return problemResponse(429, detail, quotaHeaders, {
         limitType: 'quota',

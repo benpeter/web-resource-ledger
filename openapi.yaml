@@ -5038,8 +5038,8 @@ paths:
                       remaining: 58
                     storageBytes:
                       used: 157286400
-                      limit: 1073741824
-                      remaining: 916455424
+                      limit: 10737418240
+                      remaining: 10580131840
                     resetsAt: "2026-04-01T00:00:00.000Z"
                 atLimit:
                   summary: Tenant at capture quota limit
@@ -5053,8 +5053,8 @@ paths:
                       remaining: 0
                     storageBytes:
                       used: 204800
-                      limit: 1073741824
-                      remaining: 1073536024
+                      limit: 10737418240
+                      remaining: 10737213440
                     resetsAt: "2026-04-01T00:00:00.000Z"
                 fresh:
                   summary: Tenant with no usage this period
@@ -5068,8 +5068,8 @@ paths:
                       remaining: 100
                     storageBytes:
                       used: 0
-                      limit: 1073741824
-                      remaining: 1073741824
+                      limit: 10737418240
+                      remaining: 10737418240
                     resetsAt: "2026-04-01T00:00:00.000Z"
         '401':
           $ref: '#/components/responses/Problem401'

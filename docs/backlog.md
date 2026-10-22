@@ -184,7 +184,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | Item | Condition | Source |
 |------|-----------|--------|
 | ~~[consider] D1 (edge SQLite)~~ | ~~When KV list latency >300ms at observed capture counts~~ -- DONE (Phase 0047): all metadata migrated to D1, KV retained only for rate limit counters | iac-minion, kickoff |
-| [consider] R2 artifact streaming | When WACZ bundles >10MB become common | margo, retrieval-endpoint |
+| [consider] R2 artifact streaming | When WACZ bundles >10MB become common (measured Oct 2026: 9-19 MB stored per capture across all artifacts; WACZ share not measured) | margo, retrieval-endpoint |
+| [consider] Approaching-storage warning email | When a free tenant reaches the 10 GB monthly storage limit | Phase 0109 |
 
 ### Operations
 
