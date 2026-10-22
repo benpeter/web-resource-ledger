@@ -41,6 +41,11 @@ export function compareBattery(baseline, candidate) {
   if (comparableBaseline.length === 0) {
     throw new Error('Baseline has no comparable site: the baseline run did not produce results');
   }
+  // A baseline where nothing completed (wrong key, staging down) can't show a
+  // regression, so a comparison against it would pass whatever the candidate did.
+  if (!baseline.some((r) => r.status === 'complete')) {
+    throw new Error('Baseline has no completed capture: nothing to compare the candidate against');
+  }
 
   const cand = byLabel(candidate);
   const rows = [];

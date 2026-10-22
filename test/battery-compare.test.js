@@ -32,13 +32,16 @@ describe('compareBattery: capture status', () => {
   });
 
   it('failed -> failed is unchanged, not a regression', () => {
-    const result = compareBattery([site('A', { status: 'failed' })], [site('A', { status: 'failed' })]);
+    const result = compareBattery(
+      [site('Ok'), site('A', { status: 'failed' })],
+      [site('Ok'), site('A', { status: 'failed' })],
+    );
     expect(result.regressions).toEqual([]);
     expect(verdictOf(result, 'A')).toBe('same');
   });
 
   it('failed -> complete is an improvement', () => {
-    const result = compareBattery([site('A', { status: 'failed' })], [site('A')]);
+    const result = compareBattery([site('Ok'), site('A', { status: 'failed' })], [site('Ok'), site('A')]);
     expect(result.improvements).toEqual(['A']);
     expect(result.regressions).toEqual([]);
   });

@@ -24,6 +24,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { parseArgs } from 'node:util';
+import { pollCapture, submitCapture } from './lib/battery-poll.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -31,7 +32,9 @@ import { parseArgs } from 'node:util';
 
 const BASE_URL = process.env.WRL_BASE || 'https://staging.webresourceledger.com';
 const POLL_TIMEOUT_MS = Number(process.env.BATTERY_POLL_TIMEOUT_MS) || 1_200_000;
-const POLL_INTERVAL_MS = 3000;
+// 10s keeps 21 parallel pollers at about two requests a second; captures take
+// a minute or more each, so a shorter interval only adds load.
+const POLL_INTERVAL_MS = 10_000;
 
 const ALL_SITES = [
   // Baseline
@@ -151,48 +154,12 @@ async function checkRobotsTxt(siteUrl) {
   }
 }
 
-async function submitCapture(apiKey, siteUrl) {
-  const resp = await fetch(`${BASE_URL}/v1/captures`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ url: siteUrl }),
-  });
-
-  if (!resp.ok) {
-    const body = await resp.text();
-    return { error: `POST ${resp.status}: ${body.slice(0, 200)}` };
-  }
-
-  const data = await resp.json();
-  return { captureId: data.id };
-}
-
-async function pollCapture(apiKey, captureId) {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    const resp = await fetch(`${BASE_URL}/v1/captures/${captureId}`, {
-      headers: { 'Authorization': `Bearer ${apiKey}` },
-    });
-    if (!resp.ok) continue;
-
-    const data = await resp.json();
-    if (data.status === 'complete' || data.status === 'failed') {
-      return { captureId, ...data };
-    }
-  }
-
-  return { captureId, error: 'poll timeout' };
-}
-
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 const apiKey = getApiKey();
+const net = { fetchImpl: fetch, baseUrl: BASE_URL, apiKey, timeoutMs: POLL_TIMEOUT_MS, intervalMs: POLL_INTERVAL_MS };
 console.log(`\nWRL Test Battery — ${BASE_URL}`);
 try {
   const health = await (await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(10_000) })).json();
@@ -226,7 +193,7 @@ for (const site of robotsChecks) {
 console.log(`\nSubmitting ${allowed.length} captures...`);
 const submissions = await Promise.all(
   allowed.map(async (site) => {
-    const result = await submitCapture(apiKey, site.url);
+    const result = await submitCapture(site.url, net);
     if (result.error) {
       console.log(`  ${site.label.padEnd(18)} ERROR: ${result.error}`);
     } else {
@@ -246,7 +213,7 @@ for (const s of submitErrors) {
 console.log(`\nPolling ${pending.length} captures (timeout ${POLL_TIMEOUT_MS / 1000}s)...`);
 const pollResults = await Promise.all(
   pending.map(async (site) => {
-    const result = await pollCapture(apiKey, site.captureId);
+    const result = await pollCapture(site.captureId, net);
     const status = result.status || 'error';
     const quality = result.renderQuality || '';
     console.log(`  ${site.label.padEnd(18)} ${status} ${quality}`);
