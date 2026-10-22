@@ -247,14 +247,14 @@ auth_failure_spike_payload() {
 {
   "alertDefProperties": {
     "name": "[WRL] Auth Failure Spike",
-    "description": "More than 3 authentication failures in 15 minutes (~12/hour). May indicate credential stuffing, misconfigured client, or revoked key still in use.",
+    "description": "More than 10 authentication failures with a credential in 15 minutes. Requests without any credential (missing_header) are not counted. May indicate key enumeration, a misconfigured client, or a revoked key still in use.",
     "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
     "enabled": true,
     "priority": "ALERT_DEF_PRIORITY_P1",
     "logsThreshold": {
       "logsFilter": {
         "simpleFilter": {
-          "luceneQuery": "event:\"security.auth_fail\"",
+          "luceneQuery": "event:\"security.auth_fail\" AND NOT reason:\"missing_header\"",
           "labelFilters": {
             "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
             "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "security"}]
@@ -264,7 +264,7 @@ auth_failure_spike_payload() {
       "rules": [{
         "condition": {
           "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
-          "threshold": 3,
+          "threshold": 10,
           "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_15"}
         },
         "override": {"priority": "ALERT_DEF_PRIORITY_P1"}
