@@ -151,6 +151,15 @@ describe('POST /v1/captures -- quota enforcement (storage_limit)', () => {
     const body = await res.json();
     expect(body.detail).toContain('Storage quota reached');
   });
+
+  it('tells a free tenant how much storage was used and how to keep capturing', async () => {
+    await seedUsage({ storageBytes: FREE_STORAGE_LIMIT });
+
+    const res = await singleCapture();
+    const body = await res.json();
+    expect(body.detail).toContain('10.0 GB of 10.0 GB');
+    expect(body.detail).toContain('Add a payment method');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -236,6 +245,14 @@ describe('POST /v1/captures/batch -- quota enforcement (batch rejection)', () =>
     const body = await res.json();
     expect(body.limitType).toBe('quota');
     expect(body.quota.resource).toBe('storage');
+  });
+
+  it('tells a free tenant how to keep capturing when a batch is refused for storage', async () => {
+    await seedUsage({ storageBytes: FREE_STORAGE_LIMIT });
+
+    const res = await batchCapture([{ url: 'https://example.com' }]);
+    const body = await res.json();
+    expect(body.detail).toContain('Add a payment method');
   });
 
   it('allows batch when count does not push over limit (boundary: exactly at limit is fine)', async () => {

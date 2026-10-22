@@ -237,6 +237,47 @@ describe('limitReachedEmail', () => {
     const { text } = limitReachedEmail(LIMIT_REACHED_DATA);
     expect(text).toContain(UNSUB_URL);
   });
+
+  it('names the date the free allowance resets', () => {
+    const data = { ...LIMIT_REACHED_DATA, resetsAt: '2026-11-01T00:00:00.000Z' };
+    const { html, text } = limitReachedEmail(data);
+    expect(html).toContain('November 1');
+    expect(text).toContain('November 1');
+  });
+});
+
+describe('limitReachedEmail -- storage', () => {
+  const STORAGE_DATA = {
+    ...LIMIT_REACHED_DATA,
+    resource: 'storage',
+    used: '10.0 GB',
+    limit: '10.0 GB',
+    resetsAt: '2026-11-01T00:00:00.000Z',
+  };
+
+  it('subject is "Free storage limit reached"', () => {
+    const { subject } = limitReachedEmail(STORAGE_DATA);
+    expect(subject).toBe('Free storage limit reached');
+  });
+
+  it('HTML names storage, not captures', () => {
+    const { html } = limitReachedEmail(STORAGE_DATA);
+    expect(html).toContain('Free storage limit reached');
+    expect(html).toContain('10.0 GB / 10.0 GB');
+    expect(html).not.toContain('Free capture limit reached');
+  });
+
+  it('plain text reports storage used against the limit', () => {
+    const { text } = limitReachedEmail(STORAGE_DATA);
+    expect(text).toContain('Storage used: 10.0 GB of 10.0 GB');
+    expect(text).toContain('November 1');
+  });
+
+  it('keeps the payment CTA and unsubscribe link', () => {
+    const { html, text } = limitReachedEmail(STORAGE_DATA);
+    expect(html).toContain(STORAGE_DATA.addPaymentUrl);
+    expect(text).toContain(UNSUB_URL);
+  });
 });
 
 // ---------------------------------------------------------------------------
