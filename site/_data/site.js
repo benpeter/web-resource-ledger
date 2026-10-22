@@ -16,6 +16,14 @@ export default {
       ],
     },
     {
+      section: "Use Cases",
+      children: [
+        { title: "Preserve a Website", url: "/use-cases/preserve-a-site/" },
+        { title: "Compliance Surveys", url: "/use-cases/compliance-survey/" },
+        { title: "Seller and Listing Evidence", url: "/use-cases/marketplace-evidence/" },
+      ],
+    },
+    {
       section: "Reference",
       children: [
         { title: "API Reference", url: "/api-reference/" },

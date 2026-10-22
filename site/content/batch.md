@@ -1,12 +1,12 @@
 ---
 layout: layouts/doc.njk
 title: Batch Captures
-description: Submit up to 100 URLs in a single batch capture request, handle per-item results, and poll for completion via the WRL API.
+description: Submit up to 20 URLs in a single batch capture request, handle per-item results, and poll for completion via the WRL API.
 ---
 
 # Batch Captures
 
-The batch endpoint lets you submit up to 100 URLs in a single request. WRL processes each URL independently and returns a per-item result. Some URLs may be accepted while others fail validation -- the batch does not abort on partial errors.
+The batch endpoint lets you submit up to 20 URLs in a single request (a self-hosted operator can raise this to 100 with `MAX_BATCH_SIZE`). WRL processes each URL independently and returns a per-item result. Some URLs may be accepted while others fail validation -- the batch does not abort on partial errors.
 
 ## Prerequisites
 
