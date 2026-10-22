@@ -122,3 +122,4 @@ software development.
 | [0113-analytics-events](0113-analytics-events/) | Pirsch counts HTML page views only and receives capture, first-capture, schedule and payment events it accepts, without account identifiers |
 | [0114-first-key-recovery](0114-first-key-recovery/) | The first API key waits 24 hours instead of 1, a missing key can be replaced on the welcome screen, and both cases are counted |
 | [0115-findable-capture-form](0115-findable-capture-form/) | Docs and landing say you can capture from the browser; Getting Started polls the status endpoint instead of a record that answers 404 while pending |
+| [0116-use-case-pages](0116-use-case-pages/) | Docs pages for preserving a site, compliance surveys and seller or listing evidence; batch docs say 20 URLs, as production allows |
