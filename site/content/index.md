@@ -10,6 +10,12 @@ WRL captures web pages with cryptographic proof of authenticity -- Ed25519 signa
 
 This guide walks you from your first API call to a verified capture in under five minutes.
 
+## No code: capture from the browser
+
+You don't need the API to capture a page. [Sign in with GitHub](https://api.webresourceledger.com/auth/login?from=docs), paste a URL into the capture form in the [web UI](https://api.webresourceledger.com/ui), and WRL produces the same signed, timestamped bundle as an API call. Each capture has a verification page you can share with anyone, no account needed.
+
+The rest of this guide uses the API.
+
 ## Prerequisites
 
 - An API key with `capture` scope. See [Authentication](/authentication/) if you need to create one.
@@ -40,14 +46,25 @@ The capture runs in the background. WRL takes a screenshot, saves the rendered H
 
 ## Step 2: Check the result
 
-Wait a few seconds, then fetch the capture record using the ID.
+Poll the `statusUrl` from Step 1 every few seconds until `status` is `complete` or `failed`.
+
+```bash
+curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```json
+{ "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "status": "pending" }
+```
+
+A failed capture returns `"status": "failed"` with an `error` explaining why. Once the status is `complete`, fetch the capture record:
 
 ```bash
 curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-When the capture is complete, the response includes all artifact links and a verification URL.
+The record lists all artifact links and a verification URL. Until the capture is complete, this endpoint answers `404`.
 
 ```json
 {
@@ -73,7 +90,7 @@ When the capture is complete, the response includes all artifact links and a ver
 
 > **Note:** Share the `verifyUrl` freely -- it renders as a human-readable verification page in any browser and requires no authentication. Capture URLs are directly shareable -- anyone with the capture ID can access the capture and its artifacts.
 
-If the status is still `pending` when you check, wait a few more seconds and try again. The status URL in the Step 1 response is a convenient shortcut for checking just the lifecycle state. For full polling details and status values, see the [API Reference](/api-reference/).
+For full polling details and status values, see the [API Reference](/api-reference/).
 
 ## Step 3: Verify the evidence
 
