@@ -44,6 +44,12 @@ import {
   upsertNotificationPreferences,
 } from './db.js';
 import { trackEvent } from './pirsch.js';
+import { isAnalyticsExcluded } from './analytics.js';
+
+// How long the first API key waits in KV for the welcome screen. It is shown
+// once and deleted on read; 24 hours covers a signup that is finished later the
+// same day (the welcome screen used to find nothing after 1 hour).
+export const FIRST_KEY_TTL_SECONDS = 24 * 60 * 60;
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -423,9 +429,9 @@ export async function handleAuthCallback(request, env, ctx) {
 
       const result = await createApiKeyRecord(env.DB, keyHash, keyRecord);
       if (result.created) {
-        // Store raw key in KV for one-time retrieval (TTL 1 hour)
+        // Store raw key in KV for one-time retrieval (FIRST_KEY_TTL_SECONDS)
         // SECURITY: this is the ONLY place the raw key exists after generation
-        await env.KV.put(`first_key:${tenantId}`, rawKey, { expirationTtl: 3600 });
+        await env.KV.put(`first_key:${tenantId}`, rawKey, { expirationTtl: FIRST_KEY_TTL_SECONDS });
       } else {
         // Hash collision (astronomically rare) -- log but don't fail the OAuth flow
         log(env, 5, 'oauth', { event: 'oauth.first_key_collision', tenantId, reason: result.reason });
@@ -646,8 +652,13 @@ export async function handleFirstKey(request, env, ctx) {
   const kvKey = `first_key:${auth.tenantId}`;
   const rawKey = await env.KV.get(kvKey);
 
+  // Measures how often the welcome screen finds the key (no account ids sent).
+  if (!isAnalyticsExcluded(env, auth.tenantId)) {
+    ctx.waitUntil(trackEvent(request, env, rawKey ? 'First Key Shown' : 'First Key Missing') ?? Promise.resolve());
+  }
+
   if (!rawKey) {
-    return problemResponse(404, 'No first key available. Create a new key in account settings.');
+    return problemResponse(404, 'No first key available. The first key is kept for 24 hours and shown once. Create a new key in account settings.');
   }
 
   // Delete immediately after reading -- show-once semantics

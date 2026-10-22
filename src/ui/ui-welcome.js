@@ -96,6 +96,117 @@ function renderWelcome() {
 }
 
 // ---------------------------------------------------------------------------
+// showWelcomeKey() -- shows a raw key with a copy button and enables Continue
+// ---------------------------------------------------------------------------
+
+function showWelcomeKey(keySection, continueBtn, liveEl, apiKey, ackOnContinue) {
+  var keyRow = document.createElement('div');
+  keyRow.className = 'welcome-key-row';
+
+  var keyInput = document.createElement('input');
+  keyInput.type = 'text';
+  keyInput.readOnly = true;
+  keyInput.className = 'input welcome-key-input';
+  keyInput.value = apiKey;
+  keyInput.setAttribute('aria-label', 'Your API key');
+  keyInput.setAttribute('autocomplete', 'off');
+  keyRow.appendChild(keyInput);
+
+  var copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'btn btn--ghost btn--sm';
+  copyBtn.textContent = 'Copy';
+  copyBtn.setAttribute('aria-label', 'Copy API key');
+  copyBtn.addEventListener('click', function() {
+    copyToClipboard(apiKey, copyBtn);
+    if (liveEl) {
+      liveEl.textContent = '';
+      setTimeout(function() { liveEl.textContent = 'API key copied to clipboard.'; }, 50);
+    }
+  });
+  keyRow.appendChild(copyBtn);
+
+  keySection.appendChild(keyRow);
+
+  continueBtn.setAttribute('aria-disabled', 'false');
+  continueBtn.addEventListener('click', function() {
+    if (continueBtn.getAttribute('aria-disabled') === 'true') return;
+    continueBtn.setAttribute('aria-disabled', 'true');
+    continueBtn.textContent = 'Continuing...';
+    if (!ackOnContinue) {
+      renderAppShell();
+      return;
+    }
+    apiFetch('/v1/account/first-key/ack', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-WRL-CSRF': '1' }
+    }).then(function() {
+      renderAppShell();
+    }).catch(function() {
+      // Non-fatal: navigate even if ack fails
+      renderAppShell();
+    });
+  });
+
+  // Focus the copy button so users can immediately copy
+  copyBtn.focus();
+}
+
+// ---------------------------------------------------------------------------
+// showMissingKey() -- the first key is gone; offer a new one in place
+// ---------------------------------------------------------------------------
+
+function showMissingKey(keySection, continueBtn, liveEl) {
+  var notice = document.createElement('div');
+  notice.className = 'alert alert--warning';
+  notice.setAttribute('role', 'alert');
+  notice.textContent = 'Your first API key is no longer available. It is kept for 24 hours and shown once. ';
+
+  var createBtn = document.createElement('button');
+  createBtn.type = 'button';
+  createBtn.className = 'btn btn--primary btn--sm';
+  createBtn.textContent = 'Create a new key';
+  notice.appendChild(createBtn);
+  keySection.appendChild(notice);
+
+  // Continue works without a key: the dashboard capture form needs none.
+  continueBtn.setAttribute('aria-disabled', 'false');
+  function continueWithoutKey() {
+    if (continueBtn.getAttribute('aria-disabled') === 'true') return;
+    renderAppShell();
+  }
+  continueBtn.addEventListener('click', continueWithoutKey);
+
+  createBtn.addEventListener('click', function() {
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating...';
+    apiFetch('/v1/account/keys', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-WRL-CSRF': '1' },
+      body: JSON.stringify({ name: 'primary', scopes: ['capture', 'read'] })
+    }).then(function(res) {
+      if (!res) return; // 401 handled by apiFetch
+      if (res.status !== 201) throw new Error('create failed');
+      return res.json().then(function(data) {
+        notice.remove();
+        continueBtn.removeEventListener('click', continueWithoutKey);
+        if (liveEl) liveEl.textContent = 'New API key created. Copy it now.';
+        showWelcomeKey(keySection, continueBtn, liveEl, (data && data.key) ? data.key : '', false);
+      });
+    }).catch(function() {
+      createBtn.remove();
+      notice.textContent = 'Could not create a key here. ';
+      var settingsLink = document.createElement('a');
+      settingsLink.href = '#/settings';
+      settingsLink.textContent = 'Create one in Settings.';
+      notice.appendChild(settingsLink);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // mountWelcome() -- fetches key, wires events
 // ---------------------------------------------------------------------------
 
@@ -111,25 +222,7 @@ function mountWelcome() {
 
     if (res.status === 404) {
       if (loadingEl) loadingEl.remove();
-
-      var notFound = document.createElement('div');
-      notFound.className = 'alert alert--warning';
-      notFound.setAttribute('role', 'alert');
-      notFound.textContent = 'API key not found. ';
-
-      var settingsLink = document.createElement('a');
-      settingsLink.href = '#/settings';
-      settingsLink.textContent = 'Visit Settings to create one.';
-      notFound.appendChild(settingsLink);
-
-      keySection.appendChild(notFound);
-
-      // Enable continue with settings redirect
-      continueBtn.setAttribute('aria-disabled', 'false');
-      continueBtn.addEventListener('click', function() {
-        if (continueBtn.getAttribute('aria-disabled') === 'true') return;
-        renderAppShell();
-      });
+      showMissingKey(keySection, continueBtn, liveEl);
       return;
     }
 
@@ -145,58 +238,7 @@ function mountWelcome() {
 
     res.json().then(function(data) {
       if (loadingEl) loadingEl.remove();
-      var apiKey = (data && data.key) ? data.key : '';
-
-      // Key input + copy button row
-      var keyRow = document.createElement('div');
-      keyRow.className = 'welcome-key-row';
-
-      var keyInput = document.createElement('input');
-      keyInput.type = 'text';
-      keyInput.readOnly = true;
-      keyInput.className = 'input welcome-key-input';
-      keyInput.value = apiKey;
-      keyInput.setAttribute('aria-label', 'Your API key');
-      keyInput.setAttribute('autocomplete', 'off');
-      keyRow.appendChild(keyInput);
-
-      var copyBtn = document.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'btn btn--ghost btn--sm';
-      copyBtn.textContent = 'Copy';
-      copyBtn.setAttribute('aria-label', 'Copy API key');
-      copyBtn.addEventListener('click', function() {
-        copyToClipboard(apiKey, copyBtn);
-        if (liveEl) {
-          liveEl.textContent = '';
-          setTimeout(function() { liveEl.textContent = 'API key copied to clipboard.'; }, 50);
-        }
-      });
-      keyRow.appendChild(copyBtn);
-
-      keySection.appendChild(keyRow);
-
-      // Enable the continue button
-      continueBtn.setAttribute('aria-disabled', 'false');
-      continueBtn.addEventListener('click', function() {
-        if (continueBtn.getAttribute('aria-disabled') === 'true') return;
-        continueBtn.setAttribute('aria-disabled', 'true');
-        continueBtn.textContent = 'Continuing...';
-
-        apiFetch('/v1/account/first-key/ack', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'X-WRL-CSRF': '1' }
-        }).then(function() {
-          renderAppShell();
-        }).catch(function() {
-          // Non-fatal: navigate even if ack fails
-          renderAppShell();
-        });
-      });
-
-      // Focus the copy button so users can immediately copy
-      copyBtn.focus();
+      showWelcomeKey(keySection, continueBtn, liveEl, (data && data.key) ? data.key : '', true);
     }).catch(function() {
       if (loadingEl) loadingEl.remove();
       var parseErrEl = document.createElement('div');

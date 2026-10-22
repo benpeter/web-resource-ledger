@@ -22,12 +22,14 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 - Free tier storage limit raised from 1 GB to 10 GB per month, so the 200 free captures fit at up to 50 MB each
 - `429` for a free tenant at the storage limit now states storage used and limit and says to add a payment method
+- The first API key shown after signup is kept for 24 hours instead of 1 hour; it is still shown once
 
 ### Fixed
 
 - Reaching the free storage limit now sends the `limit_reached` email with a storage variant; before, only the capture limit did
 - Scheduled captures skipped because the free limit is reached now send the `limit_reached` email instead of skipping silently
 - Dashboard capture form names the limit that was hit (captures or storage), shows the reset date, and points free tenants to adding a payment method
+- Welcome screen: when the first API key is no longer available, it offers to create a new key in place instead of only linking to Settings
 
 ## [1.0.0] - 2026-03-25
 
