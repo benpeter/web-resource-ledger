@@ -60,7 +60,7 @@ jobs:
 
       - name: Update autoconsent
         if: steps.check.outputs.skip != 'true'
-        run: npm install @duckduckgo/autoconsent@latest
+        run: npm install "@duckduckgo/autoconsent@${{ steps.check.outputs.new_version }}"
 
       - name: Regenerate vendor files
         if: steps.check.outputs.skip != 'true'
@@ -74,35 +74,162 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: npm run test:sync
 
+  # Captures the battery sites twice on staging: on the deployed version
+  # (baseline), then after deploying this update (candidate). Fails when a
+  # site gets worse and stays worse on a retry. Restores staging to main at
+  # the end. Shares the staging-deploy concurrency group with Deploy to Staging.
   battery:
     needs: update-and-test
     if: needs.update-and-test.outputs.skip != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true
+    timeout-minutes: 80
     environment: staging
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
+    outputs:
+      verdict: ${{ steps.gate.outputs.verdict }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      WRL_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}
+      VERSION: ${{ needs.update-and-test.outputs.new_version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
-      - run: npm install @duckduckgo/autoconsent@latest
-      - run: npm run vendor:autoconsent
 
-      - name: Run test battery
-        id: battery
-        continue-on-error: true
-        run: npm run test:battery 2>&1 | tee battery-output.txt
+      - name: Baseline battery (deployed version)
+        run: |
+          set +e
+          npm run test:battery -- --out baseline.json 2>&1 | tee baseline.txt
+          exit 0
+
+      - name: Update autoconsent
+        run: |
+          npm install "@duckduckgo/autoconsent@${VERSION}"
+          npm run vendor:autoconsent
+
+      - name: Resolve build metadata
+        id: meta
+        run: |
+          sha=$(git rev-parse HEAD)
+          version=$(jq -r .version package.json)
+          if ! echo "$sha" | grep -qE '^[0-9a-f]{40}$'; then echo "Invalid SHA: $sha" >&2; exit 1; fi
+          if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then echo "Invalid version: $version" >&2; exit 1; fi
+          {
+            echo "sha=$sha"
+            echo "version=${version}+autoconsent.${VERSION}"
+            echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy candidate to staging
+        id: deploy
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          environment: staging
+          command: >-
+            deploy
+            --define BUILD_COMMIT:"'${{ steps.meta.outputs.sha }}'"
+            --define BUILD_VERSION:"'${{ steps.meta.outputs.version }}'"
+            --define BUILD_DEPLOYED_AT:"'${{ steps.meta.outputs.timestamp }}'"
+            --define BUILD_ENV:"'staging'"
+
+      - name: Wait for the candidate to serve
         env:
-          WRL_KEY: ${{ secrets.WRL_STAGING_CAPTURE_API_KEY }}
+          EXPECTED: ${{ steps.meta.outputs.version }}
+        run: |
+          for _ in $(seq 1 30); do
+            live=$(curl -s https://staging.webresourceledger.com/health | jq -r '.build.version // empty')
+            if [ "$live" = "$EXPECTED" ]; then echo "candidate live: $live"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::staging still serves '$live', expected '$EXPECTED'"
+          exit 1
+
+      - name: Candidate battery (this update)
+        run: |
+          set +e
+          npm run test:battery -- --out candidate.json 2>&1 | tee candidate.txt
+          exit 0
+
+      - name: Compare, retry regressed sites once
+        id: gate
+        run: |
+          set +e
+          node scripts/battery-compare.js --baseline baseline.json --candidate candidate.json \
+            --report battery-report.md --regressions-out regressions.txt
+          code=$?
+          if [ "$code" -eq 1 ]; then
+            echo "Retrying regressed sites: $(cat regressions.txt)"
+            npm run test:battery -- --only "$(cat regressions.txt)" --out retry.json 2>&1 | tee retry.txt
+            node scripts/battery-compare.js --baseline baseline.json --candidate candidate.json --retry retry.json \
+              --report battery-report.md --regressions-out regressions.txt
+            code=$?
+          fi
+          case "$code" in
+            0) verdict=pass ;;
+            1) verdict=regressions ;;
+            *) verdict=error ;;
+          esac
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Restore staging to main
+        id: restore
+        if: always() && steps.deploy.outcome != 'skipped'
+        run: |
+          git fetch origin main
+          git checkout -f origin/main
+          npm ci
+          sha=$(git rev-parse HEAD)
+          version=$(jq -r .version package.json)
+          {
+            echo "sha=$sha"
+            echo "version=$version"
+            echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy main to staging
+        if: always() && steps.restore.outcome == 'success'
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          environment: staging
+          command: >-
+            deploy
+            --define BUILD_COMMIT:"'${{ steps.restore.outputs.sha }}'"
+            --define BUILD_VERSION:"'${{ steps.restore.outputs.version }}'"
+            --define BUILD_DEPLOYED_AT:"'${{ steps.restore.outputs.timestamp }}'"
+            --define BUILD_ENV:"'staging'"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: battery-results
-          path: battery-output.txt
+          path: |
+            baseline.json
+            candidate.json
+            retry.json
+            baseline.txt
+            candidate.txt
+            retry.txt
+            battery-report.md
+          if-no-files-found: ignore
+
+      - name: Fail on regressions
+        if: steps.gate.outputs.code != '0'
+        run: |
+          echo "::error::battery verdict: ${{ steps.gate.outputs.verdict }} (see battery-report.md in the artifacts)"
+          exit 1
 
   open-pr:
     needs: [update-and-test, battery]
@@ -112,6 +239,10 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
+    env:
+      VERSION: ${{ needs.update-and-test.outputs.new_version }}
+      OLD: ${{ needs.update-and-test.outputs.old_version }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -119,22 +250,18 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci
-      - run: npm install @duckduckgo/autoconsent@latest
+      - run: npm install "@duckduckgo/autoconsent@${VERSION}"
       - run: npm run vendor:autoconsent
 
       - name: Close stale autoconsent PRs
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.update-and-test.outputs.new_version }}
         run: |
           gh pr list --search "chore: update autoconsent in:title" --state open --json number --jq '.[].number' | while read -r pr; do
-            gh pr close "$pr" --comment "Superseded by update to $VERSION" || true
+            gh pr close "$pr" --delete-branch --comment "Superseded by update to $VERSION" || true
           done
 
       - name: Create branch and commit
-        env:
-          VERSION: ${{ needs.update-and-test.outputs.new_version }}
-          OLD: ${{ needs.update-and-test.outputs.old_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -142,29 +269,25 @@ jobs:
           git checkout -b "$BRANCH"
           git add package.json package-lock.json src/vendor/autoconsent-script.js src/consent.js
           git commit -m "chore: update autoconsent ${OLD} -> ${VERSION}"
-          git push -u origin "$BRANCH"
+          git push --force -u origin "$BRANCH"
 
       - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         continue-on-error: true
         with:
           name: battery-results
-          path: .
+          path: battery
 
       - name: Create PR
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.update-and-test.outputs.new_version }}
-          OLD: ${{ needs.update-and-test.outputs.old_version }}
-          BATTERY_RESULT: ${{ needs.battery.result }}
+          BATTERY_VERDICT: ${{ needs.battery.outputs.verdict }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          BATTERY_STATUS="did not run"
-          if [ -f battery-output.txt ]; then
-            if [ "$BATTERY_RESULT" = "success" ]; then
-              BATTERY_STATUS="passed"
-            else
-              BATTERY_STATUS="failed (see details below)"
-            fi
-          fi
+          case "$BATTERY_VERDICT" in
+            pass) BATTERY_STATUS="no regressions against the deployed version" ;;
+            regressions) BATTERY_STATUS="REGRESSIONS against the deployed version, do not merge without checking the table" ;;
+            *) BATTERY_STATUS="did not finish, see the workflow run" ;;
+          esac
 
           body_file=$(mktemp)
           {
@@ -174,16 +297,12 @@ jobs:
             echo ""
             echo "- [Changelog](https://github.com/duckduckgo/autoconsent/releases)"
             echo "- Unit tests: passed"
-            echo "- Battery tests: ${BATTERY_STATUS}"
+            echo "- Battery: ${BATTERY_STATUS}"
+            echo "- Workflow run and artifacts: ${RUN_URL}"
             echo ""
-            echo "<details>"
-            echo "<summary>Battery test output</summary>"
+            echo "The battery captured each site on staging twice: on the deployed version, then on this update. CI runs on this PR through workflow_dispatch, because GitHub holds pull_request runs for PRs the workflow token opens."
             echo ""
-            echo '```'
-            cat battery-output.txt 2>/dev/null || echo "No battery output available"
-            echo '```'
-            echo ""
-            echo "</details>"
+            cat battery/battery-report.md 2>/dev/null || echo "No battery report available."
           } > "$body_file"
 
           gh pr create \
@@ -193,3 +312,8 @@ jobs:
             --head "chore/autoconsent-${VERSION}"
 
           rm -f "$body_file"
+
+      - name: Run CI on the PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref "chore/autoconsent-${VERSION}"
