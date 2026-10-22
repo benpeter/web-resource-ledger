@@ -19,10 +19,11 @@ import {
   createMessageBatch,
   getQueueResult,
   createExecutionContext,
+  waitOnExecutionContext,
   SELF,
 } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { cleanDb, createTestSession, seedGithubUser, stubGitHubFetch } from './fixtures.js';
+import { cleanDb, createTestSession, seedGithubUser, stubGitHubFetch, seedApiKey, seedSchedule, TEST_TENANT_KEY } from './fixtures.js';
 import {
   getNotificationPreferences,
   getCapture,
@@ -32,7 +33,7 @@ import {
 } from '../src/db.js';
 import { setStripeCustomerId, setPaymentMethodAdded } from '../src/db.js';
 import { handleWeeklyDigest } from '../src/notifications.js';
-import { FREE_CAPTURE_LIMIT } from '../src/quotas.js';
+import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT } from '../src/quotas.js';
 import worker from '../src/index.js';
 
 // ---------------------------------------------------------------------------
@@ -391,6 +392,55 @@ describe('3c: limit reached -- notification dispatch', () => {
     await dispatchNotification(mockEnv, 'default', 'limit_reached', templateData);
 
     expect(sent.length).toBe(1);
+  });
+});
+
+describe('3c: limit reached -- storage limit and scheduler', () => {
+  it('queues a storage email when a free capture is refused for storage', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY);
+    await seedNotificationPrefs(env.DB, 'default');
+    const now = new Date();
+    const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO usage_counters (tenant_id, period, capture_count, storage_bytes, api_call_count)
+       VALUES ('default', ?, 10, ?, 0)`,
+    ).bind(period, FREE_STORAGE_LIMIT).run();
+
+    const sent = [];
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(new Request('https://worker.test/v1/captures', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${TEST_TENANT_KEY}`,
+        'CF-Connecting-IP': '10.77.0.1',
+      },
+      body: JSON.stringify({ url: 'https://example.com' }),
+    }), makeEmailEnv(sent), ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(res.status).toBe(429);
+    expect(sent.length).toBe(1);
+    expect(sent[0].notificationType).toBe('limit_reached');
+    expect(sent[0].subject).toBe('Free storage limit reached');
+  });
+
+  it('queues a limit email when the scheduler skips a free tenant at the capture limit', async () => {
+    await seedNotificationPrefs(env.DB, 'default');
+    await seedSchedule(env.DB, 'sch_' + 'd'.repeat(32), {
+      tenantId: 'default',
+      nextRunAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    });
+    await seedUsage(FREE_CAPTURE_LIMIT);
+
+    const sent = [];
+    const ctx = createExecutionContext();
+    await worker.scheduled({ scheduledTime: Date.now(), cron: '*/1 * * * *', noRetry() {} }, makeEmailEnv(sent), ctx);
+    await waitOnExecutionContext(ctx);
+
+    const limitEmails = sent.filter(m => m.notificationType === 'limit_reached');
+    expect(limitEmails.length).toBe(1);
+    expect(limitEmails[0].subject).toBe('Free capture limit reached');
   });
 });
 

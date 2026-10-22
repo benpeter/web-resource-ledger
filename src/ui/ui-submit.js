@@ -31,6 +31,15 @@ function submit_formatDate(isoStr) {
   }
 }
 
+function submit_quotaMessage(data) {
+  var quota = (data && data.quota) || {};
+  var resetDate = quota.resetsAt ? submit_formatDate(quota.resetsAt) : '';
+  var needsPayment = !!(data && typeof data.detail === 'string' && data.detail.indexOf('Add a payment method') !== -1);
+  return (quota.resource === 'storage' ? 'Monthly storage limit reached.' : 'Monthly capture limit reached.') +
+    (resetDate ? ' Your quota resets on ' + resetDate + '.' : '') +
+    (needsPayment ? ' Add a payment method in Settings to keep capturing.' : ' View usage in Settings.');
+}
+
 function relativeTime(isoStr) {
   if (!isoStr) return '';
   var diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
@@ -433,12 +442,9 @@ function handleSubmit(urlInput, submitBtn, formErrorEl) {
     // Error response: show detail from Problem Details JSON
     return res.json().then(function(data) {
       var detail;
-      // 429 with limitType: 'quota' means monthly capture limit reached
+      // 429 with limitType: 'quota' means a monthly capture or storage limit was reached
       if (res.status === 429 && data && data.limitType === 'quota') {
-        var resetDate = data.resetsAt ? submit_formatDate(data.resetsAt) : '';
-        detail = 'Monthly capture limit reached.' +
-          (resetDate ? ' Your quota resets on ' + resetDate + '.' : '') +
-          ' View usage in Settings.';
+        detail = submit_quotaMessage(data);
       } else {
         detail = (data && data.detail) ? truncate(data.detail, 200) : 'Request failed (HTTP ' + res.status + ').';
       }

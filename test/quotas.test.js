@@ -9,6 +9,7 @@ import {
   getEffectiveQuota,
   checkQuota,
   computeQuotaReset,
+  limitReachedEmailData,
 } from '../src/quotas.js';
 import { cleanDb } from './fixtures.js';
 
@@ -150,6 +151,14 @@ describe('checkQuota', () => {
     expect(result.used).toBe(FREE_STORAGE_LIMIT);
   });
 
+  it('reports hasPaymentMethod on a storage_limit rejection', async () => {
+    await seedTenant(env.DB, 'test-t3b');
+    await seedUsage(env.DB, 'test-t3b', currentPeriod(), { storageBytes: FREE_STORAGE_LIMIT });
+    const result = await checkQuota(env.DB, 'test-t3b');
+    expect(result.reason).toBe('storage_limit');
+    expect(result.hasPaymentMethod).toBe(false);
+  });
+
   it('handles missing usage_counters row -- defaults to 0', async () => {
     await seedTenant(env.DB, 'test-t4');
     // No usage row seeded -- tenant is brand new
@@ -238,5 +247,108 @@ describe('checkQuota', () => {
     expect(result.allowed).toBe(false);
     expect(result.reason).toBe('capture_limit');
     expect(result.limit).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Free storage limit
+// ---------------------------------------------------------------------------
+
+describe('FREE_STORAGE_LIMIT', () => {
+  // Production captures average 9-19 MB, so 1 GiB ran out after 55-120
+  // captures, before the 200 free captures. 10 GiB fits 200 captures of 50 MB.
+  it('is 10 GiB', () => {
+    expect(FREE_STORAGE_LIMIT).toBe(10 * 1024 * 1024 * 1024);
+  });
+
+  it('fits the free capture allowance at 50 MB per capture', () => {
+    expect(FREE_STORAGE_LIMIT).toBeGreaterThanOrEqual(FREE_CAPTURE_LIMIT * 50 * 1000 * 1000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// limitReachedEmailData
+// ---------------------------------------------------------------------------
+
+describe('limitReachedEmailData', () => {
+  const prodEnv = {};
+  const resetsAt = '2026-11-01T00:00:00.000Z';
+
+  it('returns null when the capture is allowed', () => {
+    expect(limitReachedEmailData(prodEnv, { allowed: true })).toBeNull();
+  });
+
+  it('returns storage data for a free tenant at the storage limit', () => {
+    const data = limitReachedEmailData(prodEnv, {
+      allowed: false,
+      reason: 'storage_limit',
+      hasPaymentMethod: false,
+      used: FREE_STORAGE_LIMIT,
+      limit: FREE_STORAGE_LIMIT,
+      resetsAt,
+    });
+    expect(data.resource).toBe('storage');
+    expect(data.used).toBe('10.0 GB');
+    expect(data.limit).toBe('10.0 GB');
+    expect(data.resetsAt).toBe(resetsAt);
+    expect(data.addPaymentUrl).toBe('https://api.webresourceledger.com/v1/billing/checkout');
+    expect(typeof data.period).toBe('string');
+  });
+
+  it('returns null at the storage limit when a payment method is on file', () => {
+    expect(limitReachedEmailData(prodEnv, {
+      allowed: false,
+      reason: 'storage_limit',
+      hasPaymentMethod: true,
+      used: 500,
+      limit: 500,
+      resetsAt,
+    })).toBeNull();
+  });
+
+  it('returns capture data when a free tenant has used all free captures', () => {
+    const data = limitReachedEmailData(prodEnv, {
+      allowed: false,
+      reason: 'payment_required',
+      used: FREE_CAPTURE_LIMIT,
+      limit: FREE_CAPTURE_LIMIT,
+      requested: 1,
+      resetsAt,
+    });
+    expect(data.resource).toBe('captures');
+    expect(data.used).toBe(FREE_CAPTURE_LIMIT);
+    expect(data.limit).toBe(FREE_CAPTURE_LIMIT);
+  });
+
+  it('returns null when a batch would only exceed the free captures', () => {
+    expect(limitReachedEmailData(prodEnv, {
+      allowed: false,
+      reason: 'payment_required',
+      used: FREE_CAPTURE_LIMIT - 2,
+      limit: FREE_CAPTURE_LIMIT,
+      requested: 5,
+      resetsAt,
+    })).toBeNull();
+  });
+
+  it('returns null for a paid tenant capture limit override', () => {
+    expect(limitReachedEmailData(prodEnv, {
+      allowed: false,
+      reason: 'capture_limit',
+      used: 5,
+      limit: 5,
+      resetsAt,
+    })).toBeNull();
+  });
+
+  it('builds the checkout link from VERIFICATION_BASE_URL', () => {
+    const data = limitReachedEmailData({ VERIFICATION_BASE_URL: 'https://staging.example/' }, {
+      allowed: false,
+      reason: 'payment_required',
+      used: FREE_CAPTURE_LIMIT,
+      limit: FREE_CAPTURE_LIMIT,
+      resetsAt,
+    });
+    expect(data.addPaymentUrl).toBe('https://staging.example/v1/billing/checkout');
   });
 });

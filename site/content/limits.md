@@ -24,10 +24,10 @@ WRL enforces two types of request limits: **rate limits** (short-term burst prot
 
 Each tenant is assigned a tier that determines their monthly limits.
 
-| Tier | Captures / month | Storage |
+| Tier | Captures / month | Storage / month |
 |---|---|---|
-| Starter (free) | 200 | 1 GB |
-| Pro | 5,000 | 50 GB |
+| Free (no payment method) | 200 | 10 GB |
+| Pay per capture (payment method on file) | No limit | No limit |
 
 ### Checking Usage
 

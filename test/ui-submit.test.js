@@ -69,3 +69,54 @@ describe('safeUrl -- URL normalization', () => {
     expect(safeUrl('example.com:8080')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// submit_quotaMessage -- text shown when a capture is refused with a quota 429
+// ---------------------------------------------------------------------------
+
+describe('submit_quotaMessage', () => {
+  const submit_quotaMessage = (data) => evalFromSource(SUBMIT_VIEW_JS, 'submit_quotaMessage')(data);
+  const resetsAt = '2026-11-01T00:00:00.000Z';
+  const resetDate = new Date(resetsAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+  it('names the storage limit and tells a free tenant to add a payment method', () => {
+    const msg = submit_quotaMessage({
+      limitType: 'quota',
+      detail: `Storage quota reached (10.0 GB of 10.0 GB). Add a payment method to continue capturing. Resets ${resetsAt}.`,
+      quota: { resource: 'storage', limit: 10737418240, used: 10737418240, resetsAt },
+    });
+    expect(msg).toContain('Monthly storage limit reached');
+    expect(msg).not.toContain('capture limit');
+    expect(msg).toContain('Add a payment method in Settings');
+  });
+
+  it('tells a free tenant at the capture limit to add a payment method', () => {
+    const msg = submit_quotaMessage({
+      limitType: 'quota',
+      detail: `Free tier limit reached (200/200). Add a payment method to continue capturing. Resets ${resetsAt}.`,
+      quota: { resource: 'captures', limit: 200, used: 200, resetsAt },
+    });
+    expect(msg).toContain('Monthly capture limit reached');
+    expect(msg).toContain('Add a payment method in Settings');
+  });
+
+  it('reads the reset date from quota.resetsAt', () => {
+    const msg = submit_quotaMessage({
+      limitType: 'quota',
+      detail: `Free tier limit reached (200/200). Add a payment method to continue capturing. Resets ${resetsAt}.`,
+      quota: { resource: 'captures', limit: 200, used: 200, resetsAt },
+    });
+    expect(msg).toContain(resetDate);
+  });
+
+  it('points a tenant with a payment method to Settings without asking for one', () => {
+    const msg = submit_quotaMessage({
+      limitType: 'quota',
+      detail: `Monthly capture quota reached (5/5). Resets ${resetsAt}. View usage in Settings.`,
+      quota: { resource: 'captures', limit: 5, used: 5, resetsAt },
+    });
+    expect(msg).toContain('View usage in Settings');
+    expect(msg).not.toContain('Add a payment method');
+  });
+});
+

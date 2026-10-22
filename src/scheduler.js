@@ -14,7 +14,8 @@
  */
 
 import { getDueSchedules, advanceSchedule, createCapture, incrementUsage } from './db.js';
-import { checkQuota } from './quotas.js';
+import { checkQuota, limitReachedEmailData } from './quotas.js';
+import { dispatchNotification } from './email-dispatch.js';
 import { checkUrl } from './threat-check.js';
 import { nextRunAfter } from './cron.js';
 import { log } from './log.js';
@@ -123,6 +124,10 @@ export async function handleScheduledTick(controller, env, ctx) {
           skipReason: 'quota_exhausted',
         }) ?? Promise.resolve());
         skippedCount++;
+      }
+      const limitEmail = limitReachedEmailData(env, quotaResult);
+      if (limitEmail) {
+        ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', limitEmail));
       }
       continue;
     }

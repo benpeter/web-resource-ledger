@@ -7,7 +7,7 @@
 import { computePeriod, setBillingStatus } from './db.js';
 
 export const FREE_CAPTURE_LIMIT = 200;
-export const FREE_STORAGE_LIMIT = 1 * 1024 * 1024 * 1024; // 1 GB
+export const FREE_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10 GB, 200 captures at 50 MB each
 
 /** @deprecated Use FREE_CAPTURE_LIMIT instead. Kept for test backward compatibility until Phase 6. */
 export const DEFAULT_TIER = 'free';
@@ -140,6 +140,7 @@ export async function checkQuota(db, tenantId, count = 1) {
       reason:   'storage_limit',
       limit:    quota.storageBytes,
       used:     storageBytes,
+      hasPaymentMethod,
       resetsAt: computeQuotaReset(),
       period,
     };
@@ -154,5 +155,47 @@ export async function checkQuota(db, tenantId, count = 1) {
     hasPaymentMethod,
     eidasQualified,
     period,
+  };
+}
+
+/**
+ * Format a byte count as gigabytes for quota messages, e.g. "10.0 GB".
+ *
+ * @param {number} bytes
+ * @returns {string}
+ */
+export function formatStorage(bytes) {
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+/**
+ * Template data for the limit_reached email, or null when a refused capture
+ * should not send one: paid tenants, and batches that would only exceed the
+ * free captures while some are left.
+ *
+ * @param {object} env
+ * @param {object} quotaCheck  Result of checkQuota()
+ * @returns {object|null}
+ */
+export function limitReachedEmailData(env, quotaCheck) {
+  if (quotaCheck.allowed || quotaCheck.hasPaymentMethod) return null;
+
+  let usage;
+  if (quotaCheck.reason === 'payment_required' && quotaCheck.used >= quotaCheck.limit) {
+    usage = { resource: 'captures', used: quotaCheck.used, limit: quotaCheck.limit };
+  } else if (quotaCheck.reason === 'storage_limit') {
+    usage = { resource: 'storage', used: formatStorage(quotaCheck.used), limit: formatStorage(quotaCheck.limit) };
+  } else {
+    return null;
+  }
+
+  const baseUrl = env.VERIFICATION_BASE_URL
+    ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
+    : 'https://api.webresourceledger.com';
+  return {
+    ...usage,
+    period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+    addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
+    resetsAt: quotaCheck.resetsAt,
   };
 }
