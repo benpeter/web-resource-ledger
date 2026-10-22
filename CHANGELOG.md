@@ -19,6 +19,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 - Reaching the free storage limit now sends the `limit_reached` email with a storage variant; before, only the capture limit did
 - Scheduled captures skipped because the free limit is reached now send the `limit_reached` email instead of skipping silently
+- Dashboard capture form names the limit that was hit (captures or storage), shows the reset date, and points free tenants to adding a payment method
 
 ## [1.0.0] - 2026-03-25
 

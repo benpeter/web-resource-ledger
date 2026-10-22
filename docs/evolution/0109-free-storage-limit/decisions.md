@@ -44,6 +44,14 @@ not bytes stored. Deleting captures does not lower it. The docs table now says
   Deduplication in `dispatchNotification()` keeps it to one per month.
 - The `429` detail for a free tenant at the storage limit now says how much was
   used and to add a payment method, like the capture-limit message already did.
+- The dashboard showed "Monthly capture limit reached" for every quota `429`,
+  storage included, and read the reset date from `data.resetsAt`, which the API
+  never sets (it is `quota.resetsAt`), so no date ever appeared.
+  `submit_quotaMessage()` now names the limit that was hit, shows the reset
+  date, and tells free tenants to add a payment method in Settings. It decides
+  that from the server's `detail` text, which says "Add a payment method" exactly
+  when one would lift the limit. An extra boolean on the 429 body would be
+  cleaner but changes the API for one sentence of UI text.
 
 ## Not done
 

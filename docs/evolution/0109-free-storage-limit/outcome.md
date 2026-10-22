@@ -10,13 +10,15 @@
   tenant is cut off by either limit.
 - `limit_reached` template: storage variant, reset date in both variants.
 - `429` detail for free storage refusals names usage and the payment-method fix.
+- Dashboard: the capture form's quota message names the limit, shows the reset
+  date (it never did), and points free tenants to adding a payment method.
 - Docs: `site/content/limits.md` table matches the code (10 GB free; no monthly
   limits with a payment method, replacing a stale "Pro 5,000 / 50 GB" row).
   OpenAPI usage examples use the new limit. CHANGELOG updated.
 
 ## Tests
 
-Red tests were committed first (18 failing): the limit value,
+Red tests were committed first (18 failing, then 4 more for the dashboard message): the limit value,
 `hasPaymentMethod` on storage refusals, `limitReachedEmailData()` cases, the
 storage template, the 429 detail for single and batch captures, and email
 dispatch from the HTTP storage path and from the scheduler. The two dispatch
