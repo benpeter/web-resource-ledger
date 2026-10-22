@@ -118,3 +118,4 @@ software development.
 | [0109-free-storage-limit](0109-free-storage-limit/) | Free storage limit raised from 1 GB to 10 GB per month; storage and scheduler cut-offs now send the limit_reached email |
 | [0110-remove-alert-investigation](0110-remove-alert-investigation/) | Remove the Coralogix webhook, the Worker endpoint and the GitHub Actions alert-investigation workflow; alerts are email-only |
 | [0111-autoconsent-pipeline](0111-autoconsent-pipeline/) | Weekly autoconsent PRs get a real CI run, and the battery compares the update against the deployed version on staging instead of re-testing the old one |
+| [0112-auth-alert-noise](0112-auth-alert-noise/) | Auth Failure Spike alert ignores requests without a credential and fires above 10 in 15 minutes; cron logs checked complete |

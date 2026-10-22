@@ -30,8 +30,6 @@ percentage-based alert (e.g., >10%) would fire on 1 failure out of 3 captures
 
 **Runbook:** [capture-failures.md](runbooks/capture-failures.md)
 
-**Automated investigation:** This alert triggers an automated investigation.
-
 ---
 
 ### [WRL] TSA Failures
@@ -75,30 +73,30 @@ tenants who have paid for eIDAS-level compliance.
 
 **Runbook:** [qualified-tsa-failures.md](runbooks/qualified-tsa-failures.md)
 
-**Automated investigation:** This alert triggers an automated investigation.
-
 ---
 
 ### [WRL] Auth Failure Spike
 
 | Property | Value |
 |----------|-------|
-| **Query** | `event:"security.auth_fail"` (app: wrl, subsystem: security) |
-| **Threshold** | > 3 events in 15 minutes (~12/hour) |
+| **Query** | `event:"security.auth_fail" AND NOT reason:"missing_header"` (app: wrl, subsystem: security) |
+| **Threshold** | > 10 events in 15 minutes |
 | **Priority** | P1 (Critical) |
 
 **What it monitors:** Authentication failures including missing headers, invalid
 API key format, unknown keys, wrong scopes, and revoked keys.
 
-**Threshold rationale:** With one tenant and one API key, legitimate auth failures
-should be near zero. The original target of 50/hour is too permissive — a scanner
-doing key enumeration at that rate would run undetected. 3 failures in 15 minutes
-catches meaningful scanning activity while staying above the 1-2 operational
-mistakes expected during key rotation.
+**Threshold rationale:** Requests that carry no credential at all
+(`missing_header`) are left out: MCP clients connect without a key first, and
+crawlers and directory checkers probe the API, so they say nothing about keys
+being misused. The alert counts failures with a credential, where key
+enumeration or a revoked key still in use would show. Until phase 0112 it fired
+above 3 failures of any kind in 15 minutes; in October that meant two alerts,
+both from MCP connection attempts and wrong keys within two minutes, none an
+attack. More than 10 failures with a credential in 15 minutes still catches
+enumeration, which needs far more attempts than that.
 
 **Runbook:** [auth-failure-spike.md](runbooks/auth-failure-spike.md)
-
-**Automated investigation:** This alert triggers an automated investigation.
 
 ---
 
@@ -119,8 +117,6 @@ itself is broken, not that a target URL is flaky. Queue-consumer failures are
 captured separately by the Capture Failures alert.
 
 **Runbook:** [worker-errors.md](runbooks/worker-errors.md)
-
-**Automated investigation:** This alert triggers an automated investigation.
 
 ---
 
@@ -177,8 +173,6 @@ requests and are not covered by this alert. Rescan failures appear in
 
 **Runbook:** [threat-check-api-failures.md](runbooks/threat-check-api-failures.md)
 
-**Automated investigation:** This alert triggers an automated investigation.
-
 ---
 
 ### [WRL] Email Delivery Failures
@@ -202,8 +196,6 @@ investigation. P2 (not P1) because captures continue to succeed; email is
 a notification channel, not a data-integrity path.
 
 **Runbook:** [email-delivery-failures.md](runbooks/email-delivery-failures.md)
-
-**Automated investigation:** This alert triggers an automated investigation.
 
 ---
 
