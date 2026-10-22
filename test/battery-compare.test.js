@@ -101,6 +101,14 @@ describe('compareBattery: input guards', () => {
     expect(() => compareBattery([], [site('A')])).toThrow(/baseline/i);
     expect(() => compareBattery([site('A', { status: 'skipped' })], [site('A')])).toThrow(/baseline/i);
   });
+
+  it('throws when no baseline capture completed, since nothing can regress then', () => {
+    const allErrors = [
+      { label: 'A', status: 'error', reason: 'POST 401: Invalid API key' },
+      { label: 'B', status: 'failed' },
+    ];
+    expect(() => compareBattery(allErrors, allErrors)).toThrow(/baseline/i);
+  });
 });
 
 describe('mergeRetry', () => {
