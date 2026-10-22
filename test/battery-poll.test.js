@@ -54,6 +54,53 @@ describe('pollCapture', () => {
   });
 });
 
+describe('pollCapture against the real endpoint split', () => {
+  // GET /v1/captures/{id} answers 404 while a capture is pending or failed;
+  // only GET /v1/captures/{id}/status reports those states.
+  function apiLike(states, record) {
+    let i = 0;
+    const seen = [];
+    const fetchImpl = async (url) => {
+      seen.push(url);
+      if (url.endsWith('/status')) {
+        const state = states[Math.min(i++, states.length - 1)];
+        return jsonResponse(state);
+      }
+      const current = states[Math.min(i - 1, states.length - 1)];
+      if (current?.status !== 'complete') return jsonResponse({ title: 'Not Found' }, 404);
+      return jsonResponse(record);
+    };
+    return { fetchImpl, seen };
+  }
+
+  // Fake clock: each sleep advances time, so a wrong implementation hits the
+  // deadline after a few polls instead of spinning for the real timeout.
+  function clocked(fetchImpl) {
+    let now = 0;
+    return opts(fetchImpl, { timeoutMs: 100, now: () => now, sleep: async () => { now += 10; } });
+  }
+
+  it('returns a failed capture as failed, with its error, instead of timing out', async () => {
+    const { fetchImpl } = apiLike([
+      { status: 'pending' },
+      { status: 'failed', error: 'Capture permanently failed after all retry attempts', retryable: false },
+    ]);
+    const result = await pollCapture('cap_f', clocked(fetchImpl));
+    expect(result).toMatchObject({ captureId: 'cap_f', status: 'failed', error: 'Capture permanently failed after all retry attempts' });
+  });
+
+  it('fetches the full record once the status endpoint says complete', async () => {
+    const { fetchImpl, seen } = apiLike(
+      [{ status: 'pending' }, { status: 'complete' }],
+      { id: 'cap_c', status: 'complete', renderQuality: 'full', consent: { result: 'success' } },
+    );
+    const result = await pollCapture('cap_c', clocked(fetchImpl));
+    expect(result).toMatchObject({ captureId: 'cap_c', status: 'complete', renderQuality: 'full' });
+    expect(seen.some((u) => u.endsWith('/status'))).toBe(true);
+    expect(seen.at(-1)).toBe('https://staging.test/v1/captures/cap_c');
+  });
+});
+
 describe('submitCapture', () => {
   it('returns an error instead of throwing when the request fails', async () => {
     const fetchImpl = async () => { throw new TypeError('fetch failed'); };
