@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Removed
+
+- `POST /v1/webhooks/coralogix` and the GitHub Actions alert-investigation workflow; Coralogix alerts notify by email only
+
 ### Changed
 
 - Free tier storage limit raised from 1 GB to 10 GB per month, so the 200 free captures fit at up to 50 MB each

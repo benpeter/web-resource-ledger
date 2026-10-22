@@ -116,3 +116,4 @@ software development.
 | [0107-stripe-authoritative-billing](0107-stripe-authoritative-billing/) | Stripe-authoritative billing amounts: cache upcoming invoice from Stripe, show actual vs estimated charges |
 | [0108-drop-despicable-agents](0108-drop-despicable-agents/) | Stop using despicable-agents: remove the agent-framework and process.md instructions from CLAUDE.md, keep the evolution log |
 | [0109-free-storage-limit](0109-free-storage-limit/) | Free storage limit raised from 1 GB to 10 GB per month; storage and scheduler cut-offs now send the limit_reached email |
+| [0110-remove-alert-investigation](0110-remove-alert-investigation/) | Remove the Coralogix webhook, the Worker endpoint and the GitHub Actions alert-investigation workflow; alerts are email-only |
