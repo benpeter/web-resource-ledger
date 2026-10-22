@@ -58,3 +58,23 @@ describe('GET /health -- X-RateLimit headers', () => {
     expect(response.headers.get('X-RateLimit-Limit')).toBeNull();
   });
 });
+
+describe('POST /v1/webhooks/coralogix (removed in phase 0110)', () => {
+  it('returns 404 even with the old bearer secret and a valid alert payload', async () => {
+    const response = await SELF.fetch('https://wrl.test/v1/webhooks/coralogix', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-coralogix-webhook-secret-for-vitest',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        alert_id: 'test-alert-removed',
+        alert_name: '[WRL] Capture Failures',
+        alert_action: 'triggered',
+        application_name: 'wrl',
+      }),
+    });
+    expect(response.status).toBe(404);
+    expect(response.headers.get('Content-Type')).toContain('application/problem+json');
+  });
+});
