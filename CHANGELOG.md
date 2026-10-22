@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Privacy
+
+- Analytics events (signup, captures, schedules, payment activation) no longer include tenant, capture or Stripe ids; the privacy policy says so
+
 ### Removed
 
 - `POST /v1/webhooks/coralogix` and the GitHub Actions alert-investigation workflow; Coralogix alerts notify by email only

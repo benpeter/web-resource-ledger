@@ -31,7 +31,8 @@ import {
   getEffectiveScheduleLimit,
 } from './db.js';
 import { log } from './log.js';
-import { trackEvent } from './pirsch.js';
+import { trackServerEvent } from './pirsch.js';
+import { isAnalyticsExcluded } from './analytics.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const ALLOWED_CREATE_FIELDS = new Set(['url', 'cron', 'name']);
@@ -151,10 +152,16 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
     responseStatus: 201,
   }) ?? Promise.resolve());
 
-  ctx.waitUntil(trackEvent(request, env, 'Schedule Created', {
-    tenantId: auth.tenantId,
-    scheduleId: id,
-  }, { property: 'api' }) ?? Promise.resolve());
+  // Server event: API clients aren't browsers, so Pirsch's bot filter would drop
+  // a normal event. No tenant or schedule ids (see src/analytics.js).
+  if (!isAnalyticsExcluded(env, auth.tenantId)) {
+    ctx.waitUntil(trackServerEvent(env, 'Schedule Created', {
+      path: '/v1/schedules',
+      ip: request.headers.get('CF-Connecting-IP'),
+      userAgent: request.headers.get('User-Agent'),
+      meta: { source: auth.authMethod === 'session' ? 'dashboard' : 'api' },
+    }) ?? Promise.resolve());
+  }
 
   return jsonResponse(record, 201);
 }

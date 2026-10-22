@@ -5,6 +5,14 @@ import { log } from './log.js';
 const HIT_ENDPOINT = 'https://api.pirsch.io/api/v1/hit';
 const EVENT_ENDPOINT = 'https://api.pirsch.io/api/v1/event';
 
+// Server-side events (captures, payments) happen without a browser request.
+// Pirsch requires url, ip and user_agent on every event and drops non-browser
+// user agents as bots, so these events carry a WRL URL, the submitter's ip and
+// user agent when known (otherwise the values below) and disable_bot_filter.
+const API_ORIGIN = 'https://api.webresourceledger.com';
+export const SERVER_USER_AGENT = 'WRL-Server/1.0 (+https://webresourceledger.com)';
+const NO_CLIENT_IP = '192.0.2.1'; // RFC 5737 documentation address
+
 /**
  * Internal send helper. Fire-and-forget. Returns the fetch Promise so callers
  * can pass it to ctx.waitUntil(). Returns undefined if PIRSCH_ACCESS_KEY is absent.
@@ -32,7 +40,11 @@ function _send(env, endpoint, body) {
       // no trace. Fail loudly so a dead key surfaces in Coralogix, not weeks later
       // via a "no traffic" email.
       if (!res.ok) {
-        log(env, 4, 'pirsch', { event: 'pirsch.send_rejected', endpoint, status: res.status });
+        // Pirsch's error body names the problem (e.g. a missing field); keep a
+        // short prefix so a rejection can be diagnosed from the log alone.
+        return res.text().catch(() => '').then((text) => {
+          log(env, 4, 'pirsch', { event: 'pirsch.send_rejected', endpoint, status: res.status, detail: String(text).slice(0, 200) });
+        });
       }
     }).catch((err) => {
       log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
@@ -77,6 +89,9 @@ function _fromRequest(request) {
  * @returns {Promise<void>|undefined}
  */
 export function trackHit(request, env, tags) {
+  // Pirsch rejects a hit without a user agent (400), and a request without one
+  // is never a countable visitor.
+  if (!request.headers.get('User-Agent')) return undefined;
   const body = { ..._fromRequest(request) };
   if (tags && Object.keys(tags).length > 0) body.tags = tags;
   return _send(env, HIT_ENDPOINT, body);
@@ -100,22 +115,47 @@ export function trackEvent(request, env, eventName, meta, tags) {
 }
 
 /**
- * Track a named event without a Request object (queue consumers, webhooks).
+ * Track a server-side event (queue consumers, webhooks, API actions).
  *
  * @param {object} env
  * @param {string} eventName
- * @param {object} fields { url?, ip?, userAgent?, referrer? }
- * @param {object} [meta]
- * @param {object} [tags]
+ * @param {{ path: string, ip?: string|null, userAgent?: string|null, meta?: object }} fields
+ *   path: WRL API path the event is reported under; ip/userAgent: the person's,
+ *   when the event traces back to their request
  * @returns {Promise<void>|undefined}
  */
-export function trackEventRaw(env, eventName, fields, meta, tags) {
-  const { url, ip, userAgent, referrer } = fields ?? {};
-  const raw = { url, ip, user_agent: userAgent, referrer };
-  // Drop undefined values
-  const base = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
-  const body = { ...base, event_name: eventName };
+export function trackServerEvent(env, eventName, { path, ip, userAgent, meta } = {}) {
+  const body = {
+    event_name: eventName,
+    url: `${API_ORIGIN}${path || '/'}`,
+    ip: ip || NO_CLIENT_IP,
+    user_agent: userAgent || SERVER_USER_AGENT,
+    non_interactive: true,
+    disable_bot_filter: true,
+    tags: { property: 'api' },
+  };
   if (meta && Object.keys(meta).length > 0) body.event_meta = meta;
-  if (tags && Object.keys(tags).length > 0) body.tags = tags;
   return _send(env, EVENT_ENDPOINT, body);
+}
+
+/**
+ * Whether a landing or docs response is a page view worth counting: a GET for
+ * an HTML page that succeeded (200), or a browser revalidating one (304).
+ * Assets, robots.txt, the sitemap, redirects, errors and requests without a
+ * user agent are not page views.
+ *
+ * @param {Request} request
+ * @param {Response} response
+ * @returns {boolean}
+ */
+export function isPageView(request, response) {
+  if (request.method !== 'GET' || !request.headers.get('User-Agent')) return false;
+  if (response.status === 200) {
+    return (response.headers.get('Content-Type') || '').startsWith('text/html');
+  }
+  if (response.status === 304) {
+    return request.headers.get('Sec-Fetch-Dest') === 'document' ||
+      (request.headers.get('Accept') || '').includes('text/html');
+  }
+  return false;
 }

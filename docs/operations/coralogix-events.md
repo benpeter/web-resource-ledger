@@ -254,6 +254,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | Sev | Event | Meaning |
 |-----|-------|---------|
 | 4 | `pirsch.send_fail` | Analytics event send to Pirsch failed |
+| 4 | `pirsch.send_rejected` | Pirsch answered non-2xx; `status` and `detail` (first 200 characters of Pirsch's error body) say why |
 | 4 | `pirsch.first_capture_check_fail` | First-capture detection query failed |
 
 ## Unsubscribe (`unsubscribe`)

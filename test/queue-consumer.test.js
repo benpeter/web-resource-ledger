@@ -26,7 +26,8 @@ import {
   getQueueResult,
   createExecutionContext,
 } from 'cloudflare:test';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { fetchMock, waitOnExecutionContext } from 'cloudflare:test';
 import worker from '../src/index.js';
 import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';
 
@@ -278,5 +279,35 @@ describe('queue consumer -- URL validation', () => {
     const { result } = await runConsumer('wrl-captures', [msg]);
     expect(result.explicitAcks).toContain(msg.id);
     expect(result.retryMessages.some(m => m.msgId === msg.id)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Analytics: a permanently failed capture sends a Capture Failed event
+// ---------------------------------------------------------------------------
+
+describe('queue consumer -- DLQ analytics event', () => {
+  beforeEach(() => {
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+  });
+  afterEach(() => {
+    fetchMock.deactivate();
+  });
+
+  it('sends Capture Failed to Pirsch with the capture source', async () => {
+    const captureId = makeId();
+    await createCapture(env.DB, captureId, 'https://example.com/', '198.51.100.7', 'gh-16527634');
+    let captured;
+    fetchMock.get('https://api.pirsch.io')
+      .intercept({ path: '/api/v1/event', method: 'POST' })
+      .reply(200, (req) => { captured = JSON.parse(req.body); return 'ok'; });
+
+    const { ctx } = await runConsumer('wrl-captures-dlq', [makeMsg(captureId, { tenantId: 'gh-16527634', source: 'api', ua: 'curl/8.7.1' })]);
+    await waitOnExecutionContext(ctx);
+
+    expect(captured?.event_name).toBe('Capture Failed');
+    expect(captured.event_meta).toEqual({ source: 'api' });
+    expect(captured.user_agent).toBe('curl/8.7.1');
   });
 });
