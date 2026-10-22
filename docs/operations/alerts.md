@@ -265,10 +265,10 @@ unauthorized key creation is required.
 
 ## Design Decisions
 
-**Automated investigation webhooks.** In addition to email notifications, six
-actionable alerts (P1 and P2) fire a webhook to the WRL Worker, which dispatches
-a GitHub Actions workflow for automated investigation by Claude Code. Results are
-posted as GitHub Issues. See [auto-investigation.md](auto-investigation.md) for details.
+**Email only.** Every alert notifies by email. Until phase 0110 (October 2026),
+six alerts also called a WRL webhook that started an automated investigation in
+GitHub Actions; that pipeline was removed, see
+[docs/evolution/0110-remove-alert-investigation](../evolution/0110-remove-alert-investigation/).
 
 **Absolute counts, not ratios.** All alerts use absolute-count thresholds instead
 of percentage-based ratios. At WRL's traffic volume (max 10 captures/minute per

@@ -220,16 +220,6 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 5 | `schedule.list_fail` | Schedule list query failed |
 | 5 | `schedule.batch_enqueue_fail` | Schedule batch enqueue failed |
 
-## Alert (`alert`)
-
-| Sev | Event | Meaning |
-|-----|-------|---------|
-| 3 | `alert.webhook_received` | Coralogix alert webhook received |
-| 3 | `alert.dispatch_sent` | Alert notification forwarded (email/Telegram) |
-| 3 | `alert.dispatch_skipped` | Alert notification skipped (unsupported type, dedup, etc.) |
-| 4 | `alert.dispatch_error` | Alert notification dispatch failed |
-| 5 | `alert.webhook_auth_fail` | Coralogix webhook auth failed |
-
 ## Meter (`meter`)
 
 | Sev | Event | Meaning |

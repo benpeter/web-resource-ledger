@@ -9,7 +9,6 @@
 #
 # Prerequisites:
 #   - WRL_CORALOGIX_API_KEY in ~/.secrets
-#   - WRL_CORALOGIX_WEBHOOK_SECRET in ~/.secrets  (Bearer token sent to the WRL webhook endpoint)
 #   - jq installed
 #   - curl installed
 
@@ -22,13 +21,8 @@ set +x 2>/dev/null
 
 readonly CORALOGIX_API_EU2="https://api.eu2.coralogix.com"
 readonly API_BASE="${CORALOGIX_API_EU2}/mgmt/openapi/latest/alerts/alerts-general/v3"
-readonly WEBHOOKS_BASE="${CORALOGIX_API_EU2}/mgmt/openapi/latest/integrations/webhooks/v1"
 readonly API_KEY="${WRL_CORALOGIX_API_KEY:?WRL_CORALOGIX_API_KEY not set in ~/.secrets}"
-readonly WEBHOOK_SECRET="${WRL_CORALOGIX_WEBHOOK_SECRET:?WRL_CORALOGIX_WEBHOOK_SECRET not set in ~/.secrets}"
 readonly OPERATOR_EMAIL="bp@ben-peter.com"
-readonly WEBHOOK_NAME="WRL Alert Receiver"
-# Production webhook URL (staging is not wired -- staging traffic must not trigger production automation)
-readonly WEBHOOK_TARGET_URL="https://api.webresourceledger.com/v1/webhooks/coralogix"
 
 if [ -n "${1:-}" ] && [ "${1:-}" != "--dry-run" ]; then
   echo "ERROR: Unknown argument: $1. Usage: $0 [--dry-run]" >&2
@@ -74,11 +68,6 @@ capture_failures_payload() {
       "webhooks": [
         {
           "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
-          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
-          "minutes": 60
-        },
-        {
-          "integration": {"integrationId": WEBHOOK_INTEGRATION_ID_PLACEHOLDER},
           "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
           "minutes": 60
         }
@@ -203,11 +192,6 @@ threat_check_api_failures_payload() {
           "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
           "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
           "minutes": 60
-        },
-        {
-          "integration": {"integrationId": WEBHOOK_INTEGRATION_ID_PLACEHOLDER},
-          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
-          "minutes": 60
         }
       ]
     }
@@ -248,11 +232,6 @@ qualified_tsa_failures_payload() {
       "webhooks": [
         {
           "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
-          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
-          "minutes": 60
-        },
-        {
-          "integration": {"integrationId": WEBHOOK_INTEGRATION_ID_PLACEHOLDER},
           "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
           "minutes": 60
         }
@@ -297,11 +276,6 @@ auth_failure_spike_payload() {
           "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
           "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
           "minutes": 60
-        },
-        {
-          "integration": {"integrationId": WEBHOOK_INTEGRATION_ID_PLACEHOLDER},
-          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
-          "minutes": 60
         }
       ]
     }
@@ -341,11 +315,6 @@ worker_errors_payload() {
       "webhooks": [
         {
           "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
-          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
-          "minutes": 60
-        },
-        {
-          "integration": {"integrationId": WEBHOOK_INTEGRATION_ID_PLACEHOLDER},
           "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
           "minutes": 60
         }
@@ -388,11 +357,6 @@ email_delivery_failures_payload() {
       "webhooks": [
         {
           "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
-          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
-          "minutes": 60
-        },
-        {
-          "integration": {"integrationId": WEBHOOK_INTEGRATION_ID_PLACEHOLDER},
           "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
           "minutes": 60
         }
@@ -483,140 +447,6 @@ email_bounces_payload() {
 ALERT_JSON
 }
 
-# --- Webhook Integration Logic ---
-
-# List all outgoing webhooks and return the raw JSON response
-fetch_existing_webhooks() {
-  local response http_code
-  response=$(curl -s -w '\n%{http_code}' -X GET "$WEBHOOKS_BASE" \
-    -H "Authorization: $API_KEY" \
-    -H "Content-Type: application/json")
-  http_code=$(echo "$response" | tail -1)
-  response=$(echo "$response" | sed '$d')
-  if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-    err "Failed to list existing webhooks: HTTP $http_code: $response"
-    return 1
-  fi
-  echo "$response"
-}
-
-# Find a webhook's string ID (uuid) by name from the list response
-find_webhook_id() {
-  local webhooks_json="$1" name="$2"
-  echo "$webhooks_json" | jq -r --arg name "$name" \
-    '.deployed[]? | select(.name == $name) | .id // empty'
-}
-
-# Find a webhook's externalId (integer) by name -- used as integrationId in alert payloads
-find_webhook_external_id() {
-  local webhooks_json="$1" name="$2"
-  echo "$webhooks_json" | jq -r --arg name "$name" \
-    '.deployed[]? | select(.name == $name) | .externalId // empty'
-}
-
-# Build the generic webhook creation/update data object (shared between create and update)
-webhook_data_payload() {
-  # payload field: JSON string with Coralogix template variables.
-  # Variable reference: $ALERT_ID, $ALERT_NAME, $ALERT_ACTION, $ALERT_URL,
-  #   $HIT_COUNT, $APPLICATION_NAME, $SUBSYSTEM_NAME, $EVENT_SEVERITY
-  # $ALERT_ACTION is "trigger" or "resolve" -- Coralogix uses present tense without -d suffix.
-  local webhook_uuid
-  webhook_uuid=$(uuidgen | tr '[:upper:]' '[:lower:]')
-  jq -n \
-    --arg name    "$WEBHOOK_NAME" \
-    --arg url     "$WEBHOOK_TARGET_URL" \
-    --arg secret  "$WEBHOOK_SECRET" \
-    --arg uuid    "$webhook_uuid" \
-    '{
-      "name": $name,
-      "type": "GENERIC",
-      "url":  $url,
-      "genericWebhook": {
-        "uuid": $uuid,
-        "method": "POST",
-        "headers": {
-          "Content-Type":  "application/json",
-          "Authorization": ("Bearer " + $secret)
-        },
-        "payload": "{\"alert_id\":\"$ALERT_ID\",\"alert_name\":\"$ALERT_NAME\",\"alert_action\":\"$ALERT_ACTION\",\"alert_url\":\"$ALERT_URL\",\"hit_count\":\"$HIT_COUNT\",\"application_name\":\"$APPLICATION_NAME\",\"subsystem_name\":\"$SUBSYSTEM_NAME\",\"event_severity\":\"$EVENT_SEVERITY\"}"
-      }
-    }'
-}
-
-# Create or update the "WRL Alert Receiver" generic outbound webhook.
-# Prints the externalId (integer) on success -- callers use it as integrationId in alerts.
-create_webhook_integration() {
-  local existing_webhooks existing_id external_id
-
-  log "Fetching existing webhook integrations..."
-  existing_webhooks=$(fetch_existing_webhooks) || return 1
-
-  existing_id=$(find_webhook_id "$existing_webhooks" "$WEBHOOK_NAME")
-
-  if [ "$DRY_RUN" = "--dry-run" ]; then
-    if [ -n "$existing_id" ]; then
-      external_id=$(find_webhook_external_id "$existing_webhooks" "$WEBHOOK_NAME")
-      log "[DRY-RUN] [UPDATE] Webhook '$WEBHOOK_NAME' (id: $existing_id, externalId: $external_id)"
-    else
-      log "[DRY-RUN] [CREATE] Webhook '$WEBHOOK_NAME' -> $WEBHOOK_TARGET_URL"
-    fi
-    webhook_data_payload | jq '{data: .}' >&2
-    # Return a placeholder external ID so dry-run can continue to show alert payloads
-    echo "0"
-    return 0
-  fi
-
-  local data_payload response http_code
-  data_payload=$(webhook_data_payload)
-
-  if [ -n "$existing_id" ]; then
-    # Update: PUT with id + data
-    local update_payload
-    update_payload=$(echo "$data_payload" | jq --arg id "$existing_id" '{id: $id, data: .}')
-
-    response=$(curl -s -w '\n%{http_code}' -X PUT "$WEBHOOKS_BASE" \
-      -H "Authorization: $API_KEY" \
-      -H "Content-Type: application/json" \
-      -d "$update_payload")
-    http_code=$(echo "$response" | tail -1)
-    response=$(echo "$response" | sed '$d')
-    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-      err "Failed to update webhook '$WEBHOOK_NAME' (id: $existing_id): HTTP $http_code: $response"
-      return 1
-    fi
-    external_id=$(find_webhook_external_id "$existing_webhooks" "$WEBHOOK_NAME")
-    log "[UPDATE] Webhook '$WEBHOOK_NAME' (id: $existing_id, externalId: $external_id)"
-  else
-    # Create: POST with data wrapper
-    local create_payload
-    create_payload=$(echo "$data_payload" | jq '{data: .}')
-
-    response=$(curl -s -w '\n%{http_code}' -X POST "$WEBHOOKS_BASE" \
-      -H "Authorization: $API_KEY" \
-      -H "Content-Type: application/json" \
-      -d "$create_payload")
-    http_code=$(echo "$response" | tail -1)
-    response=$(echo "$response" | sed '$d')
-    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-      err "Failed to create webhook '$WEBHOOK_NAME': HTTP $http_code: $response"
-      return 1
-    fi
-    # Newly created webhook: re-fetch to get externalId (create response only returns id)
-    local new_uuid
-    new_uuid=$(echo "$response" | jq -r '.id // "unknown"')
-    local refreshed_webhooks
-    refreshed_webhooks=$(fetch_existing_webhooks) || return 1
-    external_id=$(find_webhook_external_id "$refreshed_webhooks" "$WEBHOOK_NAME")
-    log "[CREATE] Webhook '$WEBHOOK_NAME' (id: $new_uuid, externalId: $external_id)"
-  fi
-
-  if [ -z "$external_id" ]; then
-    err "Could not determine externalId for webhook '$WEBHOOK_NAME' -- cannot wire alerts"
-    return 1
-  fi
-  echo "$external_id"
-}
-
 # --- Core Logic ---
 
 # Fetch all existing alerts and extract [WRL] ones
@@ -642,18 +472,12 @@ find_alert_id() {
 }
 
 # Create or update a single alert.
-# $4 (optional) -- numeric externalId of the outbound webhook integration.
-#   When provided, WEBHOOK_INTEGRATION_ID_PLACEHOLDER in the payload is replaced
-#   with this value to wire the webhook notification. Omit for email-only alerts.
 upsert_alert() {
-  local name="$1" payload_fn="$2" existing_alerts="$3" webhook_integration_id="${4:-}"
+  local name="$1" payload_fn="$2" existing_alerts="$3"
   local payload existing_id response
 
-  # Generate payload: substitute email, then optionally substitute webhook integration ID
+  # Generate payload: substitute the operator email
   payload=$(${payload_fn} | sed "s|OPERATOR_EMAIL_PLACEHOLDER|$OPERATOR_EMAIL|g")
-  if [ -n "$webhook_integration_id" ]; then
-    payload=$(echo "$payload" | sed "s|WEBHOOK_INTEGRATION_ID_PLACEHOLDER|$webhook_integration_id|g")
-  fi
 
   # Validate JSON structure
   if ! echo "$payload" | jq . > /dev/null 2>&1; then
@@ -676,7 +500,7 @@ upsert_alert() {
 
   if [ -n "$existing_id" ]; then
     # Check if update is needed by comparing key fields (including notification group size,
-    # which changes when a webhook integration is added to an existing email-only alert)
+    # which changed when the investigation webhook was removed in phase 0110)
     local existing_desc existing_query existing_threshold existing_webhook_count
     existing_desc=$(echo "$existing_alerts" | jq -r --arg name "$name" \
       '.alertDefs[]? | select(.alertDefProperties.name == $name) | .alertDefProperties.description // ""')
@@ -742,13 +566,7 @@ main() {
     log ""
   fi
 
-  # Step 1: provision the outbound webhook integration and capture its externalId.
-  # The externalId is the numeric integrationId referenced by alert notification groups.
-  local webhook_integration_id
-  webhook_integration_id=$(create_webhook_integration) || exit 1
-  log ""
-
-  # Step 2: provision alerts.
+  # Provision alerts (email notifications only).
   log "Fetching existing alerts..."
   local existing_alerts
   existing_alerts=$(fetch_existing_alerts) || exit 1
@@ -760,15 +578,15 @@ main() {
 
   local failed=0
 
-  # Alerts that trigger active investigation -- wired to both email and the webhook receiver.
-  upsert_alert "[WRL] Capture Failures"           capture_failures_payload          "$existing_alerts" "$webhook_integration_id" || ((failed++))
-  upsert_alert "[WRL] Qualified TSA Failures"     qualified_tsa_failures_payload    "$existing_alerts" "$webhook_integration_id" || ((failed++))
-  upsert_alert "[WRL] Auth Failure Spike"         auth_failure_spike_payload        "$existing_alerts" "$webhook_integration_id" || ((failed++))
-  upsert_alert "[WRL] Worker Errors (5xx)"        worker_errors_payload             "$existing_alerts" "$webhook_integration_id" || ((failed++))
-  upsert_alert "[WRL] Threat Check API Failures"  threat_check_api_failures_payload "$existing_alerts" "$webhook_integration_id" || ((failed++))
-  upsert_alert "[WRL] Email Delivery Failures"    email_delivery_failures_payload   "$existing_alerts" "$webhook_integration_id" || ((failed++))
+  # Actionable alerts (P1/P2).
+  upsert_alert "[WRL] Capture Failures"           capture_failures_payload          "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Qualified TSA Failures"     qualified_tsa_failures_payload    "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Auth Failure Spike"         auth_failure_spike_payload        "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Worker Errors (5xx)"        worker_errors_payload             "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Threat Check API Failures"  threat_check_api_failures_payload "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Email Delivery Failures"    email_delivery_failures_payload   "$existing_alerts" || ((failed++))
 
-  # Filtered / informational alerts -- email-only, no webhook receiver.
+  # Filtered / informational alerts.
   upsert_alert "[WRL] TSA Failures"               tsa_failures_payload              "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Threat Check Quarantines"   threat_check_quarantines_payload  "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Email Bounces"              email_bounces_payload             "$existing_alerts" || ((failed++))
