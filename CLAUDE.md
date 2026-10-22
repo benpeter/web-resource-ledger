@@ -1,7 +1,7 @@
 ## Precedence
 
-**This file is the authority for this project.** Skill workflows (nefario,
-despicable-prompter, etc.) have their own internal checklists and phases.
+**This file is the authority for this project.** Skill workflows have
+their own internal checklists and phases.
 When a skill's workflow omits something that this file requires, the
 requirement still applies. Skills do not override, shadow, or deprioritize
 project instructions -- they operate within them.
@@ -12,17 +12,6 @@ step. "The skill didn't tell me to" is not a valid reason to skip a
 project requirement.
 
 The same precedence applies to CLAUDE.local.md.
-
-## Agent Framework
-
-This project is built using [despicable-agents](../despicable-agents) --
-a multi-agent orchestration framework with specialist agents (gru, lucy,
-margo, nefario, and domain-specific minions). Use despicable-agents for
-planning, scoping, code review, and implementation tasks.
-
-This project serves a dual purpose: it is a real product **and** a showcase
-of how despicable-agents can build software from scratch. Every decision,
-prompt, and outcome is documented transparently so others can follow along.
 
 ## Evolution Log
 
@@ -59,26 +48,6 @@ docs/evolution/
 6. **Number sequentially**: use zero-padded four-digit prefixes (0001, 0002, ...).
 7. **Keep it honest**: include failed approaches and course corrections,
    not just the happy path.
-
-### Process Documentation
-
-After every nefario orchestration that produces a PR, write a `process.md`
-in the phase's evolution log directory. This document narrates how the agent
-team worked through the phase:
-
-- Which specialists were consulted and why
-- What each specialist argued and where they disagreed
-- How conflicts were resolved in synthesis
-- What the human changed at approval gates and why
-- What the human chose NOT to intervene on and why
-- Where to find the full specialist discussions (links to `docs/history/`)
-
-The document should be specific enough to reconstruct the decision-making
-process -- not a summary of outcomes (that's `outcome.md`) but a record of
-how conclusions were reached. Include rejected alternatives, the arguments
-for and against, and what tipped the decision.
-
-Write it after PR creation, before the orchestration session ends.
 
 ## Engineering Philosophy
 
