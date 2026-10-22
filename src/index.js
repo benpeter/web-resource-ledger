@@ -34,7 +34,7 @@ import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
 import { generateCertificate } from './certificate.js';
-import { trackEventRaw } from './pirsch.js';
+import { trackCaptureEvent } from './analytics.js';
 
 // tva
 
@@ -225,6 +225,7 @@ async function handleCaptureMessage(msg, env, ctx) {
       } catch {
         // Best-effort -- do not block ack
       }
+      ctx.waitUntil(trackCaptureEvent(env, 'Capture Failed', msg.body) ?? Promise.resolve());
       msg.ack();
     } else {
       const delay = Math.min(10 * Math.pow(2, msg.attempts - 1), 300);
@@ -241,18 +242,16 @@ async function handleCaptureMessage(msg, env, ctx) {
       ).bind(tenantId).first('total');
 
       if (priorCaptures === 0) {
-        ctx.waitUntil(
-          trackEventRaw(env, 'First Capture', { url, ip }, {
-            tenantId,
-            captureId,
-          }, { property: 'api' }) ?? Promise.resolve()
-        );
+        ctx.waitUntil(trackCaptureEvent(env, 'First Capture', msg.body) ?? Promise.resolve());
       }
     } catch (err) {
       log(env, 4, 'pirsch', { event: 'pirsch.first_capture_check_fail', captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
     }
 
     const eidasCaptures = result.qualifiedTimestampStatus === 'present' ? 1 : 0;
+    ctx.waitUntil(trackCaptureEvent(env, 'Capture Completed', msg.body, {
+      qualified: eidasCaptures ? 'yes' : 'no',
+    }) ?? Promise.resolve());
     ctx.waitUntil(
       incrementUsage(env.DB, tenantId, {
         captures: 1,
@@ -419,6 +418,9 @@ async function handleDlqMessage(msg, env, ctx) {
       await failCapture(env.DB, captureId, 'Capture permanently failed after all retry attempts', false);
     } catch {
       // Best-effort
+    }
+    if (typeof tenantId === 'string') {
+      ctx.waitUntil(trackCaptureEvent(env, 'Capture Failed', msg.body) ?? Promise.resolve());
     }
     // Dispatch webhooks and email notification after failCapture -- must not block DLQ ack
     ctx.waitUntil((async () => {
@@ -1071,6 +1073,9 @@ async function handleCreateCapture(request, env, ctx) {
       captureId, url: result.url, ip: result.ip, tenantId, cip,
       enqueuedAt: Date.now(),
       qualifiedTimestamps: eidasQualified,
+      // For analytics events in the consumer (src/analytics.js).
+      source: authMethod === 'session' ? 'dashboard' : 'api',
+      ua: request.headers.get('User-Agent')?.slice(0, 256) || undefined,
     });
   } catch (err) {
     await failCapture(env.DB, captureId, 'Queue dispatch failed', true);
@@ -1367,7 +1372,11 @@ async function handleBatchCapture(request, env, ctx) {
     }) ?? Promise.resolve());
 
     queueMessages.push({
-      body: { captureId, url: result.url, ip: result.ip, tenantId, cip, enqueuedAt: Date.now() },
+      body: {
+        captureId, url: result.url, ip: result.ip, tenantId, cip, enqueuedAt: Date.now(),
+        source: authMethod === 'session' ? 'dashboard' : 'api',
+        ua: request.headers.get('User-Agent')?.slice(0, 256) || undefined,
+      },
     });
 
     const statusUrl = new URL(`/v1/captures/${captureId}/status`, request.url).href;

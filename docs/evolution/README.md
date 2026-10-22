@@ -119,3 +119,4 @@ software development.
 | [0110-remove-alert-investigation](0110-remove-alert-investigation/) | Remove the Coralogix webhook, the Worker endpoint and the GitHub Actions alert-investigation workflow; alerts are email-only |
 | [0111-autoconsent-pipeline](0111-autoconsent-pipeline/) | Weekly autoconsent PRs get a real CI run, and the battery compares the update against the deployed version on staging instead of re-testing the old one |
 | [0112-auth-alert-noise](0112-auth-alert-noise/) | Auth Failure Spike alert ignores requests without a credential and fires above 10 in 15 minutes; cron logs checked complete |
+| [0113-analytics-events](0113-analytics-events/) | Pirsch counts HTML page views only and receives capture, first-capture, schedule and payment events it accepts, without account identifiers |

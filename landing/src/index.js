@@ -1,5 +1,5 @@
 // tva
-import { trackHit } from '../../src/pirsch.js';
+import { trackHit, isPageView } from '../../src/pirsch.js';
 import { log } from '../../src/log.js';
 
 /**
@@ -39,7 +39,8 @@ export default {
       headers.set('Cache-Control', 'private');
     }
 
-    if (response.status < 400) {
+    // Count page views only: HTML pages, not assets, robots.txt or redirects.
+    if (isPageView(request, response)) {
       ctx.waitUntil(trackHit(request, env, { property: 'landing' }) ?? Promise.resolve());
     }
 

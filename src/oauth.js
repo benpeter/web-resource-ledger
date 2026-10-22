@@ -442,7 +442,8 @@ export async function handleAuthCallback(request, env, ctx) {
 
       // Pirsch: track new user signup with attribution from login step
       const source = stateData.from || 'direct';
-      const signupMeta = { tenantId, provider: 'github', source };
+      // No tenant id: analytics carries no account identifiers (see src/analytics.js).
+      const signupMeta = { provider: 'github', source };
       if (stateData.utmSource) signupMeta.utm_source = stateData.utmSource;
       if (stateData.utmMedium) signupMeta.utm_medium = stateData.utmMedium;
       if (stateData.utmCampaign) signupMeta.utm_campaign = stateData.utmCampaign;

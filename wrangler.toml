@@ -183,6 +183,9 @@ max_retries = 0
 #   CLOUDFLARE_CACHE_PURGE_TOKEN -- API token with Cache Purge permission for the zone
 [vars]
 ENABLE_EDGE_CACHE = "true"
+# Tenants whose activity is not sent to Pirsch (src/analytics.js): the founder's
+# tenant (hourly self-captures, demos) and the legacy CAPTURE_API_KEY tenant (smoke tests).
+ANALYTICS_EXCLUDE_TENANTS = "gh-398734,default"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"

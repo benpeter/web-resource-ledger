@@ -36,7 +36,8 @@ import {
   clearStripeInvoiceCache,
 } from './db.js';
 import { dispatchNotification } from './email-dispatch.js';
-import { trackEventRaw } from './pirsch.js';
+import { trackServerEvent } from './pirsch.js';
+import { isAnalyticsExcluded } from './analytics.js';
 
 const BILLING_CACHE = { 'Cache-Control': 'private, no-store' };
 
@@ -339,14 +340,10 @@ async function handleCheckoutCompleted(event, env, ctx) {
     await setBillingStatus(env.DB, tenant.id, 'active');
   }
 
-  ctx.waitUntil(
-    trackEventRaw(env, 'Payment Activated', {
-      url: 'https://api.webresourceledger.com/billing/webhook',
-    }, {
-      tenantId: tenant.id,
-      stripeCustomerId: customerId,
-    }, { property: 'api' }) ?? Promise.resolve()
-  );
+  // No tenant or Stripe ids in analytics (see src/analytics.js).
+  if (!isAnalyticsExcluded(env, tenant.id)) {
+    ctx.waitUntil(trackServerEvent(env, 'Payment Activated', { path: '/v1/billing/webhook' }) ?? Promise.resolve());
+  }
 
   ctx.waitUntil(log(env, 3, 'billing', {
     event: 'billing.checkout_completed',
