@@ -384,6 +384,19 @@ For request/response schemas, see `openapi.yaml`.
 
 `max_concurrency`: captures = 10, webhooks = 20, emails = 5. `max_batch_size = 1` on all queues to isolate failures per message.
 
+### Capture message lifecycle
+
+A capture job goes through `wrl-captures` like this (`handleCaptureMessage` in `src/index.js`, `performCapture` in `src/capture.js`):
+
+1. **Idempotency guard.** If the capture is already `complete`, `failed` or `quarantined` in D1, the message is acked and nothing else happens. Redeliveries are harmless.
+2. **Render and bundle.** `performCapture` renders the page, checks for a bot check (`classifyBotCheck`, phase 0121), builds the WACZ and requests the timestamps. On success it writes `complete`, increments usage and emits `capture.complete` analytics, webhooks and email. Usage is counted here only, never at enqueue (phase 0120).
+3. **Non-retryable failure** (`retryable: false`, e.g. bot check, invalid TLS, blank page, private address). `performCapture` has already written `failed` with the reason. The message is acked. No DLQ, no usage increment.
+4. **Retryable failure.** The reason of this attempt is stored in `captures.error` while the status stays `pending` (`recordAttemptError`; the API shows `error` only once a capture failed). The message is retried with exponential backoff: `min(10 * 2^(attempt-1), 300)` seconds, i.e. 10 s, 20 s, 40 s. `capture.retry` is logged with `retryReason`.
+5. **Retries exhausted.** After the fourth attempt (`max_retries = 3`, `CAPTURE_MAX_ATTEMPTS = 4`) the queue moves the message to `wrl-captures-dlq`. `handleDlqMessage` calls `failCaptureAfterRetries`, which keeps the last stored reason and adds "WRL tried 4 times.", then dispatches `capture.failed` webhooks and email and logs `capture.dlq`. The "[WRL] Captures Dead-Lettered" alert counts these (phase 0123).
+6. **Catastrophic error** (an exception escapes the handler, e.g. a D1 outage). The catch-all records the reason and retries with the same backoff; on the fourth attempt it fails the capture directly with `failCaptureAfterRetries` and logs `capture.fail`, which the "[WRL] Capture Failures" alert counts.
+
+Webhook and email deliveries work differently: they retry on a fixed schedule of 60 s, 300 s and 900 s (`webhookRetryDelay`, `emailRetryDelay`) and only for failures that may pass later (5xx, 429, network errors). Permanent answers (webhook 400/422, email 401/403) are acked without retry, and a webhook deleted after enqueue is acked silently. Once the schedule is exhausted the handler acks the message itself, so their DLQ handlers mostly see messages that crashed the consumer; they only log, the per-attempt `webhook.deliver_fail` / `email.*` events carry the history.
+
 ---
 
 ## Cron Triggers
