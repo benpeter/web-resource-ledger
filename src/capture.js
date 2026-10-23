@@ -83,7 +83,7 @@ import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
 
 const MAX_SUBRESOURCES = 500;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
-const MAX_PAGE_HEIGHT = 8000;
+export const MAX_PAGE_HEIGHT = 8000;
 const NAV_TIMEOUT_MS = 20000;
 const SETTLE_MAX_MS = 3000;
 const SETTLE_QUIESCENCE_MS = 500;
@@ -552,13 +552,7 @@ async function defaultRenderer(env, url, captureId) {
 
         await log(env, 3, 'capture', { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
         try {
-          // Cap viewport for tall pages
-          const pageHeight = await page.evaluate(() => document.body.scrollHeight);
-          if (pageHeight > MAX_PAGE_HEIGHT) {
-            await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
-          }
-
-          const screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: 90000 });
+          const { screenshot } = await takeCappedScreenshot(page);
           const tScreenshot = Date.now();
 
           if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
@@ -633,15 +627,12 @@ async function defaultRenderer(env, url, captureId) {
     const tScroll = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.lazy_load_complete', url, captureId, scrollMs });
 
-    // Cap screenshot height to prevent memory exhaustion
-    const pageHeight = await page.evaluate(() => document.body.scrollHeight);
-    if (pageHeight > MAX_PAGE_HEIGHT) {
-      await log(env, 3, 'capture', { event: 'render.default.viewport_capped', url, captureId, originalHeight: pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
-      await page.setViewportSize({ width: 1280, height: MAX_PAGE_HEIGHT });
-    }
-
     // Before-screenshot MUST be taken before injecting autoconsent
-    const screenshotBefore = await page.screenshot({ fullPage: true, type: 'png', timeout: 90000 });
+    const shotBefore = await takeCappedScreenshot(page);
+    const screenshotBefore = shotBefore.screenshot;
+    if (shotBefore.capped) {
+      await log(env, 3, 'capture', { event: 'render.default.screenshot_capped', url, captureId, originalHeight: shotBefore.pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
+    }
     const tPreConsent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
 
@@ -676,7 +667,7 @@ async function defaultRenderer(env, url, captureId) {
     let screenshot;
     const tookAfterScreenshot = consent.status === 'dismissed';
     if (tookAfterScreenshot) {
-      screenshot = await page.screenshot({ fullPage: true, type: 'png', timeout: 90000 });
+      ({ screenshot } = await takeCappedScreenshot(page));
     } else {
       screenshot = screenshotBefore;
     }
@@ -723,6 +714,31 @@ async function defaultRenderer(env, url, captureId) {
       log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
+}
+
+/**
+ * Full-page PNG screenshot limited to the top MAX_PAGE_HEIGHT pixels of the
+ * document. A fullPage screenshot ignores the viewport height, so resizing the
+ * viewport (the earlier approach) did not limit it, and pages taller than about
+ * 11,000 px failed with "Unable to capture screenshot". A clip measured against
+ * the document does limit it. The rendered HTML still holds the whole page.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @param {number} [timeout] - screenshot timeout in ms
+ * @returns {Promise<{ screenshot: Uint8Array, pageHeight: number, capped: boolean }>}
+ */
+export async function takeCappedScreenshot(page, timeout = 90000) {
+  const pageHeight = await page.evaluate(() => Math.max(
+    document.body?.scrollHeight ?? 0,
+    document.documentElement?.scrollHeight ?? 0,
+  ));
+  const capped = pageHeight > MAX_PAGE_HEIGHT;
+  const options = { fullPage: true, type: 'png', timeout };
+  if (capped) {
+    options.clip = { x: 0, y: 0, width: page.viewportSize()?.width ?? 1280, height: MAX_PAGE_HEIGHT };
+  }
+  const screenshot = await page.screenshot(options);
+  return { screenshot, pageHeight, capped };
 }
 
 /**
