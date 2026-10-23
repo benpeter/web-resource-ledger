@@ -356,6 +356,8 @@ export async function cleanDb(db) {
     db.prepare('DELETE FROM threat_checks'),
     db.prepare('DELETE FROM sessions'),
     db.prepare('DELETE FROM github_users'),
+    db.prepare('DELETE FROM email_users'),
+    db.prepare('DELETE FROM login_tokens'),
     db.prepare('DELETE FROM webhooks'),
     db.prepare('DELETE FROM usage_counters'),
     db.prepare('DELETE FROM captures'),
