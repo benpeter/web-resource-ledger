@@ -120,3 +120,55 @@ describe('submit_quotaMessage', () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// Bulk capture helpers (phase 0130)
+// ---------------------------------------------------------------------------
+
+describe('bulk_parseList -- pasted URL list', () => {
+  const bulk_parseList = (text) => evalFromSource(SUBMIT_VIEW_JS, 'bulk_parseList')(text);
+
+  it('normalises each line, drops blanks and duplicates', () => {
+    const r = bulk_parseList('https://example.com/a\n\nexample.com/b\nhttps://example.com/a\n  https://example.com/c  ');
+    expect(r.urls).toEqual(['https://example.com/a', 'https://example.com/b', 'https://example.com/c']);
+    expect(r.invalid).toEqual([]);
+    expect(r.capped).toBe(false);
+  });
+
+  it('reports lines that are not URLs', () => {
+    const r = bulk_parseList('https://example.com/a\nnot a url\nftp://example.com/x');
+    expect(r.urls).toEqual(['https://example.com/a']);
+    expect(r.invalid).toEqual(['not a url', 'ftp://example.com/x']);
+  });
+
+  it('keeps at most 200 URLs', () => {
+    const text = Array.from({ length: 250 }, (_, i) => `https://example.com/p${i}`).join('\n');
+    const r = bulk_parseList(text);
+    expect(r.urls).toHaveLength(200);
+    expect(r.capped).toBe(true);
+  });
+});
+
+describe('bulk_nextStep -- pacing batches by the rate-limit headers', () => {
+  const bulk_nextStep = (headers) => evalFromSource(SUBMIT_VIEW_JS, 'bulk_nextStep')(headers);
+  const h = (obj) => ({ get: (name) => (name in obj ? String(obj[name]) : null) });
+
+  it('sends the next batch at once while the minute has room', () => {
+    expect(bulk_nextStep(h({ 'X-RateLimit-Limit': 10, 'X-RateLimit-Remaining': 4, 'X-RateLimit-Reset': 30 })))
+      .toEqual({ chunk: 4, waitSeconds: 0 });
+  });
+
+  it('waits for the reset when the minute is used up, then sends a full batch', () => {
+    expect(bulk_nextStep(h({ 'X-RateLimit-Limit': 10, 'X-RateLimit-Remaining': 0, 'X-RateLimit-Reset': 42 })))
+      .toEqual({ chunk: 10, waitSeconds: 42 });
+  });
+
+  it('never sends more than 20, the batch maximum', () => {
+    expect(bulk_nextStep(h({ 'X-RateLimit-Limit': 50, 'X-RateLimit-Remaining': 50, 'X-RateLimit-Reset': 60 })))
+      .toEqual({ chunk: 20, waitSeconds: 0 });
+  });
+
+  it('falls back to 10 a minute when the headers are missing', () => {
+    expect(bulk_nextStep(h({}))).toEqual({ chunk: 10, waitSeconds: 0 });
+  });
+});
