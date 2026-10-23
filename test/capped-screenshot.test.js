@@ -8,7 +8,7 @@
  * document instead.
  */
 import { describe, it, expect } from 'vitest';
-import { takeCappedScreenshot, MAX_PAGE_HEIGHT } from '../src/capture.js';
+import { takeCappedScreenshot, MAX_PAGE_HEIGHT, DEVICE_SCALE_FACTOR } from '../src/capture.js';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 
@@ -74,5 +74,13 @@ describe('takeCappedScreenshot', () => {
     const page = fakePage({ bodyHeight: 100 });
     await takeCappedScreenshot(page, 30000);
     expect(page.calls.screenshot[0].timeout).toBe(30000);
+  });
+});
+
+describe('screenshot resolution (phase 0118)', () => {
+  it('renders at 2x device scale, so the largest screenshot is 2560 by 16000 pixels', () => {
+    expect(DEVICE_SCALE_FACTOR).toBe(2);
+    expect(1280 * DEVICE_SCALE_FACTOR).toBe(2560);
+    expect(MAX_PAGE_HEIGHT * DEVICE_SCALE_FACTOR).toBe(16000);
   });
 });
