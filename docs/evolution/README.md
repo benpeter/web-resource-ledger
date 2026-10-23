@@ -130,3 +130,4 @@ software development.
 | [0121-failure-reasons](0121-failure-reasons/) | Bot-check pages fail the capture instead of completing, and failed captures keep the reason of the last attempt everywhere |
 | [0122-landing-demo-capture](0122-landing-demo-capture/) | The landing hero links to a real capture that visitors can verify themselves |
 | [0123-dlq-alert](0123-dlq-alert/) | Alert on captures that land in the dead-letter queue, the normal path for permanent failures that no alert covered |
+| [0124-landing-https](0124-landing-https/) | Redirect plain HTTP to HTTPS on every host and send HSTS from the landing page; the old Transform Rule was already gone |

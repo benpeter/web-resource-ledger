@@ -228,7 +228,7 @@ sequenceDiagram
 
 ### 5.1 In Transit
 
-All traffic to and from `api.webresourceledger.com` and `staging.webresourceledger.com` terminates at Cloudflare's edge. Cloudflare negotiates TLS 1.2 or TLS 1.3 with clients and maintains TLS 1.3 to origin by default. WRL does not operate an origin server; Cloudflare Workers are the compute layer. Certificate management is handled by Cloudflare.
+All traffic to and from `api.webresourceledger.com` and `staging.webresourceledger.com` terminates at Cloudflare's edge. Cloudflare negotiates TLS 1.2 or TLS 1.3 with clients and maintains TLS 1.3 to origin by default. WRL does not operate an origin server; Cloudflare Workers are the compute layer. Certificate management is handled by Cloudflare. Plain-HTTP requests to any WRL host (`webresourceledger.com`, `docs.`, `api.`, `staging.`) are redirected to HTTPS, and every host sends a `Strict-Transport-Security` header.
 
 Traffic from the Worker to external services (GitHub, DigiCert, Sectigo, Google Web Risk, Coralogix, Resend, Stripe) uses TLS over standard HTTPS. Cloudflare's outbound fetch enforces TLS for all `https://` URLs.
 
