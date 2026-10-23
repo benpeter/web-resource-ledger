@@ -13,6 +13,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 ### Added
 
 - Support page in the docs: where to ask, what to include, and that no plan includes an SLA
+- Captures quarantined by threat detection are deleted 90 days after quarantine, and usage counters older than 12 billing periods are removed, as the data-retention page describes
 - Landing hero links to a real capture (Wikipedia's "Link rot" article) that visitors can verify without an account
 
 ### Privacy
@@ -36,6 +37,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 ### Fixed
 
 - Docs headings have ids, so links to a section (for example /limits/#why-captures-fail) open at that section
+- The weekly digest ran on Sundays (Cloudflare numbers weekdays from 1 = Sunday); it now runs on Mondays
+- Scheduled captures due at the weekly cron could run twice
 - Plain-HTTP requests to the landing page and docs were served without a redirect; every WRL host now redirects HTTP to HTTPS, and the landing page sends `Strict-Transport-Security` like docs and the API
 - Scheduled captures counted twice toward the monthly limit and the Stripe meter (once when queued, once when complete); they now count once, when complete
 - Captures of pages taller than 8,000 px no longer fail with "Unable to capture screenshot"; the screenshot covers the top 8,000 px and the HTML the whole page

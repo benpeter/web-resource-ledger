@@ -22,7 +22,8 @@ import { cleanDb } from './fixtures.js';
 function makeController(date) {
   return {
     scheduledTime: date.getTime(),
-    cron: '0 * * * *',
+    // Production reports meter events from the per-minute cron when the minute is 0.
+    cron: '*/1 * * * *',
     noRetry() {},
   };
 }
