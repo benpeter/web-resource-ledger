@@ -483,6 +483,124 @@ function handleSubmit(urlInput, submitBtn, formErrorEl) {
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Bulk capture (phase 0130): a pasted URL list or a sitemap, submitted in
+// batches paced by the per-minute rate limit the API reports.
+// ---------------------------------------------------------------------------
+
+var BULK_MAX_URLS = 200;
+var BULK_MAX_BATCH = 20;
+var BULK_DEFAULT_PER_MINUTE = 10;
+
+function bulk_parseList(text) {
+  var urls = [];
+  var invalid = [];
+  var seen = {};
+  var capped = false;
+  String(text || '').split(/\\r?\\n/).forEach(function(line) {
+    var raw = line.trim();
+    if (!raw) return;
+    var safe = safeUrl(raw);
+    if (!safe) { invalid.push(raw); return; }
+    if (seen[safe]) return;
+    seen[safe] = true;
+    if (urls.length >= BULK_MAX_URLS) { capped = true; return; }
+    urls.push(safe);
+  });
+  return { urls: urls, invalid: invalid, capped: capped };
+}
+
+// How many URLs to send next and how long to wait first, from the rate-limit
+// headers of the previous batch response.
+function bulk_nextStep(headers) {
+  var limit = parseInt(headers.get('X-RateLimit-Limit'), 10);
+  var remaining = parseInt(headers.get('X-RateLimit-Remaining'), 10);
+  var reset = parseInt(headers.get('X-RateLimit-Reset'), 10);
+  var perMinute = limit > 0 ? limit : BULK_DEFAULT_PER_MINUTE;
+  var full = Math.min(perMinute, BULK_MAX_BATCH);
+  if (isNaN(remaining)) return { chunk: full, waitSeconds: 0 };
+  if (remaining <= 0) return { chunk: full, waitSeconds: reset > 0 ? reset : 60 };
+  return { chunk: Math.min(remaining, BULK_MAX_BATCH), waitSeconds: 0 };
+}
+
+function bulk_run(urls, ui) {
+  var index = 0;
+  var accepted = 0;
+  var failed = [];
+  var stopped = false;
+  var timer = null;
+  var step = { chunk: Math.min(BULK_DEFAULT_PER_MINUTE, BULK_MAX_BATCH), waitSeconds: 0 };
+
+  function done(message) {
+    if (timer) { clearInterval(timer); timer = null; }
+    ui.finish(message, failed);
+  }
+
+  function wait(seconds, then) {
+    var left = seconds;
+    ui.status('Submitted ' + accepted + ' of ' + urls.length + '. Waiting ' + left + ' s for the rate limit...');
+    timer = setInterval(function() {
+      if (stopped) { clearInterval(timer); timer = null; return done('Stopped. ' + accepted + ' of ' + urls.length + ' submitted.'); }
+      left -= 1;
+      if (left <= 0) { clearInterval(timer); timer = null; then(); return; }
+      ui.status('Submitted ' + accepted + ' of ' + urls.length + '. Waiting ' + left + ' s for the rate limit...');
+    }, 1000);
+  }
+
+  function next() {
+    if (stopped) return done('Stopped. ' + accepted + ' of ' + urls.length + ' submitted.');
+    if (index >= urls.length) {
+      return done('Done: ' + accepted + ' of ' + urls.length + ' submitted' + (failed.length ? ', ' + failed.length + ' refused.' : '.'));
+    }
+    if (step.waitSeconds > 0) {
+      var w = step.waitSeconds;
+      step.waitSeconds = 0;
+      return wait(w, next);
+    }
+    var part = urls.slice(index, index + step.chunk);
+    ui.status('Submitting ' + (index + 1) + '-' + (index + part.length) + ' of ' + urls.length + '...');
+    apiFetch('/v1/captures/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls: part.map(function(u) { return { url: u }; }) }),
+    }).then(function(res) {
+      return res.json().catch(function() { return null; }).then(function(data) {
+        if (res.status === 429 && data && data.limitType === 'quota') {
+          return done(submit_quotaMessage(data) + ' ' + accepted + ' of ' + urls.length + ' submitted.');
+        }
+        if (res.status === 429) {
+          var retry = parseInt(res.headers.get('Retry-After'), 10) || 60;
+          return wait(retry, next);
+        }
+        if (res.status !== 207 && res.status !== 202 && res.status !== 200) {
+          var detail = (data && data.detail) ? truncate(data.detail, 200) : 'HTTP ' + res.status;
+          return done('Stopped: ' + detail + '. ' + accepted + ' of ' + urls.length + ' submitted.');
+        }
+        var quotaHit = null;
+        ((data && data.items) || []).forEach(function(item, i) {
+          if (item.status === 202 && item.id) {
+            prependPendingItem(item.id, item.url || part[i]);
+            accepted += 1;
+          } else {
+            if (item.status === 429 && item.limitType === 'quota') quotaHit = item;
+            failed.push((item.url || part[i]) + ': ' + (item.detail ? truncate(item.detail, 160) : 'HTTP ' + item.status));
+          }
+        });
+        index += part.length;
+        if (quotaHit) return done(submit_quotaMessage(quotaHit) + ' ' + accepted + ' of ' + urls.length + ' submitted.');
+        step = bulk_nextStep(res.headers);
+        next();
+      });
+    }).catch(function() {
+      done('Connection failed. ' + accepted + ' of ' + urls.length + ' submitted.');
+    });
+  }
+
+  ui.stop = function() { stopped = true; };
+  next();
+}
+
 // ---------------------------------------------------------------------------
 // renderCaptures() -- builds DOM for the combined view
 // ---------------------------------------------------------------------------
@@ -559,6 +677,141 @@ function renderCaptures() {
   form.appendChild(formErrorEl);
 
   formSection.appendChild(form);
+
+  // --- Bulk capture: a pasted list or a sitemap ---
+  var bulk = document.createElement('details');
+  bulk.className = 'bulk-capture';
+  var bulkSummary = document.createElement('summary');
+  bulkSummary.textContent = 'Capture a list of URLs or a sitemap';
+  bulk.appendChild(bulkSummary);
+
+  var bulkLabel = document.createElement('label');
+  bulkLabel.htmlFor = 'bulk-urls';
+  bulkLabel.className = 'bulk-capture__label';
+  bulkLabel.textContent = 'URLs, one per line (up to 200)';
+  bulk.appendChild(bulkLabel);
+
+  var bulkText = document.createElement('textarea');
+  bulkText.id = 'bulk-urls';
+  bulkText.className = 'input bulk-capture__list';
+  bulkText.rows = 8;
+  bulkText.placeholder = 'https://example.com/\\nhttps://example.com/about';
+  bulk.appendChild(bulkText);
+
+  var sitemapRow = document.createElement('div');
+  sitemapRow.className = 'capture-form-row bulk-capture__sitemap';
+  var sitemapInput = document.createElement('input');
+  sitemapInput.type = 'url';
+  sitemapInput.className = 'input';
+  sitemapInput.placeholder = 'https://example.com/sitemap.xml';
+  sitemapInput.setAttribute('aria-label', 'Sitemap URL');
+  sitemapRow.appendChild(sitemapInput);
+  var sitemapBtn = document.createElement('button');
+  sitemapBtn.type = 'button';
+  sitemapBtn.className = 'btn btn--ghost';
+  sitemapBtn.textContent = 'Load sitemap';
+  sitemapRow.appendChild(sitemapBtn);
+  bulk.appendChild(sitemapRow);
+
+  var bulkHint = document.createElement('p');
+  bulkHint.className = 'bulk-capture__hint';
+  bulkHint.textContent = 'URLs are submitted at your rate limit (10 captures a minute unless raised), so keep this page open until they are all submitted. Each accepted URL counts against your monthly captures.';
+  bulk.appendChild(bulkHint);
+
+  var bulkActions = document.createElement('div');
+  bulkActions.className = 'bulk-capture__actions';
+  var bulkStart = document.createElement('button');
+  bulkStart.type = 'button';
+  bulkStart.className = 'btn btn--primary';
+  bulkStart.textContent = 'Capture all';
+  bulkActions.appendChild(bulkStart);
+  var bulkStop = document.createElement('button');
+  bulkStop.type = 'button';
+  bulkStop.className = 'btn btn--ghost';
+  bulkStop.textContent = 'Stop';
+  bulkStop.style.display = 'none';
+  bulkActions.appendChild(bulkStop);
+  bulk.appendChild(bulkActions);
+
+  var bulkStatus = document.createElement('p');
+  bulkStatus.className = 'bulk-capture__status';
+  bulkStatus.setAttribute('role', 'status');
+  bulkStatus.setAttribute('aria-live', 'polite');
+  bulk.appendChild(bulkStatus);
+
+  var bulkErrors = document.createElement('ul');
+  bulkErrors.className = 'bulk-capture__errors';
+  bulk.appendChild(bulkErrors);
+
+  function bulkShowErrors(lines) {
+    // Safe: textContent only
+    bulkErrors.innerHTML = '';
+    lines.slice(0, 50).forEach(function(line) {
+      var li = document.createElement('li');
+      li.textContent = line;
+      bulkErrors.appendChild(li);
+    });
+    if (lines.length > 50) {
+      var more = document.createElement('li');
+      more.textContent = '... and ' + (lines.length - 50) + ' more';
+      bulkErrors.appendChild(more);
+    }
+  }
+
+  sitemapBtn.addEventListener('click', function() {
+    var sitemapUrl = safeUrl(sitemapInput.value.trim());
+    if (!sitemapUrl) { bulkStatus.textContent = 'Enter the sitemap URL, for example https://example.com/sitemap.xml.'; return; }
+    sitemapBtn.disabled = true;
+    bulkStatus.textContent = 'Reading the sitemap...';
+    apiFetch('/v1/sitemap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: sitemapUrl }),
+    }).then(function(res) {
+      return res.json().catch(function() { return null; }).then(function(data) {
+        sitemapBtn.disabled = false;
+        if (!res.ok || !data || !Array.isArray(data.urls)) {
+          bulkStatus.textContent = (data && data.detail) ? truncate(data.detail, 200) : 'Could not read the sitemap (HTTP ' + res.status + ').';
+          return;
+        }
+        bulkText.value = data.urls.join('\\n');
+        bulkStatus.textContent = data.truncated
+          ? 'Loaded the first ' + data.urls.length + ' of ' + data.total + ' URLs. Remove the ones you do not need, then capture.'
+          : 'Loaded ' + data.urls.length + ' URLs. Remove the ones you do not need, then capture.';
+      });
+    }).catch(function() {
+      sitemapBtn.disabled = false;
+      bulkStatus.textContent = 'Connection failed.';
+    });
+  });
+
+  var bulkUi = null;
+  bulkStart.addEventListener('click', function() {
+    var parsed = bulk_parseList(bulkText.value);
+    bulkShowErrors(parsed.invalid.map(function(line) { return 'Not a URL: ' + line; }));
+    if (parsed.urls.length === 0) { bulkStatus.textContent = 'Paste at least one URL, or load a sitemap.'; return; }
+    bulkStart.disabled = true;
+    sitemapBtn.disabled = true;
+    bulkStop.style.display = '';
+    bulkUi = {
+      status: function(text) { bulkStatus.textContent = text; },
+      finish: function(text, failed) {
+        bulkStatus.textContent = text + (parsed.capped ? ' Only the first 200 URLs were used.' : '');
+        bulkShowErrors(parsed.invalid.map(function(line) { return 'Not a URL: ' + line; }).concat(failed));
+        bulkStart.disabled = false;
+        sitemapBtn.disabled = false;
+        bulkStop.style.display = 'none';
+        announce(text);
+      },
+    };
+    bulk_run(parsed.urls, bulkUi);
+  });
+  bulkStop.addEventListener('click', function() {
+    if (bulkUi && bulkUi.stop) bulkUi.stop();
+    bulkStatus.textContent = 'Stopping after the current batch...';
+  });
+
+  formSection.appendChild(bulk);
   view.appendChild(formSection);
 
   // --- List section ---

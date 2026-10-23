@@ -99,7 +99,7 @@ describe('MCP protocol -- initialize', () => {
 });
 
 describe('MCP protocol -- tools/list', () => {
-  it('lists all 11 WRL tools', async () => {
+  it('lists all 12 WRL tools', async () => {
     const res = await mcpPost({
       jsonrpc: '2.0',
       id: 1,
@@ -126,7 +126,8 @@ describe('MCP protocol -- tools/list', () => {
     expect(names).toContain('create_schedule');
     expect(names).toContain('delete_schedule');
     expect(names).toContain('get_certificate');
-    expect(tools).toHaveLength(11);
+    expect(names).toContain('read_sitemap');
+    expect(tools).toHaveLength(12);
   });
 
   it('each tool has a name, description, and inputSchema', async () => {

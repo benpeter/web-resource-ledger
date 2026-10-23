@@ -121,6 +121,7 @@ Configure your client with:
 |------|-------------|-------|
 | `capture_url` | Capture a web page as evidence | `capture` |
 | `batch_capture` | Capture multiple URLs at once | `capture` |
+| `read_sitemap` | List the page URLs in a sitemap | `capture` |
 | `get_capture` | Get capture status and details | `read` |
 | `list_captures` | List captures with filters | `read` |
 | `verify_capture` | Verify capture integrity | `read` |
@@ -159,7 +160,7 @@ Status URL: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9
 
 #### `batch_capture`
 
-Submit up to 20 URLs for capture in a single call. Returns a per-item status report showing accepted captures and any rejected URLs with reasons. Rate limiting charges one slot per URL, not one slot for the batch. Use `get_capture` with each returned ID to track progress.
+Submit up to 20 URLs for capture in a single call. Returns a per-item status report showing accepted captures and any rejected URLs with reasons. Rate limiting charges one slot per URL, not one slot for the batch, so with the default limit of 10 captures a minute a call with more than 10 URLs is refused. Use `get_capture` with each returned ID to track progress.
 
 **Requires:** `capture` scope
 
@@ -177,6 +178,29 @@ Submit up to 20 URLs for capture in a single call. Returns a per-item status rep
   [accepted] cap_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8 -- https://example.com/other
 
 Use get_capture with each capture ID to check progress.
+```
+
+---
+
+#### `read_sitemap`
+
+Read a sitemap, or a sitemap index and up to 10 of its child sitemaps, and return up to 200 page URLs without duplicates. Nothing is captured. Pass the URLs to `batch_capture` in groups no larger than your per-minute rate limit. Private addresses, compressed (`.xml.gz`) sitemaps and sitemaps larger than 5 MB are refused. 10 reads per minute.
+
+**Requires:** `capture` scope
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | string | yes | URL of the sitemap, for example `https://example.com/sitemap.xml` |
+
+**Example output:**
+
+```
+Found 3 page URLs in 1 sitemap file.
+Returning all 3.
+
+https://example.com/
+https://example.com/about
+https://example.com/contact
 ```
 
 ---
@@ -504,7 +528,7 @@ All four checks passing confirms: the screenshot, HTML, and HTTP headers match w
 
 ### "Insufficient scope: API key does not grant 'capture' scope"
 
-Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `list_schedules`, `create_schedule`, and `delete_schedule` require `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
+Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `read_sitemap`, `list_schedules`, `create_schedule`, and `delete_schedule` require `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
 
 ### "Rate limit exceeded. Try again in 60 seconds."
 

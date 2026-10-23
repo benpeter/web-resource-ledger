@@ -12,6 +12,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- `POST /v1/sitemap` and MCP tool `read_sitemap`: read up to 200 page URLs from a sitemap or sitemap index
+- Dashboard: capture a pasted list of URLs or a sitemap, submitted at the tenant's rate limit
 - Support page in the docs: where to ask, what to include, and that no plan includes an SLA
 - Captures quarantined by threat detection are deleted 90 days after quarantine, and usage counters older than 12 billing periods are removed, as the data-retention page describes
 - Landing hero links to a real capture (Wikipedia's "Link rot" article) that visitors can verify without an account

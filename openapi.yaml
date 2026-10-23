@@ -2763,6 +2763,104 @@ paths:
                   summary: Service is at capacity
                   value: {type: about:blank, status: 503, title: Service Unavailable, detail: Service is at capacity. Retry in 10 seconds.}
 
+  /v1/sitemap:
+    post:
+      operationId: readSitemap
+      summary: Read a sitemap's page URLs
+      description: >
+        Fetches a sitemap (or a sitemap index and up to 10 of its child
+        sitemaps) and returns up to 200 page URLs, without duplicates. Nothing
+        is captured; pass the URLs to `POST /v1/captures/batch` to capture
+        them. Every fetch, including redirects, goes through the same URL
+        checks as captures, so private addresses are refused. Compressed
+        (`.xml.gz`) sitemaps and sitemaps larger than 5 MB are not supported.
+        Rate limit: 10 requests per minute per account.
+      tags: [captures]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: URL of the sitemap or sitemap index.
+            examples:
+              sitemap:
+                summary: Read a site's sitemap
+                value:
+                  url: https://example.com/sitemap.xml
+      responses:
+        '200':
+          description: The sitemap's page URLs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [urls, total, truncated, sitemapsRead]
+                properties:
+                  urls:
+                    type: array
+                    maxItems: 200
+                    items:
+                      type: string
+                      format: uri
+                  total:
+                    type: integer
+                    description: Distinct page URLs found in the sitemaps that were read.
+                  truncated:
+                    type: boolean
+                    description: True when more URLs were found than returned, or child sitemaps were left unread.
+                  sitemapsRead:
+                    type: integer
+                    description: Sitemap files fetched, the index included.
+              examples:
+                urls:
+                  value:
+                    urls:
+                      - https://example.com/
+                      - https://example.com/about
+                    total: 2
+                    truncated: false
+                    sitemapsRead: 1
+        '400':
+          description: Missing `url`, or the URL was refused (for example a private address).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Missing or invalid credentials.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '422':
+          description: The URL is not a sitemap, is compressed, or is larger than 5 MB.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '429':
+          description: More than 10 sitemap reads in a minute.
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/RetryAfter'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '502':
+          description: The sitemap could not be fetched, answered with an error, or redirected too often.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   /v1/captures/{captureId}/status:
     get:
       operationId: getCaptureStatus
