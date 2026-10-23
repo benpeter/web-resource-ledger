@@ -298,24 +298,14 @@ A Coralogix MCP server is configured in `~/.claude.json` but may not always
 connect. When it's available, use `mcp__coralogix__query_logs` with DataPrime.
 Fall back to the curl approach above when the MCP server is unavailable.
 
-### Auto-investigation results
-
-Coralogix alerts trigger an automated investigation via GitHub Actions + Claude
-Code. Before manually investigating, check if an auto-investigation already ran:
-
-```bash
-gh issue list --label auto-investigated --state open --limit 5
-```
-
-If an issue exists, read its findings before re-investigating.
-
 ### Investigate an alert manually
 
-1. Identify alert type from email (`capture.fail`, `capture.tsa_fail`, `security.auth_fail`, 5xx)
-2. Query Coralogix for the relevant subsystem and event type
-3. Check if it auto-resolved (auth_fail threshold is low — 3 in 15 min)
-4. For capture failures, check D1 for failed captures (see above)
-5. For auth failures, check if it's a bot scan (single IP, automated user-agent)
+1. Identify alert type from email (`capture.dlq`, `capture.fail`, `capture.tsa_fail`, `security.auth_fail`, 5xx)
+2. Open the alert's runbook in `docs/operations/runbooks/` (one per alert)
+3. Query Coralogix for the relevant subsystem and event type
+4. Check if it auto-resolved (auth_fail fires above 10 failures with a credential in 15 min)
+5. For capture failures, check D1 for failed captures (see above); the `error` column holds the reason the user saw
+6. For auth failures, check if it's a bot scan (single IP, automated user-agent)
 
 ---
 
