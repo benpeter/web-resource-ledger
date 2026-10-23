@@ -352,6 +352,8 @@ export async function seedWebhook(db, id, {
  */
 export async function cleanDb(db) {
   await db.batch([
+    // threat_checks references captures, so it goes first.
+    db.prepare('DELETE FROM threat_checks'),
     db.prepare('DELETE FROM sessions'),
     db.prepare('DELETE FROM github_users'),
     db.prepare('DELETE FROM webhooks'),

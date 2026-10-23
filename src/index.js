@@ -455,6 +455,10 @@ async function handleDlqMessage(msg, env, ctx) {
 // Worker default export
 // ---------------------------------------------------------------------------
 
+// Cron expressions from wrangler.toml [triggers].
+export const MINUTE_CRON = '*/1 * * * *';
+export const WEEKLY_CRON = '0 9 * * 1';
+
 export default {
   async scheduled(controller, env, ctx) {
     if (env.RESCAN_CRON && controller.cron === env.RESCAN_CRON) {
