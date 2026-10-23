@@ -126,3 +126,4 @@ software development.
 | [0117-tall-page-screenshots](0117-tall-page-screenshots/) | Pages taller than 8000 px failed every capture; the screenshot is now clipped to the top 8000 px instead |
 | [0118-screenshot-scale-2x](0118-screenshot-scale-2x/) | Screenshots render at 2x device scale instead of 4x, about a quarter of the size |
 | [0119-pirsch-log-await](0119-pirsch-log-await/) | Pirsch rejection logs and six other failure logs can no longer be dropped when a Worker ends |
+| [0120-scheduled-double-count](0120-scheduled-double-count/) | Scheduled captures count once, when they complete, instead of twice |

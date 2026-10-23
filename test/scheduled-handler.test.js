@@ -13,7 +13,7 @@
 // Messages are enqueued but not consumed (consumers are omitted from
 // wrangler.test.toml to prevent auto-processing).
 
-import { env, createExecutionContext } from 'cloudflare:test';
+import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../src/index.js';
 import { seedSchedule, seedApiKey, cleanDb, TEST_TENANT_KEY } from './fixtures.js';
@@ -202,5 +202,35 @@ describe('scheduled handler -- paused schedule', () => {
     // next_run_at should remain unchanged (paused schedules are not queried by getDueSchedules)
     const schedule = await env.DB.prepare('SELECT next_run_at FROM schedules WHERE id = ?').bind(SCHEDULE_B).first();
     expect(schedule.next_run_at).toBe(pastTime);
+  });
+});
+
+
+describe('scheduled handler -- usage counting (phase 0120)', () => {
+  it('does not add to the capture counter when it queues a capture; completion counts it once', async () => {
+    // The queue consumer adds 1 when a capture completes. The scheduler used to add
+    // 1 more when it queued the capture, so every scheduled capture counted twice
+    // (the founder tenant: 100 completed scheduled captures a month, counter 200).
+    const pastTime = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    await seedSchedule(env.DB, SCHEDULE_A, {
+      tenantId: 'default',
+      url: 'https://example.com/counted-once',
+      cron: '0 * * * *',
+      nextRunAt: pastTime,
+    });
+
+    const ctx = createExecutionContext();
+    await worker.scheduled(makeController(Date.now()), env, ctx);
+    await waitOnExecutionContext(ctx);
+    // The old increment was not tied to ctx; give a stray write time to land.
+    await new Promise((r) => setTimeout(r, 50));
+
+    const captures = await env.DB.prepare('SELECT id FROM captures WHERE schedule_id = ?').bind(SCHEDULE_A).all();
+    expect(captures.results.length).toBe(1);
+
+    const usage = await env.DB.prepare(
+      'SELECT capture_count FROM usage_counters WHERE tenant_id = ? AND period = ?',
+    ).bind('default', computePeriod()).first();
+    expect(usage?.capture_count ?? 0).toBe(0);
   });
 });
