@@ -26,6 +26,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Captures of pages taller than 8,000 px no longer fail with "Unable to capture screenshot"; the screenshot covers the top 8,000 px and the HTML the whole page
+
 - Reaching the free storage limit now sends the `limit_reached` email with a storage variant; before, only the capture limit did
 - Scheduled captures skipped because the free limit is reached now send the `limit_reached` email instead of skipping silently
 - Dashboard capture form names the limit that was hit (captures or storage), shows the reset date, and points free tenants to adding a payment method

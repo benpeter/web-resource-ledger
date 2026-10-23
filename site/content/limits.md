@@ -132,6 +132,10 @@ When you receive a rate-limit `429`, wait the number of seconds in `Retry-After`
 
 ---
 
+## Screenshot Size
+
+Screenshots are 1,280 pixels wide and cover the top 8,000 pixels of a page. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
+
 ## Custom Quotas (Operators)
 
 Operators can override the default tier quotas for individual tenants via the admin API. This is useful for granting higher limits to enterprise tenants or restricting a specific tenant below the tier default.
