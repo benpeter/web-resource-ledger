@@ -47,3 +47,57 @@ describe('landing Worker -- HTTPS', () => {
     expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
   });
 });
+
+describe('E2E webhook echo target (phase 0127)', () => {
+  // The staging E2E suite registers webhooks pointing here instead of httpbin.org.
+  async function send(url, init) {
+    const ctx = createExecutionContext();
+    let assetsCalled = false;
+    const env = { ASSETS: { fetch: async () => { assetsCalled = true; return new Response('asset'); } } };
+    const res = await landing.fetch(new Request(url, init), env, ctx);
+    await waitOnExecutionContext(ctx);
+    return { res, assetsCalled };
+  }
+
+  it('answers a POST to /__e2e/echo with 200 and does not touch the static assets', async () => {
+    const { res, assetsCalled } = await send('https://webresourceledger.com/__e2e/echo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'ping' }),
+    });
+    expect(res.status).toBe(200);
+    expect(assetsCalled).toBe(false);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.bytes).toBe(16);
+  });
+
+  it('does not reflect the request body or headers back', async () => {
+    const { res } = await send('https://webresourceledger.com/__e2e/echo', {
+      method: 'POST',
+      headers: { 'X-WRL-Signature': 'sig-value' },
+      body: '<script>alert(1)</script>',
+    });
+    const text = await res.text();
+    expect(text).not.toContain('script');
+    expect(text).not.toContain('sig-value');
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+  });
+
+  it('answers /__e2e/status/503 with 503 for the delivery-failure test', async () => {
+    const { res } = await send('https://webresourceledger.com/__e2e/status/503', { method: 'POST', body: '{}' });
+    expect(res.status).toBe(503);
+  });
+
+  it('only allows status codes 200 to 599 and is not indexed', async () => {
+    expect((await send('https://webresourceledger.com/__e2e/status/42', { method: 'POST' })).res.status).toBe(400);
+    expect((await send('https://webresourceledger.com/__e2e/status/abc', { method: 'POST' })).res.status).toBe(404);
+    const { res } = await send('https://webresourceledger.com/__e2e/echo', { method: 'POST' });
+    expect(res.headers.get('X-Robots-Tag')).toBe('noindex');
+  });
+
+  it('rejects GET on the echo path, so it is not a page', async () => {
+    const { res } = await send('https://webresourceledger.com/__e2e/echo', { method: 'GET' });
+    expect(res.status).toBe(405);
+  });
+});
