@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- Support page in the docs: where to ask, what to include, and that no plan includes an SLA
 - Landing hero links to a real capture (Wikipedia's "Link rot" article) that visitors can verify without an account
 
 ### Privacy
@@ -24,6 +25,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Changed
 
+- Data, deletion, refund and takedown requests go to hello@webresourceledger.com instead of a personal address
 - Free tier storage limit raised from 1 GB to 10 GB per month, so the 200 free captures fit at up to 50 MB each
 - `429` for a free tenant at the storage limit now states storage used and limit and says to add a payment method
 - The first API key shown after signup is kept for 24 hours instead of 1 hour; it is still shown once
@@ -33,6 +35,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Docs headings have ids, so links to a section (for example /limits/#why-captures-fail) open at that section
 - Plain-HTTP requests to the landing page and docs were served without a redirect; every WRL host now redirects HTTP to HTTPS, and the landing page sends `Strict-Transport-Security` like docs and the API
 - Scheduled captures counted twice toward the monthly limit and the Stripe meter (once when queued, once when complete); they now count once, when complete
 - Captures of pages taller than 8,000 px no longer fail with "Unable to capture screenshot"; the screenshot covers the top 8,000 px and the HTML the whole page

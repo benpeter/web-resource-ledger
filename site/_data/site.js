@@ -13,6 +13,7 @@ export default {
         { title: "Legal Evidence", url: "/legal-evidence/" },
         { title: "Batch Captures", url: "/batch/" },
         { title: "Schedules", url: "/schedules/" },
+        { title: "Support", url: "/support/" },
       ],
     },
     {

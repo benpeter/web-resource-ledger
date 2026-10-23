@@ -124,7 +124,7 @@ WRL, as Processor, commits to the following:
 
 **Sub-processor management.** WRL will not engage new sub-processors without prior notice to the Customer in accordance with Section 8.
 
-**Cooperation with data subject rights.** WRL will assist the Customer, insofar as technically possible, in fulfilling the Customer's obligations to respond to requests from data subjects exercising their rights under GDPR Chapter III. Requests should be directed to [bp@ben-peter.com](mailto:bp@ben-peter.com).
+**Cooperation with data subject rights.** WRL will assist the Customer, insofar as technically possible, in fulfilling the Customer's obligations to respond to requests from data subjects exercising their rights under GDPR Chapter III. Requests should be directed to [hello@webresourceledger.com](mailto:hello@webresourceledger.com).
 
 **Cooperation with supervisory authorities.** WRL will cooperate with supervisory authorities in the performance of their tasks, and will notify the Customer promptly of any supervisory authority inquiry or investigation relating to the processing performed under this DPA.
 

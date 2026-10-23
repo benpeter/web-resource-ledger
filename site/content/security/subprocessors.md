@@ -14,7 +14,7 @@ Last updated: 2026-03-27
 
 WRL will notify account contacts by email at least 30 days before adding a new subprocessor that receives personal data. Changes that reduce the scope of data shared (for example, removing a subprocessor) take effect immediately and are reflected here on the same day.
 
-If you object to a planned addition, contact [bp@ben-peter.com](mailto:bp@ben-peter.com) before the 30-day notice period expires.
+If you object to a planned addition, contact [hello@webresourceledger.com](mailto:hello@webresourceledger.com) before the 30-day notice period expires.
 
 ---
 
