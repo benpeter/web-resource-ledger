@@ -10,11 +10,9 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-- Captures of a Cloudflare bot check ("Just a moment...") now fail with a message instead of completing; they aren't counted against the quota and no timestamp is spent on them
-- Failed captures keep the reason of the last attempt, followed by "WRL tried 4 times.", instead of "Capture permanently failed after all retry attempts", in the API, webhooks, failure emails and the dashboard
-- Screenshots render at 2x device scale instead of 4x, so the largest is 2,560 by 16,000 pixels and screenshots take about a quarter of the space
+- Landing hero links to a real capture (Wikipedia's "Link rot" article) that visitors can verify without an account
 
 ### Privacy
 
@@ -29,6 +27,9 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - Free tier storage limit raised from 1 GB to 10 GB per month, so the 200 free captures fit at up to 50 MB each
 - `429` for a free tenant at the storage limit now states storage used and limit and says to add a payment method
 - The first API key shown after signup is kept for 24 hours instead of 1 hour; it is still shown once
+- Captures of a Cloudflare bot check ("Just a moment...") now fail with a message instead of completing; they aren't counted against the quota and no timestamp is spent on them
+- Failed captures keep the reason of the last attempt, followed by "WRL tried 4 times.", instead of "Capture permanently failed after all retry attempts", in the API, webhooks, failure emails and the dashboard
+- Screenshots render at 2x device scale instead of 4x, so the largest is 2,560 by 16,000 pixels and screenshots take about a quarter of the space
 
 ### Fixed
 
