@@ -124,3 +124,4 @@ software development.
 | [0115-findable-capture-form](0115-findable-capture-form/) | Docs and landing say you can capture from the browser; Getting Started polls the status endpoint instead of a record that answers 404 while pending |
 | [0116-use-case-pages](0116-use-case-pages/) | Docs pages for preserving a site, compliance surveys and seller or listing evidence; batch docs say 20 URLs, as production allows |
 | [0117-tall-page-screenshots](0117-tall-page-screenshots/) | Pages taller than 8000 px failed every capture; the screenshot is now clipped to the top 8000 px instead |
+| [0118-screenshot-scale-2x](0118-screenshot-scale-2x/) | Screenshots render at 2x device scale instead of 4x, about a quarter of the size |

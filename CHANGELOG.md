@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Changed
+
+- Screenshots render at 2x device scale instead of 4x, so the largest is 2,560 by 16,000 pixels and screenshots take about a quarter of the space
+
 ### Privacy
 
 - Analytics events (signup, captures, schedules, payment activation) no longer include tenant, capture or Stripe ids; the privacy policy says so

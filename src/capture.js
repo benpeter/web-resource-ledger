@@ -84,6 +84,9 @@ import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
 const MAX_SUBRESOURCES = 500;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 export const MAX_PAGE_HEIGHT = 8000;
+// Screenshot resolution relative to CSS pixels. 4 until phase 0118 (2026-10-23);
+// 2 keeps text sharp and makes screenshots, most of a capture's size, about 4x smaller.
+export const DEVICE_SCALE_FACTOR = 2;
 const NAV_TIMEOUT_MS = 20000;
 const SETTLE_MAX_MS = 3000;
 const SETTLE_QUIESCENCE_MS = 500;
@@ -457,7 +460,7 @@ async function defaultRenderer(env, url, captureId) {
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
-    deviceScaleFactor: 4,
+    deviceScaleFactor: DEVICE_SCALE_FACTOR,
     serviceWorkers: 'block',
   });
 
