@@ -986,10 +986,127 @@ export async function acceptTos(db, githubId, tosVersion) {
  * @param {{ idHash: string, githubId: number, tenantId: string, expiresAt: string }} params
  * @returns {Promise<void>}
  */
-export async function createSession(db, { idHash, githubId, tenantId, expiresAt }) {
+export async function createSession(db, { idHash, githubId = null, email = null, tenantId, expiresAt }) {
   await db.prepare(
-    `INSERT INTO sessions (id_hash, github_id, tenant_id, expires_at) VALUES (?, ?, ?, ?)`,
-  ).bind(idHash, githubId, tenantId, expiresAt).run();
+    `INSERT INTO sessions (id_hash, github_id, email, tenant_id, expires_at) VALUES (?, ?, ?, ?, ?)`,
+  ).bind(idHash, githubId, email, tenantId, expiresAt).run();
+}
+
+// ---------------------------------------------------------------------------
+// Email sign-in (phase 0131)
+// ---------------------------------------------------------------------------
+
+/**
+ * Store a sign-in link token (only its SHA-256 hex hash).
+ *
+ * @param {D1Database} db
+ * @param {{ tokenHash: string, email: string, source?: string|null, expiresAt: string }} record
+ */
+export async function createLoginToken(db, { tokenHash, email, source = null, expiresAt }) {
+  await db.prepare(
+    `INSERT INTO login_tokens (token_hash, email, source, expires_at) VALUES (?, ?, ?, ?)`,
+  ).bind(tokenHash, email, source, expiresAt).run();
+}
+
+/**
+ * Use a sign-in token. Succeeds once per token and only before it expires;
+ * the single UPDATE makes two concurrent uses impossible.
+ *
+ * @param {D1Database} db
+ * @param {string} tokenHash
+ * @returns {Promise<{ email: string, source: string|null } | null>}
+ */
+export async function consumeLoginToken(db, tokenHash) {
+  const now = new Date().toISOString();
+  const row = await db.prepare(
+    `UPDATE login_tokens SET used_at = ?
+     WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?
+     RETURNING email, source`,
+  ).bind(now, tokenHash, now).first();
+  return row ? { email: row.email, source: row.source ?? null } : null;
+}
+
+/**
+ * Delete sign-in tokens that expired more than a day ago.
+ *
+ * @param {D1Database} db
+ */
+export async function deleteExpiredLoginTokens(db) {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  await db.prepare('DELETE FROM login_tokens WHERE expires_at < ?').bind(cutoff).run();
+}
+
+/**
+ * @param {D1Database} db
+ * @param {string} email  lower-cased
+ * @returns {Promise<{ email: string, tenantId: string, tosAcceptedAt: string|null, tosVersion: string|null } | null>}
+ */
+export async function findEmailUser(db, email) {
+  const row = await db.prepare('SELECT * FROM email_users WHERE email = ?').bind(email).first();
+  if (!row) return null;
+  return {
+    email: row.email,
+    tenantId: row.tenant_id,
+    tosAcceptedAt: row.tos_accepted_at ?? null,
+    tosVersion: row.tos_version ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Create an email user for a tenant, creating the tenant row if needed.
+ *
+ * @param {D1Database} db
+ * @param {{ email: string, tenantId: string }} record
+ */
+export async function createEmailUser(db, { email, tenantId }) {
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
+    db.prepare(
+      `INSERT INTO email_users (email, tenant_id, created_at, last_login_at) VALUES (?, ?, ?, ?)`,
+    ).bind(email, tenantId, now, now),
+  ]);
+}
+
+/**
+ * @param {D1Database} db
+ * @param {string} email
+ */
+export async function touchEmailUserLogin(db, email) {
+  await db.prepare('UPDATE email_users SET last_login_at = ? WHERE email = ?')
+    .bind(new Date().toISOString(), email).run();
+}
+
+/**
+ * The tenant whose verified notification email is this address, if exactly one
+ * tenant has it. Used to sign an email user into an existing account.
+ *
+ * @param {D1Database} db
+ * @param {string} email  lower-cased
+ * @returns {Promise<string|null>}
+ */
+export async function findTenantByVerifiedEmail(db, email) {
+  const { results } = await db.prepare(
+    `SELECT tenant_id FROM notification_preferences
+     WHERE lower(email) = ? AND email_verified = 1
+     LIMIT 2`,
+  ).bind(email).all();
+  return results.length === 1 ? results[0].tenant_id : null;
+}
+
+/**
+ * Record ToS acceptance for an email user (first acceptance wins).
+ *
+ * @param {D1Database} db
+ * @param {string} email
+ * @param {string} tosVersion
+ */
+export async function acceptTosEmail(db, email, tosVersion) {
+  await db.prepare(
+    `UPDATE email_users SET tos_accepted_at = ?, tos_version = ?
+     WHERE email = ? AND tos_accepted_at IS NULL`,
+  ).bind(new Date().toISOString(), tosVersion, email).run();
 }
 
 // ---------------------------------------------------------------------------
@@ -1529,19 +1646,22 @@ export async function clearPendingEmail(db, tenantId) {
  *   createdAt: string, expiresAt: string } | null>}
  */
 export async function getSession(db, idHash) {
+  // A session belongs to a GitHub user or an email user (migration 0018).
   const row = await db.prepare(
-    `SELECT s.id_hash, s.github_id, s.tenant_id, s.created_at, s.expires_at,
-            u.github_login, u.tos_accepted_at
+    `SELECT s.id_hash, s.github_id, s.email, s.tenant_id, s.created_at, s.expires_at,
+            u.github_login, COALESCE(u.tos_accepted_at, e.tos_accepted_at) AS tos_accepted_at
      FROM sessions s
-     JOIN github_users u ON s.github_id = u.github_id
-     WHERE s.id_hash = ?`,
+     LEFT JOIN github_users u ON s.github_id = u.github_id
+     LEFT JOIN email_users e ON s.email = e.email
+     WHERE s.id_hash = ? AND (u.github_id IS NOT NULL OR e.email IS NOT NULL)`,
   ).bind(idHash).first();
   if (!row) return null;
   return {
     idHash: row.id_hash,
-    githubId: row.github_id,
+    githubId: row.github_id ?? null,
+    email: row.email ?? null,
     tenantId: row.tenant_id,
-    githubLogin: row.github_login,
+    githubLogin: row.github_login ?? null,
     tosAcceptedAt: row.tos_accepted_at ?? null,
     createdAt: row.created_at,
     expiresAt: row.expires_at,

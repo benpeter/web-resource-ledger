@@ -16,7 +16,7 @@ var FETCH_TIMEOUT_MS = 10000;
 
 // Auth state -- set during boot
 var _authMethod = null; // 'session' | 'apikey'
-var _wrlUser = null;    // { githubLogin, tenantId, tosAcceptedAt, githubId }
+var _wrlUser = null;    // { githubLogin | email, displayName, tenantId, tosAcceptedAt, githubId }
 
 // ---------------------------------------------------------------------------
 // apiFetch: dual-mode auth, timeout, 401/429 handling
@@ -202,7 +202,7 @@ function renderAppShell() {
   if (_authMethod === 'session' && _wrlUser) {
     var usernameSpan = document.createElement('span');
     usernameSpan.className = 'site-header__username';
-    usernameSpan.textContent = _wrlUser.githubLogin;
+    usernameSpan.textContent = _wrlUser.githubLogin || _wrlUser.displayName || _wrlUser.email || '';
     headerNav.appendChild(usernameSpan);
 
     var signOutBtn = document.createElement('button');

@@ -1,9 +1,9 @@
 /**
  * Sign in with an emailed link (phase 0131).
  *
- * POST /v1/auth/email sends a single-use link. GET /v1/auth/email/verify shows
+ * POST /auth/email sends a single-use link. GET /auth/email/verify shows
  * a page with a button (so mail scanners that open links don't use the token),
- * and POST /v1/auth/email/verify signs in: an existing email user, a tenant
+ * and POST /auth/email/verify signs in: an existing email user, a tenant
  * whose verified notification email matches, or a new tenant.
  */
 
@@ -41,7 +41,7 @@ function stubResend({ status = 200 } = {}) {
 async function requestLink(email, { ip = '198.51.100.10', from } = {}) {
   const ctx = createExecutionContext();
   const res = await handleEmailLoginRequest(
-    new Request(`${ORIGIN}/v1/auth/email`, {
+    new Request(`${ORIGIN}/auth/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip, 'User-Agent': UA },
       body: JSON.stringify(from ? { email, from } : { email }),
@@ -64,7 +64,7 @@ async function confirm(token, { origin = ORIGIN } = {}) {
   const headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA, 'CF-Connecting-IP': '198.51.100.10' };
   if (origin) headers.Origin = origin;
   const res = await handleEmailLoginConfirm(
-    new Request(`${ORIGIN}/v1/auth/email/verify`, {
+    new Request(`${ORIGIN}/auth/email/verify`, {
       method: 'POST',
       headers,
       body: new URLSearchParams({ token }).toString(),
@@ -80,13 +80,17 @@ function cookieFrom(res) {
   return (res.headers.get('Set-Cookie') || '').split(';')[0];
 }
 
+let savedResendKey;
 beforeEach(async () => {
   await cleanDb(env.DB);
   stubResend();
+  savedResendKey = env.RESEND_API_KEY;
+  env.RESEND_API_KEY = 're_test_key_for_vitest';
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  env.RESEND_API_KEY = savedResendKey;
 });
 
 describe('normalizeEmail', () => {
@@ -101,7 +105,7 @@ describe('normalizeEmail', () => {
   });
 });
 
-describe('POST /v1/auth/email', () => {
+describe('POST /auth/email', () => {
   it('sends a single-use link and stores only the token hash', async () => {
     const res = await requestLink('Ann@Example.org');
     expect(res.status).toBe(202);
@@ -109,7 +113,7 @@ describe('POST /v1/auth/email', () => {
     expect(resendCalls[0].to).toEqual(['ann@example.org']);
     const token = tokenFromLastEmail();
     expect(token).toMatch(/^[A-Za-z0-9_-]{40,}$/);
-    expect(resendCalls[0].text).toContain(`${ORIGIN}/v1/auth/email/verify?token=${token}`);
+    expect(resendCalls[0].text).toContain(`${ORIGIN}/auth/email/verify?token=${token}`);
 
     const rows = await env.DB.prepare('SELECT token_hash, email, expires_at, used_at FROM login_tokens').all();
     expect(rows.results).toHaveLength(1);
@@ -150,11 +154,11 @@ describe('POST /v1/auth/email', () => {
   });
 });
 
-describe('GET /v1/auth/email/verify', () => {
+describe('GET /auth/email/verify', () => {
   it('shows a sign-in button and does not use the token', async () => {
     await requestLink('ann@example.org');
     const token = tokenFromLastEmail();
-    const res = await handleEmailLoginPage(new Request(`${ORIGIN}/v1/auth/email/verify?token=${token}`), env, createExecutionContext());
+    const res = await handleEmailLoginPage(new Request(`${ORIGIN}/auth/email/verify?token=${token}`), env, createExecutionContext());
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toContain('no-store');
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
@@ -166,19 +170,19 @@ describe('GET /v1/auth/email/verify', () => {
   });
 
   it('explains a link without a token', async () => {
-    const res = await handleEmailLoginPage(new Request(`${ORIGIN}/v1/auth/email/verify`), env, createExecutionContext());
+    const res = await handleEmailLoginPage(new Request(`${ORIGIN}/auth/email/verify`), env, createExecutionContext());
     expect(res.status).toBe(400);
     expect(await res.text()).toContain('not valid');
   });
 });
 
-describe('POST /v1/auth/email/verify', () => {
+describe('POST /auth/email/verify', () => {
   it('creates a new account with a first key and signs in', async () => {
     await requestLink('new@example.org', { from: 'landing' });
     const res = await confirm(tokenFromLastEmail());
     expect(res.status).toBe(302);
     expect(res.headers.get('Location')).toBe('/ui?flow=welcome');
-    expect(cookieFrom(res)).toMatch(/^wrl_session=/);
+    expect(cookieFrom(res)).toMatch(/^__Host-wrl_session=/);
 
     const user = await env.DB.prepare('SELECT tenant_id FROM email_users WHERE email = ?').bind('new@example.org').first();
     expect(user.tenant_id).toMatch(/^em-[0-9a-f]{16}$/);
@@ -270,9 +274,9 @@ describe('sessions of email users', () => {
     expect(auth.tenantId).toMatch(/^em-/);
   });
 
-  it('GET /v1/auth/session describes an email user', async () => {
+  it('GET /auth/session describes an email user', async () => {
     const cookie = await signIn('ann@example.org');
-    const res = await handleAuthSession(new Request(`${ORIGIN}/v1/auth/session`, { headers: { Cookie: cookie } }), env, createExecutionContext());
+    const res = await handleAuthSession(new Request(`${ORIGIN}/auth/session`, { headers: { Cookie: cookie } }), env, createExecutionContext());
     const body = await res.json();
     expect(body.authenticated).toBe(true);
     expect(body.user.displayName).toBe('ann@example.org');

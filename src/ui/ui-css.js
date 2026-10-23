@@ -753,6 +753,30 @@ input, select, textarea {
   margin-top: var(--space-2);
 }
 
+/* Email sign-in link (phase 0131) */
+.login-email-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.login-email-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.login-email-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.login-email-status {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  min-height: 1.25em;
+}
+
 .login-divider {
   position: relative;
   display: flex;

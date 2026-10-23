@@ -27,6 +27,7 @@ import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDel
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleEmailMessage, handleEmailDlqMessage, dispatchNotification } from './email-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
+import { handleEmailLoginRequest, handleEmailLoginPage, handleEmailLoginConfirm } from './email-login.js';
 import { handleAccountListKeys, handleAccountCreateKey, handleAccountRevokeKey, handleAccountAcceptTos, handleAccountGetUsage, handleGetSettings, handleUpdateSettings } from './account.js';
 import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, handleResendVerification, handleWeeklyDigest } from './notifications.js';
 import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
@@ -112,6 +113,9 @@ const routes = [
   ['GET',    /^\/auth\/callback$/, handleAuthCallback],
   ['POST',   /^\/auth\/logout$/, handleAuthLogout],
   ['GET',    /^\/auth\/session$/, handleAuthSession],
+  ['POST',   /^\/auth\/email$/, handleEmailLoginRequest],
+  ['GET',    /^\/auth\/email\/verify$/, handleEmailLoginPage],
+  ['POST',   /^\/auth\/email\/verify$/, handleEmailLoginConfirm],
   // Account self-serve routes (session-gated in fetch handler)
   ['GET',    /^\/v1\/account\/first-key$/, handleFirstKey],
   ['POST',   /^\/v1\/account\/first-key\/ack$/, handleFirstKeyAck],

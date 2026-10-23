@@ -24,7 +24,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, computePeriod, getEidasQualified, setEidasQualified } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, acceptTosEmail, computePeriod, getEidasQualified, setEidasQualified } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 import { checkQuota, getEffectiveQuota, computeQuotaReset } from './quotas.js';
@@ -219,7 +219,7 @@ export async function handleAccountCreateKey(request, env, ctx, _match) {
     scopes: body.scopes,
     name: body.name,
     createdAt,
-    createdBy: `github:${githubId}`,
+    createdBy: githubId != null ? `github:${githubId}` : 'email-login',
     revoked: false,
     revokedAt: null,
   };
@@ -425,10 +425,14 @@ export async function handleAccountAcceptTos(request, env, ctx, _match) {
     return problemResponse(400, "Field 'tosVersion' must be a non-empty string", ACCOUNT_CACHE);
   }
 
-  const { githubId, tenantId } = env._session;
+  const { githubId, email, tenantId } = env._session;
   const tosAcceptedAt = new Date().toISOString();
 
-  await acceptTos(env.DB, githubId, body.tosVersion);
+  if (githubId != null) {
+    await acceptTos(env.DB, githubId, body.tosVersion);
+  } else {
+    await acceptTosEmail(env.DB, email, body.tosVersion);
+  }
 
   // tosVersion is not logged -- it is not validated against a restrictive regex
   // and the log invariant requires injection-safe values only.
