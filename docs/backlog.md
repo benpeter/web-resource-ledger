@@ -197,7 +197,6 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [should] Coralogix DLQ alert for queue capture failures | When queue migration deploys to production; monitor capture.dlq events | observability-minion, 0044-queue-migration |
 | ~~[consider] Coralogix alerting rules~~ | ~~When operational load justifies alerting~~ -- DONE (Phase 0046): 4 alert rules, provisioning script, runbooks | observability-minion, mvo-coralogix |
 | [consider] Queue architecture documentation update | When queue migration is verified in production | software-docs-minion, 0044-queue-migration |
-| [consider] Retire Cloudflare Transform Rule for landing page security headers | After verifying Phase 0102 deploy; headers now set in Worker code (`landing/src/index.js`) | Phase 0102, iac-minion |
 | [consider] Landing/docs Worker test infrastructure | When landing or docs Workers grow beyond asset serving + analytics (~15 lines each) | Phase 0102, test-minion |
 | [consider] First-capture detection via incrementUsage return value | If capture volume grows and the extra D1 read becomes measurable; current `SELECT SUM` approach is safe but redundant | Phase 0102, margo |
 | [consider] Cron Trigger for pending capture TTL cleanup | When stale pending captures accumulate beyond queue retry window; queue retries handle most cases | data-minion, Phase 0047 |

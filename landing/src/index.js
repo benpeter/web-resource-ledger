@@ -14,6 +14,8 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  // Same value as the docs site (site/src/index.js). No preload: that is hard to undo.
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 };
 
 export default {
@@ -21,6 +23,7 @@ export default {
     const url = new URL(request.url);
     if (url.hostname === 'www.webresourceledger.com') {
       url.hostname = 'webresourceledger.com';
+      url.protocol = 'https:';
       return Response.redirect(url.toString(), 301);
     }
 
