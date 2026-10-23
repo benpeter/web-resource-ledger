@@ -105,11 +105,13 @@ Capture records and artifact URLs are in the response from `GET /v1/captures`. S
 
 **Deletion ordering.** The D1 schema uses foreign key constraints. Deletion proceeds in dependency order to avoid FK violations: `captures` and `api_keys` reference `tenants`, so child records are removed before the tenant row. Sessions reference `github_users`; `github_users` are deleted after sessions.
 
-**R2 artifact resolution.** Artifact objects in R2 are keyed by capture ID (e.g., `{tenantId}/{captureId}/screenshot.png`). The deletion routine resolves R2 keys via a D1 lookup before issuing delete calls -- there is no separate key manifest. This means the capture metadata row must still exist at the time the R2 objects are deleted.
+**R2 artifact resolution.** Artifact objects in R2 are keyed by capture ID (e.g., `captures/{captureId}/screenshot.png`); the WACZ bundle is stored under its content hash (`captures/{hash}.wacz`). The capture row lists both, so deletion reads the row first, deletes the R2 objects, then deletes the row. A WACZ object that another capture still references is kept.
 
 **Edge cache purge.** WRL serves capture artifacts through Cloudflare's edge cache. Deletion includes a cache purge call against the Cloudflare Cache Purge API for affected URLs so that deleted artifacts are not served from cache after deletion completes.
 
-**Quarantine purge.** Quarantined captures are purged by a weekly scheduled cron job (`0 9 * * 1` in `wrangler.toml`). The job deletes R2 objects and D1 rows for quarantined captures older than 90 days. This runs independently of the tenant deletion flow.
+**Quarantine purge.** Quarantined captures are purged by a weekly scheduled job (Mondays 09:00 UTC, `0 9 * * MON` in `wrangler.toml`, code in `src/retention.js`). It deletes the R2 objects and D1 rows (the capture and its threat checks) of captures quarantined more than 90 days earlier, up to 100 per run. Quarantined artifacts are not served, so no cache purge is needed. This runs independently of the tenant deletion flow.
+
+**Usage counter trimming.** The same weekly job deletes usage counters for periods more than 12 billing periods before the current one.
 
 **Session TTL.** Sessions have an `expires_at` column set to 7 days from creation. Expired sessions are not automatically deleted from D1 (no cron for this); they are treated as expired at read time and cleaned up opportunistically. For deletion purposes, all sessions for a tenant are removed explicitly regardless of expiry state.
 

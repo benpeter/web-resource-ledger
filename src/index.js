@@ -11,6 +11,7 @@ import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
+import { runRetentionJobs } from './retention.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
 import { computeCip } from './ip-hash.js';
@@ -455,9 +456,10 @@ async function handleDlqMessage(msg, env, ctx) {
 // Worker default export
 // ---------------------------------------------------------------------------
 
-// Cron expressions from wrangler.toml [triggers].
+// Cron expressions from wrangler.toml [triggers]. Cloudflare numbers weekdays
+// from 1 = Sunday, so the weekly cron names the day ('MON') to avoid that trap.
 export const MINUTE_CRON = '*/1 * * * *';
-export const WEEKLY_CRON = '0 9 * * 1';
+export const WEEKLY_CRON = '0 9 * * MON';
 
 export default {
   async scheduled(controller, env, ctx) {
@@ -466,12 +468,20 @@ export default {
       await handleRescanTick(controller, env, ctx);
       return;
     }
-    // Weekly digest: Monday 9:00 UTC
-    if (controller.cron === '0 9 * * 1') {
+    // Weekly jobs: Monday 09:00 UTC. They run on their own; the schedule tick
+    // and meter reporting belong to the per-minute cron only (running the tick
+    // here too created duplicate scheduled captures).
+    if (controller.cron === WEEKLY_CRON) {
       ctx.waitUntil(handleWeeklyDigest(env).catch(err => log(env, 4, 'email', {
         event: 'email.digest_error',
         error: err?.message,
       })));
+      ctx.waitUntil(runRetentionJobs(env, new Date(controller.scheduledTime)));
+      return;
+    }
+    if (controller.cron !== MINUTE_CRON) {
+      await log(env, 4, 'cron', { event: 'cron.unknown', cron: controller.cron });
+      return;
     }
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
