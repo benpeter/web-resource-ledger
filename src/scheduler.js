@@ -13,7 +13,7 @@
  *   - Individual schedule failures are isolated; others continue.
  */
 
-import { getDueSchedules, advanceSchedule, createCapture, incrementUsage } from './db.js';
+import { getDueSchedules, advanceSchedule, createCapture } from './db.js';
 import { checkQuota, limitReachedEmailData } from './quotas.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { checkUrl } from './threat-check.js';
@@ -62,8 +62,6 @@ export async function handleScheduledTick(controller, env, ctx) {
 
   // Collect all queue messages across tenants for a single sendBatch call.
   const queueMessages = [];
-  // Track which captures need usage incremented after sendBatch.
-  const usageByTenant = new Map(); // tenantId -> count of enqueued captures
 
   let executedCount = 0;
   let skippedCount = 0;
@@ -198,7 +196,6 @@ export async function handleScheduledTick(controller, env, ctx) {
         },
       });
 
-      usageByTenant.set(tenantId, (usageByTenant.get(tenantId) ?? 0) + 1);
 
       ctx.waitUntil(log(env, 3, 'schedule', {
         event: 'schedule.execute',
@@ -213,7 +210,6 @@ export async function handleScheduledTick(controller, env, ctx) {
   }
 
   // Send all queued messages in chunks of BATCH_SIZE.
-  // Increment usage per-chunk so partial failures still count successful sends.
   if (queueMessages.length > 0) {
     let sentCount = 0;
     for (let i = 0; i < queueMessages.length; i += BATCH_SIZE) {
@@ -233,26 +229,9 @@ export async function handleScheduledTick(controller, env, ctx) {
       }
     }
 
-    // Increment usage for successfully sent messages only.
-    if (sentCount > 0) {
-      // Recompute per-tenant counts proportionally if partial send.
-      const ratio = sentCount / queueMessages.length;
-      for (const [tenantId, count] of usageByTenant) {
-        const actualCount = sentCount === queueMessages.length
-          ? count
-          : Math.round(count * ratio);
-        if (actualCount > 0) {
-          incrementUsage(env.DB, tenantId, { captures: actualCount }).catch((err) => {
-            log(env, 4, 'usage', {
-              event: 'usage.increment_fail',
-              tenantId,
-              count: actualCount,
-              errorMessage: String(err?.message ?? '').slice(0, 128),
-            });
-          });
-        }
-      }
-    }
+    // No usage increment here: the queue consumer counts a capture once, when it
+    // completes, like every other capture. Counting at enqueue as well made every
+    // scheduled capture count twice (phase 0120).
   }
 
   const durationMs = Date.now() - start;
