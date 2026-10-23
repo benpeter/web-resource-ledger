@@ -119,8 +119,10 @@ third-party consumer. Three tests share one capture created in `beforeAll`:
 **`webhook-lifecycle.spec.js`** (P3)
 
 Covers the full CRUD lifecycle for webhooks plus synchronous ping delivery.
-Uses `httpbin.org/post` (returns 200) for the success case and
-`httpbin.org/status/503` for the failure detection case. Asserts that the
+Uses the landing Worker's E2E echo target, `https://webresourceledger.com/__e2e/echo`
+(returns 200) for the success case and `/__e2e/status/503` for the failure
+detection case, so it doesn't depend on httpbin.org. Set `E2E_WEBHOOK_TARGET_BASE`
+to point it elsewhere. Asserts that the
 webhook secret is returned on creation but never exposed in list responses.
 HMAC signature verification is explicitly skipped with a comment explaining
 why it cannot be tested through the ping API response alone.

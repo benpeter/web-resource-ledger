@@ -9,17 +9,18 @@
  *   DELETE /v1/webhooks/:id              -- remove webhook
  *   GET    /v1/webhooks                  -- list webhooks (absence check)
  *
- * External dependency: httpbin.org
- *   /post        -- accepts POST, returns 200 with request details as JSON
- *   /status/503  -- returns 503 unconditionally
+ * Webhook target: the landing Worker's E2E echo (landing/src/index.js), owned
+ * by WRL so the suite doesn't depend on httpbin.org (GH #291). Override the base
+ * with E2E_WEBHOOK_TARGET_BASE.
+ *   /__e2e/echo        -- accepts POST, returns 200 without reflecting anything
+ *   /__e2e/status/503  -- returns 503 unconditionally
  *
  * HMAC verification note:
  *   handlePingWebhook() (src/webhooks.js) returns { success, httpStatus, latencyMs }.
  *   The signature header sent to the target URL is NOT echoed back in the ping
  *   response -- the server dispatches the signed request directly to the webhook
- *   target. Since httpbin.org/post does echo request headers back in its JSON
- *   response body, but the worker receives that echo (not the test), the
- *   signature is not retrievable from the ping API response alone.
+ *   target, and the echo target does not reflect headers, so the signature is
+ *   not retrievable from the ping API response.
  *   The test below reflects that reality with test.skip so the gap is visible.
  */
 
@@ -27,6 +28,10 @@
 import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { readAuthState, createAuthenticatedFetch } from './helpers/api-client.js';
+
+const TARGET_BASE = (process.env.E2E_WEBHOOK_TARGET_BASE || 'https://webresourceledger.com/__e2e').replace(/\/$/, '');
+const ECHO_URL = `${TARGET_BASE}/echo`;
+const FAIL_URL = `${TARGET_BASE}/status/503`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -88,7 +93,7 @@ test('registers a webhook and validates ping delivery', async () => {
 
   // --- 1. Register webhook ---
   const created = await registerWebhook(apiFetch, {
-    url: 'https://httpbin.org/post',
+    url: ECHO_URL,
     events: ['capture.complete'],
     name: webhookName,
   });
@@ -143,8 +148,8 @@ test('registers a webhook and validates ping delivery', async () => {
   ).toBe(200);
   const ping = await pingRes.json();
 
-  expect(ping.success, 'ping to httpbin.org/post must succeed').toBe(true);
-  expect(ping.httpStatus, 'ping httpStatus must be 200 for httpbin.org/post').toBe(200);
+  expect(ping.success, `ping to ${ECHO_URL} must succeed`).toBe(true);
+  expect(ping.httpStatus, `ping httpStatus must be 200 for ${ECHO_URL}`).toBe(200);
   expect(
     typeof ping.latencyMs,
     'ping response must include latencyMs'
@@ -158,9 +163,9 @@ test('registers a webhook and validates ping delivery', async () => {
   //
   // The ping API response shape is { success, httpStatus, latencyMs }.
   // The X-WRL-Signature-256 header is sent directly to the webhook target
-  // (httpbin.org) during delivery -- it is NOT echoed back in the ping API
-  // response. The server receives httpbin's echo of the headers, but that
-  // data is not forwarded to the caller. There is no admin delivery-log API
+  // (the E2E echo) during delivery -- it is NOT echoed back in the ping API
+  // response, and the echo target does not reflect headers either. There is
+  // no admin delivery-log API
   // that exposes the signature for this ping attempt.
   //
   // As a result, HMAC verification cannot be performed from the ping API
@@ -198,7 +203,7 @@ test('ping detects delivery failure', async () => {
 
   // Register webhook pointing to a URL that always returns 503
   const created = await registerWebhook(apiFetch, {
-    url: 'https://httpbin.org/status/503',
+    url: FAIL_URL,
     events: ['capture.complete'],
     name: webhookName,
   });
@@ -214,10 +219,10 @@ test('ping detects delivery failure', async () => {
     ).toBe(200);
     const ping = await pingRes.json();
 
-    expect(ping.success, 'ping to httpbin.org/status/503 must report success: false').toBe(false);
+    expect(ping.success, `ping to ${FAIL_URL} must report success: false`).toBe(false);
     expect(
       ping.httpStatus,
-      'ping httpStatus must be 503 for httpbin.org/status/503'
+      `ping httpStatus must be 503 for ${FAIL_URL}`
     ).toBe(503);
     expect(
       typeof ping.latencyMs,
