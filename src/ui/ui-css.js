@@ -549,6 +549,17 @@ input, select, textarea {
   margin-top: var(--space-1);
 }
 
+/* Why a capture failed, shown inside a failed item */
+.capture-fail-reason {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  color: var(--color-error-text);
+  background: var(--color-error-bg);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-1);
+}
+
 /* Empty state and load error */
 
 .capture-empty,

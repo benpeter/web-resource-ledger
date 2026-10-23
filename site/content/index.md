@@ -57,7 +57,7 @@ curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a
 { "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "status": "pending" }
 ```
 
-A failed capture returns `"status": "failed"` with an `error` explaining why. Once the status is `complete`, fetch the capture record:
+A failed capture returns `"status": "failed"` with an `error` explaining why (see [why captures fail](/limits/#why-captures-fail)). Once the status is `complete`, fetch the capture record:
 
 ```bash
 curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \

@@ -126,7 +126,7 @@ Fired when a capture fails after all browser rendering attempts are exhausted.
     "url": "https://example.com/missing-page",
     "verificationUrl": "https://api.webresourceledger.com/v1/verify/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
     "failedAt": "2026-03-22T12:05:10.000Z",
-    "error": "Navigation timeout after 30000ms",
+    "error": "The page did not finish loading within 20 seconds. WRL tried 4 times.",
     "retryable": true
   }
 }

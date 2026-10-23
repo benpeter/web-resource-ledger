@@ -136,6 +136,26 @@ When you receive a rate-limit `429`, wait the number of seconds in `Retry-After`
 
 Pages render in a window 1,280 CSS pixels wide, and screenshots cover the top 8,000 CSS pixels of a page. Screenshots are taken at twice that resolution, so the largest is 2,560 by 16,000 pixels. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
 
+## Why Captures Fail
+
+A failed capture has an `error` that says why, in the API status response, the capture record, the `capture.failed` webhook, the failure email and the dashboard. WRL tries a capture up to 4 times, a few minutes apart, when the failure may pass on another try, and reports the reason of the last attempt.
+
+| Message | What happened | Retried |
+|---|---|---|
+| The site showed a Cloudflare bot check instead of the page | The site answered with a bot check ("Just a moment...") that didn't clear within a few seconds. WRL doesn't get around these checks. | No |
+| The site did not respond, possibly because it blocks automated visits or this region | The site sent nothing back at all. | No |
+| Page did not finish loading within 20 seconds | The page didn't load in time. | Yes |
+| The site's address could not be found (DNS) | The domain doesn't resolve. | Yes |
+| The site refused the connection | Nothing accepts connections at that address. | Yes |
+| The site's TLS certificate is not valid | The certificate is expired, self-signed or for another name. | No |
+| The page loaded but showed nothing (blank page) | The browser loaded the page but nothing appeared. | No |
+| The browser showed an error page instead of the site | The browser couldn't open the page and showed its own error page. | No |
+| The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it. This happens on some pages with heavy animation. | Yes |
+| Page exceeded 500 subresource limit / 50MB size limit | The page loads more than WRL captures. | No |
+| Could not navigate to the target URL, or a message about the browser session | A problem on WRL's side or the network. | Yes |
+
+After repeated attempts the message ends with "WRL tried 4 times." Failed captures don't count against your monthly quota.
+
 ## Custom Quotas (Operators)
 
 Operators can override the default tier quotas for individual tenants via the admin API. This is useful for granting higher limits to enterprise tenants or restricting a specific tenant below the tier default.

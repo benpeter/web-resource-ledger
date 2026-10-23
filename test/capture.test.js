@@ -415,7 +415,7 @@ describe('performCapture -- session lifecycle errors', () => {
     expect(record.status).toBe('pending');
     expect(result.ok).toBe(false);
     expect(result.retryable).toBe(true);
-    expect(result.error).toBe('Browser protocol error');
+    expect(result.error).toBe('The browser hit an internal error');
   });
 
   it('handles "Connection refused" as retryable', async () => {
@@ -806,7 +806,7 @@ describe('performCapture -- partial capture failure paths', () => {
     expect(record.status).toBe('failed');
     expect(result.ok).toBe(false);
     expect(result.retryable).toBe(false);
-    expect(record.error).toBe('Target site did not respond (possible bot protection or geo-restriction)');
+    expect(record.error).toBe('The site did not respond, possibly because it blocks automated visits or this region');
   });
 
   it('existing timeout (no DOMContentLoaded) -> KV stays pending, retryable', async () => {
@@ -997,7 +997,7 @@ describe('categorizeError -- is a named export from capture.js', () => {
   it('returns retryable: false for render failure (error page detection)', () => {
     const result = categorizeError(new Error('Captured page is not target content (chromium-error-page)'));
     expect(result.retryable).toBe(false);
-    expect(result.message).toContain('not target content');
+    expect(result.message).toBe('The browser showed an error page instead of the site');
   });
 });
 
@@ -1023,7 +1023,7 @@ describe('performCapture -- error page detection (render failure)', () => {
     expect(result.retryable).toBe(false);
     const record = await getCapture(env.DB, TEST_ID);
     expect(record.status).toBe('failed');
-    expect(record.error).toContain('chromium-error-page');
+    expect(record.error).toBe('The browser showed an error page instead of the site');
   });
 
   it('fails capture as non-retryable for blank page', async () => {
@@ -1035,6 +1035,6 @@ describe('performCapture -- error page detection (render failure)', () => {
     expect(result.retryable).toBe(false);
     const record = await getCapture(env.DB, TEST_ID);
     expect(record.status).toBe('failed');
-    expect(record.error).toContain('blank-page');
+    expect(record.error).toBe('The page loaded but showed nothing (blank page)');
   });
 });

@@ -1,11 +1,11 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent } from './db.js';
+import { createCapture, getCapture, failCapture, failCaptureAfterRetries, recordAttemptError, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent } from './db.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
-import { performCapture } from './capture.js';
+import { performCapture, categorizeError, CAPTURE_MAX_ATTEMPTS } from './capture.js';
 import { performVerification } from './verify.js';
 import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
@@ -219,15 +219,17 @@ async function handleCaptureMessage(msg, env, ctx) {
   } catch (err) {
     // Catastrophic error (OOM, binding failure, etc.)
     // max_retries=3 in wrangler.toml → up to 4 deliveries (attempts 1-4)
-    if (msg.attempts >= 4) {
+    if (msg.attempts >= CAPTURE_MAX_ATTEMPTS) {
       try {
-        await failCapture(env.DB, captureId, 'Capture permanently failed after catastrophic error', false);
+        await recordAttemptError(env.DB, captureId, categorizeError(err).message);
+        await failCaptureAfterRetries(env.DB, captureId, CAPTURE_MAX_ATTEMPTS);
       } catch {
         // Best-effort -- do not block ack
       }
       ctx.waitUntil(trackCaptureEvent(env, 'Capture Failed', msg.body) ?? Promise.resolve());
       msg.ack();
     } else {
+      await recordAttemptError(env.DB, captureId, categorizeError(err).message).catch(() => {});
       const delay = Math.min(10 * Math.pow(2, msg.attempts - 1), 300);
       msg.retry({ delaySeconds: delay });
     }
@@ -416,7 +418,8 @@ async function handleDlqMessage(msg, env, ctx) {
 
   if (captureId) {
     try {
-      await failCapture(env.DB, captureId, 'Capture permanently failed after all retry attempts', false);
+      // Names the reason of the last failed attempt when one was recorded.
+      await failCaptureAfterRetries(env.DB, captureId, CAPTURE_MAX_ATTEMPTS);
     } catch {
       // Best-effort
     }

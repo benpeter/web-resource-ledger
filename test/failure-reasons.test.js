@@ -46,6 +46,18 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('categorizeError -- messages users can act on', () => {
+  it('explains a blank page instead of quoting the internal reason code', () => {
+    const r = categorizeError(new Error('Captured page is not target content (blank-page)'));
+    expect(r.message).toBe('The page loaded but showed nothing (blank page)');
+    expect(r.retryable).toBe(false);
+  });
+
+  it('explains a browser error page', () => {
+    const r = categorizeError(new Error('Captured page is not target content (chromium-error-page)'));
+    expect(r.message).toBe('The browser showed an error page instead of the site');
+    expect(r.retryable).toBe(false);
+  });
+
   it('a bot check fails for good with a message that says what happened and what it costs', () => {
     expect(categorizeError(new Error('Bot check: Cloudflare challenge (title, challenge-platform)'))).toEqual({
       message: BOT_CHECK_MESSAGE,
