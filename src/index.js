@@ -12,6 +12,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { runRetentionJobs } from './retention.js';
+import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
 import { computeCip } from './ip-hash.js';
@@ -73,6 +74,7 @@ const routes = [
   // Admin dashboard -- HTML shell served unauthenticated; auth happens client-side before API calls
   ['GET',    /^\/admin$/, handleAdminDashboard],
   ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
+  ['POST',   /^\/v1\/sitemap$/, handleReadSitemap],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
@@ -1121,6 +1123,46 @@ async function handleCreateCapture(request, env, ctx) {
     statusUrl,
     note: 'Use GET /v1/captures to list and search your captures.',
   }, 202, { 'Retry-After': '10', ...rlHeaders, ...buildQuotaHeaders(quotaCheck) });
+}
+
+// POST /v1/sitemap -- read a sitemap and return its page URLs (phase 0130).
+// The dashboard uses it to fill the bulk capture list; it captures nothing.
+async function handleReadSitemap(request, env, ctx) {
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+  const auth = await verifyAuth(request, env, { requiredScope: 'capture' });
+  if (!auth.ok) return auth.response;
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+  if (!body || typeof body.url !== 'string' || !body.url.trim()) {
+    return problemResponse(400, "Field 'url' is required and must be the sitemap's URL");
+  }
+
+  const { limit, period } = RATE_LIMITS.sitemap;
+  const counter = await rateLimitCounter(env.KV, auth.tenantId, 'sitemap', limit, period, 1);
+  if (counter.writePromise) ctx.waitUntil(counter.writePromise);
+  if (counter.exceeded) {
+    return problemResponse(429, `Sitemap rate limit exceeded (${limit} per minute).`, { 'Retry-After': String(counter.resetIn || period) });
+  }
+
+  const result = await readSitemap(body.url.trim());
+  if (!result.ok) {
+    ctx.waitUntil(log(env, 6, 'sitemap', { event: 'sitemap.read_fail', tenantId: auth.tenantId, status: result.status, detail: result.detail }) ?? Promise.resolve());
+    return problemResponse(result.status, result.detail);
+  }
+  ctx.waitUntil(log(env, 6, 'sitemap', {
+    event: 'sitemap.read', tenantId: auth.tenantId, urls: result.urls.length, total: result.total, sitemapsRead: result.sitemapsRead,
+  }) ?? Promise.resolve());
+  return new Response(JSON.stringify({
+    urls: result.urls, total: result.total, truncated: result.truncated, sitemapsRead: result.sitemapsRead,
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
 async function handleBatchCapture(request, env, ctx) {

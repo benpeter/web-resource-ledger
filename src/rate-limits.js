@@ -9,6 +9,7 @@ export const RATE_LIMITS = {
   admin:   { limit: 30, period: 60 },    // per-IP (admin)
   auth:    { limit: 20, period: 60 },    // per-IP (OAuth flow)
   account: { limit: 30, period: 60 },    // per-IP (account settings)
+  sitemap: { limit: 10, period: 60 },    // per-tenant (POST /v1/sitemap, read_sitemap)
 };
 
 // IP secondary guard -- separate binding, higher ceiling

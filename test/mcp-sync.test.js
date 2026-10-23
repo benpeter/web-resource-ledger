@@ -25,6 +25,7 @@ function extractOperationIds(spec) {
 const TOOL_TO_OPERATION = {
   capture_url: 'createCapture',
   batch_capture: 'batchCapture',
+  read_sitemap: 'readSitemap',
   get_capture: 'getCapture',
   list_captures: 'listCaptures',
   verify_capture: 'verifyCapture',

@@ -4,7 +4,7 @@
  *
  * Exposes eleven tools via the MCP Streamable HTTP transport, stateless mode:
  *   capture_url, get_capture, list_captures, verify_capture,
- *   batch_capture, diff_captures, get_usage,
+ *   batch_capture, read_sitemap, diff_captures, get_usage,
  *   list_schedules, create_schedule, delete_schedule, get_certificate
  *
  * Auth: Bearer API key is checked BEFORE the MCP transport is constructed.
@@ -31,7 +31,8 @@ import {
 import { rateLimitCounter } from './kv.js';
 import { performVerification } from './verify.js';
 import { log } from './log.js';
-import { getEffectiveLimit } from './rate-limits.js';
+import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
+import { readSitemap } from './sitemap.js';
 import { checkQuota } from './quotas.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { validateCron, nextRun } from './cron.js';
@@ -879,6 +880,44 @@ function createMcpServer(env, ctx, auth, origin) {
       return {
         content: [{ type: 'text', text: lines.join('\n') }],
       };
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Tool: read_sitemap
+  // -------------------------------------------------------------------------
+
+  server.tool(
+    'read_sitemap',
+    'Read a sitemap (or a sitemap index and up to 10 of its child sitemaps) and return up to 200 page URLs. Nothing is captured; pass the URLs to batch_capture in groups no larger than your per-minute rate limit (10 by default). Private addresses, compressed (.xml.gz) sitemaps and sitemaps over 5 MB are refused. Requires the capture scope; 10 reads per minute.',
+    { url: z.string().min(1).describe('URL of the sitemap, for example https://example.com/sitemap.xml') },
+    async ({ url }) => {
+      if (!hasScope(auth.scopes, 'capture')) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: "Insufficient scope: API key does not grant 'capture' scope." }],
+        };
+      }
+      const { limit, period } = RATE_LIMITS.sitemap;
+      const counter = await rateLimitCounter(env.KV, auth.tenantId, 'sitemap', limit, period, 1);
+      if (counter.writePromise) ctx.waitUntil(counter.writePromise);
+      if (counter.exceeded) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Sitemap rate limit exceeded (${limit} per minute). Try again in ${counter.resetIn || period} seconds.` }],
+        };
+      }
+      const result = await readSitemap(url.trim());
+      if (!result.ok) {
+        return { isError: true, content: [{ type: 'text', text: result.detail }] };
+      }
+      const lines = [
+        `Found ${result.total} page URL${result.total === 1 ? '' : 's'} in ${result.sitemapsRead} sitemap file${result.sitemapsRead === 1 ? '' : 's'}.`,
+        result.truncated ? `Returning the first ${result.urls.length}; the list was cut.` : `Returning all ${result.urls.length}.`,
+        '',
+        ...result.urls,
+      ];
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
     },
   );
 
