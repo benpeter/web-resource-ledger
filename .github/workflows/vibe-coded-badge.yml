@@ -1,8 +1,10 @@
 name: Update Vibe Coded Badge
 
+# Manual only since 2026-10-23. The analysis runs git blame on every tracked
+# file (about 3,000, most of them under docs/history/) at 10-30 seconds each,
+# so it hit the 100-minute timeout on every push after 2026-04-01 and never
+# saved its cache. The README badge keeps its last computed value.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
