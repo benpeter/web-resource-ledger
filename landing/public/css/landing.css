@@ -203,6 +203,23 @@ body {
   line-height: var(--leading-normal);
 }
 
+/* Link to a live example capture, under the hint */
+.hero__demo {
+  font-size: var(--text-sm);
+  margin-top: var(--space-3);
+}
+
+.hero__demo a {
+  color: rgba(248, 248, 250, 0.9);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hero__demo a:hover,
+.hero__demo a:focus-visible {
+  color: #fff;
+}
+
 /* Hero button colors: primary on dark bg becomes an inverted solid */
 .hero .btn--primary {
   background: var(--color-primary-text);
