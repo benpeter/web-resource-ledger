@@ -68,7 +68,7 @@ After the 30-day grace period ends:
 
 ### How to request deletion
 
-Email [bp@ben-peter.com](mailto:bp@ben-peter.com) with the subject line "Account Deletion Request". Include your GitHub username so we can locate your account. You will receive confirmation within 2 business days.
+Email [hello@webresourceledger.com](mailto:hello@webresourceledger.com) with the subject line "Account Deletion Request". Include your GitHub username so we can locate your account. You will receive confirmation within 2 business days.
 
 > **Note:** Automated self-service deletion from the dashboard is planned. Until it is available, deletion requires a support request as described above.
 
@@ -76,7 +76,7 @@ Email [bp@ben-peter.com](mailto:bp@ben-peter.com) with the subject line "Account
 
 ## Cancelling a deletion request
 
-You can cancel a deletion request at any time during the 30-day grace period by emailing [bp@ben-peter.com](mailto:bp@ben-peter.com). After the grace period ends, cancellation is not possible.
+You can cancel a deletion request at any time during the 30-day grace period by emailing [hello@webresourceledger.com](mailto:hello@webresourceledger.com). After the grace period ends, cancellation is not possible.
 
 ---
 

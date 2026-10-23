@@ -304,7 +304,8 @@ function renderAppShell() {
   footerLinksWrap.appendChild(_makeFooterNav('Product', 'Product', [
     ['https://docs.webresourceledger.com', 'Docs'],
     ['https://docs.webresourceledger.com/api-reference/', 'API Reference'],
-    ['https://github.com/benpeter/web-resource-ledger', 'GitHub']
+    ['https://github.com/benpeter/web-resource-ledger', 'GitHub'],
+    ['https://docs.webresourceledger.com/support/', 'Support']
   ]));
   footerLinksWrap.appendChild(_makeFooterNav('Legal', 'Legal', [
     ['https://webresourceledger.com/terms', 'Terms of Service'],

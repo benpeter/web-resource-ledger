@@ -1,5 +1,6 @@
 // tva
 import syntaxHighlight from "@11ty/eleventy-plugin-syntaxhighlight";
+import { IdAttributePlugin } from "@11ty/eleventy";
 import { copyFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -13,6 +14,10 @@ export default function (eleventyConfig) {
       Prism.languages.mermaid = {}; // passthrough — preserves class for client-side rendering
     },
   });
+
+  // Give headings an id so links like /limits/#why-captures-fail land on them.
+  // checkDuplicates off: api-reference.njk already repeats some operation ids.
+  eleventyConfig.addPlugin(IdAttributePlugin, { checkDuplicates: false });
 
   // Copy site CSS, JS, and assets
   eleventyConfig.addPassthroughCopy("css");

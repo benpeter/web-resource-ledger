@@ -163,7 +163,7 @@ A notification will include:
 
 For GDPR breach notifications, the notification will specify the categories and approximate volume of personal data involved, the likely consequences of the breach, and the measures taken or proposed to address it.
 
-If you believe your account has been compromised and have not received a notification, contact the operator directly at [bp@ben-peter.com](mailto:bp@ben-peter.com).
+If you believe your account has been compromised and have not received a notification, contact the operator directly at [hello@webresourceledger.com](mailto:hello@webresourceledger.com).
 
 ---
 
