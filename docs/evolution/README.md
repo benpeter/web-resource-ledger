@@ -132,3 +132,4 @@ software development.
 | [0123-dlq-alert](0123-dlq-alert/) | Alert on captures that land in the dead-letter queue, the normal path for permanent failures that no alert covered |
 | [0124-landing-https](0124-landing-https/) | Redirect plain HTTP to HTTPS on every host and send HSTS from the landing page; the old Transform Rule was already gone |
 | [0125-tracker-hygiene](0125-tracker-hygiene/) | Repo backlog frozen and cleaned; TSA and license notes checked against production and corrected |
+| [0126-queue-lifecycle-docs](0126-queue-lifecycle-docs/) | INTERNALS.md describes how a capture moves through the queue, retries and the dead-letter queue |
