@@ -18,9 +18,11 @@ run multiple times). Use `--dry-run` to preview payloads without changes.
 | **Threshold** | > 3 events in 5 minutes |
 | **Priority** | P1 (Critical) |
 
-**What it monitors:** Terminal capture failures after all retry attempts are
-exhausted. Only counts `capture.fail` events — retryable `capture.stage.fail`
-events are excluded since the queue retry system handles those automatically.
+**What it monitors:** `capture.fail` events, which the pipeline only logs on
+its catch-all path (an error outside the normal stages). Permanent failures on
+the normal path go through the dead-letter queue and log `capture.dlq`
+instead; [WRL] Captures Dead-Lettered covers those. Retryable
+`capture.stage.fail` events are excluded.
 
 **Threshold rationale:** With a per-tenant rate limit of 10 captures/minute,
 3+ terminal failures in 5 minutes indicates a systemic issue, not a single
@@ -29,6 +31,28 @@ percentage-based alert (e.g., >10%) would fire on 1 failure out of 3 captures
 (33%), which is noise, not signal.
 
 **Runbook:** [capture-failures.md](runbooks/capture-failures.md)
+
+---
+
+### [WRL] Captures Dead-Lettered
+
+| Property | Value |
+|----------|-------|
+| **Query** | `event:"capture.dlq"` (app: wrl, subsystem: capture) |
+| **Threshold** | > 0 events in 30 minutes |
+| **Priority** | P2 (High) |
+
+**What it monitors:** Captures that failed all 4 attempts and landed in the
+dead-letter queue. The user sees a failed capture with the reason of the last
+attempt. This is the normal path for permanent failures (timeouts, blank
+pages, screenshot errors), and until phase 0123 no alert covered it.
+
+**Threshold rationale:** Volume is low (2 dead-lettered captures in the 8 days
+before 2026-10-23), and each one is a user who didn't get a capture. Any
+occurrence is worth a look, for example the tall-page screenshot failures fixed
+in phase 0117 would have shown up here. Raise the threshold if volume grows.
+
+**Runbook:** [captures-dead-lettered.md](runbooks/captures-dead-lettered.md)
 
 ---
 

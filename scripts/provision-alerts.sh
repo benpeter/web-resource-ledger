@@ -78,6 +78,48 @@ capture_failures_payload() {
 ALERT_JSON
 }
 
+captures_dead_lettered_payload() {
+  cat <<'ALERT_JSON'
+{
+  "alertDefProperties": {
+    "name": "[WRL] Captures Dead-Lettered",
+    "description": "At least one capture landed in the dead-letter queue in 30 minutes: it failed 4 attempts and the user got a failed capture. This is the normal path for permanent failures; capture.fail only covers the rare catch-all path.",
+    "type": "ALERT_DEF_TYPE_LOGS_THRESHOLD",
+    "enabled": true,
+    "priority": "ALERT_DEF_PRIORITY_P2",
+    "logsThreshold": {
+      "logsFilter": {
+        "simpleFilter": {
+          "luceneQuery": "event:\"capture.dlq\"",
+          "labelFilters": {
+            "applicationName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "wrl"}],
+            "subsystemName": [{"operation": "LOG_FILTER_OPERATION_TYPE_IS_OR_UNSPECIFIED", "value": "capture"}]
+          }
+        }
+      },
+      "rules": [{
+        "condition": {
+          "conditionType": "LOGS_THRESHOLD_CONDITION_TYPE_MORE_THAN_OR_UNSPECIFIED",
+          "threshold": 0,
+          "timeWindow": {"logsTimeWindowSpecificValue": "LOGS_TIME_WINDOW_VALUE_MINUTES_30"}
+        },
+        "override": {"priority": "ALERT_DEF_PRIORITY_P2"}
+      }]
+    },
+    "notificationGroup": {
+      "webhooks": [
+        {
+          "integration": {"recipients": {"emails": ["OPERATOR_EMAIL_PLACEHOLDER"]}},
+          "notifyOn": "NOTIFY_ON_TRIGGERED_AND_RESOLVED",
+          "minutes": 60
+        }
+      ]
+    }
+  }
+}
+ALERT_JSON
+}
+
 tsa_failures_payload() {
   cat <<'ALERT_JSON'
 {
@@ -580,6 +622,7 @@ main() {
 
   # Actionable alerts (P1/P2).
   upsert_alert "[WRL] Capture Failures"           capture_failures_payload          "$existing_alerts" || ((failed++))
+  upsert_alert "[WRL] Captures Dead-Lettered"     captures_dead_lettered_payload    "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Qualified TSA Failures"     qualified_tsa_failures_payload    "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Auth Failure Spike"         auth_failure_spike_payload        "$existing_alerts" || ((failed++))
   upsert_alert "[WRL] Worker Errors (5xx)"        worker_errors_payload             "$existing_alerts" || ((failed++))
@@ -597,7 +640,7 @@ main() {
     err "$failed alert(s) failed to provision"
     exit 1
   fi
-  log "All 10 alerts provisioned successfully."
+  log "All 11 alerts provisioned successfully."
 }
 
 main
