@@ -260,6 +260,9 @@ export async function verifySession(request, env) {
     tenantId: session.tenantId,
     githubId: session.githubId,
     githubLogin: session.githubLogin,
+    email: session.email,
+    // What the dashboard shows as the signed-in user.
+    displayName: session.githubLogin ?? session.email,
     tosAcceptedAt: session.tosAcceptedAt,
     authMethod: 'session',
   };

@@ -34,6 +34,7 @@ import { hashApiKey } from './auth.js';
 import { verifySession, generateSessionId, createSessionCookie, clearSessionCookie } from './session.js';
 import {
   findGitHubUser,
+  findEmailUser,
   createGitHubUser,
   updateGitHubLogin,
   createSession,
@@ -608,7 +609,9 @@ export async function handleAuthSession(request, env, ctx) {
   // Fresh lookup to get tosVersion (verifySession JOIN only returns tosAcceptedAt)
   let user;
   try {
-    user = await findGitHubUser(env.DB, auth.githubId);
+    user = auth.githubId != null
+      ? await findGitHubUser(env.DB, auth.githubId)
+      : await findEmailUser(env.DB, auth.email);
   } catch (err) {
     log(env, 5, 'oauth', { event: 'oauth.session_user_lookup_error', errorMessage: String(err?.message ?? '').slice(0, 128) });
     return problemResponse(500, 'Session service error');
@@ -624,6 +627,8 @@ export async function handleAuthSession(request, env, ctx) {
     user: {
       githubId: auth.githubId,
       githubLogin: auth.githubLogin,
+      email: auth.email,
+      displayName: auth.displayName,
       tenantId: auth.tenantId,
       tosAcceptedAt: user.tosAcceptedAt,
       tosVersion: user.tosVersion,

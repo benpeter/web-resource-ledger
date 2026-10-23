@@ -12,13 +12,87 @@ var ERROR_MESSAGES = {
   missing_params: 'Sign-in failed. Please try again.',
   invalid_state: 'Sign-in failed. Please try again.',
   token_exchange_failed: 'Sign-in failed. Please try again.',
-  github_api_error: 'Connection to GitHub failed. Please try again.'
+  github_api_error: 'Connection to GitHub failed. Please try again.',
+  login_link_invalid: 'That sign-in link has expired or was already used. Request a new one below.',
+  login_failed: 'Sign-in failed. Please try again.'
 };
 
 var ERROR_DEFAULT = 'Sign-in failed. Please try again.';
 
 function getOAuthErrorMessage(code) {
   return ERROR_MESSAGES[code] || ERROR_DEFAULT;
+}
+
+// ---------------------------------------------------------------------------
+// Email sign-in (phase 0131): ask for an address, POST /auth/email, then
+// tell the person to check their inbox. The link in the email signs in.
+// ---------------------------------------------------------------------------
+
+function emailLoginMessage(status, data) {
+  if (status === 202) return 'Check your inbox. The link works once and expires in 15 minutes.';
+  if (status === 429) return (data && data.detail) || 'Too many sign-in links requested. Try again in an hour.';
+  if (status === 400) return 'Enter one valid email address.';
+  return 'The sign-in email could not be sent. Try again in a minute.';
+}
+
+function renderEmailLogin() {
+  var section = document.createElement('form');
+  section.className = 'login-email-section';
+  section.noValidate = true;
+
+  var label = document.createElement('label');
+  label.className = 'login-apikey-label';
+  label.htmlFor = 'login-email-input';
+  label.textContent = 'No GitHub account? Get a sign-in link by email';
+  section.appendChild(label);
+
+  var row = document.createElement('div');
+  row.className = 'login-email-row';
+  var input = document.createElement('input');
+  input.type = 'email';
+  input.id = 'login-email-input';
+  input.className = 'input';
+  input.autocomplete = 'email';
+  input.placeholder = 'you@example.org';
+  input.required = true;
+  row.appendChild(input);
+
+  var button = document.createElement('button');
+  button.type = 'submit';
+  button.className = 'btn btn--secondary';
+  button.textContent = 'Email me a link';
+  row.appendChild(button);
+  section.appendChild(row);
+
+  var status = document.createElement('p');
+  status.className = 'login-email-status';
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  section.appendChild(status);
+
+  section.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = input.value.trim();
+    if (!email) { input.focus(); return; }
+    button.disabled = true;
+    status.textContent = 'Sending\u2026';
+    var from = new URLSearchParams(location.search).get('from') || 'dashboard';
+    fetch('/auth/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, from: from })
+    }).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        status.textContent = emailLoginMessage(res.status, data);
+        if (res.status !== 202) button.disabled = false;
+      });
+    }).catch(function () {
+      status.textContent = emailLoginMessage(0, null);
+      button.disabled = false;
+    });
+  });
+
+  return section;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +141,9 @@ function renderLogin() {
   githubSection.className = 'login-github-section';
 
   var githubLink = document.createElement('a');
-  githubLink.href = '/auth/login';
+  // Carry ?from= through so signups stay attributed to the page that sent them.
+  var fromParam = new URLSearchParams(location.search).get('from');
+  githubLink.href = '/auth/login' + (fromParam ? '?from=' + encodeURIComponent(fromParam) : '');
   githubLink.className = 'btn btn--github';
   githubLink.setAttribute('aria-label', 'Sign in with GitHub');
 
@@ -92,6 +168,8 @@ function renderLogin() {
 
   githubSection.appendChild(githubLink);
   card.appendChild(githubSection);
+
+  card.appendChild(renderEmailLogin());
 
   // Divider
   var divider = document.createElement('div');

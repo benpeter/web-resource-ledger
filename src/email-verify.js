@@ -220,7 +220,7 @@ section { padding: var(--space-6) var(--space-8); border-top: 1px solid var(--co
  * @param {string} bodyContent  Inner HTML for <main>
  * @returns {string}
  */
-function renderPage(title, bodyContent) {
+export function renderPage(title, bodyContent) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

@@ -131,13 +131,22 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `oauth.key_revoke` | User revoked an API key |
 | 3 | `oauth.key_revoke_blocked` | Key revocation blocked (last key protection) |
 | 3 | `oauth.logout` | User logged out |
+| 3 | `oauth.email_link_sent` | Email sign-in link sent (no address logged; `source` says where the request came from) |
+| 3 | `oauth.email_login_success` | Email sign-in link used, session created (`isNewUser`) |
+| 3 | `oauth.email_user_linked` | First email sign-in matched the verified email of an existing account and joined it |
+| 3 | `oauth.tenant_create` with `provider: email` | New `em-` tenant created by email sign-in |
 | 4 | `oauth.key_limit_reached` | User hit max API key limit |
 | 4 | `oauth.key_revoke_fail` | Key revocation DB error |
+| 4 | `oauth.email_link_rate_limited` | Sign-in link refused: `scope` is `ip` (10 an hour) or `address` (3 an hour) |
+| 4 | `oauth.email_login_invalid_token` | Sign-in link expired, already used or unknown |
+| 4 | `oauth.email_login_origin_rejected` | Sign-in form posted from another site (login CSRF) |
 | 5 | `oauth.callback_fail` | OAuth callback failed (state mismatch, GitHub API error, etc.) |
 | 5 | `oauth.key_create_fail` | API key creation failed |
 | 5 | `oauth.first_key_collision` | Auto-generated first API key hash collided |
 | 5 | `oauth.logout_delete_error` | Session deletion during logout failed |
 | 5 | `oauth.session_user_lookup_error` | Session user lookup threw an error |
+| 5 | `oauth.email_link_send_fail` | Resend refused or did not answer when sending a sign-in link |
+| 5 | `oauth.email_login_fail` | Email sign-in failed while setting up the account or session |
 
 ## Session (`session`)
 

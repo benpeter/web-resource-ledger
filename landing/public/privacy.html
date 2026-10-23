@@ -68,9 +68,13 @@
         </ul>
         <p>We request the <code>read:user user:email</code> scopes from GitHub. This allows us to receive your GitHub user ID, username, and primary verified email address. The GitHub access token used during login is discarded immediately after fetching your identity &mdash; it is never stored.</p>
 
+        <h3>Account Data (email sign-in)</h3>
+        <p>If you sign in with an emailed link instead of GitHub, we store your email address as your sign-in identity, along with when you signed up and last signed in. Each link works once and expires after 15 minutes; we store only a SHA-256 hash of it, and delete it after use or expiry. To limit abuse, we count sign-in link requests per email address and per IP address for one hour, using hashes of both.</p>
+
         <h3>Email Addresses</h3>
-        <p>We collect and store your email address in two ways:</p>
+        <p>We collect and store your email address in three ways:</p>
         <ul>
+          <li><strong>From email sign-in</strong> &mdash; the address you sign in with becomes your verified notification address.</li>
           <li><strong>From GitHub OAuth</strong> &mdash; when you sign in, we receive your primary verified email address from GitHub (via the <code>user:email</code> scope) and store it in your notification preferences as the default delivery address for transactional notifications.</li>
           <li><strong>Manual entry</strong> &mdash; you may update your notification email address directly in the web interface. Only the verified address is stored; any pending (unverified) address is held temporarily until the verification link is clicked.</li>
         </ul>

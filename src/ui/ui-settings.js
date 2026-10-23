@@ -109,6 +109,7 @@ function mountSettings() {
   // Account info comes from _wrlUser (already fetched at boot via /auth/session)
   var accountData = {
     githubUsername: _wrlUser ? _wrlUser.githubLogin : '',
+    signInEmail: _wrlUser && !_wrlUser.githubLogin ? (_wrlUser.email || '') : '',
     tenantId: _wrlUser ? _wrlUser.tenantId : '',
     createdAt: _wrlUser ? _wrlUser.createdAt : ''
   };
@@ -367,7 +368,11 @@ function buildSettingsContent(view, accountData, keysData, usageData, settingsDa
     infoGrid.appendChild(row);
   }
 
-  addInfoRow('GitHub username', accountData.githubUsername || '');
+  if (accountData.githubUsername) {
+    addInfoRow('GitHub username', accountData.githubUsername);
+  } else {
+    addInfoRow('Signed in with', accountData.signInEmail || 'Email link');
+  }
   addInfoRow('Tenant ID', accountData.tenantId || '');
   addInfoRow('Member since', formatDate(accountData.createdAt));
 

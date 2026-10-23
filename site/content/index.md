@@ -12,7 +12,7 @@ This guide walks you from your first API call to a verified capture in under fiv
 
 ## No code: capture from the browser
 
-You don't need the API to capture a page. [Sign in with GitHub](https://api.webresourceledger.com/auth/login?from=docs), paste a URL into the capture form in the [web UI](https://api.webresourceledger.com/ui), and WRL produces the same signed, timestamped bundle as an API call. Each capture has a verification page you can share with anyone, no account needed.
+You don't need the API to capture a page. [Sign in](https://api.webresourceledger.com/ui?from=docs) with GitHub or an emailed link, paste a URL into the capture form in the [web UI](https://api.webresourceledger.com/ui), and WRL produces the same signed, timestamped bundle as an API call. Each capture has a verification page you can share with anyone, no account needed.
 
 The rest of this guide uses the API.
 

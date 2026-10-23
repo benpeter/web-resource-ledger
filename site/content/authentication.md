@@ -8,6 +8,15 @@ description: How to authenticate WRL API requests using bearer tokens, manage pe
 
 Every WRL request that creates or reads captures requires a bearer token. This guide covers how to use your API key, what scopes control access, and how operators manage keys.
 
+## Signing In
+
+The [web UI](https://api.webresourceledger.com/ui) offers two ways to sign in:
+
+- **GitHub**: "Sign in with GitHub". WRL stores your GitHub user ID and username, and your primary verified email as the notification address.
+- **Email link**: enter your address and WRL emails you a sign-in link. The link works once and expires after 15 minutes. Opening it shows a "Sign in" button, so a mail scanner that opens links can't use it up. You can request 3 links per address per hour.
+
+Signing in the first time creates your account and a first API key, shown once. If your email address is already the verified notification address of an account, an email link signs you into that account instead of creating a new one. Sessions last 7 days.
+
 ## Using Your API Key
 
 Set your API key as a bearer token in the `Authorization` header on every request.
