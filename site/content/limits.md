@@ -107,6 +107,13 @@ Unauthenticated or low-trust requests are subject to per-IP rate limiting. The l
 
 Authenticated requests are rate-limited per tenant. The window is 60 seconds, rolling.
 
+| What | Default per tenant |
+|---|---|
+| Captures (each URL in a batch counts) | 10 a minute |
+| Sitemap reads (`POST /v1/sitemap`) | 10 a minute |
+
+If you need a higher capture limit, email [hello@webresourceledger.com](mailto:hello@webresourceledger.com).
+
 ### Rate Limit Response
 
 ```

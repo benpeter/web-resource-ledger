@@ -16,16 +16,19 @@ Put one URL per line in `urls.txt`, in the order of your survey. Keep a second c
 
 ## Step 2: Capture all pages
 
-Submit the list in batches of 20 (see [Batch Captures](/batch/)) and write each capture ID next to its URL:
+Without code, paste the list into **Capture a list of URLs or a sitemap** in the [web UI](https://api.webresourceledger.com/ui) and choose **Capture all**.
+
+With the API, submit the list in batches of 10 (see [Batch Captures](/batch/)), one batch a minute to stay within the default rate limit, and write each capture ID next to its URL:
 
 ```bash
-split -l 20 urls.txt batch-
+split -l 10 urls.txt batch-
 for f in batch-*; do
   jq -R '{url: .}' "$f" | jq -s '{urls: .}' |
   curl -s -X POST https://api.webresourceledger.com/v1/captures/batch \
     -H "Authorization: Bearer YOUR_API_KEY" \
     -H "Content-Type: application/json" \
     -d @- | jq -r '.items[] | select(.id) | "\(.url)\t\(.id)"' >> captures.tsv
+  sleep 60
 done
 ```
 

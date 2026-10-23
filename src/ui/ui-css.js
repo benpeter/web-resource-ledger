@@ -421,6 +421,54 @@ input, select, textarea {
   margin-top: var(--space-2);
 }
 
+/* Bulk capture: pasted list or sitemap (phase 0130) */
+.bulk-capture {
+  margin-top: var(--space-4);
+}
+
+.bulk-capture summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.bulk-capture__label {
+  display: block;
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.bulk-capture__list {
+  width: 100%;
+  min-height: 8rem;
+  font-family: var(--font-mono, monospace);
+  resize: vertical;
+}
+
+.bulk-capture__sitemap {
+  margin-top: var(--space-2);
+}
+
+.bulk-capture__hint,
+.bulk-capture__status {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-2);
+}
+
+.bulk-capture__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.bulk-capture__errors {
+  font-size: var(--text-sm);
+  color: var(--color-error-text);
+  margin-top: var(--space-2);
+  padding-left: var(--space-4);
+}
+
 /* List section */
 
 .captures-list-section {

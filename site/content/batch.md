@@ -6,7 +6,7 @@ description: Submit up to 20 URLs in a single batch capture request, handle per-
 
 # Batch Captures
 
-The batch endpoint lets you submit up to 20 URLs in a single request (a self-hosted operator can raise this to 100 with `MAX_BATCH_SIZE`). WRL processes each URL independently and returns a per-item result. Some URLs may be accepted while others fail validation -- the batch does not abort on partial errors.
+The batch endpoint lets you submit up to 20 URLs in a single request (a self-hosted operator can raise this to 100 with `MAX_BATCH_SIZE`). Each URL counts against your per-tenant rate limit of 10 captures a minute (unless it was raised), so a batch larger than what is left of that minute is refused with `429`. With the default limit, send at most 10 URLs a minute. To get the URLs from a sitemap, use `POST /v1/sitemap`. WRL processes each URL independently and returns a per-item result. Some URLs may be accepted while others fail validation -- the batch does not abort on partial errors.
 
 ## Prerequisites
 

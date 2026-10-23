@@ -18,7 +18,7 @@ Capture the same page again later if you need to show that it changed or was tak
 
 ## Check the screenshot
 
-Open the screenshot of every capture. Some marketplaces put a bot check in front of their pages, and WRL then captures the check screen ("Just a moment...") instead of the listing. Such captures are currently still marked complete, so look before you rely on one. If you see a check screen, try again later, or capture the page another way.
+Some marketplaces put a bot check in front of their pages. WRL doesn't get around those: when it sees one ("Just a moment..."), the capture fails with "The site showed a bot check instead of the page" and doesn't count against your quota. Try again later, or capture the page another way. Open the screenshot of every capture that completed anyway, before you rely on it.
 
 ## Qualified timestamps for EU proceedings
 
