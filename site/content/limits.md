@@ -134,7 +134,7 @@ When you receive a rate-limit `429`, wait the number of seconds in `Retry-After`
 
 ## Screenshot Size
 
-Screenshots are 1,280 pixels wide and cover the top 8,000 pixels of a page. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
+Pages render in a window 1,280 CSS pixels wide, and screenshots cover the top 8,000 CSS pixels of a page. Screenshots are taken at four times that resolution, so the largest is 5,120 by 32,000 pixels. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
 
 ## Custom Quotas (Operators)
 

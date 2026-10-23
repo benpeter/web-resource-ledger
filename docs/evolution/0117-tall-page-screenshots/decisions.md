@@ -37,3 +37,11 @@ The log event is now `render.default.screenshot_capped`.
   is one option.
 - The capture record doesn't yet say that its screenshot was cut. The limits
   page says so in general.
+
+## Why it started in March
+
+Phase 0079 (2026-03-24, #189) raised `deviceScaleFactor` from 2 to 4 and
+counted on the 8000 px cap to bound the worst case. With the cap not working,
+an 11,646 px page became a 46,584 px tall screenshot. The clip makes the cap
+real: the largest screenshot is now 5,120 by 32,000 pixels (checked on
+production, Guardian and Spiegel, 4.5 and 5.5 MB).
