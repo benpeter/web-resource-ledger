@@ -247,6 +247,43 @@ describe('pirsch -- error resilience', () => {
     logSpy.mockRestore();
   });
 
+  it('resolves only after the rejection log is sent, so the Worker cannot drop it', async () => {
+    // A Worker ends once its waitUntil promises settle. If the log call is not part
+    // of the promise trackHit returns, the rejection never reaches Coralogix
+    // (phase 0119: docs rejections went unseen this way).
+    let logSent = false;
+    const logSpy = vi.spyOn(logModule, 'log').mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => { logSent = true; resolve(); }, 20)),
+    );
+
+    fetchMock
+      .get(PIRSCH_ORIGIN)
+      .intercept({ path: HIT_PATH, method: 'POST' })
+      .reply(401, 'unauthorized');
+
+    await trackHit(mockRequest(), mockEnv, {});
+    expect(logSent).toBe(true);
+
+    logSpy.mockRestore();
+  });
+
+  it('resolves only after the failure log is sent when the request throws', async () => {
+    let logSent = false;
+    const logSpy = vi.spyOn(logModule, 'log').mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => { logSent = true; resolve(); }, 20)),
+    );
+
+    fetchMock
+      .get(PIRSCH_ORIGIN)
+      .intercept({ path: HIT_PATH, method: 'POST' })
+      .replyWithError(new Error('network down'));
+
+    await trackHit(mockRequest(), mockEnv, {});
+    expect(logSent).toBe(true);
+
+    logSpy.mockRestore();
+  });
+
   it('stays silent on a 200 response (bot-drops are not actionable)', async () => {
     const logSpy = vi.spyOn(logModule, 'log').mockImplementation(() => undefined);
 

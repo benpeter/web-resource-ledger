@@ -267,7 +267,7 @@ async function handleCaptureMessage(msg, env, ctx) {
           eidasCaptures,
         })
       ).catch((err) => {
-        log(env, 4, 'usage', { event: 'usage.increment_fail', captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        return log(env, 4, 'usage', { event: 'usage.increment_fail', captureId, tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
     );
     msg.ack();
@@ -892,7 +892,7 @@ async function handleCreateCapture(request, env, ctx) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        return log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -1127,7 +1127,7 @@ async function handleBatchCapture(request, env, ctx) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        return log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -1438,7 +1438,7 @@ async function handleListCaptures(request, env, ctx) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        return log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
@@ -2006,7 +2006,7 @@ async function handleDiffCaptures(request, env, ctx, match) {
   ctx.waitUntil(
     incrementUsage(env.DB, tenantId, { apiCalls: 1 })
       .catch((err) => {
-        log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
+        return log(env, 4, 'usage', { event: 'usage.increment_fail', tenantId, errorMessage: String(err?.message ?? '').slice(0, 128) });
       })
   );
 
