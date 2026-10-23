@@ -42,13 +42,16 @@ function _send(env, endpoint, body) {
       if (!res.ok) {
         // Pirsch's error body names the problem (e.g. a missing field); keep a
         // short prefix so a rejection can be diagnosed from the log alone.
-        return res.text().catch(() => '').then((text) => {
-          log(env, 4, 'pirsch', { event: 'pirsch.send_rejected', endpoint, status: res.status, detail: String(text).slice(0, 200) });
-        });
+        // Return the log promise: a Worker ends once its waitUntil promises
+        // settle, and an unreturned log call is dropped with it.
+        return res.text().catch(() => '').then((text) =>
+          log(env, 4, 'pirsch', { event: 'pirsch.send_rejected', endpoint, status: res.status, detail: String(text).slice(0, 200) }),
+        );
       }
-    }).catch((err) => {
-      log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
-    });
+      return undefined;
+    }).catch((err) =>
+      log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) }),
+    );
   } catch (err) {
     log(env, 4, 'pirsch', { event: 'pirsch.send_fail', endpoint, errorMessage: String(err?.message ?? '').slice(0, 128) });
     return;

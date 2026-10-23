@@ -714,7 +714,7 @@ async function defaultRenderer(env, url, captureId) {
       context.close().then(() => browser.close()),
       new Promise((r) => setTimeout(r, 3000)),
     ]).catch((err) => {
-      log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      return log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
 }
