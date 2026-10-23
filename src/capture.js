@@ -72,7 +72,7 @@
  */ // tva
 
 import { connect, acquire, sessions, limits } from '@cloudflare/playwright';
-import { completeCapture, failCapture, archiveSigningKey } from './db.js';
+import { completeCapture, failCapture, recordAttemptError, archiveSigningKey } from './db.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
 import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
@@ -94,6 +94,10 @@ const HEADER_FETCH_TIMEOUT_MS = 10000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
 const PARTIAL_BUDGET_MS = 120000;
 const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
+// One delivery plus max_retries = 3 on the capture queue (wrangler.toml).
+export const CAPTURE_MAX_ATTEMPTS = 4;
+// How long a detected bot check gets to finish by itself before the capture fails.
+const BOT_CHECK_WAIT_MS = 8000;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -136,6 +140,8 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       const { message, retryable } = categorizeError(renderResult.reason);
       await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable, cip, attempt, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
       if (retryable) {
+        // Keep the reason: if every attempt fails, the final failure names it.
+        await recordAttemptError(env.DB, captureId, message);
         return { ok: false, retryable: true, error: message };
       }
       await failCapture(env.DB, captureId, message, retryable);
@@ -625,6 +631,25 @@ async function defaultRenderer(env, url, captureId) {
       throw new Error(`Captured page is not target content (${renderCheck.reason})`);
     }
 
+    // A bot check (Cloudflare challenge) instead of the page: give a JavaScript
+    // challenge one chance to finish by itself, as it would for any visitor, and
+    // fail the capture if it is still there. Never interact with the check.
+    let botCheck = classifyBotCheck(await readBotCheckSignals(page));
+    if (botCheck.detected) {
+      await log(env, 3, 'capture', { event: 'render.default.bot_check_wait', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
+      await page.waitForFunction(
+        () => !/^just a moment/i.test(document.title) && !/attention required/i.test(document.title),
+        null,
+        { timeout: BOT_CHECK_WAIT_MS },
+      ).catch(() => {});
+      await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
+      botCheck = classifyBotCheck(await readBotCheckSignals(page));
+    }
+    if (botCheck.detected) {
+      await log(env, 4, 'capture', { event: 'render.default.bot_check', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
+      throw new Error(`Bot check: Cloudflare challenge (${botCheck.signals.join(', ')})`);
+    }
+
     // Trigger lazy-loaded images by scrolling the viewport
     const scrollMs = await triggerLazyLoading(page);
     const tScroll = Date.now();
@@ -783,6 +808,42 @@ async function detectRenderFailure(page) {
 }
 
 /**
+ * Reads the page features classifyBotCheck looks at.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean }>}
+ */
+async function readBotCheckSignals(page) {
+  return page.evaluate(() => ({
+    title: (document.title || '').trim(),
+    hasChallengeOptions: typeof window._cf_chl_opt !== 'undefined',
+    hasChallengeScript: Boolean(document.querySelector(
+      'script[src*="/cdn-cgi/challenge-platform/"], iframe[src*="challenges.cloudflare.com"]',
+    )),
+    hasChallengeMarkup: Boolean(document.querySelector(
+      '#challenge-form, #challenge-running, #challenge-stage, #cf-challenge-running',
+    )),
+  }));
+}
+
+/**
+ * Decides whether a rendered page is a Cloudflare bot check rather than the
+ * page itself. Needs two signals, so a page that merely mentions Cloudflare or
+ * is titled "Just a moment..." does not count (GH #317, phase 0121).
+ *
+ * @param {{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean }} s
+ * @returns {{ detected: boolean, vendor: 'cloudflare', signals: string[] }}
+ */
+export function classifyBotCheck(s) {
+  const signals = [];
+  if (/^just a moment\.{3}$/i.test(s.title) || /^attention required! \| cloudflare$/i.test(s.title)) signals.push('title');
+  if (s.hasChallengeOptions) signals.push('cf_chl_opt');
+  if (s.hasChallengeScript) signals.push('challenge-platform');
+  if (s.hasChallengeMarkup) signals.push('challenge-markup');
+  return { detected: signals.length >= 2, vendor: 'cloudflare', signals };
+}
+
+/**
  * Scrolls the page in viewport-height increments to trigger lazy-loaded images
  * (loading="lazy" and IntersectionObserver-based). Called after settle + error
  * detection, before the before-screenshot.
@@ -851,11 +912,33 @@ async function triggerLazyLoading(page) {
 export function categorizeError(error) {
   const msg = error?.message ?? '';
 
+  if (msg.startsWith('Bot check')) {
+    return {
+      message: 'The site showed a Cloudflare bot check instead of the page, so WRL did not capture it. Failed captures are not counted or billed.',
+      retryable: false,
+    };
+  }
+  if (msg.includes('Unable to capture screenshot')) {
+    return { message: 'The browser could not take a screenshot of this page', retryable: true };
+  }
+  if (msg.includes('net::ERR_NAME_NOT_RESOLVED')) {
+    return { message: "The site's address could not be found (DNS)", retryable: true };
+  }
+  if (msg.includes('net::ERR_CONNECTION_REFUSED')) {
+    return { message: 'The site refused the connection', retryable: true };
+  }
+  if (msg.includes('net::ERR_CERT_')) {
+    return { message: "The site's TLS certificate is not valid", retryable: false };
+  }
+
   if (msg.includes('not target content')) {
-    return { message: msg, retryable: false };
+    if (msg.includes('(blank-page)')) {
+      return { message: 'The page loaded but showed nothing (blank page)', retryable: false };
+    }
+    return { message: 'The browser showed an error page instead of the site', retryable: false };
   }
   if (msg.includes('did not respond')) {
-    return { message: 'Target site did not respond (possible bot protection or geo-restriction)', retryable: false };
+    return { message: 'The site did not respond, possibly because it blocks automated visits or this region', retryable: false };
   }
   if (msg.includes('Render deadline exceeded')) {
     return { message: 'Capture timed out', retryable: true };
@@ -895,7 +978,7 @@ export function categorizeError(error) {
     return { message: 'Browser session expired', retryable: true };
   }
   if (msg.includes('Protocol error')) {
-    return { message: 'Browser protocol error', retryable: true };
+    return { message: 'The browser hit an internal error', retryable: true };
   }
   if (msg.includes('Connection refused') || msg.includes('ECONNREFUSED')) {
     return { message: 'Browser connection refused', retryable: true };

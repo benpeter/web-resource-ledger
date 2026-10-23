@@ -68,7 +68,9 @@ function rowToCapture(row) {
     render: row.render ? JSON.parse(row.render) : null,
     captureSettings: row.capture_settings ? JSON.parse(row.capture_settings) : null,
     failedAt: row.failed_at ?? null,
-    error: row.error ?? null,
+    // A pending capture may hold the reason of a failed attempt that is being
+    // retried; users only see a reason once the capture has failed for good.
+    error: row.status === 'failed' ? (row.error ?? null) : null,
     retryable: row.retryable != null ? Boolean(row.retryable) : false,
     quarantined: Boolean(row.quarantined),
     quarantineReason: row.quarantine_reason ?? null,
@@ -120,6 +122,7 @@ export async function completeCapture(db, captureId, artifacts, wacz = null, ren
   const result = await db.prepare(
     `UPDATE captures
      SET status = 'complete',
+         error = NULL,
          completed_at = ?,
          artifacts = ?,
          wacz = ?,
@@ -165,6 +168,43 @@ export async function failCapture(db, captureId, error, retryable = false) {
   ).run();
 
   if (result.meta.changes === 0) return; // Capture not found -- nothing to update
+}
+
+/**
+ * Store the reason a capture attempt failed while the capture is retried. The
+ * capture stays pending; failCaptureAfterRetries uses the reason if every
+ * attempt fails.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {string} message User-facing reason (from categorizeError)
+ */
+export async function recordAttemptError(db, captureId, message) {
+  await db.prepare(
+    `UPDATE captures SET error = ? WHERE id = ? AND status = 'pending'`,
+  ).bind(message, captureId).run();
+}
+
+/**
+ * Mark a capture failed after its last attempt, naming the reason of the last
+ * failed attempt when one was recorded.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {number} attempts How many times WRL tried
+ */
+export async function failCaptureAfterRetries(db, captureId, attempts) {
+  await db.prepare(
+    `UPDATE captures
+     SET status = 'failed',
+         failed_at = ?,
+         error = CASE
+           WHEN error IS NOT NULL AND error <> '' THEN rtrim(error, '.') || '. WRL tried ' || ? || ' times.'
+           ELSE 'The capture failed ' || ? || ' times without a recorded reason.'
+         END,
+         retryable = 0
+     WHERE id = ?`,
+  ).bind(new Date().toISOString(), String(attempts), String(attempts), captureId).run(); // String: D1 binds numbers as REAL ("4.0")
 }
 
 /**

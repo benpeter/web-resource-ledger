@@ -178,7 +178,23 @@ function buildCaptureItem(capture) {
 
   item.appendChild(badgeCell);
 
+  var failReason = submit_failReason(capture);
+  if (failReason) item.appendChild(submit_failReasonEl(failReason));
+
   return item;
+}
+
+// Why a capture failed, for the capture list. null when it did not fail.
+function submit_failReason(capture) {
+  if (!capture || capture.status !== 'failed') return null;
+  return capture.error || 'No reason was recorded.';
+}
+
+function submit_failReasonEl(text) {
+  var el = document.createElement('span');
+  el.className = 'capture-fail-reason';
+  el.textContent = text;
+  return el;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +227,9 @@ function updateCaptureItem(captureId, statusData) {
       timeCell.textContent = relativeTime(new Date().toISOString());
       timeCell.title = new Date().toISOString();
     }
-    announce('Capture failed.');
+    var reason = submit_failReason({ status: 'failed', error: statusData.error });
+    if (!item.querySelector('.capture-fail-reason')) item.appendChild(submit_failReasonEl(reason));
+    announce('Capture failed: ' + reason);
   } else if (statusData.status === 'timeout') {
     badge.className = 'badge badge--skip';
     badge.textContent = 'Pending';

@@ -281,7 +281,7 @@ describe('integration: error page detection', () => {
     expect(result.retryable).toBe(false);
     const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('failed');
-    expect(record.error).toContain('chromium-error-page');
+    expect(record.error).toBe('The browser showed an error page instead of the site');
   });
 });
 
