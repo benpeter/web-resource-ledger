@@ -6,7 +6,7 @@ description: Third-party subprocessors used by WRL — cloud infrastructure, sto
 
 # Subprocessors
 
-Last updated: 2026-03-27
+Last updated: 2026-10-23
 
 > **What this page is:** WRL runs on Cloudflare's infrastructure and integrates with a small set of external services to authenticate users, process payments, send email, screen URLs for threats, and issue cryptographic timestamps. This page lists every third-party service that processes data on behalf of WRL or its customers, what data each service receives, and the legal mechanism that governs the transfer. No service receives personal data beyond what is strictly necessary for its function.
 
@@ -89,7 +89,7 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 ### Resend
 
 **Entity:** Resend, Inc. (USA)
-**Purpose:** Transactional email delivery — WRL sends notifications such as capture failures, quota alerts, invoices, and email verification messages through Resend
+**Purpose:** Transactional email delivery — WRL sends notifications such as capture failures, quota alerts, invoices, email verification messages and sign-in links through Resend
 **Data processed:** Recipient email addresses and email content (notification text). Email addresses are never logged by WRL; they pass directly to Resend in queue messages.
 **Data location:** USA
 **Transfer mechanism:** Standard Contractual Clauses

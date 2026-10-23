@@ -137,3 +137,4 @@ software development.
 | [0128-support-contact](0128-support-contact/) | hello@webresourceledger.com for requests, a support page with no SLA, and docs headings with ids so anchor links work |
 | [0129-retention-purges](0129-retention-purges/) | Weekly purge of quarantined captures after 90 days and trimming of usage counters after 12 periods; the weekly cron runs on Mondays and no longer runs the schedule tick a second time |
 | [0130-bulk-capture](0130-bulk-capture/) | Read a sitemap through the API, MCP and dashboard, and capture a pasted list or sitemap from the dashboard at the tenant's rate limit |
+| [0131-email-login](0131-email-login/) | Sign in with an emailed link as an alternative to GitHub |

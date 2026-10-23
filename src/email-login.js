@@ -119,12 +119,12 @@ export async function handleEmailLoginRequest(request, env, ctx) {
   const emailKey = (await hashApiKey(`login-email:${email}`)).slice(0, 32);
   const byIp = await rateLimitCounter(env.KV, ipKey, 'email-login-ip', LINKS_PER_IP_PER_HOUR, 3600);
   if (byIp.exceeded) {
-    ctx.waitUntil(log(env, 4, 'auth', { event: 'auth.email_link_rate_limited', cip, scope: 'ip' }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_link_rate_limited', cip, scope: 'ip' }) ?? Promise.resolve());
     return problemResponse(429, 'Too many sign-in links requested. Try again in an hour.');
   }
   const byEmail = await rateLimitCounter(env.KV, emailKey, 'email-login-address', LINKS_PER_EMAIL_PER_HOUR, 3600);
   if (byEmail.exceeded) {
-    ctx.waitUntil(log(env, 4, 'auth', { event: 'auth.email_link_rate_limited', cip, scope: 'address' }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_link_rate_limited', cip, scope: 'address' }) ?? Promise.resolve());
     return problemResponse(429, 'Too many sign-in links sent to this address. Try again in an hour.');
   }
   ctx.waitUntil(Promise.all([byIp.writePromise, byEmail.writePromise]).catch(() => {}));
@@ -152,11 +152,11 @@ export async function handleEmailLoginRequest(request, env, ctx) {
   }
 
   if (status < 200 || status >= 300) {
-    ctx.waitUntil(log(env, 5, 'auth', { event: 'auth.email_link_send_fail', cip, httpStatus: status }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'oauth', { event: 'oauth.email_link_send_fail', cip, httpStatus: status }) ?? Promise.resolve());
     return problemResponse(502, 'The sign-in email could not be sent. Try again in a minute.');
   }
 
-  ctx.waitUntil(log(env, 3, 'auth', { event: 'auth.email_link_sent', cip, source }) ?? Promise.resolve());
+  ctx.waitUntil(log(env, 3, 'oauth', { event: 'oauth.email_link_sent', cip, source }) ?? Promise.resolve());
   return jsonResponse({ status: 'sent', expiresInMinutes: LOGIN_TOKEN_TTL_SECONDS / 60 }, 202);
 }
 
@@ -209,7 +209,7 @@ export async function handleEmailLoginConfirm(request, env, ctx) {
     ? origin === ownOrigin
     : request.headers.get('Sec-Fetch-Site') === 'same-origin';
   if (!sameOrigin) {
-    ctx.waitUntil(log(env, 4, 'auth', { event: 'auth.email_login_origin_rejected', cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_login_origin_rejected', cip }) ?? Promise.resolve());
     return problemResponse(403, 'Sign in from the page the email link opens');
   }
 
@@ -224,7 +224,7 @@ export async function handleEmailLoginConfirm(request, env, ctx) {
 
   const used = await consumeLoginToken(env.DB, await hashApiKey(token));
   if (!used) {
-    ctx.waitUntil(log(env, 4, 'auth', { event: 'auth.email_login_invalid_token', cip }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_login_invalid_token', cip }) ?? Promise.resolve());
     return invalidLink();
   }
   const { email, source } = used;
@@ -241,7 +241,7 @@ export async function handleEmailLoginConfirm(request, env, ctx) {
       if (linked) {
         tenantId = linked;
         await createEmailUser(env.DB, { email, tenantId });
-        ctx.waitUntil(log(env, 3, 'auth', { event: 'auth.email_user_linked', cip, tenantId }) ?? Promise.resolve());
+        ctx.waitUntil(log(env, 3, 'oauth', { event: 'oauth.email_user_linked', cip, tenantId }) ?? Promise.resolve());
       } else {
         isNewUser = true;
         tenantId = `em-${randomHex(8)}`;
@@ -268,14 +268,14 @@ export async function handleEmailLoginConfirm(request, env, ctx) {
           emailSource: 'manual',
         });
 
-        ctx.waitUntil(log(env, 3, 'auth', { event: 'auth.tenant_create', cip, tenantId, provider: 'email' }) ?? Promise.resolve());
+        ctx.waitUntil(log(env, 3, 'oauth', { event: 'oauth.tenant_create', cip, tenantId, provider: 'email' }) ?? Promise.resolve());
         if (!isAnalyticsExcluded(env, tenantId)) {
           ctx.waitUntil(trackEvent(request, env, 'Signup', { provider: 'email', source: source || 'direct' }, { property: 'api' }) ?? Promise.resolve());
         }
       }
     }
   } catch (err) {
-    ctx.waitUntil(log(env, 5, 'auth', { event: 'auth.email_login_fail', cip, reason: 'user_setup_error', errorMessage: String(err?.message ?? '').slice(0, 128) }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'oauth', { event: 'oauth.email_login_fail', cip, reason: 'user_setup_error', errorMessage: String(err?.message ?? '').slice(0, 128) }) ?? Promise.resolve());
     return new Response(null, { status: 302, headers: { Location: '/ui?error=login_failed' } });
   }
 
@@ -286,9 +286,9 @@ export async function handleEmailLoginConfirm(request, env, ctx) {
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
     await createSession(env.DB, { idHash, email, tenantId, expiresAt });
     sessionCookie = await createSessionCookie(env, sessionId);
-    ctx.waitUntil(log(env, 3, 'auth', { event: 'auth.email_login_success', cip, tenantId, isNewUser, sessionIdPrefix: idHash.slice(0, 8) }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 3, 'oauth', { event: 'oauth.email_login_success', cip, tenantId, isNewUser, sessionIdPrefix: idHash.slice(0, 8) }) ?? Promise.resolve());
   } catch (err) {
-    ctx.waitUntil(log(env, 5, 'auth', { event: 'auth.email_login_fail', cip, reason: 'session_create_error' }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 5, 'oauth', { event: 'oauth.email_login_fail', cip, reason: 'session_create_error' }) ?? Promise.resolve());
     return new Response(null, { status: 302, headers: { Location: '/ui?error=login_failed' } });
   }
 
