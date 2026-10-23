@@ -1,5 +1,10 @@
 # Backlog
 
+> **Frozen 2026-10-23.** Open items now live in a private tracker that Ben keeps
+> (one issue per item, prioritized Now/Next/Later/Someday). This file stays as the
+> record of the March to October 2026 roadmap. Struck items below were finished or
+> dropped; the reason is next to each.
+
 Product roadmap produced by advisory orchestration (2026-03-15). See
 [advisory report](history/nefario-reports/2026-03-15-103905-prioritized-product-roadmap.md)
 and [synthesis](history/nefario-reports/2026-03-15-103905-prioritized-product-roadmap/phase3-synthesis.md)
@@ -96,8 +101,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] CRL/OCSP revocation checking in CLI verify | When a TSA certificate revocation incident occurs or compliance requires it; offline requirement conflicts | security-minion, 0034-cli-verify-tool |
 | ~~[should] Publish @w-r-l/verify to npm~~ | ~~Done: CI automation in place (#98, 0050)~~ | ~~devx-minion, 0034-cli-verify-tool~~ |
 | [consider] OIDC Trusted Publishing for npm | When Node 24+ ships npm 11+; eliminates token rotation | security-minion, 0050-npm-publish-ci-automation |
-| [consider] Verify Sectigo qualified TSA endpoint URL | Before production eIDAS rollout; placeholder URL may need correction | Phase 0063, gru |
-| [consider] Provision QUALIFIED_TSA_AUTH secrets (staging + production) | Before production eIDAS rollout; manual ops step via wrangler secret put | Phase 0063, iac-minion |
+| ~~[consider] Verify Sectigo qualified TSA endpoint URL~~ | ~~Before production eIDAS rollout~~ -- DONE: production uses `https://timestamp.sectigo.com/qualified`; it returns granted timestamps, and the 9 qualified captures through October 2026 verify | Phase 0063, gru |
+| ~~[consider] Provision QUALIFIED_TSA_AUTH secrets (staging + production)~~ | ~~Before production eIDAS rollout~~ -- DONE: set on both Workers (checked 2026-10-23) | Phase 0063, iac-minion |
 | [consider] Dedicated eIDAS integration test suite | When eIDAS feature is production-ready; mock qualified TSA responses | Phase 0063, test-minion |
 
 ### Capture Fidelity
@@ -140,7 +145,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Resend bounce webhook handler | When hard bounces cause repeated delivery failures at scale | Phase 0072, out-of-scope |
 | [consider] Digest frequency configuration (daily, biweekly) | When users request non-weekly digest cadences | Phase 0072, out-of-scope |
 | [consider] SMS/push notification channels | When email alone proves insufficient for urgent alerts | Phase 0072, out-of-scope |
-| [consider] Provision RESEND_API_KEY secrets (staging + production) | Before production deployment; manual ops step via wrangler secret put | Phase 0072, iac-minion |
+| ~~[consider] Provision RESEND_API_KEY secrets (staging + production)~~ | ~~Before production deployment~~ -- DONE: set on both Workers, and notification emails are delivered (checked 2026-10-23) | Phase 0072, iac-minion |
 
 ### Docs Site
 
@@ -222,8 +227,8 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Watch lists / bulk monitoring | Requires scheduling (also parked) | MVP.md |
 | ~~[consider] Change detection / diffing~~ | ~~Requires multiple captures over time~~ -- DONE (Phase 0067): Diff API endpoint, HTML text diff (diff-match-patch-es), screenshot hash comparison + client-side pixel diff, header diff, change badges on schedules/captures, visual diff UI with 3 comparison modes, webhook enrichment (Issue #115) | MVP.md |
 | [consider] Diff unit/integration tests | Add test/diff.test.js for diffHtml, diffHeaders, diffScreenshot, computeChangeSummary, plus integration test for handleDiffCaptures endpoint | Phase 0067, lucy |
-| [consider] Pipeline diff stats optimization | Extract stats-only diffHtml variant for capture completion pipeline where hunks are discarded | Phase 0067, margo |
-| [consider] Screenshot similarity score in API | Surface numeric similarity percentage (not just boolean changed) in diff API and webhook; may require Durable Object for memory | Phase 0067, prompt deviation |
+| ~~[consider] Pipeline diff stats optimization~~ | ~~Extract stats-only diffHtml variant~~ -- DROPPED 2026-10-23: no performance problem has shown up | Phase 0067, margo |
+| ~~[consider] Screenshot similarity score in API~~ | ~~Surface numeric similarity percentage~~ -- DROPPED 2026-10-23: nobody asked for it | Phase 0067, prompt deviation |
 | ~~[consider] Notifications~~ | ~~When event-driven workflows needed~~ -- DONE (Phase 0072): 6 notification types (capture failure, approaching/reached free limit, invoice generated, payment failure, weekly digest), Resend email delivery, RFC 8058 unsubscribe, notification preferences API + UI tab, GitHub OAuth email auto-population (Issue #111) | MVP.md |
 | ~~[consider] Billing and quotas~~ | ~~When monetization actively planned~~ -- DONE (Phase 0056): usage-based free limit (100 captures/month without card, unlimited with card), pre-capture enforcement, usage dashboard, per-tenant D1 overrides (Issue #104). Pricing model: pure pay-per-capture, no subscriptions. | MVP.md |
 | ~~[consider] Capture ID recovery~~ | ~~Solved by R1; remove after R1 ships~~ -- Resolved: R1 shipped. | ux-strategy-minion, kickoff |

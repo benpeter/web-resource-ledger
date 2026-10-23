@@ -191,8 +191,8 @@ CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl"
 TSA_URL = "http://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
-# Auth credential set via: wrangler secret put QUALIFIED_TSA_AUTH
-# (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
+# Sectigo's qualified endpoint needs no auth. QUALIFIED_TSA_AUTH (a secret,
+# pre-encoded base64 user:pass) is only sent if set, for TSAs that require it.
 QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23liIG5Of9wSbgcFqW"
 STRIPE_PUBLISHABLE_KEY = "pk_live_51TDsOBR6ZdLyu7lGn7qg5KGMLs2mcYvkV4GHrYvGymIMxABXUEJjVOdl8BHnUrLoHMvM9HH8FNenohLPZABdRA3X002Ajerxi0"
@@ -362,8 +362,8 @@ CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
 TSA_URL = "http://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
-# Auth credential set via: wrangler secret put QUALIFIED_TSA_AUTH --env staging
-# (pre-encoded base64 user:pass for HTTP Basic auth; omit for TSAs needing no auth)
+# Sectigo's qualified endpoint needs no auth. QUALIFIED_TSA_AUTH (a secret,
+# pre-encoded base64 user:pass) is only sent if set, for TSAs that require it.
 QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
 STRIPE_PUBLISHABLE_KEY = "pk_test_51TDsOOJQK0cymoiEZrNp6PBKISzkLV3LCIxOIjQ2pkQdcDYtQRECpLiWUagaLe0PtE8Owu7x8bsu5gLemtHMj58G00PTk19u4B"
