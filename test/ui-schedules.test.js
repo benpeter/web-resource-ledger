@@ -105,3 +105,27 @@ describe('scheduleNextRunText -- the Next run column', () => {
     expect(text).toMatch(/2026/);
   });
 });
+
+describe('captures list texts when filtered to one schedule', () => {
+  const capturesFilterText = evalFromSource(SUBMIT_VIEW_JS, 'capturesFilterText');
+  const capturesEmptyText = evalFromSource(SUBMIT_VIEW_JS, 'capturesEmptyText');
+
+  it('names the schedule by its name, in quotes', () => {
+    expect(capturesFilterText({ name: 'Pricing page', url: 'https://example.com/pricing' }))
+      .toBe('Showing captures from the schedule \u201cPricing page\u201d.');
+  });
+
+  it('falls back to the URL when the schedule has no name', () => {
+    expect(capturesFilterText({ name: null, url: 'https://example.com/pricing' }))
+      .toBe('Showing captures from the schedule for https://example.com/pricing.');
+  });
+
+  it('says one schedule before its details load', () => {
+    expect(capturesFilterText(null)).toBe('Showing captures from one schedule.');
+  });
+
+  it('explains an empty filtered list instead of inviting a first capture', () => {
+    expect(capturesEmptyText(true)).toBe('This schedule has not made any captures yet. Its first one runs at the next scheduled time.');
+    expect(capturesEmptyText(false)).toMatch(/^Submit a URL above to create your first capture/);
+  });
+});
