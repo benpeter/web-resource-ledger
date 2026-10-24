@@ -87,3 +87,21 @@ describe('scheduleStatusLabel -- what the status badge says', () => {
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'pending' })).toBe('Active');
   });
 });
+
+describe('scheduleNextRunText -- the Next run column', () => {
+  const scheduleNextRunText = evalFromSource(SCHEDULES_JS, 'scheduleNextRunText');
+
+  it('shows no next run for a paused schedule (resuming picks a new one from now)', () => {
+    expect(scheduleNextRunText({ ...SCHED, paused: true, nextRunAt: '2026-10-25T00:00:00.000Z' })).toBe('\u2014');
+  });
+
+  it('shows a dash when there is no next run time', () => {
+    expect(scheduleNextRunText({ ...SCHED, nextRunAt: null })).toBe('\u2014');
+  });
+
+  it('shows the next run time for an active schedule', () => {
+    const text = scheduleNextRunText({ ...SCHED, paused: false, nextRunAt: '2026-10-25T00:00:00.000Z' });
+    expect(text).not.toBe('\u2014');
+    expect(text).toMatch(/2026/);
+  });
+});
