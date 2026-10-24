@@ -2065,15 +2065,6 @@ paths:
             type: string
             pattern: '^sch_[a-f0-9]{32}$'
           description: >
-            Only captures made by this schedule. Use `GET /v1/schedules` to
-            find schedule IDs.
-        - name: schedule_id
-          in: query
-          required: false
-          schema:
-            type: string
-            pattern: '^sch_[a-f0-9]{32}$'
-          description: >
             Filter results to captures triggered by this schedule. Omit to return
             captures from all sources (manual and scheduled).
       responses:
