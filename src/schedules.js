@@ -5,6 +5,7 @@
  *   POST   /v1/schedules                        -- create a schedule
  *   GET    /v1/schedules                        -- list schedules for tenant
  *   GET    /v1/schedules/:scheduleId            -- get a single schedule
+ *   PATCH  /v1/schedules/:scheduleId            -- edit name/url/cron, pause or resume
  *   DELETE /v1/schedules/:scheduleId            -- delete a schedule
  *
  * Auth: all routes support dual auth (session cookie or API key with 'capture' scope).
@@ -25,6 +26,7 @@ import {
   createSchedule,
   getSchedule,
   listSchedules,
+  updateSchedule,
   deleteSchedule,
   countSchedules,
   getTenantConfig,
@@ -36,6 +38,7 @@ import { isAnalyticsExcluded } from './analytics.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const ALLOWED_CREATE_FIELDS = new Set(['url', 'cron', 'name']);
+const ALLOWED_UPDATE_FIELDS = ['name', 'url', 'cron', 'paused'];
 
 // ---------------------------------------------------------------------------
 // Local dual auth: session cookie first, then API key
@@ -219,6 +222,119 @@ export async function handleGetSchedule(request, env, ctx, match) {
     event: 'schedule.get',
     scheduleId,
     tenantId: auth.tenantId,
+    keyHashPrefix: auth.keyHashPrefix,
+    authMethod: auth.authMethod,
+    responseStatus: 200,
+  }) ?? Promise.resolve());
+
+  return jsonResponse(record);
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /v1/schedules/:scheduleId -- edit or pause a schedule
+// ---------------------------------------------------------------------------
+
+/**
+ * Change any of name, url, cron and paused. A new cron, or resuming a paused
+ * schedule, sets the next run to the next cron time from now, so resuming
+ * never fires a backlog of missed runs at once. Pausing keeps next_run_at;
+ * the scheduler skips paused schedules.
+ *
+ * @param {Request} request
+ * @param {object} env
+ * @param {ExecutionContext} ctx
+ * @param {RegExpMatchArray} match  match[1] = scheduleId (validated by route regex)
+ */
+export async function handleUpdateSchedule(request, env, ctx, match) {
+  const auth = await verifyAuth(request, env, { requiredScope: 'capture' });
+  if (!auth.ok) return auth.response;
+
+  const scheduleId = match[1];
+
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return problemResponse(400, 'Request body must be a JSON object');
+  }
+
+  const unknown = Object.keys(body).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k));
+  if (unknown.length > 0) {
+    return problemResponse(400, `Unknown field(s): ${unknown.map((f) => `'${f}'`).join(', ')}. Allowed fields: ${ALLOWED_UPDATE_FIELDS.join(', ')}`);
+  }
+  if (Object.keys(body).length === 0) {
+    return problemResponse(400, `Provide at least one field to change: ${ALLOWED_UPDATE_FIELDS.join(', ')}`);
+  }
+
+  const fields = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, 'name')) {
+    if (typeof body.name !== 'string' || !NAME_RE.test(body.name)) {
+      return problemResponse(400, "Field 'name' must be 1-128 characters using letters, digits, spaces, and _ . : -");
+    }
+    fields.name = body.name;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'url')) {
+    if (typeof body.url !== 'string') {
+      return problemResponse(400, "Field 'url' must be a string");
+    }
+    const urlCheck = await validateUrl(body.url);
+    if (!urlCheck.ok) {
+      return problemResponse(urlCheck.status, urlCheck.detail);
+    }
+    fields.url = urlCheck.url;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'cron')) {
+    if (typeof body.cron !== 'string') {
+      return problemResponse(400, "Field 'cron' must be a string");
+    }
+    const cronCheck = validateCron(body.cron);
+    if (!cronCheck.ok) {
+      return problemResponse(400, cronCheck.detail);
+    }
+    fields.cron = cronCheck.cron;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'paused')) {
+    if (typeof body.paused !== 'boolean') {
+      return problemResponse(400, "Field 'paused' must be true or false");
+    }
+    fields.paused = body.paused;
+  }
+
+  const existing = await getSchedule(env.DB, scheduleId, auth.tenantId);
+  if (!existing) {
+    return problemResponse(404, `Schedule '${scheduleId}' not found.`);
+  }
+
+  const cron = fields.cron ?? existing.cron;
+  const resuming = existing.paused && fields.paused === false;
+  if ((fields.cron !== undefined && fields.cron !== existing.cron) || resuming) {
+    fields.nextRunAt = nextRun(cron);
+  }
+
+  const record = await updateSchedule(env.DB, scheduleId, auth.tenantId, fields);
+  if (!record) {
+    // Deleted between the read and the write
+    return problemResponse(404, `Schedule '${scheduleId}' not found.`);
+  }
+
+  ctx.waitUntil(log(env, 3, 'schedule', {
+    event: 'schedule.updated',
+    scheduleId,
+    tenantId: auth.tenantId,
+    changed: Object.keys(fields).filter((k) => k !== 'nextRunAt'),
+    paused: record.paused,
     keyHashPrefix: auth.keyHashPrefix,
     authMethod: auth.authMethod,
     responseStatus: 200,
