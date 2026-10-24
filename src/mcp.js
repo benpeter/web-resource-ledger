@@ -25,9 +25,10 @@ import { verifyApiKey, hasScope } from './auth.js';
 import { validateUrl } from './url-validation.js';
 import {
   createCapture, getCapture, failCapture, listCaptures, getTenantConfig,
-  createSchedule, listSchedules, deleteSchedule,
+  createSchedule, listSchedules, deleteSchedule, getSchedule, updateSchedule,
   countSchedules, getEffectiveScheduleLimit,
 } from './db.js';
+import { validateScheduleUpdate, withNextRun } from './schedules.js';
 import { rateLimitCounter } from './kv.js';
 import { performVerification } from './verify.js';
 import { log } from './log.js';
@@ -319,7 +320,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'list_captures',
-    'List your recent captures with optional filters. Returns summaries in reverse chronological order (newest first by default). Supports filtering by status, URL prefix, date range, and custom sort. Use offset for pagination. Use get_capture with a specific ID for full details.',
+    'List your recent captures with optional filters. Returns summaries in reverse chronological order (newest first by default). Supports filtering by status, URL prefix, date range, schedule, and custom sort. Use offset for pagination. Use get_capture with a specific ID for full details.',
     {
       status: z.enum(['pending', 'complete', 'failed']).optional().describe('Filter by capture status.'),
       limit: z.number().int().min(1).max(100).optional().default(20).describe('Maximum number of captures to return (1-100, default 20).'),
@@ -328,11 +329,18 @@ function createMcpServer(env, ctx, auth, origin) {
       created_after: z.string().optional().describe('Filter captures created after this ISO 8601 timestamp.'),
       created_before: z.string().optional().describe('Filter captures created before this ISO 8601 timestamp.'),
       sort: z.enum(['created_at', '-created_at']).optional().describe('Sort order: -created_at (newest first, default) or created_at (oldest first).'),
+      schedule_id: z.string().optional().describe('Only captures made by this schedule (sch_ followed by 32 hex characters). Use list_schedules to find schedule IDs.'),
     },
-    async ({ status, limit = 20, offset = 0, url, created_after, created_before, sort = '-created_at' }) => {
+    async ({ status, limit = 20, offset = 0, url, created_after, created_before, sort = '-created_at', schedule_id }) => {
+      if (schedule_id !== undefined && !/^sch_[a-f0-9]{32}$/.test(schedule_id)) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Invalid schedule ID format (sch_ followed by 32 hex characters).' }],
+        };
+      }
       let result;
       try {
-        result = await listCaptures(env.DB, auth.tenantId, { offset, limit, status, url, created_after, created_before, sort });
+        result = await listCaptures(env.DB, auth.tenantId, { offset, limit, status, url, created_after, created_before, sort, schedule_id });
       } catch (err) {
         ctx.waitUntil(log(env, 5, 'capture', {
           event: 'capture.list_fail',
@@ -1240,6 +1248,61 @@ function createMcpServer(env, ctx, auth, origin) {
       return {
         content: [{ type: 'text', text: `Schedule deleted: ${scheduleId}` }],
       };
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Tool: update_schedule (phase 0132)
+  // -------------------------------------------------------------------------
+  server.tool(
+    'update_schedule',
+    'Change a schedule: rename it, point it at a different URL, change how often it runs, or pause and resume it. Pass only the fields to change. Resuming, or changing the frequency, sets the next run to the next matching time from now; missed runs are not caught up.',
+    {
+      schedule_id: z.string().describe('Schedule ID (sch_ followed by 32 hex characters).'),
+      name: z.string().optional().describe('New name: 1-128 characters, letters, digits, spaces and _ . : -'),
+      url: z.string().optional().describe('New URL to capture (http or https, public address).'),
+      cron: z.string().optional().describe('New 5-field cron expression in UTC, at most hourly.'),
+      paused: z.boolean().optional().describe('true pauses the schedule, false resumes it.'),
+    },
+    async ({ schedule_id: scheduleId, ...changes }) => {
+      if (!hasScope(auth.scopes, 'capture')) {
+        return { isError: true, content: [{ type: 'text', text: 'Your API key does not have the capture scope required to change schedules.' }] };
+      }
+      if (!/^sch_[a-f0-9]{32}$/.test(scheduleId)) {
+        return { isError: true, content: [{ type: 'text', text: 'Invalid schedule ID format (sch_ followed by 32 hex characters).' }] };
+      }
+
+      const existing = await getSchedule(env.DB, scheduleId, auth.tenantId);
+      if (!existing) {
+        return { isError: true, content: [{ type: 'text', text: `Schedule not found: ${scheduleId}` }] };
+      }
+
+      const body = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+      const checked = await validateScheduleUpdate(body);
+      if (!checked.ok) {
+        return { isError: true, content: [{ type: 'text', text: checked.detail }] };
+      }
+
+      const fields = withNextRun(checked.fields, existing);
+      const updated = await updateSchedule(env.DB, scheduleId, auth.tenantId, fields);
+      ctx.waitUntil(log(env, 3, 'schedule', {
+        event: 'schedule.update',
+        tenantId: auth.tenantId,
+        keyName: auth.keyName,
+        scheduleId,
+        fields: Object.keys(checked.fields),
+        via: 'mcp',
+      }) ?? Promise.resolve());
+
+      const lines = [
+        `Schedule updated: ${updated.id}`,
+        `Name: ${updated.name ?? '(none)'}`,
+        `URL: ${updated.url}`,
+        `Cron: ${updated.cron}`,
+        `Status: ${updated.paused ? 'paused' : 'active'}`,
+        `Next run: ${updated.paused ? '(paused)' : updated.nextRunAt}`,
+      ];
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
     },
   );
 
