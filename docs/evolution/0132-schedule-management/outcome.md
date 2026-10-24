@@ -1,7 +1,6 @@
 # Outcome
 
-- `PATCH /v1/schedules/{id}` to edit, pause and resume; OpenAPI updated, and the
-  existing `schedule_id` filter on `GET /v1/captures` documented.
+- `PATCH /v1/schedules/{id}` to edit, pause and resume, in OpenAPI.
 - MCP `update_schedule`; `list_captures` takes `schedule_id`.
 - Dashboard: Pause/Resume, inline Edit, and Captures per schedule with a banner
   and a "Show all captures" link.

@@ -4,8 +4,8 @@
 
 - `schedules.paused` and the scheduler's `WHERE paused = 0` came with phase
   0059, but nothing could set the column.
-- `GET /v1/captures?schedule_id=` worked; OpenAPI didn't list it, and neither
-  MCP nor the dashboard used it.
+- `GET /v1/captures?schedule_id=` worked and was in OpenAPI, but neither MCP
+  nor the dashboard used it.
 
 ## API
 
