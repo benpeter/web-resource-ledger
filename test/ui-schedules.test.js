@@ -82,6 +82,10 @@ describe('scheduleStatusLabel -- what the status badge says', () => {
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'failed' })).toBe('Error');
   });
 
+  it('says Skipped when the last run was skipped because the monthly quota was used up', () => {
+    expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'skipped' })).toBe('Skipped');
+  });
+
   it('says Active when the last capture completed or is still running', () => {
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'complete' })).toBe('Active');
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'pending' })).toBe('Active');
