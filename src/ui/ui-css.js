@@ -1388,10 +1388,57 @@ input, select, textarea {
 .schedule-header-row,
 .schedule-item {
   display: grid;
-  grid-template-columns: 1fr 10rem 10rem 12rem;
+  grid-template-columns: 1fr 9rem 9rem 20rem;
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-3) var(--space-4);
+}
+
+/* Inline edit form, a full-width row under the schedule (phase 0132) */
+
+.schedule-edit-form {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: var(--space-3);
+  align-items: end;
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+
+.schedule-edit-form[hidden] {
+  display: none;
+}
+
+.schedule-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.schedule-edit-error {
+  grid-column: 1 / -1;
+  font-size: var(--text-sm);
+  color: var(--color-error-text);
+  margin: 0;
+}
+
+.schedule-edit-error:empty {
+  display: none;
+}
+
+.schedule-edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Captures list filtered to one schedule */
+
+.captures-filter {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2);
 }
 
 /* Header row */
@@ -1503,6 +1550,10 @@ input, select, textarea {
 
   .schedule-actions {
     flex-wrap: wrap;
+  }
+
+  .schedule-edit-form {
+    grid-template-columns: 1fr;
   }
 }
 

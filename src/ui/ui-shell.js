@@ -109,7 +109,8 @@ function route() {
     return;
   }
 
-  if (path === '/captures') {
+  // /captures, optionally ?schedule=sch_... (phase 0132)
+  if (path === '/captures' || path.indexOf('/captures?') === 0) {
     updateNavCurrent('/captures');
     renderCaptures();
     mountCaptures();
