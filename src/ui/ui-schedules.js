@@ -42,6 +42,13 @@ function cronNextPreview(cron) {
   return 'Custom expression: ' + cron;
 }
 
+// Next run column. A paused schedule has no next run: resuming picks a new
+// time from now (phase 0132), so the stored value would be misleading.
+function scheduleNextRunText(schedule) {
+  if (!schedule || schedule.paused) return '\u2014';
+  return formatScheduleDatetime(schedule.nextRunAt);
+}
+
 function formatScheduleDatetime(isoStr) {
   if (!isoStr) return '\u2014';
   try {
@@ -373,6 +380,11 @@ function buildScheduleRow(schedule, listEl) {
     urlCell.appendChild(nameText);
   }
 
+  // Status and change badges sit under the URL so the action buttons fit on one line
+  var badges = document.createElement('span');
+  badges.className = 'schedule-badges';
+  urlCell.appendChild(badges);
+
   row.appendChild(urlCell);
 
   // Frequency cell
@@ -384,7 +396,7 @@ function buildScheduleRow(schedule, listEl) {
   // Next run cell
   var nextCell = document.createElement('span');
   nextCell.className = 'schedule-col-next';
-  nextCell.textContent = formatScheduleDatetime(schedule.nextRunAt);
+  nextCell.textContent = scheduleNextRunText(schedule);
   row.appendChild(nextCell);
 
   // Actions cell
@@ -392,7 +404,7 @@ function buildScheduleRow(schedule, listEl) {
   actionsCell.className = 'schedule-col-actions schedule-actions';
 
   // Status badge
-  actionsCell.appendChild(scheduleStatusBadge(schedule));
+  badges.appendChild(scheduleStatusBadge(schedule));
 
   // Change badge: shown when schedule carries changeSummary from last capture
   if (schedule.changeSummary && schedule.lastCaptureId) {
@@ -403,12 +415,12 @@ function buildScheduleRow(schedule, listEl) {
       changeBadge.href = '#/diff/' + cs.previousCaptureId + '/' + schedule.lastCaptureId;
       changeBadge.textContent = 'Changed';
       changeBadge.setAttribute('aria-label', 'View changes from previous capture');
-      actionsCell.appendChild(changeBadge);
+      badges.appendChild(changeBadge);
     } else if (cs.changed === false) {
       var unchangedBadge = document.createElement('span');
       unchangedBadge.className = 'badge badge--unchanged';
       unchangedBadge.textContent = 'Unchanged';
-      actionsCell.appendChild(unchangedBadge);
+      badges.appendChild(unchangedBadge);
     }
   }
 

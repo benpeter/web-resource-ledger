@@ -337,6 +337,19 @@ function appendCaptures(items) {
 // ---------------------------------------------------------------------------
 
 // The schedule id in a captures URL query ('?schedule=sch_...'), or null.
+// Banner text above a captures list filtered to one schedule.
+function capturesFilterText(schedule) {
+  if (!schedule) return 'Showing captures from one schedule.';
+  if (schedule.name) return 'Showing captures from the schedule \u201c' + schedule.name + '\u201d.';
+  return 'Showing captures from the schedule for ' + schedule.url + '.';
+}
+
+// Empty-list text; a filtered list is empty because the schedule hasn't run yet.
+function capturesEmptyText(filtered) {
+  if (filtered) return 'This schedule has not made any captures yet. Its first one runs at the next scheduled time.';
+  return 'Submit a URL above to create your first capture. The page will be captured with a screenshot and cryptographic verification.';
+}
+
 function capturesScheduleFilter(query) {
   var m = /[?&]schedule=(sch_[a-f0-9]{32})(?:&|$)/.exec(query || '');
   return m ? m[1] : null;
@@ -363,7 +376,7 @@ function loadCaptures() {
     if (items.length === 0) {
       var guidance = document.createElement('p');
       guidance.className = 'capture-empty';
-      guidance.textContent = 'Submit a URL above to create your first capture. The page will be captured with a screenshot and cryptographic verification.';
+      guidance.textContent = capturesEmptyText(!!_scheduleFilter);
       if (_listEl) _listEl.appendChild(guidance);
     } else {
       appendCaptures(items);
@@ -853,14 +866,12 @@ function renderCaptures() {
   hBadge.textContent = 'Status';
   headerRow.appendChild(hBadge);
 
-  listSection.appendChild(headerRow);
-
-  // Filter banner when showing one schedule's captures
+  // Filter banner above the table when showing one schedule's captures
   if (_scheduleFilter) {
     var filterBar = document.createElement('p');
     filterBar.className = 'captures-filter';
     var filterText = document.createElement('span');
-    filterText.textContent = 'Showing captures from one schedule. ';
+    filterText.textContent = capturesFilterText(null) + ' ';
     filterBar.appendChild(filterText);
     var clearLink = document.createElement('a');
     clearLink.href = '#/captures';
@@ -870,9 +881,11 @@ function renderCaptures() {
     apiFetch('/v1/schedules/' + encodeURIComponent(_scheduleFilter)).then(function(res) {
       return res && res.ok ? res.json() : null;
     }).then(function(sched) {
-      if (sched) filterText.textContent = 'Showing captures from the schedule for ' + (sched.name || sched.url) + '. ';
+      if (sched) filterText.textContent = capturesFilterText(sched) + ' ';
     }).catch(function() {});
   }
+
+  listSection.appendChild(headerRow);
 
   // Count line
   var countEl = document.createElement('p');

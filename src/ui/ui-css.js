@@ -1441,6 +1441,10 @@ input, select, textarea {
   margin: 0 0 var(--space-2);
 }
 
+.captures-filter a {
+  color: var(--color-accent);
+}
+
 /* Header row */
 
 .schedule-header-row {
@@ -1502,6 +1506,16 @@ input, select, textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.schedule-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.schedule-badges:empty {
+  display: none;
 }
 
 .schedule-col-freq,
