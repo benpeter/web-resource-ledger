@@ -12,6 +12,9 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- `PATCH /v1/schedules/{id}` edits a schedule's name, URL or cron and pauses or resumes it; resuming sets the next run from now
+- MCP tool `update_schedule`; `list_captures` takes `schedule_id`
+- Dashboard: Pause/Resume and Edit on each schedule, and a Captures link that lists only that schedule's captures
 - Sign in with an emailed link instead of GitHub; a first sign-in with the verified email of an existing account signs into that account
 - `POST /v1/sitemap` and MCP tool `read_sitemap`: read up to 200 page URLs from a sitemap or sitemap index
 - Dashboard: capture a pasted list of URLs or a sitemap, submitted at the tenant's rate limit
@@ -39,6 +42,9 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- A schedule's `lastCaptureStatus` stayed `pending`; it now becomes `complete` or `failed` with its capture
+- The dashboard's schedule badge showed "Active" after a failed capture; it shows Error, Skipped (quota) and Blocked (unsafe URL)
+- Change detection compared captures of different URLs after a schedule's URL changed; it compares captures of the same URL only
 - Docs headings have ids, so links to a section (for example /limits/#why-captures-fail) open at that section
 - The weekly digest ran on Sundays (Cloudflare numbers weekdays from 1 = Sunday); it now runs on Mondays
 - Scheduled captures due at the weekly cron could run twice

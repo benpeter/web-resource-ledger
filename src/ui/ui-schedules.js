@@ -67,16 +67,20 @@ function scheduleStatusLabel(schedule) {
   if (schedule.paused) return 'Paused';
   if (!schedule.lastRunAt) return 'Pending';
   if (schedule.lastCaptureStatus === 'failed') return 'Error';
+  if (schedule.lastCaptureStatus === 'skipped') return 'Skipped';
+  if (schedule.lastCaptureStatus === 'blocked') return 'Blocked';
   return 'Active';
 }
 
-var SCHEDULE_BADGE_CLASS = { Paused: 'badge--skip', Pending: 'badge--pass', Error: 'badge--fail', Active: 'badge--pass' };
+var SCHEDULE_BADGE_CLASS = { Paused: 'badge--skip', Pending: 'badge--pass', Error: 'badge--fail', Skipped: 'badge--skip', Blocked: 'badge--fail', Active: 'badge--pass' };
 
 function scheduleStatusBadge(schedule) {
   var badge = document.createElement('span');
   var label = scheduleStatusLabel(schedule);
   badge.className = 'badge ' + SCHEDULE_BADGE_CLASS[label];
   badge.textContent = label;
+  if (label === 'Skipped') badge.title = 'The last run was skipped because the monthly capture limit was reached.';
+  if (label === 'Blocked') badge.title = 'The last run was not captured because the URL was flagged as unsafe.';
   return badge;
 }
 
