@@ -66,3 +66,24 @@ describe('capturesScheduleFilter -- reading the schedule filter from the capture
     expect(capturesScheduleFilter('?schedule=sch_123')).toBeNull();
   });
 });
+
+describe('scheduleStatusLabel -- what the status badge says', () => {
+  const scheduleStatusLabel = evalFromSource(SCHEDULES_JS, 'scheduleStatusLabel');
+
+  it('says Paused for a paused schedule', () => {
+    expect(scheduleStatusLabel({ ...SCHED, paused: true, lastRunAt: 'x', lastCaptureStatus: 'failed' })).toBe('Paused');
+  });
+
+  it('says Pending before the first run', () => {
+    expect(scheduleStatusLabel({ ...SCHED, lastRunAt: null })).toBe('Pending');
+  });
+
+  it('says Error when the last capture failed (reads lastCaptureStatus, the field the API sends)', () => {
+    expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'failed' })).toBe('Error');
+  });
+
+  it('says Active when the last capture completed or is still running', () => {
+    expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'complete' })).toBe('Active');
+    expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'pending' })).toBe('Active');
+  });
+});
