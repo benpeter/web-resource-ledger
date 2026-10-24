@@ -86,6 +86,10 @@ describe('scheduleStatusLabel -- what the status badge says', () => {
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'skipped' })).toBe('Skipped');
   });
 
+  it('says Blocked when the threat check flagged the URL on the last run', () => {
+    expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'blocked' })).toBe('Blocked');
+  });
+
   it('says Active when the last capture completed or is still running', () => {
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'complete' })).toBe('Active');
     expect(scheduleStatusLabel({ ...SCHED, lastRunAt: '2026-10-23T10:00:00.000Z', lastCaptureStatus: 'pending' })).toBe('Active');
