@@ -107,6 +107,26 @@ export async function createCapture(db, captureId, url, ip, tenantId, scheduleId
 }
 
 /**
+ * Statement that copies a capture's status onto its schedule's
+ * last_capture_status, but only while that capture is still the schedule's
+ * last one. A no-op for captures without a schedule. Phase 0132: the column
+ * was set to 'pending' at dispatch and never updated, so the dashboard could
+ * not show a failed run.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @returns {D1PreparedStatement}
+ */
+function syncScheduleStatusStatement(db, captureId) {
+  return db.prepare(
+    `UPDATE schedules
+     SET last_capture_status = (SELECT status FROM captures WHERE id = ?1)
+     WHERE id = (SELECT schedule_id FROM captures WHERE id = ?1)
+       AND last_capture_id = ?1`,
+  ).bind(captureId);
+}
+
+/**
  * Update a capture to complete status.
  * Returns early (no-op) if the capture does not exist.
  *
@@ -119,7 +139,7 @@ export async function createCapture(db, captureId, url, ip, tenantId, scheduleId
  * @param {object | null} [captureSettings=null]
  */
 export async function completeCapture(db, captureId, artifacts, wacz = null, renderQuality = null, render = null, captureSettings = null) {
-  const result = await db.prepare(
+  const [result] = await db.batch([db.prepare(
     `UPDATE captures
      SET status = 'complete',
          error = NULL,
@@ -138,7 +158,7 @@ export async function completeCapture(db, captureId, artifacts, wacz = null, ren
     render ? JSON.stringify(render) : null,
     captureSettings ? JSON.stringify(captureSettings) : null,
     captureId,
-  ).run();
+  ), syncScheduleStatusStatement(db, captureId)]);
 
   if (result.meta.changes === 0) return; // Capture not found -- nothing to update
 }
@@ -153,7 +173,7 @@ export async function completeCapture(db, captureId, artifacts, wacz = null, ren
  * @param {boolean} [retryable=false]
  */
 export async function failCapture(db, captureId, error, retryable = false) {
-  const result = await db.prepare(
+  const [result] = await db.batch([db.prepare(
     `UPDATE captures
      SET status = 'failed',
          failed_at = ?,
@@ -165,7 +185,7 @@ export async function failCapture(db, captureId, error, retryable = false) {
     error,
     retryable ? 1 : 0,
     captureId,
-  ).run();
+  ), syncScheduleStatusStatement(db, captureId)]);
 
   if (result.meta.changes === 0) return; // Capture not found -- nothing to update
 }
@@ -194,7 +214,7 @@ export async function recordAttemptError(db, captureId, message) {
  * @param {number} attempts How many times WRL tried
  */
 export async function failCaptureAfterRetries(db, captureId, attempts) {
-  await db.prepare(
+  await db.batch([db.prepare(
     `UPDATE captures
      SET status = 'failed',
          failed_at = ?,
@@ -204,7 +224,8 @@ export async function failCaptureAfterRetries(db, captureId, attempts) {
          END,
          retryable = 0
      WHERE id = ?`,
-  ).bind(new Date().toISOString(), String(attempts), String(attempts), captureId).run(); // String: D1 binds numbers as REAL ("4.0")
+  ).bind(new Date().toISOString(), String(attempts), String(attempts), captureId), // String: D1 binds numbers as REAL ("4.0")
+  syncScheduleStatusStatement(db, captureId)]);
 }
 
 /**
@@ -1829,6 +1850,36 @@ export async function deleteSchedule(db, id, tenantId) {
 }
 
 /**
+ * Update a schedule's name, url, cron, paused flag and/or next run time, scoped
+ * to tenantId (IDOR protection). Only the fields present in `fields` change.
+ * Returns the updated record, or null if not found or wrong tenant.
+ *
+ * @param {D1Database} db
+ * @param {string} id
+ * @param {string} tenantId
+ * @param {{ name?: string, url?: string, cron?: string, paused?: boolean, nextRunAt?: string }} fields
+ * @returns {Promise<object|null>}
+ */
+export async function updateSchedule(db, id, tenantId, fields) {
+  const columns = { name: 'name', url: 'url', cron: 'cron', paused: 'paused', nextRunAt: 'next_run_at' };
+  const sets = [];
+  const params = [];
+  for (const [key, column] of Object.entries(columns)) {
+    if (fields[key] === undefined) continue;
+    sets.push(`${column} = ?`);
+    params.push(key === 'paused' ? (fields[key] ? 1 : 0) : fields[key]);
+  }
+  sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
+
+  const result = await db.prepare(
+    `UPDATE schedules SET ${sets.join(', ')} WHERE id = ? AND tenant_id = ?`,
+  ).bind(...params, id, tenantId).run();
+  if ((result.meta.changes ?? 0) === 0) return null;
+
+  return getSchedule(db, id, tenantId);
+}
+
+/**
  * Count all schedules for a tenant.
  * Used to enforce the per-tenant schedule limit.
  *
@@ -2063,8 +2114,10 @@ export async function listCapturesNeedingThreatCheck(db, olderThan, limit = 500)
 
 /**
  * Find the most recent complete capture for a schedule created before the
- * given capture. Uses two sequential queries to avoid OFFSET-based fragility
- * with historical data.
+ * given capture, for the same URL. Uses two sequential queries to avoid
+ * OFFSET-based fragility with historical data. Same URL only (phase 0132):
+ * after a schedule's URL is edited, the next capture starts a new baseline
+ * instead of being compared with a different page.
  *
  * @param {D1Database} db
  * @param {string} scheduleId
@@ -2073,15 +2126,15 @@ export async function listCapturesNeedingThreatCheck(db, olderThan, limit = 500)
  */
 export async function getPreviousCaptureId(db, scheduleId, captureId) {
   const current = await db.prepare(
-    'SELECT created_at FROM captures WHERE id = ?',
+    'SELECT created_at, url FROM captures WHERE id = ?',
   ).bind(captureId).first();
   if (!current) return null;
 
   const previous = await db.prepare(
     `SELECT id FROM captures
-     WHERE schedule_id = ? AND status = 'complete' AND created_at < ?
+     WHERE schedule_id = ? AND url = ? AND status = 'complete' AND created_at < ?
      ORDER BY created_at DESC LIMIT 1`,
-  ).bind(scheduleId, current.created_at).first();
+  ).bind(scheduleId, current.url, current.created_at).first();
 
   return previous?.id ?? null;
 }

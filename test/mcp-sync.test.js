@@ -34,6 +34,7 @@ const TOOL_TO_OPERATION = {
   list_schedules: 'listSchedules',
   create_schedule: 'createSchedule',
   delete_schedule: 'deleteSchedule',
+  update_schedule: 'updateSchedule',
   get_certificate: 'getCaptureCertificate',
 };
 

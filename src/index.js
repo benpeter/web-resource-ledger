@@ -23,7 +23,7 @@ import { buildCacheKey, buildSimpleCacheKey, getCache } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { htmlAdminDashboard } from './admin/admin-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
-import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleDeleteSchedule } from './schedules.js';
+import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleUpdateSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleEmailMessage, handleEmailDlqMessage, dispatchNotification } from './email-dispatch.js';
 import { handleAuthLogin, handleAuthCallback, handleAuthLogout, handleAuthSession, handleFirstKey, handleFirstKeyAck } from './oauth.js';
@@ -108,6 +108,7 @@ const routes = [
   ['POST',   /^\/v1\/schedules$/, handleCreateSchedule],
   ['GET',    /^\/v1\/schedules$/, handleListSchedules],
   ['GET',    /^\/v1\/schedules\/(sch_[a-f0-9]{32})$/, handleGetSchedule],
+  ['PATCH',  /^\/v1\/schedules\/(sch_[a-f0-9]{32})$/, handleUpdateSchedule],
   ['DELETE', /^\/v1\/schedules\/(sch_[a-f0-9]{32})$/, handleDeleteSchedule],
   // OAuth / session routes
   ['GET',    /^\/auth\/login$/, handleAuthLogin],

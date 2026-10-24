@@ -42,6 +42,13 @@ function cronNextPreview(cron) {
   return 'Custom expression: ' + cron;
 }
 
+// Next run column. A paused schedule has no next run: resuming picks a new
+// time from now (phase 0132), so the stored value would be misleading.
+function scheduleNextRunText(schedule) {
+  if (!schedule || schedule.paused) return '\u2014';
+  return formatScheduleDatetime(schedule.nextRunAt);
+}
+
 function formatScheduleDatetime(isoStr) {
   if (!isoStr) return '\u2014';
   try {
@@ -54,31 +61,67 @@ function formatScheduleDatetime(isoStr) {
   }
 }
 
+// What the status badge says. The API sends lastCaptureStatus; until phase
+// 0132 this read lastRunStatus, which doesn't exist, so it never said Error.
+function scheduleStatusLabel(schedule) {
+  if (schedule.paused) return 'Paused';
+  if (!schedule.lastRunAt) return 'Pending';
+  if (schedule.lastCaptureStatus === 'failed') return 'Error';
+  if (schedule.lastCaptureStatus === 'skipped') return 'Skipped';
+  if (schedule.lastCaptureStatus === 'blocked') return 'Blocked';
+  return 'Active';
+}
+
+var SCHEDULE_BADGE_CLASS = { Paused: 'badge--skip', Pending: 'badge--pass', Error: 'badge--fail', Skipped: 'badge--skip', Blocked: 'badge--fail', Active: 'badge--pass' };
+
 function scheduleStatusBadge(schedule) {
   var badge = document.createElement('span');
-  badge.className = 'badge';
-
-  if (schedule.paused) {
-    badge.classList.add('badge--skip');
-    badge.textContent = 'Paused';
-    return badge;
-  }
-
-  if (!schedule.lastRunAt) {
-    badge.classList.add('badge--pass');
-    badge.textContent = 'Pending';
-    return badge;
-  }
-
-  if (schedule.lastRunStatus === 'failed') {
-    badge.classList.add('badge--fail');
-    badge.textContent = 'Error';
-    return badge;
-  }
-
-  badge.classList.add('badge--pass');
-  badge.textContent = 'Active';
+  var label = scheduleStatusLabel(schedule);
+  badge.className = 'badge ' + SCHEDULE_BADGE_CLASS[label];
+  badge.textContent = label;
+  if (label === 'Skipped') badge.title = 'The last run was skipped because the monthly capture limit was reached.';
+  if (label === 'Blocked') badge.title = 'The last run was not captured because the URL was flagged as unsafe.';
   return badge;
+}
+
+// The PATCH body for an edit: only fields whose trimmed value differs from the
+// schedule. An empty name is left out, since the API needs 1-128 characters.
+function scheduleUpdateBody(schedule, values) {
+  var body = {};
+  var name = (values.name || '').trim();
+  var url = (values.url || '').trim();
+  var cron = (values.cron || '').trim();
+  if (name && name !== (schedule.name || '')) body.name = name;
+  if (url && url !== (schedule.url || '')) body.url = url;
+  if (cron && cron !== (schedule.cron || '')) body.cron = cron;
+  return body;
+}
+
+// Send a PATCH and hand back { ok, schedule } or { ok: false, message }.
+function patchSchedule(scheduleId, body) {
+  return apiFetch('/v1/schedules/' + encodeURIComponent(scheduleId), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(function(res) {
+    if (!res) return { ok: false, message: '' };
+    return res.json().catch(function() { return {}; }).then(function(data) {
+      if (res.ok) return { ok: true, schedule: data };
+      return { ok: false, message: data.detail || ('Could not update the schedule (HTTP ' + res.status + ').') };
+    });
+  }).catch(function() {
+    return { ok: false, message: 'Connection failed updating the schedule. Check your network.' };
+  });
+}
+
+// Replace a schedule in _schedules and re-render its row in place.
+function replaceScheduleRow(row, updated, listEl) {
+  for (var k = 0; k < _schedules.length; k++) {
+    if (_schedules[k].id === updated.id) { _schedules[k] = updated; break; }
+  }
+  var fresh = buildScheduleRow(updated, listEl);
+  row.replaceWith(fresh);
+  return fresh;
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +384,11 @@ function buildScheduleRow(schedule, listEl) {
     urlCell.appendChild(nameText);
   }
 
+  // Status and change badges sit under the URL so the action buttons fit on one line
+  var badges = document.createElement('span');
+  badges.className = 'schedule-badges';
+  urlCell.appendChild(badges);
+
   row.appendChild(urlCell);
 
   // Frequency cell
@@ -352,7 +400,7 @@ function buildScheduleRow(schedule, listEl) {
   // Next run cell
   var nextCell = document.createElement('span');
   nextCell.className = 'schedule-col-next';
-  nextCell.textContent = formatScheduleDatetime(schedule.nextRunAt);
+  nextCell.textContent = scheduleNextRunText(schedule);
   row.appendChild(nextCell);
 
   // Actions cell
@@ -360,7 +408,7 @@ function buildScheduleRow(schedule, listEl) {
   actionsCell.className = 'schedule-col-actions schedule-actions';
 
   // Status badge
-  actionsCell.appendChild(scheduleStatusBadge(schedule));
+  badges.appendChild(scheduleStatusBadge(schedule));
 
   // Change badge: shown when schedule carries changeSummary from last capture
   if (schedule.changeSummary && schedule.lastCaptureId) {
@@ -371,14 +419,134 @@ function buildScheduleRow(schedule, listEl) {
       changeBadge.href = '#/diff/' + cs.previousCaptureId + '/' + schedule.lastCaptureId;
       changeBadge.textContent = 'Changed';
       changeBadge.setAttribute('aria-label', 'View changes from previous capture');
-      actionsCell.appendChild(changeBadge);
+      badges.appendChild(changeBadge);
     } else if (cs.changed === false) {
       var unchangedBadge = document.createElement('span');
       unchangedBadge.className = 'badge badge--unchanged';
       unchangedBadge.textContent = 'Unchanged';
-      actionsCell.appendChild(unchangedBadge);
+      badges.appendChild(unchangedBadge);
     }
   }
+
+  // View this schedule's captures (phase 0132)
+  var viewLink = document.createElement('a');
+  viewLink.className = 'btn btn--ghost btn--sm schedule-view-captures';
+  viewLink.href = '#/captures?schedule=' + encodeURIComponent(schedule.id || '');
+  viewLink.textContent = 'Captures';
+  viewLink.setAttribute('aria-label', 'View captures made by the schedule for ' + (schedule.url || 'this URL'));
+  actionsCell.appendChild(viewLink);
+
+  // Pause / resume
+  var pauseBtn = document.createElement('button');
+  pauseBtn.type = 'button';
+  pauseBtn.className = 'btn btn--ghost btn--sm schedule-pause-btn';
+  pauseBtn.textContent = schedule.paused ? 'Resume' : 'Pause';
+  pauseBtn.setAttribute('aria-label', (schedule.paused ? 'Resume' : 'Pause') + ' the schedule for ' + (schedule.url || 'this URL'));
+  pauseBtn.addEventListener('click', function() {
+    var wantPaused = !schedule.paused;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = wantPaused ? 'Pausing...' : 'Resuming...';
+    patchSchedule(schedule.id || '', { paused: wantPaused }).then(function(result) {
+      if (result.ok) {
+        var fresh = replaceScheduleRow(row, result.schedule, listEl);
+        var freshBtn = fresh.querySelector('.schedule-pause-btn');
+        if (freshBtn) freshBtn.focus();
+        schedulesAnnounce(wantPaused ? 'Schedule paused.' : 'Schedule resumed. Next run ' + formatScheduleDatetime(result.schedule.nextRunAt) + '.');
+        return;
+      }
+      pauseBtn.disabled = false;
+      pauseBtn.textContent = schedule.paused ? 'Resume' : 'Pause';
+      if (result.message) schedulesAnnounce(result.message);
+    });
+  });
+  actionsCell.appendChild(pauseBtn);
+
+  // Edit: an inline form under the row
+  var editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'btn btn--ghost btn--sm schedule-edit-btn';
+  editBtn.textContent = 'Edit';
+  editBtn.setAttribute('aria-label', 'Edit the schedule for ' + (schedule.url || 'this URL'));
+  editBtn.setAttribute('aria-expanded', 'false');
+  actionsCell.appendChild(editBtn);
+
+  var editForm = document.createElement('form');
+  editForm.className = 'schedule-edit-form';
+  editForm.hidden = true;
+  editForm.noValidate = true;
+
+  function editField(labelText, value, placeholder) {
+    var wrap = document.createElement('label');
+    wrap.className = 'schedule-edit-field';
+    var caption = document.createElement('span');
+    caption.className = 'schedule-field-label';
+    caption.textContent = labelText;
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'input';
+    input.value = value || '';
+    if (placeholder) input.placeholder = placeholder;
+    wrap.appendChild(caption);
+    wrap.appendChild(input);
+    editForm.appendChild(wrap);
+    return input;
+  }
+  var nameInput = editField('Name', schedule.name, 'Optional');
+  var urlInput = editField('URL', schedule.url, 'https://');
+  var cronInput = editField('Cron (UTC, at most hourly)', schedule.cron, '0 * * * *');
+
+  var editError = document.createElement('p');
+  editError.className = 'schedule-edit-error';
+  editError.setAttribute('role', 'alert');
+  editForm.appendChild(editError);
+
+  var editActions = document.createElement('div');
+  editActions.className = 'schedule-edit-actions';
+  var saveBtn = document.createElement('button');
+  saveBtn.type = 'submit';
+  saveBtn.className = 'btn btn--primary btn--sm';
+  saveBtn.textContent = 'Save';
+  var cancelEditBtn = document.createElement('button');
+  cancelEditBtn.type = 'button';
+  cancelEditBtn.className = 'btn btn--ghost btn--sm';
+  cancelEditBtn.textContent = 'Cancel';
+  editActions.appendChild(saveBtn);
+  editActions.appendChild(cancelEditBtn);
+  editForm.appendChild(editActions);
+
+  function closeEdit() {
+    editForm.hidden = true;
+    editBtn.setAttribute('aria-expanded', 'false');
+    editError.textContent = '';
+    editBtn.focus();
+  }
+  editBtn.addEventListener('click', function() {
+    var opening = editForm.hidden;
+    editForm.hidden = !opening;
+    editBtn.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    if (opening) nameInput.focus();
+  });
+  cancelEditBtn.addEventListener('click', closeEdit);
+  editForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var body = scheduleUpdateBody(schedule, { name: nameInput.value, url: urlInput.value, cron: cronInput.value });
+    if (Object.keys(body).length === 0) { closeEdit(); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    editError.textContent = '';
+    patchSchedule(schedule.id || '', body).then(function(result) {
+      if (result.ok) {
+        var fresh = replaceScheduleRow(row, result.schedule, listEl);
+        var freshEdit = fresh.querySelector('.schedule-edit-btn');
+        if (freshEdit) freshEdit.focus();
+        schedulesAnnounce('Schedule updated.');
+        return;
+      }
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      editError.textContent = result.message;
+    });
+  });
 
   // Delete button
   var deleteBtn = document.createElement('button');
@@ -484,6 +652,7 @@ function buildScheduleRow(schedule, listEl) {
   actionsCell.appendChild(deleteBtn);
   actionsCell.appendChild(confirmArea);
   row.appendChild(actionsCell);
+  row.appendChild(editForm);
 
   return row;
 }

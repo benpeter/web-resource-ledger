@@ -62,6 +62,7 @@ function truncate(str, max) {
 // Loaded captures and pagination
 var _captures = [];
 var _totalCount = 0;
+var _scheduleFilter = null; // schedule id when the list shows one schedule's captures
 var _hasMore = false;
 var _currentOffset = 0;
 var _listEl = null;    // the capture-list element
@@ -335,8 +336,32 @@ function appendCaptures(items) {
 // Load the initial page of captures
 // ---------------------------------------------------------------------------
 
+// The schedule id in a captures URL query ('?schedule=sch_...'), or null.
+// Banner text above a captures list filtered to one schedule.
+function capturesFilterText(schedule) {
+  if (!schedule) return 'Showing captures from one schedule.';
+  if (schedule.name) return 'Showing captures from the schedule \u201c' + schedule.name + '\u201d.';
+  return 'Showing captures from the schedule for ' + schedule.url + '.';
+}
+
+// Empty-list text; a filtered list is empty because the schedule hasn't run yet.
+function capturesEmptyText(filtered) {
+  if (filtered) return 'This schedule has not made any captures yet. Its first one runs at the next scheduled time.';
+  return 'Submit a URL above to create your first capture. The page will be captured with a screenshot and cryptographic verification.';
+}
+
+function capturesScheduleFilter(query) {
+  var m = /[?&]schedule=(sch_[a-f0-9]{32})(?:&|$)/.exec(query || '');
+  return m ? m[1] : null;
+}
+
+// Extra query for the captures API when the list is filtered to one schedule.
+function capturesFilterQuery() {
+  return _scheduleFilter ? '&schedule_id=' + encodeURIComponent(_scheduleFilter) : '';
+}
+
 function loadCaptures() {
-  apiFetch('/v1/captures?limit=20').then(function(res) {
+  apiFetch('/v1/captures?limit=20' + capturesFilterQuery()).then(function(res) {
     if (!res.ok) return;
     return res.json();
   }).then(function(body) {
@@ -351,7 +376,7 @@ function loadCaptures() {
     if (items.length === 0) {
       var guidance = document.createElement('p');
       guidance.className = 'capture-empty';
-      guidance.textContent = 'Submit a URL above to create your first capture. The page will be captured with a screenshot and cryptographic verification.';
+      guidance.textContent = capturesEmptyText(!!_scheduleFilter);
       if (_listEl) _listEl.appendChild(guidance);
     } else {
       appendCaptures(items);
@@ -383,7 +408,7 @@ function loadMoreCaptures() {
   _moreBtn.disabled = true;
   _moreBtn.textContent = 'Loading...';
 
-  apiFetch('/v1/captures?limit=20&offset=' + _currentOffset).then(function(res) {
+  apiFetch('/v1/captures?limit=20&offset=' + _currentOffset + capturesFilterQuery()).then(function(res) {
     if (!res.ok) return;
     return res.json();
   }).then(function(body) {
@@ -617,6 +642,8 @@ function renderCaptures() {
   _listEl = null;
   _countEl = null;
   _moreBtn = null;
+  var hashQuery = (location.hash || '').split('?')[1];
+  _scheduleFilter = capturesScheduleFilter(hashQuery ? '?' + hashQuery : '');
 
   var view = document.getElementById('view');
   // Safe: clearing the static view container; no user or API data involved
@@ -838,6 +865,25 @@ function renderCaptures() {
   hBadge.className = 'capture-badge';
   hBadge.textContent = 'Status';
   headerRow.appendChild(hBadge);
+
+  // Filter banner above the table when showing one schedule's captures
+  if (_scheduleFilter) {
+    var filterBar = document.createElement('p');
+    filterBar.className = 'captures-filter';
+    var filterText = document.createElement('span');
+    filterText.textContent = capturesFilterText(null) + ' ';
+    filterBar.appendChild(filterText);
+    var clearLink = document.createElement('a');
+    clearLink.href = '#/captures';
+    clearLink.textContent = 'Show all captures';
+    filterBar.appendChild(clearLink);
+    listSection.appendChild(filterBar);
+    apiFetch('/v1/schedules/' + encodeURIComponent(_scheduleFilter)).then(function(res) {
+      return res && res.ok ? res.json() : null;
+    }).then(function(sched) {
+      if (sched) filterText.textContent = capturesFilterText(sched) + ' ';
+    }).catch(function() {});
+  }
 
   listSection.appendChild(headerRow);
 
