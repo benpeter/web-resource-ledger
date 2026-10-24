@@ -6,7 +6,8 @@
 
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import worker, { WEEKLY_CRON, MINUTE_CRON } from '../src/index.js';
+import worker from '../src/index.js';
+import { WEEKLY_CRON, MINUTE_CRON } from '../src/crons.js';
 import {
   purgeQuarantinedCaptures,
   trimUsageCounters,

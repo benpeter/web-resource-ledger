@@ -38,6 +38,7 @@ import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
 import { generateCertificate } from './certificate.js';
 import { trackCaptureEvent } from './analytics.js';
+import { MINUTE_CRON, WEEKLY_CRON } from './crons.js';
 
 // tva
 
@@ -461,11 +462,6 @@ async function handleDlqMessage(msg, env, ctx) {
 // ---------------------------------------------------------------------------
 // Worker default export
 // ---------------------------------------------------------------------------
-
-// Cron expressions from wrangler.toml [triggers]. Cloudflare numbers weekdays
-// from 1 = Sunday, so the weekly cron names the day ('MON') to avoid that trap.
-export const MINUTE_CRON = '*/1 * * * *';
-export const WEEKLY_CRON = '0 9 * * MON';
 
 export default {
   async scheduled(controller, env, ctx) {
