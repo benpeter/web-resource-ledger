@@ -99,7 +99,7 @@ describe('MCP protocol -- initialize', () => {
 });
 
 describe('MCP protocol -- tools/list', () => {
-  it('lists all 12 WRL tools', async () => {
+  it('lists all 13 WRL tools', async () => {
     const res = await mcpPost({
       jsonrpc: '2.0',
       id: 1,
@@ -127,7 +127,8 @@ describe('MCP protocol -- tools/list', () => {
     expect(names).toContain('delete_schedule');
     expect(names).toContain('get_certificate');
     expect(names).toContain('read_sitemap');
-    expect(tools).toHaveLength(12);
+    expect(names).toContain('update_schedule');
+    expect(tools).toHaveLength(13);
   });
 
   it('each tool has a name, description, and inputSchema', async () => {
@@ -741,5 +742,85 @@ describe('tool: get_certificate -- not found', () => {
     expect(body.result.isError).toBe(true);
     const text = body.result.content[0].text;
     expect(text.toLowerCase()).toContain('not found');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool: update_schedule (phase 0132)
+// ---------------------------------------------------------------------------
+
+describe('tool: update_schedule', () => {
+  const SCHED = 'sch_' + 'd'.repeat(32);
+
+  beforeEach(async () => {
+    await cleanDb(env.DB);
+    await seedSchedule(env.DB, SCHED, { tenantId: 'default', url: 'https://93.184.216.34/', name: 'Before' });
+  });
+  afterEach(() => cleanDb(env.DB));
+
+  async function call(args) {
+    const res = await mcpPost(toolCall('update_schedule', args));
+    expect(res.status).toBe(200);
+    return (await res.json()).result;
+  }
+
+  it('pauses a schedule', async () => {
+    const result = await call({ schedule_id: SCHED, paused: true });
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toMatch(/paused/i);
+    const row = await env.DB.prepare('SELECT paused FROM schedules WHERE id = ?').bind(SCHED).first();
+    expect(row.paused).toBe(1);
+  });
+
+  it('renames a schedule and changes its frequency', async () => {
+    const result = await call({ schedule_id: SCHED, name: 'After', cron: '0 0 * * *' });
+    expect(result.isError).toBeUndefined();
+    const row = await env.DB.prepare('SELECT name, cron FROM schedules WHERE id = ?').bind(SCHED).first();
+    expect(row).toEqual({ name: 'After', cron: '0 0 * * *' });
+  });
+
+  it('refuses a cron more frequent than hourly with the same message as the API', async () => {
+    const result = await call({ schedule_id: SCHED, cron: '*/5 * * * *' });
+    expect(result.isError).toBe(true);
+    const row = await env.DB.prepare('SELECT cron FROM schedules WHERE id = ?').bind(SCHED).first();
+    expect(row.cron).toBe('0 * * * *');
+  });
+
+  it('asks for at least one change', async () => {
+    const result = await call({ schedule_id: SCHED });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/at least one/i);
+  });
+
+  it('returns not found for an unknown schedule', async () => {
+    const result = await call({ schedule_id: 'sch_' + '0'.repeat(32), paused: true });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/not found/i);
+  });
+});
+
+describe('tool: list_captures -- schedule filter (phase 0132)', () => {
+  const SCHED = 'sch_' + 'e'.repeat(32);
+  const FROM_SCHEDULE = 'cap_' + '5'.repeat(32);
+  const ONE_OFF = 'cap_' + '6'.repeat(32);
+
+  beforeEach(async () => {
+    await cleanDb(env.DB);
+    await seedSchedule(env.DB, SCHED, { tenantId: 'default' });
+    await createCapture(env.DB, FROM_SCHEDULE, 'https://scheduled.example.com/', '1.2.3.4', 'default', SCHED);
+    await createCapture(env.DB, ONE_OFF, 'https://one-off.example.com/', '1.2.3.4', 'default');
+  });
+  afterEach(() => cleanDb(env.DB));
+
+  it('schedule_id returns only that schedule\'s captures', async () => {
+    const res = await mcpPost(toolCall('list_captures', { schedule_id: SCHED }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain(FROM_SCHEDULE);
+    expect(text).not.toContain(ONE_OFF);
+  });
+
+  it('rejects a malformed schedule_id', async () => {
+    const res = await mcpPost(toolCall('list_captures', { schedule_id: 'not-a-schedule' }));
+    expect((await res.json()).result.isError).toBe(true);
   });
 });
