@@ -1,0 +1,68 @@
+/**
+ * Schedules view helpers (phase 0132): building the PATCH body from the edit
+ * form, and the captures-list filter for one schedule. The view code is a
+ * string served to the browser, so the pure helpers are pulled out of it the
+ * same way test/ui-submit.test.js does.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { SCHEDULES_JS } from '../src/ui/ui-schedules.js';
+import { SUBMIT_VIEW_JS } from '../src/ui/ui-submit.js';
+
+function evalFromSource(source, functionName) {
+  // eslint-disable-next-line no-new-func
+  const fn = new Function(source + '\nreturn ' + functionName + ';');
+  return fn();
+}
+
+const SCHED = {
+  id: 'sch_' + 'a'.repeat(32),
+  name: 'Homepage',
+  url: 'https://example.com/',
+  cron: '0 * * * *',
+  paused: false,
+};
+
+describe('scheduleUpdateBody -- only changed fields go into the PATCH body', () => {
+  const scheduleUpdateBody = evalFromSource(SCHEDULES_JS, 'scheduleUpdateBody');
+
+  it('returns an empty object when nothing changed', () => {
+    expect(scheduleUpdateBody(SCHED, { name: 'Homepage', url: 'https://example.com/', cron: '0 * * * *' })).toEqual({});
+  });
+
+  it('includes only the fields that differ', () => {
+    expect(scheduleUpdateBody(SCHED, { name: 'Home', url: 'https://example.com/', cron: '0 0 * * *' }))
+      .toEqual({ name: 'Home', cron: '0 0 * * *' });
+  });
+
+  it('trims whitespace before comparing', () => {
+    expect(scheduleUpdateBody(SCHED, { name: '  Homepage ', url: ' https://example.com/ ', cron: ' 0 * * * * ' })).toEqual({});
+  });
+
+  it('does not send an empty name, so an unnamed schedule stays valid', () => {
+    expect(scheduleUpdateBody({ ...SCHED, name: null }, { name: '', url: SCHED.url, cron: SCHED.cron })).toEqual({});
+  });
+
+  it('sends a changed URL as typed (the server normalizes and checks it)', () => {
+    expect(scheduleUpdateBody(SCHED, { name: 'Homepage', url: 'https://example.com/pricing', cron: '0 * * * *' }))
+      .toEqual({ url: 'https://example.com/pricing' });
+  });
+});
+
+describe('capturesScheduleFilter -- reading the schedule filter from the captures URL', () => {
+  const capturesScheduleFilter = evalFromSource(SUBMIT_VIEW_JS, 'capturesScheduleFilter');
+
+  it('returns the schedule id from ?schedule=', () => {
+    expect(capturesScheduleFilter('?schedule=' + SCHED.id)).toBe(SCHED.id);
+  });
+
+  it('returns null without a schedule parameter', () => {
+    expect(capturesScheduleFilter('')).toBeNull();
+    expect(capturesScheduleFilter('?status=failed')).toBeNull();
+  });
+
+  it('ignores a value that is not a schedule id', () => {
+    expect(capturesScheduleFilter('?schedule=../../admin')).toBeNull();
+    expect(capturesScheduleFilter('?schedule=sch_123')).toBeNull();
+  });
+});
