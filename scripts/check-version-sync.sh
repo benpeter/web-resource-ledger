@@ -3,9 +3,15 @@ set -euo pipefail
 
 PKG_VERSION=$(jq -r .version package.json)
 API_VERSION=$(grep -m1 '^  version:' openapi.yaml | awk '{print $2}')
+MCP_VERSION=$(jq -r .version server.json)
 
 if [ "$PKG_VERSION" != "$API_VERSION" ]; then
   echo "::error::Version mismatch: package.json=$PKG_VERSION, openapi.yaml=$API_VERSION"
+  exit 1
+fi
+
+if [ "$PKG_VERSION" != "$MCP_VERSION" ]; then
+  echo "::error::Version mismatch: package.json=$PKG_VERSION, server.json=$MCP_VERSION"
   exit 1
 fi
 
