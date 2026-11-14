@@ -16,7 +16,7 @@ jobs:
   test:
     # vitest-pool-workers hangs in some runs on ubuntu-26.04 (since 2026-11-14,
     # never on 24.04); back to ubuntu-latest with the vitest 4 move (backlog #85)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,7 +67,7 @@ jobs:
   test-integration:
     # vitest-pool-workers hangs in some runs on ubuntu-26.04 (since 2026-11-14,
     # never on 24.04); back to ubuntu-latest with the vitest 4 move (backlog #85)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true  # Integration tests require real browser rendering; flaky without live CF infrastructure
     steps:
