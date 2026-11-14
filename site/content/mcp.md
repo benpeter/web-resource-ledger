@@ -119,7 +119,7 @@ Configure your client with:
 - **Transport:** Streamable HTTP (POST)
 - **Authorization:** `Bearer YOUR_WRL_API_KEY` header on every request
 
-Without a key, `initialize`, `ping` and `tools/list` still answer, so MCP directories and clients can see the tools before you have a key. Every tool call needs one. Keyless requests are limited to 60 a minute per IP address.
+Without a key, `initialize`, `ping` and `tools/list` still answer, so MCP directories and clients can see the tools before you have a key. `server/discover`, which some directories try first, gets "method not found" rather than a 401, so they go on to `initialize`. Every tool call needs a key. Keyless requests are limited to 60 a minute per IP address.
 
 ---
 

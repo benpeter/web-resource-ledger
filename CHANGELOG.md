@@ -21,6 +21,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The MCP endpoint answers `server/discover` without a key with "method not found" instead of 401; MCP directories that try it before `initialize` recorded WRL as asking for sign-in and never listed its tools
 - The API reference lists the `qualifiedTimestamp` verification check, which captures with an eIDAS-qualified timestamp get, and `signing.qualifiedTimestamp`; a client validating verify responses against the reference rejected them. It also documents `capture.url` in verify responses, `html.additions`, `html.deletions` and `headers.changes` in change summaries, `changeSummary` and `updatedAt` on schedules, and `updatedAt` in the admin usage history
 - The API reference and the schedules guide say a paused schedule keeps its `nextRunAt`; the reference said it was null
 

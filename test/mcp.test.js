@@ -227,6 +227,16 @@ describe('keyless discovery', () => {
     expect(ping.status).toBe(200);
   });
 
+  // Directories such as Every MCP send server/discover first and fall back to
+  // initialize when the server doesn't know the method; a 401 made them record
+  // the endpoint as asking for sign-in instead.
+  it('answers server/discover without a key as a method the server does not have', async () => {
+    const res = await mcpPost({ jsonrpc: '2.0', id: 4, method: 'server/discover' }, null);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.error.code).toBe(-32601);
+  });
+
   it('answers 401 to a batch that mixes tools/list with a tool call', async () => {
     const res = await mcpPost([TOOLS_LIST, toolCall('list_captures', {})], null);
     expect(res.status).toBe(401);
