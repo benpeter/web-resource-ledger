@@ -2,7 +2,7 @@
 import { env } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { performCapture } from '../src/capture.js';
+import { performCapture, captureHeaders } from '../src/capture.js';
 import { createCapture, getCapture, getArchivedSigningKey } from '../src/db.js';
 import { buildWacz } from '../src/wacz.js';
 import { buildWarc } from '../src/warc.js';
@@ -378,5 +378,61 @@ describe('CDXJ SURT transform', () => {
 
   it('toSurt returns unparseable URL as-is', () => {
     expect(toSurt('not a valid url')).toBe('not a valid url');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bundles name the WRL build that made them; before phase 0161 they all said WRL/0.1.
+// BUILD_VERSION and BUILD_COMMIT come from `wrangler deploy --define`.
+// ---------------------------------------------------------------------------
+
+describe('WRL build in bundles and the header fetch', () => {
+  afterEach(() => {
+    delete globalThis.BUILD_VERSION;
+    delete globalThis.BUILD_COMMIT;
+  });
+
+  async function bundleSoftware() {
+    const result = await buildWacz(
+      TEST_URL,
+      new Date().toISOString(),
+      { screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML, headers: null, captureSettings: null },
+      { SIGNING_KEY: env.SIGNING_KEY },
+    );
+    const files = unzipSync(result.waczBytes);
+    const text = (name) => new TextDecoder().decode(files[name]);
+    return {
+      datapackage: JSON.parse(text('datapackage.json')).software,
+      digest: JSON.parse(text('datapackage-digest.json')).signedData.software,
+      warc: text('archive/data.warc'),
+    };
+  }
+
+  it('records the release and commit in datapackage.json, the signed digest and the WARC warcinfo', async () => {
+    globalThis.BUILD_VERSION = '1.3.0';
+    globalThis.BUILD_COMMIT = '564eae405f3ca21247c1e347a7195ce5bd245f12';
+    const software = await bundleSoftware();
+    expect(software.datapackage).toBe('WRL/1.3.0+564eae4');
+    expect(software.digest).toBe('WRL/1.3.0+564eae4');
+    expect(software.warc).toContain('software: WRL/1.3.0+564eae4\r\n');
+  });
+
+  it('says dev when the build is not stamped (tests, wrangler dev)', async () => {
+    const software = await bundleSoftware();
+    expect(software.datapackage).toBe('WRL/dev');
+    expect(software.digest).toBe('WRL/dev');
+    expect(software.warc).toContain('software: WRL/dev\r\n');
+  });
+
+  it('sends the release and commit as the header fetch User-Agent', async () => {
+    globalThis.BUILD_VERSION = '1.3.0';
+    globalThis.BUILD_COMMIT = '564eae405f3ca21247c1e347a7195ce5bd245f12';
+    let userAgent;
+    fetchMock
+      .get(TEST_ORIGIN)
+      .intercept({ path: '/', method: 'GET' })
+      .reply(200, ({ headers }) => { userAgent = headers['user-agent']; return ''; });
+    await captureHeaders(TEST_ORIGIN + '/');
+    expect(userAgent).toBe('WRL/1.3.0+564eae4 (Web Resource Ledger)');
   });
 });
