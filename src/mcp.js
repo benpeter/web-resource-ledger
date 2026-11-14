@@ -185,7 +185,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'capture_url',
-    'Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle with Ed25519 signature and RFC 3161 timestamp. Returns a capture ID — use get_capture to check progress. Typically completes in 5-15 seconds. Failed attempts are retried, so a capture can stay pending for a few minutes; one still pending after 24 hours is marked failed.',
+    'Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle with Ed25519 signature and RFC 3161 timestamp. Returns a capture ID — use get_capture to check progress. Typically completes in 20-60 seconds. Failed attempts are retried, so a capture can stay pending for a few minutes; one still pending after 24 hours is marked failed.',
     { url: z.string().describe('The URL to capture (http:// or https://).') },
     async ({ url }) => {
       // Step 1: Scope check
@@ -356,7 +356,7 @@ function createMcpServer(env, ctx, auth, origin) {
             `Capture submitted for: ${displayUrl}`,
             `Capture ID: ${captureId}`,
             '',
-            'Use get_capture to check status. Captures typically complete in 5-15 seconds.',
+            'Use get_capture to check status. Captures typically complete in 20-60 seconds.',
             `Status URL: ${origin}/v1/captures/${captureId}/status`,
           ].join('\n'),
         }],
@@ -666,7 +666,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'batch_capture',
-    'Submit up to 20 URLs for capture in a single call. Returns a per-item status report showing accepted captures and any rejected URLs with reasons. Typically enqueues in under 2 seconds; each capture then completes in 5-15 seconds. Use get_capture with each returned ID to track progress.',
+    'Submit up to 20 URLs for capture in a single call. Returns a per-item status report showing accepted captures and any rejected URLs with reasons. Typically enqueues in under 2 seconds; each capture then typically completes in 20-60 seconds. Use get_capture with each returned ID to track progress.',
     { urls: z.array(z.string()).min(1).max(20).describe('Array of URLs to capture (http:// or https://, max 20).') },
     async ({ urls }) => {
       // Step 1: Scope check

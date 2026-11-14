@@ -78,7 +78,7 @@ curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a
 
 When `status` is `complete`, fetch the full capture record at the `captureUrl` to get artifact links. When `status` is `pending`, wait and check again. When `status` is `failed`, the response includes an `error` message and a `retryable` boolean.
 
-Captures typically complete in 5--15 seconds. For the full set of status values and the complete polling lifecycle, see the [API Reference](/api-reference/).
+Captures typically complete in 20--60 seconds. For the full set of status values and the complete polling lifecycle, see the [API Reference](/api-reference/).
 
 ---
 
@@ -143,7 +143,6 @@ Common per-item error codes:
 |--------|-------|
 | `400` | Malformed URL or missing `url` field in the item. |
 | `422` | URL is valid but not capturable (private IP, unsupported scheme). |
-| `429` | Rate limit exceeded for this item. Wait and resubmit. |
 
 ### Whole-batch failures
 
@@ -151,16 +150,17 @@ The entire batch fails (not 207) in these cases:
 
 | Status | Cause |
 |--------|-------|
-| `400` | Request body is missing or malformed. The `urls` array is absent or not an array. |
+| `400` | Request body is missing or malformed. The `urls` array is absent, not an array, empty, or longer than 20 URLs. |
 | `401` | Missing or invalid `Authorization` header. |
+| `403` | The API key lacks the `capture` scope, or the account can't capture: it is blocked for non-payment or scheduled for deletion. |
+| `415` | `Content-Type` is not `application/json`. |
+| `429` | The batch has more URLs than are left of your per-tenant rate limit this minute (`limitType: 'tenant'`), or it would go past the monthly quota (`limitType: 'quota'`). No URL is accepted. |
 | `503` | Service is at capacity. Retry after the `Retry-After` header value (seconds). |
 
 ### Rate limits and quotas
 
-Rate limits apply per URL, not per request. Submitting a batch of 10 URLs consumes 10 tokens from your rate limit. If you are near the limit, some items may return `429` while others are accepted. The `summary.failed` count will reflect this.
+Rate limits apply per URL, not per request. A batch of 10 URLs uses all 10 captures of a minute at the default limit. A batch with more URLs than are left of the minute is refused as a whole: the response is a single `429` with `limitType: 'tenant'`, not a `207` with per-item errors, and no URL is accepted. Wait the seconds in `Retry-After` and send the batch again, or split it into smaller batches.
 
-When you receive `429` items, wait for the window to reset (indicated by the `Retry-After` header on rate-limited responses) and resubmit only the rejected URLs.
-
-Monthly quota checks work differently: the entire batch is rejected upfront if it would exceed the remaining quota. In that case, the response is a single `429` with `limitType: 'quota'` -- not a `207` with per-item errors.
+Monthly quota checks work the same way: the entire batch is rejected upfront if it would exceed the remaining quota, with a single `429` and `limitType: 'quota'`.
 
 For detailed information about rate limits and monthly quotas, see [Limits & Quotas](/limits/).

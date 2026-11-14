@@ -161,7 +161,7 @@ Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendere
 Capture submitted for: https://example.com
 Capture ID: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
-Use get_capture to check status. Captures typically complete in 5-15 seconds.
+Use get_capture to check status. Captures typically complete in 20-60 seconds.
 Status URL: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/status
 ```
 
@@ -524,7 +524,7 @@ Input: { "url": "https://example.com/important-page" }
 Capture submitted for: https://example.com/important-page
 Capture ID: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
-Use get_capture to check status. Captures typically complete in 5-15 seconds.
+Use get_capture to check status. Captures typically complete in 20-60 seconds.
 ```
 
 Note the capture ID. You will need it for the next steps.
@@ -605,7 +605,7 @@ The MCP endpoint accepts request bodies up to 256 KiB and tool arguments with up
 
 ### Capture stuck in pending
 
-Captures normally complete in 5--15 seconds. WRL retries a failed attempt up to four times, so a capture can stay pending for a few minutes before it completes or fails. Keep calling `get_capture` every few seconds until it does; submitting the URL again meanwhile creates a second capture.
+Captures normally complete in 20--60 seconds. WRL makes up to four attempts, so a capture can stay pending for a few minutes before it completes or fails. Keep calling `get_capture` every few seconds until it does; submitting the URL again meanwhile creates a second capture.
 
 A capture still pending 24 hours after it was submitted is marked failed with "WRL lost track of this capture before it finished." Submit it again with `capture_url`.
 

@@ -205,6 +205,13 @@ describe('MCP protocol -- tool descriptions', () => {
     expect(text).not.toMatch(/\b404\b/);
     expect(text).toContain('Schedule not found');
   });
+
+  // Agents poll by these numbers. Production on-demand captures take 36 s at
+  // the median, 23 s at p10 and 57 s at p75; 1% finished within 15 s.
+  it('capture_url and batch_capture give the measured capture time', async () => {
+    expect(await description('capture_url')).toContain('20-60 seconds');
+    expect(await description('batch_capture')).toContain('20-60 seconds');
+  });
 });
 
 describe('MCP protocol -- security headers', () => {
@@ -399,6 +406,7 @@ describe('tool: capture_url -- happy path', () => {
     const text = body.result.content[0].text;
     expect(text).toMatch(/cap_[a-f0-9]{32}/);
     expect(text).toContain('example.com');
+    expect(text).toContain('Captures typically complete in 20-60 seconds.');
   });
 
   afterEach(cleanupCaptures);
