@@ -428,7 +428,7 @@ WRL followed a three-act development plan. All three acts are complete:
 
 WRL is a production web evidence service. It is also a documented experiment in LLM-driven software development. A human defined what to build and made product decisions; an LLM (Claude) wrote virtually all the code, tests, infrastructure, and documentation.
 
-The full build history is in [`docs/evolution/`](docs/evolution/) -- more than 140 phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
+The full build history is in [`docs/evolution/`](docs/evolution/) -- more than 170 phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
 
 ## Reference
 
