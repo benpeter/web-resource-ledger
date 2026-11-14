@@ -21,6 +21,7 @@ flowchart LR
         STRIPE["Stripe<br/>(payments)"]
         CORALOGIX["Coralogix EU2<br/>(structured logs)"]
         RESEND["Resend<br/>(transactional email)"]
+        PIRSCH["Pirsch<br/>(website analytics, EU)"]
     end
 
     API_CONSUMER -- "Bearer API key (HTTPS)" --> WORKER
@@ -38,3 +39,4 @@ flowchart LR
     WORKER -- "billing events" --> STRIPE
     WORKER -- "log entries" --> CORALOGIX
     WORKER -- "email delivery" --> RESEND
+    WORKER -- "page views, product events" --> PIRSCH

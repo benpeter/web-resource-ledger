@@ -30,9 +30,9 @@ WRL is operated as a sole-proprietor service. There is no operations team, no 24
 
 ## 2. Architecture Overview
 
-WRL is a Cloudflare-native system. All components run in Cloudflare's network. External dependencies are contacted only for specific bounded operations (OAuth, timestamping, threat screening, payments, email).
+WRL is a Cloudflare-native system. All components run in Cloudflare's network. External dependencies are contacted only for specific bounded operations (OAuth, timestamping, threat screening, payments, email, logging, website analytics).
 
-[![Architecture diagram: API and MCP clients and dashboard users call the Cloudflare Worker, which uses D1, R2, Workers KV, the capture queue and Browser Rendering, and contacts GitHub, DigiCert, Sectigo, Google Web Risk, Stripe, Coralogix and Resend](/assets/diagrams/whitepaper-architecture.svg)](/assets/diagrams/whitepaper-architecture.svg)
+[![Architecture diagram: API and MCP clients and dashboard users call the Cloudflare Worker, which uses D1, R2, Workers KV, the capture queue and Browser Rendering, and contacts GitHub, DigiCert, Sectigo, Google Web Risk, Stripe, Coralogix, Resend and Pirsch](/assets/diagrams/whitepaper-architecture.svg)](/assets/diagrams/whitepaper-architecture.svg)
 
 **Trust model:** The Worker is the sole trust boundary enforcer. Every request is authenticated and authorized before touching D1, R2, or KV. External services are contacted over TLS with per-service API keys stored as Cloudflare Worker secrets. No service has access to another service's credentials.
 
@@ -46,7 +46,7 @@ WRL is a Cloudflare-native system. All components run in Cloudflare's network. E
 
 | Data element | Legal basis | Entry point | Transformation | Storage |
 |---|---|---|---|---|
-| IP address | Legitimate interest (abuse prevention) | `CF-Connecting-IP` header | HMAC-SHA-256 pseudonymization (daily rotation) → `cip` | Coralogix logs only; raw IP never stored |
+| IP address | Legitimate interest (abuse prevention) | `CF-Connecting-IP` header | HMAC-SHA-256 pseudonymization (daily rotation) → `cip` | Coralogix logs only; raw IP never stored. Page views and sign-up events pass the raw IP to Pirsch, which hashes it with its own daily salt and doesn't store it (`src/pirsch.js`) |
 | GitHub user ID | Contract performance | OAuth callback | Stored as integer after OAuth verification | D1 `github_users` table |
 | GitHub username | Contract performance | OAuth callback | Stored as string after OAuth verification | D1 `github_users` table |
 | Email address (notifications) | Contract performance | GitHub OAuth, email sign-in or manual entry | Primary verified GitHub address stored at sign-in as the default; a manually entered address is stored once verified | D1 `notification_preferences` table |
@@ -84,7 +84,7 @@ WRL supports three authentication methods. They are mutually exclusive per reque
 **API key (tenant API access)**
 Callers present a Bearer token in the `Authorization` header. The Worker hashes the token with SHA-256 and performs a D1 lookup against the `api_keys` table. Comparison is hash-based — the raw key is never compared in memory against stored values (see `src/auth.js`). Revoked keys are hard-rejected and do not fall through to the legacy single-key path. D1 I/O failures return HTTP 500 rather than degrading to legacy auth.
 
-**GitHub OAuth PKCE (browser UI / browser extension)**
+**GitHub OAuth PKCE (dashboard)**
 Users authenticate via GitHub's OAuth 2.0 flow with PKCE (`code_challenge_method=S256`). The PKCE `code_verifier` (64 bytes of entropy, base64url) and CSRF state parameter (32 bytes of entropy) are stored in Workers KV with a 600-second TTL. The state is consumed and deleted on first use (single-use). GitHub access tokens are used once to fetch user identity and then discarded — they are never stored or logged (see `src/oauth.js`). Sessions are created in D1 with the session ID stored as a SHA-256 hash. The raw session ID is signed with HMAC-SHA-256 and placed in a `__Host-wrl_session` cookie.
 
 **Admin key (infrastructure operations)**
@@ -121,11 +121,11 @@ Six Cloudflare rate limit bindings are declared in `wrangler.toml`. These are in
 | Binding | Purpose |
 |---|---|
 | `CAPTURE_RATE_LIMITER` | Per-tenant capture submission ceiling |
-| `VERIFY_RATE_LIMITER` | Per-tenant verification endpoint |
+| `VERIFY_RATE_LIMITER` | Public reads per IP (verification, certificate, artifacts, signing keys, keyless MCP discovery); MCP `verify_capture` per tenant |
 | `GLOBAL_CAPTURE_LIMITER` | Global capture submission across all tenants |
 | `ADMIN_RATE_LIMITER` | Admin API operations |
 | `CAPTURE_IP_GUARD` | Per-IP capture submission |
-| `AUTH_RATE_LIMITER` | Authentication failures |
+| `AUTH_RATE_LIMITER` | Every request per IP to sign-in routes, emailed unsubscribe and email confirmation links, and account and billing routes |
 
 ### 4.5 OAuth PKCE Flow
 
@@ -139,7 +139,7 @@ Six Cloudflare rate limit bindings are declared in `wrangler.toml`. These are in
 
 All traffic to and from `api.webresourceledger.com` and `staging.webresourceledger.com` terminates at Cloudflare's edge. Cloudflare negotiates TLS 1.2 or TLS 1.3 with clients and maintains TLS 1.3 to origin by default. WRL does not operate an origin server; Cloudflare Workers are the compute layer. Certificate management is handled by Cloudflare. Plain-HTTP requests to any WRL host (`webresourceledger.com`, `docs.`, `api.`, `staging.`) are redirected to HTTPS, and every host sends a `Strict-Transport-Security` header.
 
-Traffic from the Worker to external services (GitHub, DigiCert, Sectigo, Google Web Risk, Coralogix, Resend, Stripe) uses TLS over standard HTTPS. Cloudflare's outbound fetch enforces TLS for all `https://` URLs.
+Traffic from the Worker to external services (GitHub, DigiCert, Sectigo, Google Web Risk, Coralogix, Resend, Stripe, Pirsch) uses TLS over standard HTTPS. Cloudflare's outbound fetch enforces TLS for all `https://` URLs.
 
 ### 5.2 At Rest
 
@@ -230,7 +230,7 @@ If the Web Risk API is unavailable, the capture proceeds with `threatCheck: "una
 A daily cron job (`0 3 * * *` UTC) re-scans the URLs of all complete, non-quarantined captures against Google Web Risk, each URL once a night, up to 500 URLs a run with the longest unchecked first. URLs that have since been listed by the threat intelligence feed are quarantined automatically. Quarantined captures:
 
 - Have their status updated to `quarantined` in API responses.
-- Remain in storage with their artifacts intact for operator review.
+- Remain in storage for operator review, with their artifacts answering `451`, until the weekly retention job purges them 90 days after quarantine (`src/retention.js`).
 - Log a `threatcheck.quarantine` event to Coralogix, which triggers the [WRL] Threat Check Quarantines alert if more than five quarantines occur within 24 hours.
 
 Quarantine resolution requires manual operator intervention. There is no automated un-quarantine path.
@@ -299,8 +299,8 @@ WRL's security posture inherits from Cloudflare's infrastructure security. Cloud
 
 WRL processes personal data as defined in GDPR Article 4(1). The following measures apply:
 
-- **Data minimization** — IP addresses are pseudonymized and never stored in plaintext. GitHub access tokens are discarded after identity verification. Email addresses are stored only when users opt into notifications.
-- **Pseudonymization** — IP addresses are transformed to HMAC-SHA-256 pseudonyms with daily key rotation before appearing in any log or analytics system (`src/ip-hash.js`). Pseudonymization is noted in source code comments as "GDPR: The output is pseudonymized data (Art. 4(5)), not anonymous."
+- **Data minimization** — IP addresses are pseudonymized and never stored in plaintext. GitHub access tokens are discarded after identity verification. Email addresses are stored as the sign-in identity of users who sign in by email, and as the notification address (by default the primary verified address GitHub returns at sign-in).
+- **Pseudonymization** — IP addresses are transformed to HMAC-SHA-256 pseudonyms with daily key rotation before appearing in any log (`src/ip-hash.js`). Website analytics hits to Pirsch carry the raw IP, which Pirsch hashes with its own daily salt and doesn't store (`src/pirsch.js`). Pseudonymization is noted in source code comments as "GDPR: The output is pseudonymized data (Art. 4(5)), not anonymous."
 - **Right to deletion** — tenants can request deletion of their capture data. The operator can delete tenant records from D1 and artifacts from R2.
 - **Data subject access** — the operator can export D1 records for a given `tenantId` on request.
 - **Data Processing Agreement** — a DPA is available to enterprise customers on request.
@@ -331,7 +331,7 @@ The following risks are known, accepted, and documented. Each is accompanied by 
 | **Infrastructure-managed encryption at rest** | WRL does not hold application-level encryption keys for D1, R2, or KV. Encryption is AES-256 managed by Cloudflare. | Customers requiring CMEK, per-tenant encryption, or data residency guarantees cannot be served by WRL in its current form. Accepted: WRL's threat model does not include a malicious Cloudflare infrastructure operator. |
 | **No data residency guarantees** | Cloudflare distributes D1, R2, and KV globally by default. WRL does not configure geo-restriction on storage. | Accepted: WRL's target market does not require EU data residency enforcement at this time. |
 | **Sole-proprietor operational model** | WRL is operated by one person. There is no second-person approval for production changes, no on-call rotation, and no 24/7 SOC. | Alert monitoring via Coralogix with email notification. Incident response times are best-effort. Not suitable for use cases requiring contractual SLA or 24/7 security monitoring. |
-| **RFC 3161 certificate chain validation deferred** | `src/rfc3161.js` verifies nonce and messageImprint but does not perform full X.509 CMS certificate chain validation. The code comment notes this is "not feasible in Cloudflare Workers." | The raw token DER is stored in the WACZ bundle. Offline verification (`npx @w-r-l/verify`) can perform full chain validation using the token. The TSA's signing certificate is requested in the `certReq` flag of each `TimeStampReq`. Tracked in `docs/backlog.md`. |
+| **RFC 3161 certificate chain validation deferred** | `src/rfc3161.js` verifies nonce and messageImprint but does not perform full X.509 CMS certificate chain validation. The code comment notes this is "not feasible in Cloudflare Workers." | The raw token DER is stored in the WACZ bundle. Offline verification (`npx @w-r-l/verify`) can perform full chain validation using the token. The TSA's signing certificate is requested in the `certReq` flag of each `TimeStampReq`. The CLI checks the chain against the DigiCert roots it ships, plus any root passed with `--trust-root` (`packages/verify/lib/cms-verify.js`). |
 | **Fail-open threat check** | Google Web Risk API failures allow captures to proceed without pre-capture URL screening. | `threatCheck: "unavailable"` is recorded in capture metadata. The daily re-scan cron provides a compensating control: captures made during a degraded window are re-screened within 24 hours. The [WRL] Threat Check API Failures alert (P2) fires after more than two failures in 10 minutes. |
 | **Single signing key** | A single Ed25519 private key signs all WACZ bundles. Key compromise would affect all captures made with that key. | Key rotation is supported: `src/signing.js` detects rotation by comparing the `SIGNING_KEY` secret value. Historical public keys are archived in D1 `signing_keys` and published at `GET /.well-known/signing-keys`. All historical captures remain verifiable after rotation. |
 
@@ -348,14 +348,14 @@ The following risks are known, accepted, and documented. Each is accompanied by 
 | Ed25519 signing | Every WACZ bundle signed; keyId fingerprint archived | `src/signing.js` |
 | RFC 3161 timestamping | DigiCert (standard) and Sectigo (eIDAS-qualified); nonce + messageImprint validation | `src/rfc3161.js` |
 | IP pseudonymization | HMAC-SHA-256; daily key rotation; never stored in plaintext | `src/ip-hash.js` |
-| SSRF prevention | 9-step URL validation; private IP blocklist; encoding variant normalization | `src/url-validation.js` |
+| SSRF prevention | 8-step URL validation; private IP blocklist; encoding variant normalization | `src/url-validation.js` |
 | Pre-capture threat check | Google Web Risk API; allowlisted threat types; API key in header | `src/threat-check.js` |
-| Daily URL re-scan | Nightly cron; automatic quarantine for newly-listed URLs | `wrangler.toml` (cron `0 3 * * *`), `src/threat-check.js` |
+| Daily URL re-scan | Nightly cron; automatic quarantine for newly-listed URLs | `wrangler.toml` (cron `0 3 * * *`), `src/rescan.js`, `src/threat-check.js` |
 | BrowserContext isolation | Fresh context per capture; closed in try/finally; service workers blocked | `src/capture.js` |
 | Tenant query scoping | Every D1 read/write includes `tenant_id` predicate | `src/db.js` |
 | Rate limiting | 6 Cloudflare rate limit bindings; infrastructure ceiling | `wrangler.toml` |
 | Structured logging | Structured JSON to Coralogix EU2; NEVER LOG contract enforced | `src/log.js` |
-| Incident alerting | 9 Coralogix alert rules; P1/P2/P3 priority; email notification | `docs/operations/alerts.md` |
+| Incident alerting | 11 Coralogix alert rules; P1 to P4 priority; email notification | `docs/operations/alerts.md` |
 | TLS in transit | Cloudflare-managed TLS 1.2+ for all endpoints | Infrastructure (Cloudflare) |
 | AES-256 at rest | Cloudflare-managed for D1, R2, KV | Infrastructure (Cloudflare) |
 | Secret management | All secrets stored as Cloudflare Worker secrets; none in source code | `wrangler.toml`, 1Password WRL vault |
