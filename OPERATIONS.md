@@ -88,9 +88,9 @@ If a migration is forgotten and the new code reads it on the capture path, the s
 
 ## Releases
 
-`package.json` `version` is the API version: CI deploys it as `WRL-API-Version` on every response and as `build.version` in `/health`, and `scripts/check-version-sync.sh` requires `openapi.yaml` `info.version` to match. Bump it by SemVer: minor for added endpoints, fields or tools, major for breaking changes.
+`package.json` `version` is the API version: CI deploys it as `WRL-API-Version` on every response and as `build.version` in `/health`, and `scripts/check-version-sync.sh` requires `openapi.yaml` `info.version` and the `server.json` `version` to match. Bump it by SemVer: minor for added endpoints, fields or tools, major for breaking changes.
 
-1. On a branch: `npm version X.Y.Z --no-git-tag-version`, set `info.version` in `openapi.yaml`, and in CHANGELOG.md add `## [X.Y.Z] - <date>` under `## [Unreleased]` plus the compare links at the bottom.
+1. On a branch: `npm version X.Y.Z --no-git-tag-version`, set `info.version` in `openapi.yaml` and `version` in `server.json`, and in CHANGELOG.md add `## [X.Y.Z] - <date>` under `## [Unreleased]` plus the compare links at the bottom.
 2. Merge the PR and wait for the production deploy (`/health` shows the new `build.version`).
 3. Tag the merge commit and publish the release with the CHANGELOG section as notes:
 
@@ -99,7 +99,9 @@ git tag -a vX.Y.Z <merge-sha> -m "vX.Y.Z" && git push origin vX.Y.Z
 gh release create vX.Y.Z --title vX.Y.Z --notes-file <changelog-section.md>
 ```
 
-`v*` tags trigger nothing; `verify/v*` tags publish `@w-r-l/verify` (see `packages/verify/`).
+Publishing the release runs `.github/workflows/publish-mcp-registry.yml`, which publishes `server.json` to the [MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.benpeter/web-resource-ledger) through GitHub OIDC (no secret). It stops if the tag doesn't match `server.json` and skips a version that is already listed; it can also be run by hand from the Actions tab.
+
+The `v*` tag itself triggers nothing; `verify/v*` tags publish `@w-r-l/verify` (see `packages/verify/`).
 
 ---
 
