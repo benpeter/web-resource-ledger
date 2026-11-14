@@ -42,6 +42,27 @@ function cronNextPreview(cron) {
   return 'Custom expression: ' + cron;
 }
 
+// Link that opens this view with the create form's URL filled in: the schedule
+// nudge on capture pages and in the captures list. Null for non-http(s) URLs.
+function scheduleNudgeHref(url) {
+  if (!/^https?:/i.test(url || '')) return null;
+  return '#/schedules?url=' + encodeURIComponent(url);
+}
+
+// The URL to fill in from a schedules query ('?url=...'), or '' when there is
+// none, its encoding is broken, or it isn't http(s).
+function schedulePrefillUrl(query) {
+  var m = /[?&]url=([^&]*)/.exec(query || '');
+  if (!m) return '';
+  var url;
+  try {
+    url = decodeURIComponent(m[1]);
+  } catch (e) {
+    return ''; // broken percent-encoding: leave the field empty
+  }
+  return /^https?:/i.test(url) ? url : '';
+}
+
 // Next run column. A paused schedule has no next run: resuming picks a new
 // time from now (phase 0132), so the stored value would be misleading.
 function scheduleNextRunText(schedule) {
@@ -180,6 +201,8 @@ function renderSchedules() {
   urlInput.placeholder = 'https://example.com';
   urlInput.autocomplete = 'url';
   urlInput.required = true;
+  var hashQuery = (location.hash || '').split('?')[1];
+  urlInput.value = schedulePrefillUrl(hashQuery ? '?' + hashQuery : '');
   form.appendChild(urlInput);
 
   // Frequency select

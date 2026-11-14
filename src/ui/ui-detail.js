@@ -164,6 +164,12 @@ function buildMetadataSection(data) {
 // Compare captures -- inline picker for arbitrary diff comparison
 // ---------------------------------------------------------------------------
 
+// The schedule nudge on a capture page: signed-in users (the schedules view
+// needs a session), for a capture made by hand rather than by a schedule.
+function detail_showScheduleNudge(authMethod, data) {
+  return authMethod === 'session' && !data.scheduleId;
+}
+
 function buildCompareSection(currentId, data) {
   var section = document.createElement('section');
   section.className = 'section detail-section compare-section';
@@ -262,6 +268,19 @@ function buildCompareSection(currentId, data) {
 
   // Store cursor setter on moreBtn for loadCaptures to update
   moreBtn._setCursor = function(c) { cursor = c; };
+
+  var nudgeHref = detail_showScheduleNudge(_authMethod, data) ? scheduleNudgeHref(data.url) : null;
+  if (nudgeHref) {
+    var nudge = document.createElement('p');
+    nudge.className = 'schedule-nudge';
+    nudge.appendChild(document.createTextNode('To see how this page changes over time, '));
+    var nudgeLink = document.createElement('a');
+    nudgeLink.href = nudgeHref;
+    nudgeLink.textContent = 'capture it on a schedule';
+    nudge.appendChild(nudgeLink);
+    nudge.appendChild(document.createTextNode('.'));
+    section.appendChild(nudge);
+  }
 
   return section;
 }

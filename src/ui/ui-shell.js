@@ -150,7 +150,8 @@ function route() {
     return;
   }
 
-  if (path === '/schedules') {
+  // /schedules, optionally ?url=... to fill in the create form (schedule nudge)
+  if (path === '/schedules' || path.indexOf('/schedules?') === 0) {
     if (_authMethod === 'session') {
       updateNavCurrent('/schedules');
       renderSchedules();

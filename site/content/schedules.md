@@ -50,6 +50,8 @@ The response is `201 Created` with the new schedule record.
 
 Save the `id` — you will use it to retrieve, change or delete the schedule.
 
+In the [dashboard](https://api.webresourceledger.com/ui#/schedules), the **Create new schedule** form does the same. A capture's page links to that form with the capture's URL filled in (**capture it on a schedule**), and when a capture finishes in an account that has no schedules yet, the captures list offers the same link once.
+
 ---
 
 ## List schedules
