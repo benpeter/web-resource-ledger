@@ -4,7 +4,7 @@
   transitive updates from `npm audit fix`.
 - `src/mcp.js`: `maxToolInputElements: 1000` and `maxRequestBodySize: 256 KiB`.
 - `test/mcp.test.js`: a 1,001-URL `batch_capture` gets the element-limit error, a
-  300 KB body gets 413. Red first (0550f3a).
+  300 KB body gets 413. Red first (a4efdf3).
 - `site/content/mcp.md`: troubleshooting entry for both limits. CHANGELOG: Security.
 
 ## Backlog changes
