@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- MCP: `initialize`, `ping` and `tools/list` answer without an API key, so MCP directories and clients can list WRL's tools; tool calls still need a key. Keyless requests are limited to 60 a minute per IP
 - `PATCH /v1/schedules/{id}` edits a schedule's name, URL or cron and pauses or resumes it; resuming sets the next run from now
 - MCP tool `update_schedule`; `list_captures` takes `schedule_id`
 - Dashboard: Pause/Resume and Edit on each schedule, and a Captures link that lists only that schedule's captures

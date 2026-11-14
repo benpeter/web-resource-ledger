@@ -119,6 +119,8 @@ Configure your client with:
 - **Transport:** Streamable HTTP (POST)
 - **Authorization:** `Bearer YOUR_WRL_API_KEY` header on every request
 
+Without a key, `initialize`, `ping` and `tools/list` still answer, so MCP directories and clients can see the tools before you have a key. Every tool call needs one. Keyless requests are limited to 60 a minute per IP address.
+
 ---
 
 ## Available tools
@@ -572,6 +574,10 @@ All four checks passing confirms: the screenshot, HTML, and HTTP headers match w
 ### "Insufficient scope: API key does not grant 'capture' scope"
 
 Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `read_sitemap`, `list_schedules`, `create_schedule`, `update_schedule`, and `delete_schedule` require `capture` scope. Create a key with the `capture` scope in Settings → API Keys in the web UI; on a self-hosted deployment, the operator creates it with the admin API. See [Authentication](/authentication/).
+
+### The tools are listed, but every call answers 401
+
+Your client sends no API key. Listing the tools works without one; calling them doesn't. Add the `Authorization` header as shown under [Setup](#setup), with a key from [Get an API key](#get-an-api-key).
 
 ### "Rate limit exceeded. Try again in 60 seconds."
 

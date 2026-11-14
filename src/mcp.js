@@ -20,6 +20,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { readRequestBody } from '@modelcontextprotocol/sdk/server/requestBody.js';
 import { z } from 'zod';
 import { verifyApiKey, hasScope } from './auth.js';
 import { validateUrl } from './url-validation.js';
@@ -38,10 +39,37 @@ import { checkQuota } from './quotas.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { validateCron, nextRun } from './cron.js';
 import { getSigningKeys } from './signing.js';
+import { computeCip } from './ip-hash.js';
 
 // Input bounds for /mcp. The SDK defaults allow 4 MiB and unlimited elements.
 const MAX_TOOL_INPUT_ELEMENTS = 1000;
 const MAX_REQUEST_BODY_BYTES = 256 * 1024;
+
+// MCP methods that show what WRL offers. MCP directories call them without a
+// key, so they answer without one; tools/call still needs a key.
+const KEYLESS_METHODS = new Set(['initialize', 'notifications/initialized', 'ping', 'tools/list']);
+
+/**
+ * True for a request without an Authorization header whose JSON-RPC messages
+ * all use KEYLESS_METHODS. Reads a copy of the body, capped like the transport;
+ * anything else goes through the key check.
+ *
+ * @param {Request} request
+ * @returns {Promise<boolean>}
+ */
+async function isKeylessDiscovery(request) {
+  if (request.headers.has('Authorization')) return false;
+  const { tooLarge, text } = await readRequestBody(request.clone(), MAX_REQUEST_BODY_BYTES);
+  if (tooLarge) return false;
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  const messages = Array.isArray(body) ? body : [body];
+  return messages.length > 0 && messages.every((message) => KEYLESS_METHODS.has(message?.method));
+}
 
 // ---------------------------------------------------------------------------
 // MCP server factory
@@ -53,7 +81,8 @@ const MAX_REQUEST_BODY_BYTES = 256 * 1024;
  *
  * @param {object} env   - Cloudflare Worker env bindings
  * @param {object} ctx   - ExecutionContext
- * @param {object} auth  - Verified auth result from verifyApiKey
+ * @param {object|null} auth  - Verified auth result from verifyApiKey; null for keyless
+ *   discovery, where no tool handler runs
  * @param {string} origin - Request origin (e.g. 'https://api.webresourceledger.com')
  * @returns {McpServer}
  */
@@ -1437,6 +1466,28 @@ export async function handleMcp(request, env, ctx) {
     });
   }
 
+  // Keyless discovery: no tenant, rate-limited per IP like the other public reads.
+  // Tool handlers never run, because only KEYLESS_METHODS get here.
+  if (await isKeylessDiscovery(request)) {
+    if (env.VERIFY_RATE_LIMITER) {
+      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
+      if (!success) {
+        const cip = await computeCip(env, clientIp);
+        ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'verify', via: 'mcp', cip }) ?? Promise.resolve());
+        return new Response(JSON.stringify({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Rate limit exceeded. Try again later.' },
+          id: null,
+        }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+        });
+      }
+    }
+    return serveMcp(request, env, ctx, null);
+  }
+
   // Auth check (minimum 'read' scope for any MCP access)
   const auth = await verifyApiKey(request, env, { requiredScope: 'read' });
   if (!auth.ok) {
@@ -1450,7 +1501,19 @@ export async function handleMcp(request, env, ctx) {
     return auth.response;
   }
 
-  // Create MCP server and transport per request (stateless mode)
+  return serveMcp(request, env, ctx, auth);
+}
+
+/**
+ * Creates the MCP server and transport for one request (stateless mode).
+ *
+ * @param {Request} request
+ * @param {object} env
+ * @param {object} ctx
+ * @param {object|null} auth - null for keyless discovery
+ * @returns {Promise<Response>}
+ */
+async function serveMcp(request, env, ctx, auth) {
   const origin = new URL(request.url).origin;
   const server = createMcpServer(env, ctx, auth, origin);
   const transport = new WebStandardStreamableHTTPServerTransport({
