@@ -1538,13 +1538,20 @@ components:
     ScheduleListResponse:
       type: object
       description: List of schedules for the authenticated tenant.
-      required: [data]
+      required: [data, limit]
       properties:
         data:
           type: array
           description: Schedules for the tenant. Empty array when none exist; never null.
           items:
             $ref: '#/components/schemas/Schedule'
+        limit:
+          type: integer
+          minimum: 1
+          description: >
+            How many schedules the tenant can have, paused ones included (10 unless
+            an operator changed it). Creating one more answers 429 with
+            `limitType: 'schedules'`.
 
     ScheduleDeleted:
       type: object
@@ -6132,6 +6139,7 @@ paths:
                   summary: No schedules configured
                   value:
                     data: []
+                    limit: 10
                 withSchedules:
                   summary: Tenant with two active schedules
                   value:
@@ -6156,6 +6164,7 @@ paths:
                         lastCaptureId: 'cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7'
                         lastCaptureStatus: 'complete'
                         createdAt: '2026-03-15T08:30:00.000Z'
+                    limit: 10
         '401':
           $ref: '#/components/responses/Problem401'
         '429':

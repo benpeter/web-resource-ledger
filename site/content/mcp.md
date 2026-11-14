@@ -396,7 +396,7 @@ With a payment method on file, both limits read `unlimited`. When the account is
 
 #### `list_schedules`
 
-List all scheduled captures registered for this account, including their URL, cron expression, whether they are paused, and the next run time. Use `create_schedule` to add a schedule, `update_schedule` to change or pause one, and `delete_schedule` to remove one.
+List all scheduled captures registered for this account, including their URL, cron expression, whether they are paused, and the next run time. Use `create_schedule` to add a schedule, `update_schedule` to change or pause one, and `delete_schedule` to remove one. The first line says how many schedules the account has and how many it can have.
 
 **Requires:** `capture` scope
 
@@ -405,7 +405,7 @@ List all scheduled captures registered for this account, including their URL, cr
 **Example output:**
 
 ```
-2 schedule(s):
+2 of 10 schedules:
 
   ID:       sch_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
   Name:     Daily homepage check

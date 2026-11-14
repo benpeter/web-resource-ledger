@@ -116,7 +116,7 @@ Each account can have 10 [schedules](/schedules/); paused schedules count toward
 
 - "Schedule limit reached (10). Delete an existing schedule to create a new one."
 
-There is no `Retry-After` header because waiting doesn't free a slot; deleting a schedule does. Each scheduled run uses one capture from the monthly quota.
+There is no `Retry-After` header because waiting doesn't free a slot; deleting a schedule does. `GET /v1/schedules` returns your limit as `limit`, and MCP `list_schedules` shows it as "2 of 10 schedules". Each scheduled run uses one capture from the monthly quota.
 
 ---
 
