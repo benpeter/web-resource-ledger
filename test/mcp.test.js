@@ -921,6 +921,12 @@ describe('tool: get_usage', () => {
     const body = await (await mcpPost(toolCall('get_usage', {}))).json();
     expect(body.result.content[0].text).toContain('Storage used:    2.4 GB / 10.0 GB');
   });
+
+  // The description promises the reset date; an account at 200/200 needs it most
+  it('says when the quota resets', async () => {
+    const body = await (await mcpPost(toolCall('get_usage', {}))).json();
+    expect(body.result.content[0].text).toMatch(/^Resets: \d{4}-\d{2}-01T00:00:00\.000Z$/m);
+  });
 });
 
 describe("tool: get_usage -- accounts that can't capture", () => {
