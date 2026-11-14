@@ -157,3 +157,4 @@ software development.
 | [0148-identity-docs](0148-identity-docs/) | The DPA, whitepaper and retention page cover email sign-in and the stored notification address; the legal-evidence page says what happens when the timestamp authority can't be reached |
 | [0149-email-login-logs](0149-email-login-logs/) | Failed writes of the sign-in link counters and failed cleanup of expired links are logged instead of discarded |
 | [0150-first-key-tos](0150-first-key-tos/) | The first API key can't be fetched before the terms of service are accepted |
+| [0151-vitest-4](0151-vitest-4/) | Tests run on vitest 4 and vitest-pool-workers 0.19; the request-state fix holds when env is a Proxy |

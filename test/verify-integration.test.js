@@ -4,7 +4,8 @@
 // regulators) must be able to verify a capture without owning an API key.
 // DO NOT add an auth gate to this endpoint. If tests below start failing with 401,
 // that is a regression in the auth gate configuration.
-import { env, SELF, fetchMock } from 'cloudflare:test';
+import { env, SELF } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture } from '../src/capture.js';
 import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';

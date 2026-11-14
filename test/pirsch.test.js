@@ -1,4 +1,4 @@
-import { fetchMock } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { trackHit, trackEvent, trackServerEvent, isPageView, SERVER_USER_AGENT } from '../src/pirsch.js';
 import * as logModule from '../src/log.js';

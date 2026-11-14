@@ -92,7 +92,7 @@ the deployed commit SHA matches the expected `GITHUB_SHA` (with retry for propag
 Two test suites, separate concerns:
 
 ```bash
-npm test                    # Unit tests (~6s, mocked browser)
+npm test                    # Unit tests (~35s, mocked browser)
 npm run test:integration    # Integration tests (~90s, real Chromium)
 ```
 
@@ -101,10 +101,10 @@ npm run test:integration    # Integration tests (~90s, real Chromium)
 A few gotchas worth knowing before you write tests:
 
 - Tests run in `@cloudflare/vitest-pool-workers`, not plain Node.js. Some Node APIs are unavailable.
-- Import `SELF`, `env`, and `fetchMock` from `cloudflare:test`, not from `vitest`.
-- `isolatedStorage: false` is deliberate -- do explicit `beforeEach` cleanup instead of relying on automatic resets.
+- Import `SELF`, `env` and `createExecutionContext` from `cloudflare:test`, and `fetchMock` from `./fetch-mock.js` (vitest-pool-workers 0.13 dropped the built-in one; the shim keeps its `get().intercept().reply()` calls).
+- Storage is isolated per test file, not per test. Clean up in `beforeEach`: `cleanDb(env.DB)` for D1, and delete the `rl:` KV keys when a test goes through rate limits.
 - Test signing keys are auto-generated at load time; no key setup is needed.
-- **Unit tests only:** Tests that make outbound HTTP calls require `fetchMock`. Use `activateFetchMock()` in `beforeEach` and `deactivate()` in `afterEach`. A `fetchMock` left active after a test will cause failures in unrelated tests -- this is a 20+ minute debugging trap if you don't know to look for it.
+- **Unit tests only:** Tests that make outbound HTTP calls require `fetchMock`. Call `fetchMock.activate()` in `beforeEach` and `fetchMock.deactivate()` in `afterEach`. A `fetchMock` left active after a test will cause failures in later tests -- this is a 20+ minute debugging trap if you don't know to look for it.
 - **Integration tests only:** Each test pre-acquires a browser session via `acquire()` in `beforeEach`. This is required because miniflare's browser binding doesn't implement `limits()`.
 
 ## Design Philosophy

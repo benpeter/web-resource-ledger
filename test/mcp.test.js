@@ -1,5 +1,6 @@
 // tva
-import { env, SELF, fetchMock } from 'cloudflare:test';
+import { env, SELF } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
 import { seedApiKey, seedSchedule, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer } from './fixtures.js';

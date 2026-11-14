@@ -20,5 +20,7 @@
   and the capture goes on.
 - No alert: a KV outage shows up in other alerts first, and the event is there for
   investigation.
-- `test/log-severity-sync.test.js` started with a stray `// tva` line from phase 0136's
-  red commit; removed.
+- Correction (phase 0151): this phase removed a `// tva` line from
+  `test/log-severity-sync.test.js` as a stray. It is the code signature an earlier
+  global CLAUDE.md asked for, carried by 104 of the repo's JavaScript files; 0151 put
+  it back.

@@ -1,6 +1,7 @@
 // Tests for the first API key shown after signup (phase 0114): how long it is
 // kept, what a missing key tells the user, and the events that measure both.
-import { env, SELF, fetchMock, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
+import { env, SELF, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import { cleanDb, createTestSession } from './fixtures.js';

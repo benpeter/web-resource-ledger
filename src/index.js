@@ -527,8 +527,13 @@ export default {
     // Workers pass the same env object to every request of an isolate. The auth
     // gates below attach the caller (env._session, env._captureAuth); a
     // per-request object that inherits the bindings keeps that from leaking
-    // into the next or a concurrent request.
-    env = Object.create(env);
+    // into the next or a concurrent request. The two fields are its own
+    // properties: assigning a missing one would go to the prototype's setter,
+    // and a Proxy env (as in the vitest pool) writes it onto the shared object.
+    env = Object.create(env, {
+      _session: { value: undefined, writable: true },
+      _captureAuth: { value: undefined, writable: true },
+    });
     const url = new URL(request.url);
     // Normalize trailing slashes: /health/ matches /health
     const pathname = url.pathname.replace(/\/$/, '') || '/';
