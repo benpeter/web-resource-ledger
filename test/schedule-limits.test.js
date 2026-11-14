@@ -99,6 +99,16 @@ describe('schedule limit -- default (10)', () => {
     const body = await res.json();
     expect(body.detail).toContain('10');
   });
+
+  it('429 response body carries limitType schedules', async () => {
+    for (let i = 1; i <= 10; i++) {
+      await seedSchedule(env.DB, scheduleId(i), { tenantId: 'default' });
+    }
+    const res = await createSchedule();
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.limitType).toBe('schedules');
+  });
 });
 
 // ---------------------------------------------------------------------------
