@@ -10,9 +10,7 @@ permissions:
 
 jobs:
   update-and-test:
-    # vitest-pool-workers hangs in some runs on ubuntu-26.04 (since 2026-11-14,
-    # never on 24.04); back to ubuntu-latest with the vitest 4 move (backlog #85)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 12
     outputs:
       skip: ${{ steps.check.outputs.skip }}

@@ -70,6 +70,22 @@ The `staging-smoke` job is skipped for automatic triggers because staging alread
 
 ---
 
+## Database Migrations
+
+Deploys don't apply D1 migrations: the deploy API token has no D1 permissions. A pull request that adds a file to `migrations/` needs it applied to both databases **before it merges**, with a token that has D1 edit rights:
+
+```bash
+wrangler d1 migrations list DB --remote                 # production: shows what is pending
+wrangler d1 migrations apply DB --remote
+wrangler d1 migrations apply DB --remote --env staging
+```
+
+Applying first is safe as long as the migration keeps the running code working: add columns and tables, and don't rename or drop what the current code reads. A migration that can't meet that needs its own plan (add first, deploy, drop in a later migration).
+
+If a migration is forgotten and the new code reads it on the capture path, the staging smoke test catches it: the capture round-trip answers 500 and the production deploy doesn't start (this happened with migration 0019). The smoke test doesn't exercise other routes. Apply the migration, then rerun the failed staging job (Actions > the failed run > Re-run failed jobs, or `gh run rerun <run-id> --failed`); production deploys when it passes.
+
+---
+
 ## Releases
 
 `package.json` `version` is the API version: CI deploys it as `WRL-API-Version` on every response and as `build.version` in `/health`, and `scripts/check-version-sync.sh` requires `openapi.yaml` `info.version` to match. Bump it by SemVer: minor for added endpoints, fields or tools, major for breaking changes.

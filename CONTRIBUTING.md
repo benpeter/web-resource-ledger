@@ -57,6 +57,8 @@ Merging to `main` triggers the full two-stage pipeline:
 
 All staging jobs must pass before the production workflow triggers. A failed staging smoke test blocks the production deploy.
 
+Deploys don't apply D1 migrations. If your change adds a file to `migrations/`, the maintainer applies it to both databases before merging; see [Database Migrations](OPERATIONS.md#database-migrations).
+
 Using the GitHub Actions UI (Actions > Deploy to Staging > Run workflow) also triggers both stages on completion. Using the CLI deploys to staging only:
 
 ```bash
