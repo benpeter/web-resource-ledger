@@ -13,9 +13,10 @@
  * Admin call budget: POST /v1/admin/keys (1) + PUT config (2) + DELETE key (3)
  * = 3 calls, well within the 5 req/60s admin rate limit.
  *
- * Usage counter timing: incrementUsage() runs inside ctx.waitUntil() after
- * the 202 is returned. Polling to terminal state ensures the background
- * usage write has completed before submitting the second capture.
+ * Usage counter timing: the queue consumer marks the capture complete and
+ * then increments the counter inside ctx.waitUntil(), so the test polls
+ * GET /v1/account/usage until the counter shows the first capture before
+ * submitting the second one.
  */
 
 // tva
@@ -97,10 +98,20 @@ test('enforces capture quota limits', async () => {
     const captureId = firstCapture.id;
 
     // --- 4. Wait for first capture to reach terminal state ---
-    // incrementUsage() runs inside ctx.waitUntil() after the 202 is returned.
-    // Polling until completion ensures the background usage counter write has
-    // finished before the second capture attempt reads the counter.
     await pollUntilComplete(tenantFetch, captureId, 90_000);
+
+    // The counter is written after the capture is marked complete, so wait for it.
+    // Every 4s: account routes allow 10 requests per minute per IP.
+    const usageDeadline = Date.now() + 30_000;
+    let usedCaptures = 0;
+    while (Date.now() < usageDeadline) {
+      const usageRes = await tenantFetch('/v1/account/usage');
+      expect(usageRes.status, `GET /v1/account/usage should return 200 (got ${usageRes.status})`).toBe(200);
+      usedCaptures = (await usageRes.json()).captures.used;
+      if (usedCaptures >= 1) break;
+      await new Promise(resolve => setTimeout(resolve, 4_000));
+    }
+    expect(usedCaptures, 'usage counter should count the first capture within 30s').toBe(1);
 
     // --- 5. Submit second capture -- should be rejected (quota: 1/1 used) ---
     const secondRes = await tenantFetch('/v1/captures', {
