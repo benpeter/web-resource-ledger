@@ -655,10 +655,10 @@ export default {
           if (!session.ok) {
             response = session.response;
           } else {
-            // ToS enforcement: 403 if ToS not accepted (exempt tos + first-key endpoints)
+            // ToS enforcement: 403 if ToS not accepted (only the tos endpoint is exempt;
+            // the first key is shown after acceptance, so it can't be fetched to skip it)
             if (!session.tosAcceptedAt
-                && !pathname.startsWith('/v1/account/tos')
-                && !pathname.startsWith('/v1/account/first-key')) {
+                && !pathname.startsWith('/v1/account/tos')) {
               response = problemResponse(403, 'You must accept the Terms of Service before using account endpoints.');
             }
             // CSRF check for mutations

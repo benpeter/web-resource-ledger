@@ -19,7 +19,7 @@ function nextIp() {
 
 /**
  * Create a test session with ToS accepted.
- * All /v1/account/* routes (except /tos and /first-key) require tosAcceptedAt.
+ * All /v1/account/* routes except /tos require tosAcceptedAt.
  */
 async function createTosSession(overrides = {}) {
   const session = await createTestSession(env.DB, env, overrides);
