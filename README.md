@@ -345,9 +345,9 @@ Steps 1-9 are one-time setup. After initial deployment, the CD pipeline handles 
 
 ## MCP Server
 
-WRL exposes all four core operations — capture, retrieve, list, and verify — as MCP tools. Any MCP-compatible agent or IDE can capture web pages and verify evidence without writing HTTP client code.
+WRL's MCP tools capture pages (one URL, a batch, or the URLs in a sitemap), retrieve, list, verify and compare captures, return certificate details and usage, and manage schedules. Any MCP-compatible agent or IDE can capture web pages and verify evidence without writing HTTP client code.
 
-See the [MCP Server Guide](https://docs.webresourceledger.com/mcp/) for setup instructions and example workflows. For local reference, [`docs/mcp.md`](docs/mcp.md) covers Claude Code, Cursor, Windsurf, and generic clients along with the full tool reference.
+See the [MCP Server Guide](https://docs.webresourceledger.com/mcp/) for setup, the full tool reference and example workflows. Its source is [`site/content/mcp.md`](site/content/mcp.md); `npm run test:sync` fails when a tool in `src/mcp.js` is missing from it.
 
 ## Web UI
 
