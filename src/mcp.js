@@ -72,7 +72,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'capture_url',
-    'Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle with Ed25519 signature and RFC 3161 timestamp. Returns a capture ID — use get_capture to check progress. Typically completes in 5-15 seconds. If still pending after 30 seconds, the capture may have failed.',
+    'Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle with Ed25519 signature and RFC 3161 timestamp. Returns a capture ID — use get_capture to check progress. Typically completes in 5-15 seconds. Failed attempts are retried, so a capture can stay pending for a few minutes; one still pending after 24 hours is marked failed.',
     { url: z.string().describe('The URL to capture (http:// or https://).') },
     async ({ url }) => {
       // Step 1: Scope check

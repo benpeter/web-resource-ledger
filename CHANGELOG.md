@@ -45,6 +45,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Captures whose queue message was lost stayed `pending` for good (8 in production since July); a capture still pending 24 hours after it was submitted is now marked failed with "WRL lost track of this capture before it finished." and `retryable: true`
+- MCP `capture_url` and the MCP guide said a capture still pending after 30 seconds may have failed; retries can keep it pending for a few minutes, and resubmitting creates a second capture
 - The `capture.complete` webhook sent a `verificationUrl` for partial captures that answered 404; partial captures now verify
 - MCP `list_schedules` shows whether each schedule is active or paused, and `(paused)` instead of a next run for paused schedules
 - The MCP guide documents `update_schedule` and the `schedule_id` filter on `list_captures`, and its `get_usage` example matches the output

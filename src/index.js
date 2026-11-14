@@ -12,6 +12,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { runRetentionJobs } from './retention.js';
+import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
@@ -359,7 +360,7 @@ async function handleCaptureMessage(msg, env, ctx) {
             const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
             const alreadySent = await checkNotificationSent(env.DB, tenantId, period, 'approaching_limit');
             if (alreadySent) {
-              log(env, 7, 'email', { event: 'email.dispatch_skipped', tenantId, notificationType: 'approaching_limit', suppressionReason: 'callsite_dedup', period });
+              await log(env, 1, 'email', { event: 'email.dispatch_skipped', tenantId, notificationType: 'approaching_limit', suppressionReason: 'callsite_dedup', period });
             } else {
               const baseUrl = env.VERIFICATION_BASE_URL
                 ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
@@ -492,6 +493,7 @@ export default {
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
+      ctx.waitUntil(failStaleCaptures(env, new Date(controller.scheduledTime)));
     }
   },
 

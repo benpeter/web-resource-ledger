@@ -34,8 +34,10 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `capture.key_archive_fail` | capture | 4 (warn) | Signing key archive failed |
 | `capture.consent_error` | capture | 4 (warn) | Cookie consent dismissal error |
 | `capture.tsa_fail` | capture | 4 (warn) | RFC 3161 timestamp request failed |
-| `capture.fail_record_fail` | capture | 5 (error) | Could not mark a capture failed after its last attempt or from the dead-letter queue; the capture stays `pending` |
+| `capture.fail_record_fail` | capture | 5 (error) | Could not mark a capture failed after its last attempt or from the dead-letter queue; the capture stays `pending` until the hourly sweep fails it a day later |
 | `capture.attempt_error_record_fail` | capture | 4 (warn) | Could not store the reason of a failed attempt before a retry |
+| `capture.stale_fail` | capture | 4 (warn) | The hourly sweep failed captures still pending 24 hours after creation (`count`, `captureIds`) |
+| `capture.stale_fail_error` | capture | 5 (error) | The hourly sweep of stale pending captures threw |
 | `capture.qtsa_fail` | capture | 4 (warn) | Qualified (eIDAS) RFC 3161 timestamp request failed; capture completes with `qualifiedTimestampStatus: 'error'` |
 | `tenant.settings_change` | admin | 3 (info) | Tenant settings updated (e.g., `eidas_qualified` toggled); `changedFields` lists modified keys |
 | `admin.key_create` | admin | 3 (info) | API key provisioned |
@@ -108,6 +110,7 @@ fewer fields.
 
 | Severity | Level | WRL usage |
 |----------|-------|-----------|
+| 1 | Debug | `email.dispatch_skipped` |
 | 2 | Verbose | Operational telemetry (not part of audit trail), e.g. `capture.list` and sitemap reads |
 | 3 | Info | Successful operations, audit trail events |
 | 4 | Warning | Rate limits, degraded paths, non-critical failures |

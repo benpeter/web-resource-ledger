@@ -27,7 +27,7 @@
  * and pick specific fields -- never pass auth result objects directly.
  *
  * @param {object} env Worker env bindings
- * @param {number} severity Coralogix severity: 3=info, 4=warn, 5=error
+ * @param {number} severity Coralogix severity: 1=debug, 2=verbose, 3=info, 4=warning, 5=error (6 shows as Critical; unused)
  * @param {string} subsystem Module name: "capture", "security", "oauth"
  * @param {object} data Structured payload (event, captureId, stage, etc.)
  * @returns {Promise<void>|undefined}

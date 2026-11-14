@@ -532,7 +532,7 @@ Input: { "capture_id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" }
 
 If still processing, you will see `is pending` -- call `get_capture` again in a few seconds. When the capture completes, the response includes all artifact URLs and a verification link.
 
-If the capture is still pending after 30 seconds, it may have stalled. Call `get_capture` once more to see if a failure record is now written, then resubmit with a new `capture_url` call if the error is retryable.
+WRL retries failed attempts, so a capture can stay pending for a few minutes. Once it fails, `get_capture` shows the reason; resubmit with a new `capture_url` call if the error is retryable.
 
 ### Step 3: Verify cryptographic integrity
 
@@ -581,10 +581,9 @@ The MCP endpoint accepts request bodies up to 256 KiB and tool arguments with up
 
 ### Capture stuck in pending
 
-Captures normally complete in 5--15 seconds. If `get_capture` returns pending after 30 seconds:
+Captures normally complete in 5--15 seconds. WRL retries a failed attempt up to four times, so a capture can stay pending for a few minutes before it completes or fails. Keep calling `get_capture` every few seconds until it does; submitting the URL again meanwhile creates a second capture.
 
-1. Call `get_capture` one more time -- it may have just completed, or the failure record may now be written.
-2. If still pending, the background job may have been dropped. Submit a new capture with `capture_url`.
+A capture still pending 24 hours after it was submitted is marked failed with "WRL lost track of this capture before it finished." Submit it again with `capture_url`.
 
 ### "Capture not found or not yet complete"
 
