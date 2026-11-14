@@ -104,6 +104,28 @@ describe('verifyWacz v0.2.0 -- valid self-signature, no timestamp', () => {
   });
 });
 
+describe('verifyWacz -- captured page', () => {
+  it('returns the signed mainPageUrl and mainPageDate as capture.url and capture.capturedAt', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA, {
+      mainPageUrl: 'https://example.com/terms',
+      mainPageDate: '2026-03-16T11:59:58.000Z',
+    });
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.verified, true);
+    assert.strictEqual(result.capture.url, 'https://example.com/terms');
+    assert.strictEqual(result.capture.capturedAt, '2026-03-16T11:59:58.000Z');
+  });
+
+  it('capture.url and capture.capturedAt are null when the archive names no page', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA);
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.capture.url, null);
+    assert.strictEqual(result.capture.capturedAt, null);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Happy path: v0.2.0 with valid timestamp
 // ---------------------------------------------------------------------------

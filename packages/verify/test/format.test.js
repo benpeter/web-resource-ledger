@@ -298,6 +298,23 @@ describe('formatHuman -- timestamp merging', () => {
 // formatJson tests
 // ---------------------------------------------------------------------------
 
+describe('formatHuman -- captured page', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  it('shows the captured page above the signing time', () => {
+    const result = makePassResult();
+    result.capture.url = 'https://example.com/terms';
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Page      https:\/\/example\.com\/terms\n  Signed    /);
+  });
+
+  it('leaves the line out when the archive names no page', () => {
+    formatHuman(makePassResult(), { noColor: true });
+    assert.doesNotMatch(stdoutOutput, /  Page  /);
+  });
+});
+
 describe('formatJson -- structure', () => {
   beforeEach(captureStdout);
   afterEach(restoreStdout);

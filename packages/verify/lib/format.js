@@ -211,6 +211,11 @@ export function formatHuman(result, opts = {}) {
   // Metadata block
   process.stdout.write('\n');
 
+  const pageUrl = result.capture?.url;
+  if (pageUrl) {
+    process.stdout.write(`  Page      ${pageUrl}\n`);
+  }
+
   const signedAt = result.capture?.signedAt;
   if (signedAt) {
     process.stdout.write(`  Signed    ${signedAt}\n`);

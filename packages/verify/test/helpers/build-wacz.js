@@ -218,6 +218,8 @@ export async function buildTestWacz(privateKey, publicKeyBytes) {
  *   token?: string,   base64 DER token (default: null = skip timestamp entry)
  *   tsa?: string,     TSA URL string (default: 'https://tsa.example.com')
  *   keyId?: string,   8-char hex key ID (default: 'aaaabbbb')
+ *   mainPageUrl?: string,   datapackage mainPageUrl (default: none)
+ *   mainPageDate?: string,  datapackage mainPageDate (default: none)
  * }} [options={}]
  * @returns {Promise<{
  *   waczBytes: Uint8Array,
@@ -239,6 +241,8 @@ export async function buildTestWaczV2(privateKey, publicKeyBytes, options = {}) 
     token = null,
     tsa   = 'https://tsa.example.com',
     keyId = 'aaaabbbb',
+    mainPageUrl = null,
+    mainPageDate = null,
   } = options;
 
   const warcBytes  = enc.encode('WARC/1.1\r\ntest warc content v2');
@@ -257,6 +261,8 @@ export async function buildTestWaczV2(privateKey, publicKeyBytes, options = {}) 
       { name: 'index.cdxj',  path: 'indexes/index.cdxj',  hash: cdxjHash,  bytes: cdxjBytes.byteLength },
       { name: 'pages.jsonl', path: 'pages/pages.jsonl',    hash: pagesHash, bytes: pagesBytes.byteLength },
     ],
+    ...(mainPageUrl !== null ? { mainPageUrl } : {}),
+    ...(mainPageDate !== null ? { mainPageDate } : {}),
   };
 
   const dpBytes    = enc.encode(JSON.stringify(datapackage, null, 2));

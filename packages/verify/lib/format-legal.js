@@ -268,6 +268,9 @@ export function formatLegal(result, opts = {}) {
     ));
   }
   out.push('');
+  if (result.capture?.url) {
+    out.push(`Page:      ${result.capture.url}`);
+  }
   out.push(`Source:    ${result.source ?? 'unknown'}`);
   out.push(`Verified:  ${verifiedAt}`);
   out.push('');
@@ -288,6 +291,12 @@ export function formatLegal(result, opts = {}) {
   out.push('');
 
   const capture = result.capture ?? {};
+  if (capture.url) {
+    out.push(`Captured page: ${capture.url}`);
+  }
+  if (capture.capturedAt) {
+    out.push(`Captured at:   ${capture.capturedAt}`);
+  }
   out.push(`Source:        ${result.source ?? 'unknown'}`);
   if (capture.signedAt) {
     out.push(`Created:       ${capture.signedAt}`);
@@ -670,6 +679,7 @@ export function formatLegalJson(result, opts = {}) {
       statement: summaryStatement,
       verified: result.verified ?? null,
       source: result.source ?? null,
+      capturedUrl: capture.url ?? null,
       captureDate: capture.signedAt ?? null,
     },
     checks: enrichedChecks,
@@ -678,6 +688,8 @@ export function formatLegalJson(result, opts = {}) {
       signature: capture.signature ?? null,
       embeddedPublicKey: capture.publicKey ?? null,
       signedAt: capture.signedAt ?? null,
+      url: capture.url ?? null,
+      capturedAt: capture.capturedAt ?? null,
     },
     timestamps,
     keyResolution: {
