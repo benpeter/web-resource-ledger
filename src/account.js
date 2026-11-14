@@ -609,10 +609,9 @@ export async function handleGetSettings(request, env, _ctx, _match) {
 /**
  * Update eIDAS/qualified timestamp settings for the authenticated tenant.
  *
- * Allowlisted fields: qualifiedTimestamps (boolean).
- * Enabling qualified timestamps requires a payment method on file (402).
- * Payment method check and current eIDAS state are fetched in a single query
- * to avoid TOCTOU between the two reads.
+ * Allowlisted fields: qualifiedTimestamps (boolean). Every account may enable
+ * them: the first 50 qualified timestamps a month are free, and billing happens
+ * at capture time like regular captures.
  *
  * @param {Request} request
  * @param {object} env  env._session is set by the router (verified session)
@@ -662,17 +661,11 @@ export async function handleUpdateSettings(request, env, _ctx, _match) {
 
   const { tenantId } = env._session;
 
-  // Single query: fetch current eIDAS state + payment method to avoid TOCTOU
   const row = await env.DB.prepare(
-    'SELECT eidas_qualified, payment_method_added_at, updated_at FROM tenants WHERE id = ?',
+    'SELECT eidas_qualified FROM tenants WHERE id = ?',
   ).bind(tenantId).first();
 
   const previousValue = Boolean(row?.eidas_qualified);
-  const hasPaymentMethod = row?.payment_method_added_at != null;
-
-  // eIDAS is available to all tenants -- first 50 qualified timestamps/month are
-  // free (no payment method required). Billing enforcement happens at capture time
-  // via the metering pipeline, same as regular captures.
 
   // Write the new setting
   await setEidasQualified(env.DB, tenantId, body.qualifiedTimestamps);

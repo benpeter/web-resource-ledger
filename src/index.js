@@ -1116,7 +1116,7 @@ async function handleCreateCapture(request, env, ctx) {
 
   // Step 10a: Dispatch to queue
   // eIDAS setting captured at quota-check time (quotaCheck.eidasQualified) —
-  // no extra D1 round-trip. Legacy auth tenants cannot enable eIDAS (requires payment method).
+  // no extra D1 round-trip. Legacy auth tenants cannot enable eIDAS (no session to change the setting).
   const eidasQualified = quotaCheck?.eidasQualified ?? false;
   try {
     await env.CAPTURE_QUEUE.send({
