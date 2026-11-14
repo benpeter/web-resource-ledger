@@ -160,12 +160,16 @@ WRL signs every event payload so you can confirm requests originate from WRL and
 
 ### Headers
 
-Every webhook request includes two headers:
+Every webhook request includes these headers:
 
 | Header | Description |
 |--------|-------------|
 | `X-WRL-Signature-256` | HMAC-SHA256 signature in the format `t={timestamp},v1={hex_signature}` |
 | `X-WRL-Timestamp` | Unix timestamp (seconds) when the event was dispatched |
+| `X-WRL-Event` | The event type, such as `capture.complete`, or `ping` for a test delivery |
+| `X-WRL-Delivery` | The event's `id` (`evt_...`), the same as `id` in the body and the same on every retry |
+| `User-Agent` | `WRL-Webhook/1.0` |
+| `Content-Type` | `application/json` |
 
 ### Signing scheme
 
@@ -280,6 +284,8 @@ If your endpoint does not return a 2xx response, WRL retries with a fixed schedu
 | 4 (final) | 15 minutes |
 
 After all retries are exhausted, the event is moved to the dead-letter queue and no further delivery is attempted.
+
+A retry sends the same event again, with the same `id` and `X-WRL-Delivery`. Your endpoint can receive an event more than once, for example when it processed a delivery but answered after the 10-second timeout, so skip events whose `id` you have already handled.
 
 WRL waits 10 seconds for your endpoint to answer. A delivery that takes longer counts as failed and is retried, like a 5xx response or a connection error.
 

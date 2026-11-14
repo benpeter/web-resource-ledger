@@ -25,6 +25,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The webhooks guide lists every delivery header, including `X-WRL-Event` and `X-WRL-Delivery` (the event id, the same on every retry), and says an endpoint can receive an event more than once; it named only the signature and timestamp headers
 - The MCP server reports the WRL release in `serverInfo.version` (it said `0.2.0` since March), the same release as `/health`
 - The "Sign in" and "Get started free" buttons on the landing page and in the docs open the sign-in page, which offers GitHub and an emailed link; they started GitHub sign-in directly, so the emailed link added on 2026-10-23 never showed to visitors coming from the website
 - The subprocessor list, the DPA and the privacy policy name Sectigo (Europe) SL in Spain, the provider of the eIDAS-qualified timestamps according to its certificates, instead of Sectigo Limited in the USA
