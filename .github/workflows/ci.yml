@@ -50,7 +50,10 @@ jobs:
           cache: 'npm'
       - if: steps.changes.outputs.code == 'true'
         run: npm ci
+      # npm test takes about 95 s. Some runs since 2026-11-14 hang in it; a step
+      # timeout fails the step and keeps the log, a job timeout discards it.
       - if: steps.changes.outputs.code == 'true'
+        timeout-minutes: 5
         run: npm test
       - if: steps.changes.outputs.code == 'true'
         run: npm run test:sync
