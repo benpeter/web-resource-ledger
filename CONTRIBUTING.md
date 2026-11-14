@@ -96,9 +96,11 @@ The test suites, separate concerns:
 ```bash
 npm test                    # Unit tests (~35s, mocked browser)
 npm run test:integration    # Integration tests (~90s, real Chromium)
-npm run test:sync           # Docs agree with the code: routes, MCP tools, llms.txt, rate limits, alerts, log severities
+npm run test:sync           # Docs and landing pages agree with the code and each other: routes, MCP tools, limits, env vars, comparison tables, page titles
 cd packages/verify && npm test   # The @w-r-l/verify CLI (plain node --test)
 ```
+
+**Sync tests** (`npm run test:sync`) read the code, the docs and the landing pages as text. CI runs them with a build of the docs site in the `test-docs` job on every pull request, including docs-only ones, which the `test` job skips.
 
 **Unit tests** (`npm test`) use mocked renderers and `fetchMock` -- fast, no network, no browser. **Integration tests** (`npm run test:integration`) exercise the real capture pipeline through headless Chromium: browser rendering, WACZ bundling, TSA timestamping. The first run downloads Chromium automatically via miniflare.
 
