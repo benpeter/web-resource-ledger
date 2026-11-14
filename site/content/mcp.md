@@ -623,4 +623,4 @@ The page produced a WACZ bundle larger than 100 MB. Verification is not availabl
 
 ### "Schedule limit reached"
 
-Each account has a per-tenant limit on concurrent schedules. Delete an existing schedule with `delete_schedule` before creating a new one.
+Each account can have 10 schedules, paused ones included. Delete an existing schedule with `delete_schedule` before creating a new one; see [Schedule Limit](/limits/#schedule-limit).

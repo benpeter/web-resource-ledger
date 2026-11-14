@@ -163,3 +163,4 @@ software development.
 | [0154-verify-page-url](0154-verify-page-url/) | `@w-r-l/verify` 0.4.0 names the captured page and its capture time from the signed manifest; CI runs the package tests |
 | [0155-mcp-threat-check](0155-mcp-threat-check/) | MCP capture tools screen URLs with Google Web Risk like the REST endpoints; security pages say eleven alerts and cover email sign-in |
 | [0156-eidas-all-paths](0156-eidas-all-paths/) | Batch, MCP and scheduled captures get a qualified timestamp when the account has the setting on |
+| [0157-schedule-limit](0157-schedule-limit/) | Schedule-limit 429 carries `limitType: "schedules"`, admin config answers 400 for a bad `schedules.maxSchedules`, docs state the limit of 10 and the compare tables show WRL schedules |

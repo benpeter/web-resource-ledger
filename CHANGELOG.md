@@ -22,6 +22,9 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- `POST /v1/schedules` over the schedule limit answers `429` with `limitType: "schedules"`, as the API reference and the schedules guide say; the field was missing
+- `PUT /v1/admin/tenants/{tenantId}/config` answers `400` for a `schedules.maxSchedules` below 1 or above 100; it answered 500
+- The schedules guide and the limits page state the limit of 10 schedules and how operators change it; the landing and compare pages said WRL has no scheduled monitoring, and the schedules guide was hidden from search engines
 - Batch captures, MCP captures and scheduled captures get a qualified (eIDAS) timestamp when the account has qualified timestamps turned on; only `POST /v1/captures` requested one
 - The security overview and whitepaper say eleven alert rules (they said nine), the subprocessor list covers email sign-in and Pirsch, and the whitepaper says which capture paths are screened
 - The legal-evidence page and the verify README describe what the `--legal` report contains; they listed an operator identity, the timestamp token and the TSA certificate chain, which the report doesn't include, and said every capture has a timestamp
