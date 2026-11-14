@@ -1,4 +1,4 @@
-import { fetchMock } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { log } from '../src/log.js';
 

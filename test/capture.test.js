@@ -1,4 +1,5 @@
-import { env, fetchMock } from 'cloudflare:test';
+import { env } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture, captureHeaders, categorizeError } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';

@@ -1,5 +1,5 @@
 // tva
-import { fetchMock } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { requestTimestamp, verifyTimestamp } from '../src/rfc3161.js';
 

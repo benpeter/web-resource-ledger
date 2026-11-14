@@ -1,5 +1,5 @@
 // Tests for src/analytics.js: which capture events go to Pirsch, with what.
-import { fetchMock } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { captureSource, isAnalyticsExcluded, trackCaptureEvent } from '../src/analytics.js';
 

@@ -28,11 +28,11 @@
     "vendor:autoconsent": "node scripts/vendor-autoconsent.js"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.12.21",
+    "@cloudflare/vitest-pool-workers": "0.19.1",
     "@playwright/test": "^1.65.1",
     "@redocly/cli": "^1.34.0",
     "fflate": "^0.8.2",
-    "vitest": "3.2.4",
+    "vitest": "4.1.12",
     "wrangler": "4.73.0",
     "yaml": "^2.8.2"
   },

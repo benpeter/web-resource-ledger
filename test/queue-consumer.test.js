@@ -27,7 +27,8 @@ import {
   createExecutionContext,
 } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fetchMock, waitOnExecutionContext } from 'cloudflare:test';
+import { waitOnExecutionContext } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import worker from '../src/index.js';
 import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';
 

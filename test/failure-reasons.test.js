@@ -9,7 +9,8 @@
  * - Network and screenshot errors get plain messages.
  * - The dashboard shows the reason in the capture list.
  */
-import { env, createExecutionContext, createMessageBatch, getQueueResult, fetchMock } from 'cloudflare:test';
+import { env, createExecutionContext, createMessageBatch, getQueueResult } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import worker from '../src/index.js';
 import { performCapture, categorizeError, classifyBotCheck, CAPTURE_MAX_ATTEMPTS } from '../src/capture.js';

@@ -1,5 +1,6 @@
 // tva
-import { env, fetchMock } from 'cloudflare:test';
+import { env } from 'cloudflare:test';
+import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture } from '../src/capture.js';
 import { createCapture, getCapture, getArchivedSigningKey } from '../src/db.js';
