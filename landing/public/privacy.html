@@ -51,7 +51,7 @@
     <div class="container">
       <article class="article">
         <h1>Privacy Policy</h1>
-        <p class="article__meta">Effective: 2026-11-14</p>
+        <p class="article__meta">Effective: 2026-11-15</p>
 
         <h2>Controller</h2>
         <p>Gerhard Benjamin Peter (sole proprietor)<br>
@@ -73,7 +73,7 @@
         <p>We request the <code>read:user user:email</code> scopes from GitHub. This allows us to receive your GitHub user ID, username, and primary verified email address. The GitHub access token used during login is discarded immediately after fetching your identity &mdash; it is never stored.</p>
 
         <h3>Account Data (email sign-in)</h3>
-        <p>If you sign in with an emailed link instead of GitHub, we store your email address as your sign-in identity, along with when you signed up and last signed in. Each link works once and expires after 15 minutes; we store only a SHA-256 hash of it, and delete it after use or expiry. To limit abuse, we count sign-in link requests per email address and per IP address for one hour, using hashes of both.</p>
+        <p>If you sign in with an emailed link instead of GitHub, we store your email address as your sign-in identity, along with when you signed up and last signed in. Each link works once and expires after 15 minutes; we store only a SHA-256 hash of it, and delete it a day after it expires. To limit abuse, we count sign-in link requests per email address and per IP address for one hour, using hashes of both.</p>
 
         <h3>Email Addresses</h3>
         <p>We collect and store your email address in three ways:</p>
@@ -218,7 +218,7 @@
             </tr>
             <tr>
               <td>Usage counters</td>
-              <td>Retained for the current and previous billing periods</td>
+              <td>The current billing period and the 12 before it; older periods are deleted every week</td>
             </tr>
           </tbody>
         </table>
