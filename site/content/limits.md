@@ -110,6 +110,16 @@ Retrying doesn't help; contact [hello@webresourceledger.com](mailto:hello@webres
 
 ---
 
+## Schedule Limit
+
+Each account can have 10 [schedules](/schedules/); paused schedules count toward the limit. Creating one more answers `429` with `limitType: "schedules"`, and the MCP `create_schedule` tool returns the same text as a tool error:
+
+- "Schedule limit reached (10). Delete an existing schedule to create a new one."
+
+There is no `Retry-After` header because waiting doesn't free a slot; deleting a schedule does. Each scheduled run uses one capture from the monthly quota.
+
+---
+
 ## Rate Limits
 
 Rate limits protect against short bursts of traffic. They apply independently of quotas -- you can hit a rate limit even when quota is plentiful, and you can exhaust quota without ever hitting a rate limit.
@@ -193,7 +203,7 @@ A page that times out after its HTML has loaded doesn't fail. WRL captures it as
 
 ## Custom Quotas (Operators)
 
-Operators can override the default tier quotas for individual tenants via the admin API. This is useful for granting higher limits to enterprise tenants or restricting a specific tenant below the tier default.
+Operators can override the default tier quotas, the schedule limit and the capture rate limit for individual tenants via the admin API. This is useful for granting higher limits to enterprise tenants or restricting a specific tenant below the tier default.
 
 ```bash
 curl -X PUT https://api.webresourceledger.com/v1/admin/tenants/acme-corp/config \
@@ -226,5 +236,8 @@ Request fields:
 |---|---|---|
 | `quotas.capturesPerMonth` | integer | Override for monthly capture limit. Replaces the tier default. |
 | `quotas.storageBytes` | integer | Override for storage limit in bytes. Replaces the tier default. |
+| `schedules.maxSchedules` | integer | Maximum number of schedules, 1 to 100. Replaces the default of 10. |
+| `rateLimit.capture.limit` | integer | Captures per window for this tenant. Replaces the default of 10; values above 100 are treated as 100. |
+| `rateLimit.capture.period` | integer | Window length in seconds, `10` or `60`. Defaults to 60. |
 
-To remove a custom override and return the tenant to their tier default, omit the field or set it to `null`.
+A `PUT` replaces the tenant's whole configuration, so send every override you want to keep. To remove a custom override and return the tenant to their tier default, omit the field or set it to `null`. `GET /v1/admin/tenants/{tenantId}/config` shows the current configuration.

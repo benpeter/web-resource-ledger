@@ -2,7 +2,6 @@
 layout: layouts/doc.njk
 title: Scheduled Captures
 description: Automate recurring captures with cron-style schedules. WRL runs each schedule at its configured interval and submits a new capture automatically.
-noindex: true
 ---
 
 # Scheduled Captures
@@ -162,7 +161,7 @@ All times are UTC. There is no DST adjustment.
 
 ## Schedule limits
 
-Each tenant has a maximum number of schedules, and paused schedules count toward it. If you reach the limit, `POST /v1/schedules` returns `429` with `limitType: "schedules"` in the response body. Delete a schedule to free up a slot.
+Each tenant can have 10 schedules, and paused schedules count toward the limit. If you reach it, `POST /v1/schedules` returns `429` with `limitType: "schedules"` in the response body, and the MCP `create_schedule` tool returns the same message as a tool error. Delete a schedule to free up a slot; waiting doesn't help. If you need more schedules, email [hello@webresourceledger.com](mailto:hello@webresourceledger.com).
 
 ---
 

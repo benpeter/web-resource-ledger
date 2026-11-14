@@ -5,7 +5,7 @@
 
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { seedApiKey, seedSchedule, cleanDb, TEST_TENANT_KEY } from './fixtures.js';
+import { seedApiKey, seedSchedule, cleanDb, TEST_TENANT_KEY, TEST_ADMIN_KEY } from './fixtures.js';
 
 const AUTH = `Bearer ${TEST_TENANT_KEY}`;
 
@@ -99,6 +99,16 @@ describe('schedule limit -- default (10)', () => {
     const body = await res.json();
     expect(body.detail).toContain('10');
   });
+
+  it('429 response body carries limitType schedules', async () => {
+    for (let i = 1; i <= 10; i++) {
+      await seedSchedule(env.DB, scheduleId(i), { tenantId: 'default' });
+    }
+    const res = await createSchedule();
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.limitType).toBe('schedules');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -151,5 +161,50 @@ describe('schedule limit -- custom tenant config override', () => {
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.detail).toContain('3');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Custom limit via the admin config API
+// ---------------------------------------------------------------------------
+
+function putTenantConfig(config) {
+  return SELF.fetch('https://worker.test/v1/admin/tenants/default/config', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${TEST_ADMIN_KEY}`,
+      'CF-Connecting-IP': nextIp(),
+    },
+    body: JSON.stringify(config),
+  });
+}
+
+describe('schedule limit -- admin config API', () => {
+  it('sets maxSchedules and the new limit applies', async () => {
+    const putRes = await putTenantConfig({ schedules: { maxSchedules: 3 } });
+    expect(putRes.status).toBe(200);
+
+    for (let i = 1; i <= 3; i++) {
+      await seedSchedule(env.DB, scheduleId(i), { tenantId: 'default' });
+    }
+    const res = await createSchedule({ name: 'over admin limit' });
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.detail).toContain('3');
+  });
+
+  it('returns 400 when maxSchedules is below 1', async () => {
+    const res = await putTenantConfig({ schedules: { maxSchedules: 0 } });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.detail).toBe('schedules.maxSchedules must be a positive integer');
+  });
+
+  it('returns 400 when maxSchedules is above 100', async () => {
+    const res = await putTenantConfig({ schedules: { maxSchedules: 101 } });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.detail).toBe('schedules.maxSchedules cannot exceed 100');
   });
 });

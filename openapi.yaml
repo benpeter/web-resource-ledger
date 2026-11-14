@@ -5895,9 +5895,10 @@ paths:
           $ref: '#/components/responses/Problem401'
         '429':
           description: >
-            Rate limit exceeded or schedule limit reached. The response body
-            includes a `limitType` field: `'rate'` for burst rate limiting,
-            `'schedules'` when the tenant's maximum schedule count is reached.
+            Schedule limit reached: the tenant already has its maximum number of
+            schedules (10 by default; paused schedules count). The response body
+            carries `limitType: 'schedules'`. Delete a schedule to free a slot;
+            waiting does not help, so there is no `Retry-After` header.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -5909,8 +5910,6 @@ paths:
               $ref: '#/components/headers/StrictTransportSecurity'
             Link:
               $ref: '#/components/headers/TermsLink'
-            Retry-After:
-              $ref: '#/components/headers/RetryAfter'
             WRL-API-Version:
               $ref: '#/components/headers/WRLAPIVersion'
           content:
@@ -5924,7 +5923,7 @@ paths:
                     type: about:blank
                     status: 429
                     title: Too Many Requests
-                    detail: Schedule limit reached. Delete an existing schedule before creating a new one.
+                    detail: Schedule limit reached (10). Delete an existing schedule to create a new one.
                     limitType: schedules
     get:
       operationId: listSchedules
