@@ -146,6 +146,8 @@ When you receive a rate-limit `429`, wait the number of seconds in `Retry-After`
 
 Pages render in a window 1,280 CSS pixels wide, and screenshots cover the top 8,000 CSS pixels of a page. Screenshots are taken at twice that resolution, so the largest is 2,560 by 16,000 pixels. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
 
+The capture record says when that happened: `render.screenshotClipped` is `true`, `render.pageHeight` is the page's height and `render.screenshotHeight` how much of it the screenshot shows. The same three fields are signed into the WACZ bundle's `captureQuality`, the verification page notes it under the screenshot, and MCP `get_capture` mentions it.
+
 ## Why Captures Fail
 
 A failed capture has an `error` that says why, in the API status response, the capture record, the `capture.failed` webhook, the failure email and the dashboard. WRL tries a capture up to 4 times, a few minutes apart, when the failure may pass on another try, and reports the reason of the last attempt.

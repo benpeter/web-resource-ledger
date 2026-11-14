@@ -21,6 +21,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - Support page in the docs: where to ask, what to include, and that no plan includes an SLA
 - Captures quarantined by threat detection are deleted 90 days after quarantine, and usage counters older than 12 billing periods are removed, as the data-retention page describes
 - Landing hero links to a real capture (Wikipedia's "Link rot" article) that visitors can verify without an account
+- Captures record what the screenshot covers (`render.pageHeight`, `render.screenshotHeight`, `render.screenshotClipped`), also in the WACZ's `captureQuality`; the verification page and MCP `get_capture` say when a screenshot shows only the top of a taller page
 - MCP guide: how to get an API key for an agent; authentication guide: creating and revoking keys in Settings → API Keys
 - Every WACZ bundle records `captureQuality` (`renderQuality`, `waitUntilReached`, `timedOut`) in its signed `datapackage.json`
 - The verification page shows a "Page load" row for a partial capture, and MCP `verify_capture` prints the render quality
