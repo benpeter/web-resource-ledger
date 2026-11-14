@@ -147,3 +147,4 @@ software development.
 | [0138-sign-partial-captures](0138-sign-partial-captures/) | Partial captures get a signed, timestamped WACZ and verify like full ones; every bundle records `captureQuality`; the verify page and `verify_capture` show a partial render |
 | [0139-stale-pending-captures](0139-stale-pending-captures/) | Captures still pending a day after submission are marked failed on the hour; MCP stops telling agents to resubmit after 30 seconds; Coralogix event list and log severities match Coralogix |
 | [0140-digest-dates](0140-digest-dates/) | The weekly digest names its period as dates instead of timestamps |
+| [0141-screenshot-coverage](0141-screenshot-coverage/) | Captures record whether the screenshot shows the whole page or only its top 8,000 px, signed into the WACZ and shown on the verify page and in `get_capture` |

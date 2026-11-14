@@ -341,6 +341,25 @@ describe('tool: get_capture -- complete capture', () => {
   });
 });
 
+describe('tool: get_capture -- clipped screenshot', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000, pageHeight: 21860, screenshotHeight: 8000, screenshotClipped: true });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('says the screenshot covers only the top of the page', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('Screenshot covers the top 8000 px of a 21860 px page; the HTML has the whole page.');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tool: list_captures
 // ---------------------------------------------------------------------------

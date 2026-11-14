@@ -214,7 +214,7 @@ https://example.com/contact
 
 #### `get_capture`
 
-Get the status and details of a capture by ID. Returns `pending`, `complete`, or `failed`. When complete, includes artifact URLs for screenshot, HTML, headers, WACZ bundle, and a verification link.
+Get the status and details of a capture by ID. Returns `pending`, `complete`, or `failed`. When complete, includes artifact URLs for screenshot, HTML, headers, WACZ bundle, and a verification link. When the page was taller than the screenshot, it adds a line such as `Screenshot covers the top 8000 px of a 21860 px page; the HTML has the whole page.`
 
 **Requires:** `read` scope
 

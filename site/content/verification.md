@@ -129,7 +129,7 @@ A partial capture is signed and timestamped like a full one, and every check abo
 }
 ```
 
-A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` and `"timedOut": false`. `GET /v1/verify/{id}` returns `capture.renderQuality`, and the verification page shows a partial capture with a "Page load" row under the checks.
+A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` and `"timedOut": false`. Captures made since November 2026 also record `pageHeight`, `screenshotHeight` and `screenshotClipped`, which say whether the screenshot shows the whole page or only its top 8,000 pixels (see [Screenshot Size](/limits/#screenshot-size)). `GET /v1/verify/{id}` returns `capture.renderQuality`, and the verification page shows a partial capture with a "Page load" row under the checks.
 
 Partial captures made before November 2026 have no WACZ bundle, because partial captures were not signed then. They cannot be verified, and `GET /v1/verify/{id}` returns `404` for them.
 

@@ -459,6 +459,29 @@ components:
             requests completed within the quiescence window. "cap" means the 3s
             hard cap was reached before quiescence. Absent on partial captures
             and captures created before this feature.
+        pageHeight:
+          type: integer
+          minimum: 0
+          description: >
+            Height of the rendered page in CSS pixels, measured when the
+            screenshot was taken. Absent on captures made before November 2026.
+          examples:
+            - 21860
+        screenshotHeight:
+          type: integer
+          minimum: 0
+          description: >
+            Height of the page the screenshot covers, in CSS pixels, from the top.
+            Screenshots stop at 8000 px, so this is the smaller of pageHeight and
+            8000. Absent on captures made before November 2026.
+          examples:
+            - 8000
+        screenshotClipped:
+          type: boolean
+          description: >
+            True when the page was taller than the screenshot, so the screenshot
+            shows only the top screenshotHeight pixels. The rendered HTML holds
+            the whole page. Absent on captures made before November 2026.
         stages:
           $ref: '#/components/schemas/RenderStages'
           description: >
