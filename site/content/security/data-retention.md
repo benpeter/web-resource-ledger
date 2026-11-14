@@ -19,7 +19,7 @@ description: WRL data retention periods — how long capture data, ephemeral dat
 | Capture artifacts (screenshot, HTML, headers, WACZ) | R2 object storage (wrl-captures) | Same as capture metadata |
 | API key hashes | D1 database | Until individually revoked or account deletion |
 | Usage counters | D1 database | Current billing period plus 12 prior periods |
-| Sessions | D1 database | 7 days (auto-expired via `expires_at`) |
+| Sessions | D1 database | 7 days; the row is deleted within an hour after it expires |
 | GitHub identity (user ID, username) | D1 database | Until account deletion |
 | Email sign-in identity (address, sign-up and last sign-in time) | D1 database | Until account deletion |
 | Sign-in links | D1 database | SHA-256 hash only; a link expires 15 minutes after it is sent, and the row is deleted a day after expiry |
@@ -28,7 +28,7 @@ description: WRL data retention periods — how long capture data, ephemeral dat
 | Webhooks | D1 database | Until deleted by tenant or account deletion |
 | Notification preferences and email address | D1 database | Until account deletion |
 | Quarantined captures | R2 + D1 database | 90 days from quarantine date, then purged automatically |
-| Rate limit counters | KV store | 60 -- 120 seconds (auto-expire); sign-in link counters, keyed by hashes of the IP and address, 2 hours |
+| Rate limit counters | KV store | 60-120 seconds (auto-expire); sign-in link counters, keyed by hashes of the IP and address, 2 hours |
 | OAuth state tokens | KV store | 600 seconds (auto-expire) |
 | Operational logs | Coralogix (EU2 region) | 90 days; pseudonymized -- no raw IP addresses or personal identifiers |
 
