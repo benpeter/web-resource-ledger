@@ -25,6 +25,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The "Sign in" and "Get started free" buttons on the landing page and in the docs open the sign-in page, which offers GitHub and an emailed link; they started GitHub sign-in directly, so the emailed link added on 2026-10-23 never showed to visitors coming from the website
 - The subprocessor list, the DPA and the privacy policy name Sectigo (Europe) SL in Spain, the provider of the eIDAS-qualified timestamps according to its certificates, instead of Sectigo Limited in the USA
 - The MCP endpoint answers `server/discover` without a key with "method not found" instead of 401; MCP directories that try it before `initialize` recorded WRL as asking for sign-in and never listed its tools
 - The API reference lists the `qualifiedTimestamp` verification check, which captures with an eIDAS-qualified timestamp get, and `signing.qualifiedTimestamp`; a client validating verify responses against the reference rejected them. It also documents `capture.url` in verify responses, `html.additions`, `html.deletions` and `headers.changes` in change summaries, `changeSummary` and `updatedAt` on schedules, and `updatedAt` in the admin usage history
