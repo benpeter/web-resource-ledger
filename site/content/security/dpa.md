@@ -333,7 +333,7 @@ The full detailed profile of each sub-processor, including purpose, data process
 | Coralogix | Coralogix Ltd. (Israel / EU operations) | Operational logging and monitoring | EU (Frankfurt, EU2 region) | EU processing; DPA in place |
 | Resend | Resend, Inc. (USA) | Transactional email delivery | USA | SCCs; DPA in place |
 | DigiCert | DigiCert, Inc. (USA) | RFC 3161 timestamping (standard) | USA | No personal data transferred |
-| Sectigo | Sectigo Limited (USA) | eIDAS-qualified RFC 3161 timestamping | USA | No personal data transferred |
+| Sectigo | Sectigo (Europe) SL (Spain) | eIDAS-qualified RFC 3161 timestamping | Spain (EU) | No personal data transferred |
 | Google (Web Risk API) | Google LLC (USA) | URL threat screening | USA | EU-US DPF + SCCs; DPA in place |
 
 WRL will notify the Customer at least 30 days before adding a new sub-processor that receives personal data, in accordance with Section 8.
@@ -351,6 +351,6 @@ WRL will notify the Customer at least 30 days before adding a new sub-processor 
 | Resend, Inc. (USA) | Standard Contractual Clauses (Resend DPA) |
 | Coralogix Ltd. | No transfer outside the EU: data is processed and stored in the EU2 region (Frankfurt, Germany) |
 | DigiCert, Inc. (USA) | No personal data transferred; only a SHA-256 hash of the capture bundle is submitted |
-| Sectigo Limited (USA) | No personal data transferred; only a SHA-256 hash of the capture bundle is submitted |
+| Sectigo (Europe) SL (Spain) | No personal data transferred; only a SHA-256 hash of the capture bundle is submitted |
 
 Where the EU-US Data Privacy Framework is listed as the primary mechanism, Standard Contractual Clauses serve as a supplementary safeguard.
