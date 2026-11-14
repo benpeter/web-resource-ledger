@@ -7,6 +7,8 @@ import { describe, it, expect } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const specPath = resolve(__dirname, '../openapi.yaml');
+const mcpSourcePath = resolve(__dirname, '../src/mcp.js');
+const mcpDocsPath = resolve(__dirname, '../site/content/mcp.md');
 
 function extractOperationIds(spec) {
   const ids = [];
@@ -127,5 +129,21 @@ describe('MCP tool surface / OpenAPI spec sync', () => {
         `openapi.yaml. Remove them from the exclusion list: ` +
         stale.join(', '),
     );
+  });
+});
+
+describe('MCP tool surface / docs sync', () => {
+  const source = readFileSync(mcpSourcePath, 'utf8');
+  const docs = readFileSync(mcpDocsPath, 'utf8');
+  const registered = [...source.matchAll(/server\.tool\(\s*'([a-z_]+)'/g)].map((m) => m[1]);
+
+  it('every tool registered in src/mcp.js is in TOOL_TO_OPERATION', () => {
+    expect(registered.filter((name) => !(name in TOOL_TO_OPERATION))).toEqual([]);
+  });
+
+  it('every tool has a row in the tools table and its own section in site/content/mcp.md', () => {
+    const missing = registered.filter((name) =>
+      !docs.includes(`| \`${name}\` |`) || !docs.includes(`#### \`${name}\``));
+    expect(missing).toEqual([]);
   });
 });
