@@ -1,9 +1,10 @@
 // tva
-import { env, SELF } from 'cloudflare:test';
+import { env, SELF, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
-import { seedApiKey, seedSchedule, cleanDb, TEST_SCHEDULE_ID } from './fixtures.js';
+import { seedApiKey, seedSchedule, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer } from './fixtures.js';
 import { createCapture } from '../src/db.js';
+import { performCapture } from '../src/capture.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -445,6 +446,35 @@ describe('tool: verify_capture -- not found', () => {
     expect(body.result.isError).toBe(true);
     const text = body.result.content[0].text;
     expect(text.toLowerCase()).toMatch(/not found|not yet complete/);
+  });
+});
+
+describe('tool: verify_capture -- partial capture', () => {
+  const PARTIAL_ID = 'cap_' + 'd'.repeat(32);
+
+  beforeEach(async () => {
+    await cleanupCaptures();
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+    // Header fetch runs alongside rendering; answer it so it never hits the network.
+    fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '').persist();
+    await createCapture(env.DB, PARTIAL_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, PARTIAL_ID, 'default', undefined, partialRenderer);
+  });
+
+  afterEach(async () => {
+    fetchMock.deactivate();
+    await cleanupCaptures();
+  });
+
+  it('passes and reports the partial render', async () => {
+    const res = await mcpPost(toolCall('verify_capture', { capture_id: PARTIAL_ID }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBeUndefined();
+    const text = body.result.content[0].text;
+    expect(text).toContain(`Verification PASSED for capture ${PARTIAL_ID}.`);
+    expect(text).toContain('Render quality: partial');
   });
 });
 

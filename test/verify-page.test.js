@@ -339,3 +339,56 @@ describe('DESIGN_SYSTEM_CSS sync check', () => {
     expect(DESIGN_SYSTEM_CSS).toContain('.card');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Page script -- render quality (phase 0138)
+// Runs the page's own inline script against a stub document and fetch.
+// ---------------------------------------------------------------------------
+
+async function renderVerifyPage(verifyData) {
+  const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC).text();
+  const script = html.slice(html.indexOf('<script>') + '<script>'.length, html.lastIndexOf('</script>'));
+  const result = { innerHTML: '', classList: { add() {} } };
+  const loading = { style: {} };
+  const document = {
+    getElementById: (id) => ({ result, loading })[id] ?? null,
+    querySelector: () => null,
+  };
+  const fetch = async (url) => (url.includes('/v1/verify/')
+    ? { ok: true, json: async () => verifyData }
+    : { ok: false });
+  new Function('document', 'fetch', 'navigator', 'window', script)(document, fetch, {}, {});
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return result.innerHTML;
+}
+
+const PASSING_CHECKS = [
+  { name: 'artifactHashes', status: 'pass' },
+  { name: 'bundleHash', status: 'pass' },
+  { name: 'signature', status: 'pass' },
+];
+
+describe('verify page script -- render quality', () => {
+  it('adds a page load row when the capture is a partial render', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-14T10:00:00.000Z', renderQuality: 'partial' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    });
+    expect(out).toContain('Verified');
+    expect(out).toContain('data-check-label="renderQuality">Page load</div>');
+    expect(out).toContain('did not finish loading');
+  });
+
+  it('adds no page load row for a full render', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-14T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    });
+    expect(out).toContain('data-check-label="signature"');
+    expect(out).not.toContain('renderQuality');
+  });
+});
