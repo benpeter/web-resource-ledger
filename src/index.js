@@ -148,6 +148,19 @@ const routes = [
   ['POST',   /^\/v1\/stripe\/webhook$/, handleStripeWebhook],
 ];
 
+// HEAD runs as GET without the body (RFC 9110, section 9.3.2) on the pages and
+// files people link to and monitor: link checkers and uptime monitors send HEAD,
+// and a 404 marks a verification link as dead. GET routes with side effects,
+// such as the one-time first key and the emailed links, are not listed.
+const HEAD_PATHS = [
+  /^\/health$/,
+  /^\/favicon\.ico$/,
+  /^\/ui$/,
+  /^\/v1\/verify\/cap_[a-f0-9]{32}$/,
+  /^\/v1\/captures\/cap_[a-f0-9]{32}(\/status|\/certificate|\/artifacts\/(screenshot-before|screenshot|html|headers|wacz))?$/,
+  /^\/\.well-known\/signing-keys?$/,
+];
+
 function getAllowedOrigin(request, env) {
   const origin = request.headers.get('Origin');
   if (!origin) return null;
@@ -541,6 +554,8 @@ export default {
     const url = new URL(request.url);
     // Normalize trailing slashes: /health/ matches /health
     const pathname = url.pathname.replace(/\/$/, '') || '/';
+    const isHead = request.method === 'HEAD' && HEAD_PATHS.some((p) => p.test(pathname));
+    if (isHead) request = new Request(request, { method: 'GET' });
 
     let response;
 
@@ -789,6 +804,10 @@ export default {
     response.headers.set('Link', '<https://github.com/benpeter/web-resource-ledger/blob/main/TERMS.md>; rel="terms-of-service"');
     if (typeof BUILD_VERSION !== 'undefined') {
       response.headers.set('WRL-API-Version', BUILD_VERSION);
+    }
+    if (isHead) {
+      await response.body?.cancel();
+      response = new Response(null, response);
     }
     return response;
   },

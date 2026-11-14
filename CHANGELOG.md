@@ -16,6 +16,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- `HEAD` requests got a 404 on every route, so link checkers and uptime monitors saw verification links, capture records and `/health` as missing. `HEAD` now answers like `GET` without a body on `/health`, `/ui`, `/v1/verify/{id}`, `/v1/captures/{id}` with its status, certificate and artifacts, and the signing keys
 - The comparison page gave SUCHO's archive as 5,400+ sites (SUCHO says more than 5,000), named Harvard Library instead of the Harvard Law School Library as Perma.cc's maintainer and called Perma.cc free for all institutions (only courts and academic institutions), and described TrueScreen as mobile apps only (it also has a forensic browser and a browser extension)
 - The comparison pages marked PageFreezer's format as PDF only and its timestamps as not RFC 3161; PageFreezer exports WARC as well as PDF and describes a time stamp authority synchronized with a Stratum-1 time server. They also said Hanzo documents no integrity approach (it documents SHA-256 hashes), called Page Vault's capture tool a browser extension, and linked MirrorWeb, which has combined with Red Oak
 - The comparison page said it covered 13 tools and the landing page linked to it as 14, while its table compared WRL with 9; both pages now give the number of tools in the table

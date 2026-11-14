@@ -38,6 +38,19 @@ describe('GET /health', () => {
   });
 });
 
+describe('HEAD /health', () => {
+  // Link checkers and uptime monitors send HEAD, and it got a 404 on every route.
+  it('answers like GET, without a body', async () => {
+    const get = await SELF.fetch('https://example.com/health');
+    await get.text();
+    const head = await SELF.fetch('https://example.com/health', { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('Content-Type')).toBe(get.headers.get('Content-Type'));
+    expect(head.headers.get('Strict-Transport-Security')).toBe(get.headers.get('Strict-Transport-Security'));
+    expect(await head.text()).toBe('');
+  });
+});
+
 describe('GET /nonexistent', () => {
   it('returns 404 with RFC 9457 problem shape', async () => {
     const response = await SELF.fetch('https://example.com/nonexistent');
