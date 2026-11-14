@@ -107,8 +107,11 @@ tenants who have paid for eIDAS-level compliance.
 | **Threshold** | > 10 events in 15 minutes |
 | **Priority** | P1 (Critical) |
 
-**What it monitors:** Authentication failures including missing headers, invalid
-API key format, unknown keys, wrong scopes, and revoked keys.
+**What it monitors:** Authentication failures that presented a credential:
+invalid API key format, unknown keys, wrong scopes, and revoked keys. Requests
+without any credential (`missing_header`) are not counted. MCP directory
+crawlers sent one every few minutes until phase 0144 let them list the tools
+without a key.
 
 **Threshold rationale:** Requests that carry no credential at all
 (`missing_header`) are left out: MCP clients connect without a key first, and

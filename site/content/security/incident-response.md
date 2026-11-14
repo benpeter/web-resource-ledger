@@ -14,7 +14,7 @@ description: WRL incident response policy — how security incidents are detecte
 
 ## Detection
 
-WRL monitors production health using nine alert rules in Coralogix. Each alert fires an email notification when its threshold is crossed.
+WRL monitors production health using eleven alert rules in Coralogix. Each alert fires an email notification when its threshold is crossed.
 
 ### Service Availability
 
@@ -24,6 +24,7 @@ These alerts indicate the service is unavailable or captures are failing.
 |-------|----------|---------------|
 | `[WRL] Worker Errors (5xx)` | P1 | The Cloudflare Worker is returning HTTP 5xx responses -- the API itself is broken |
 | `[WRL] Capture Failures` | P1 | Captures are failing after all retry attempts, indicating a systemic processing issue |
+| `[WRL] Captures Dead-Lettered` | P2 | A capture failed all four attempts; each one is a user who didn't get a capture |
 
 ### Security
 
@@ -31,9 +32,10 @@ These alerts indicate authentication anomalies or threat screening problems.
 
 | Alert | Priority | What it means |
 |-------|----------|---------------|
-| `[WRL] Auth Failure Spike` | P1 | More than 3 auth failures in 15 minutes -- consistent with API key scanning or a misconfigured integration |
+| `[WRL] Auth Failure Spike` | P1 | More than 10 rejected API keys in 15 minutes (requests without a key aren't counted) -- consistent with API key scanning or a misconfigured integration |
 | `[WRL] Threat Check API Failures` | P2 | Google Web Risk URL screening is unavailable; captures are proceeding unscreened |
 | `[WRL] Threat Check Quarantines` | P3 | More than 5 previously accepted captures quarantined in 24 hours -- may indicate a tenant capturing from a known-bad domain |
+| `[WRL] New API Key Created` | P4 | An operator issued a key through the admin API; a key nobody expected is a sign the admin credential leaked |
 
 ### Degraded Service
 

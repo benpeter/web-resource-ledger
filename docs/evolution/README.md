@@ -152,4 +152,5 @@ software development.
 | [0143-auth-ratelimit-header](0143-auth-ratelimit-header/) | `X-RateLimit-Limit` on sign-in, account and billing routes says 10, the limit they share; the limits page lists the per-IP limits |
 | [0144-mcp-keyless-discovery](0144-mcp-keyless-discovery/) | MCP directories can list WRL's tools: `initialize`, `ping` and `tools/list` answer without a key, rate-limited per IP; tool calls still need one |
 | [0145-auth-scope-table](0145-auth-scope-table/) | The authentication guide's scope table covers every endpoint that takes an API key, checked by the route sync test; 1.1.0 released and tagged |
+| [0146-alerts-sync](0146-alerts-sync/) | The incident-response page, whitepaper and ops guide name all eleven Coralogix alerts with their real thresholds, checked against `provision-alerts.sh` |
 | [0147-request-state-isolation](0147-request-state-isolation/) | A request without credentials no longer inherits the previous caller's tenant: public capture reads stop returning 404 after an authenticated request, and the diff route needs its own key again |
