@@ -4,7 +4,7 @@
 // Per-tenant config overrides remain available via tenants.config JSON.
 // tva
 
-import { computePeriod, setBillingStatus } from './db.js';
+import { computePeriod, setBillingStatus, DELETION_GRACE_DAYS } from './db.js';
 
 export const FREE_CAPTURE_LIMIT = 200;
 export const FREE_STORAGE_LIMIT = 10 * 1024 * 1024 * 1024; // 10 GB, 200 captures at 50 MB each
@@ -172,6 +172,44 @@ export async function checkQuota(db, tenantId, count = 1) {
  */
 export function formatStorage(bytes) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+// Refusals that aren't about the quota: the account itself may not capture.
+// Returns null for quota refusals, which answer with quota details instead.
+export function accountRefusalDetail(quotaCheck) {
+  if (quotaCheck.reason === 'deletion_requested') {
+    const purgeAfter = new Date(Date.parse(quotaCheck.deletionRequestedAt) + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
+    return `This account is scheduled for deletion on ${purgeAfter.toISOString().slice(0, 10)} and can't capture. Contact support to cancel the deletion.`;
+  }
+  if (quotaCheck.reason === 'billing_blocked') {
+    return 'Account is blocked. Contact support to restore access.';
+  }
+  return null;
+}
+
+// Detail for a storage_limit refusal.
+export function storageLimitDetail(quotaCheck) {
+  if (quotaCheck.hasPaymentMethod) {
+    return `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
+  }
+  return `Storage quota reached (${formatStorage(quotaCheck.used)} of ${formatStorage(quotaCheck.limit)}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`;
+}
+
+// Detail for a quota refusal. batchSize is the number of URLs in a batch
+// request; leave it out for a single capture.
+export function quotaLimitDetail(quotaCheck, batchSize) {
+  const { used, limit, resetsAt } = quotaCheck;
+  if (quotaCheck.reason === 'payment_required') {
+    return batchSize
+      ? `Batch of ${batchSize} captures would exceed free tier limit (${used}/${limit}). Add a payment method to continue capturing.`
+      : `Free tier limit reached (${used}/${limit}). Add a payment method to continue capturing. Resets ${resetsAt}.`;
+  }
+  if (quotaCheck.reason === 'capture_limit') {
+    return batchSize
+      ? `Batch of ${batchSize} captures would exceed monthly quota (${used}/${limit}). Resets ${resetsAt}. View usage in Settings.`
+      : `Monthly capture quota reached (${used}/${limit}). Resets ${resetsAt}. View usage in Settings.`;
+  }
+  return storageLimitDetail(quotaCheck);
 }
 
 /**
