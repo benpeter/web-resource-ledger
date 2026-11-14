@@ -77,9 +77,11 @@ For how these reliability properties map to legal authentication standards, see 
 
 SWGDE 21-F-001 Section 3.4 requires examiners to understand how their collection tools affect the integrity of the target site -- specifically, that browser plugins, cached data, stored credentials, MAC addresses, and browser fingerprints may alter what content is displayed or may alert the target site to the investigation.
 
-WRL's capture pipeline addresses this through its isolated browser architecture. Each capture runs in a fresh, ephemeral browser instance with no plugins, no cache, no cookies, and no browsing history. The `BrowserContext` is opened per-capture and closed in a `try/finally` block that discards all state -- cookies, local storage, and session storage -- when the capture completes. No state carries over between captures.
+WRL's capture pipeline addresses this through its isolated browser architecture. Each capture runs in a fresh browser context with no plugins, no cache, no cookies, and no browsing history. The headless Chromium process itself keeps running between captures so it doesn't have to start for each one, but browser contexts share no state: the `BrowserContext` is opened per capture and closed in a `try/finally` block that discards its cookies, cache, local storage, and session storage when the capture completes. No state carries over between captures.
 
 The pipeline uses headless Chromium with no extensions installed. There is no translator plugin to modify displayed text, no ad blocker to hide page elements, and no password manager to inject credentials. The browser presents the target URL as an unauthenticated visitor with a standard Chromium user agent.
+
+One step does change what the page shows. After the first screenshot, WRL runs the open-source `@duckduckgo/autoconsent` library, which looks for a cookie consent banner and declines it. When a banner was dismissed, WRL takes a second screenshot, so the capture shows the page both with and without the banner, and `captureSettings` in `datapackage.json` records the outcome. Both screenshots and the settings are covered by the signature. Captures that time out after the page loaded (partial captures) skip this step. The first screenshot is the page as a visitor first saw it.
 
 WRL captures originate from Cloudflare's network. The capture does not originate from the tenant's IP address or the examiner's workstation. This architectural separation means the examiner's own network presence is not exposed to the target site during capture. However, the capture does originate from Cloudflare infrastructure with a standard Chromium user agent; the target site may log the request with Cloudflare egress IP addresses. This should be understood and accounted for in the investigation.
 
@@ -187,7 +189,7 @@ WRL records the following documentation automatically for every capture:
 |---|---|
 | URL (full, with protocol, domain, path) | Captured URL stored in D1 and recorded in WACZ `pages.jsonl` and `datapackage.json` |
 | Timestamps | Capture-submitted-at and capture-completed-at in UTC; RFC 3161 timestamp from DigiCert binding the bundle hash to an independently verified time |
-| Browser identity | Headless Chromium (version logged per capture) |
+| Browser identity | Headless Chromium on Cloudflare Browser Rendering. The WACZ names the capturing software (`software` in `datapackage.json`), not the browser version |
 | Access IP address | Originates from Cloudflare egress; Cloudflare egress IPs are publicly documented |
 | Process description | Automated capture pipeline described in certification PDF and [Architecture](/architecture/) |
 
@@ -220,12 +222,12 @@ SWGDE 21-F-001 Section 9 requires that all online content acquired be preserved,
 WRL's preservation format is the WACZ bundle. WACZ is a ZIP-based archive satisfying SWGDE's explicit acceptance of zip as an archive format. The bundle contains:
 
 - All captured content in its native format (via WARC)
-- Per-artifact SHA-256 hashes and the bundle hash in `datapackage.json`
+- The captured URL and the capture time in UTC (`mainPageUrl`, `mainPageDate`) and per-artifact SHA-256 hashes in `datapackage.json`, whose hash is the bundle hash
 - Ed25519 signature and RFC 3161 timestamp in `datapackage-digest.json`
-- Operator identity embedded in the certification PDF available via `GET /v1/captures/{captureId}/certificate`
-- Acquisition timestamps (submitted-at and completed-at) in UTC
 
-The WACZ bundle is stored in R2 object storage and accessible via authenticated API. Tenants can download the bundle to long-term storage under their own custody. For preservation beyond WRL's infrastructure, tenants are responsible for downloading and archiving the bundle according to their evidence management procedures. See [Data Retention](/security/data-retention/) for WRL's retention policies.
+The operator identity is in the certification PDF (`GET /v1/captures/{captureId}/certificate`), and the submitted-at and completed-at times are in the capture record (`GET /v1/captures/{captureId}`); neither is inside the bundle.
+
+The WACZ bundle is stored in R2 object storage. Anyone with the capture ID can download it without an API key, unless the capture was quarantined (its artifacts then answer `451`). Tenants can download the bundle to long-term storage under their own custody. For preservation beyond WRL's infrastructure, tenants are responsible for downloading and archiving the bundle according to their evidence management procedures. See [Data Retention](/security/data-retention/) for WRL's retention policies.
 
 **What WRL does not produce.** SWGDE references forensic disk images (`.Lx01`, `.ad1`) as one acceptable preservation format. WRL is a web capture service, not a disk imaging tool. The WACZ bundle is the output artifact; no forensic disk image is produced. Examiners whose agency requires a forensic disk image format should account for this in their evidence handling procedures -- for example, by writing the downloaded WACZ bundle into a forensic container using their agency's standard imaging tools.
 
