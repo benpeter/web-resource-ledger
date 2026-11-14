@@ -175,3 +175,4 @@ software development.
 | [0166-sign-in-links](0166-sign-in-links/) | The landing and docs sign-in buttons open the sign-in page with GitHub and an emailed link instead of going straight to GitHub |
 | [0167-compare-refresh](0167-compare-refresh/) | The comparison page adds ProofSnap, DEPT and the archive.today context, and both pages count the tools in its table |
 | [0168-email-notifications-docs](0168-email-notifications-docs/) | A docs page lists the emails WRL sends, when each goes out, where they go and how to turn them off |
+| [0169-stale-fail-webhooks](0169-stale-fail-webhooks/) | A capture WRL lost track of sends the capture.failed webhook and email, and the webhook examples show the real retryable and quarantine values |

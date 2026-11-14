@@ -113,7 +113,7 @@ When a previous capture exists for the same URL, the payload includes a `changeD
 
 ### `capture.failed`
 
-Fired when a capture fails after all browser rendering attempts are exhausted.
+Fired when a capture fails: WRL used all its attempts, the error is one another attempt won't fix, or the capture was still pending 24 hours after it was submitted because WRL lost track of it. `error` is the message the API and the dashboard show; [Why Captures Fail](/limits/#why-captures-fail) lists them. `retryable` is `true` only when the failure was on WRL's side, such as a capture WRL lost track of, and submitting it again may well work.
 
 ```json
 {
@@ -126,15 +126,15 @@ Fired when a capture fails after all browser rendering attempts are exhausted.
     "url": "https://example.com/missing-page",
     "verificationUrl": "https://api.webresourceledger.com/v1/verify/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
     "failedAt": "2026-03-22T12:05:10.000Z",
-    "error": "The page did not finish loading within 20 seconds. WRL tried 4 times.",
-    "retryable": true
+    "error": "Page did not finish loading within 20 seconds. WRL tried 4 times.",
+    "retryable": false
   }
 }
 ```
 
 ### `capture.quarantined`
 
-Fired when a capture is flagged for review due to content policy or safety concerns. Artifacts may be partial or inaccessible.
+Fired when the nightly re-scan finds the URL of a complete capture on one of Google Web Risk's threat lists. Every complete capture of that URL is quarantined, and each account that has one gets the event. `quarantineReason` names the lists, comma-separated: `MALWARE`, `SOCIAL_ENGINEERING` or `UNWANTED_SOFTWARE`. From then on the capture record shows the status `quarantined`, its artifacts answer `451`, and the capture is deleted 90 days later.
 
 ```json
 {
@@ -146,7 +146,7 @@ Fired when a capture is flagged for review due to content policy or safety conce
     "status": "quarantined",
     "url": "https://example.com/flagged-page",
     "verificationUrl": "https://api.webresourceledger.com/v1/verify/cap_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-    "quarantineReason": "content_policy",
+    "quarantineReason": "MALWARE",
     "quarantinedAt": "2026-03-22T12:05:20.000Z"
   }
 }
