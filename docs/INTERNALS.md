@@ -24,7 +24,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `CAPTURE_RATE_LIMITER` | Rate Limiter | ns `1001` | Per-tenant capture ceiling: 100 req/60s (hard backstop) |
 | `VERIFY_RATE_LIMITER` | Rate Limiter | ns `1002` | Per-IP verify ceiling: 60 req/60s |
 | `GLOBAL_CAPTURE_LIMITER` | Rate Limiter | ns `1003` | Global capture ceiling: 200 req/60s |
-| `ADMIN_RATE_LIMITER` | Rate Limiter | ns `1004` | Per-IP admin ceiling: 5 req/60s |
+| `ADMIN_RATE_LIMITER` | Rate Limiter | ns `1004` | Per-IP admin ceiling: 30 req/60s |
 | `CAPTURE_IP_GUARD` | Rate Limiter | ns `1005` | Per-IP secondary abuse guard: 50 req/60s |
 | `AUTH_RATE_LIMITER` | Rate Limiter | ns `1006` | Per-IP auth/account ceiling: 10 req/60s |
 | `BROWSER` | Browser | — | Puppeteer headless browser for page rendering |
