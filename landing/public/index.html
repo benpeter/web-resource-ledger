@@ -212,7 +212,7 @@
         "name": "How do I preserve website evidence for litigation?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Submit the URL to WRL's capture API. The automated pipeline renders the page in an isolated browser, captures a screenshot, rendered HTML, and HTTP headers, then packages everything into a signed WACZ evidence bundle with an independent timestamp. For ongoing preservation, scheduled captures monitor URLs at regular intervals. For bulk collection, the batch API accepts up to 100 URLs per request."
+          "text": "Submit the URL to WRL's capture API. The automated pipeline renders the page in an isolated browser, captures a screenshot, rendered HTML, and HTTP headers, then packages everything into a signed WACZ evidence bundle with an independent timestamp. For ongoing preservation, scheduled captures monitor URLs at regular intervals. For bulk collection, the batch API accepts up to 20 URLs per request."
         }
       },
       {
@@ -220,7 +220,7 @@
         "name": "How do OSINT investigators preserve web evidence?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "OSINT investigators need to capture web content before it disappears -- social media posts, forum threads, product listings -- while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The batch API handles up to 100 URLs per request, and scheduled captures monitor volatile pages automatically."
+          "text": "OSINT investigators need to capture web content before it disappears -- social media posts, forum threads, product listings -- while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The batch API handles up to 20 URLs per request, and scheduled captures monitor volatile pages automatically."
         }
       },
       {
@@ -669,11 +669,11 @@
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do I preserve website evidence for litigation?</summary>
-            <p class="faq__answer">Submit the URL to WRL's capture API. The automated pipeline renders the page in an isolated browser, captures a screenshot, rendered HTML, and HTTP headers, then packages everything into a signed WACZ evidence bundle with an independent timestamp. For ongoing preservation, <a href="https://docs.webresourceledger.com/schedules/">scheduled captures</a> monitor URLs at regular intervals. For bulk collection, the batch API accepts up to 100 URLs per request.</p>
+            <p class="faq__answer">Submit the URL to WRL's capture API. The automated pipeline renders the page in an isolated browser, captures a screenshot, rendered HTML, and HTTP headers, then packages everything into a signed WACZ evidence bundle with an independent timestamp. For ongoing preservation, <a href="https://docs.webresourceledger.com/schedules/">scheduled captures</a> monitor URLs at regular intervals. For bulk collection, the batch API accepts up to 20 URLs per request.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do OSINT investigators preserve web evidence?</summary>
-            <p class="faq__answer">OSINT investigators need to capture web content before it disappears -- social media posts, forum threads, product listings -- while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The <a href="https://docs.webresourceledger.com/batch/">batch API</a> handles up to 100 URLs per request, and scheduled captures monitor volatile pages automatically.</p>
+            <p class="faq__answer">OSINT investigators need to capture web content before it disappears -- social media posts, forum threads, product listings -- while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The <a href="https://docs.webresourceledger.com/batch/">batch API</a> handles up to 20 URLs per request, and scheduled captures monitor volatile pages automatically.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do I archive web pages for regulatory compliance?</summary>
