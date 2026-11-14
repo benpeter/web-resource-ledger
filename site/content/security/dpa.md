@@ -77,7 +77,7 @@ The categories of data subjects whose personal data may be processed under this 
 
 The Customer is responsible for determining which URLs are submitted for capture and is therefore best placed to identify the data subjects whose personal data may be affected. WRL processes the captured content without knowledge of or control over the identity of those individuals.
 
-If the Customer uses the WRL web dashboard, the Customer's authorized users (identified by GitHub username) are also data subjects with respect to their account and authentication data.
+If the Customer uses the WRL web dashboard, the Customer's authorized users (identified by GitHub username or sign-in email address) are also data subjects with respect to their account and authentication data.
 
 ---
 
@@ -88,7 +88,8 @@ The categories of personal data that may be processed under this DPA include:
 - **URLs submitted for capture**, which may contain personal data embedded in path segments or query parameters (for example, a URL containing a name, email address, or account identifier)
 - **Captured page content**, including rendered HTML, screenshots, and HTTP response headers, which may contain personal data present on the captured web page
 - **Pseudonymized requestor IP address**, derived by HMAC-SHA-256 with a daily rotating key; the original IP address is not stored or transmitted
-- **GitHub identity data** (GitHub user ID, GitHub username) if Customer personnel access WRL via the web dashboard
+- **GitHub identity data** (GitHub user ID, GitHub username) if Customer personnel sign in to the web dashboard with GitHub
+- **Email addresses** of Customer personnel who sign in with an emailed link, and the address that receives account notifications (by default the primary verified address GitHub returns at sign-in)
 
 WRL does not receive, process, or store raw IP addresses. Pseudonymized IP identifiers appear only in operational logs and are not reversible to the original address.
 
@@ -252,7 +253,7 @@ Date: ___________________________
 |---|---|
 | **Purpose of processing** | Providing the WRL web capture service: capturing web pages on Customer instruction, storing capture artifacts, generating cryptographic integrity signatures and timestamps, and providing Customer access to those artifacts |
 | **Duration** | For the term of the service agreement, plus the 30-day post-termination grace period described in Section 11 |
-| **Categories of personal data** | URLs (potentially containing PII), captured page content (HTML, screenshots, HTTP headers), pseudonymized requestor IP address, GitHub identity data for dashboard users |
+| **Categories of personal data** | URLs (potentially containing PII), captured page content (HTML, screenshots, HTTP headers), pseudonymized requestor IP address, GitHub identity data or sign-in email address for dashboard users, notification email address |
 | **Categories of data subjects** | Individuals whose personal data appears in web pages captured on Customer instruction; Customer personnel who access WRL via the web dashboard |
 | **Processing operations** | Receiving capture requests via API; URL threat screening; headless browser rendering; artifact storage; integrity signing and timestamping; artifact retrieval; transactional notification; operational logging (pseudonymized) |
 | **Sub-processors** | See Annex C |
@@ -268,7 +269,7 @@ The following measures are in place as of the Effective Date. WRL will not reduc
 
 **Credential storage.** Authentication credentials (API keys, session tokens) are stored using one-way cryptographic hashing, preventing reconstruction of the original credential from stored data.
 
-**Multi-factor authentication.** Dashboard access requires authentication via GitHub OAuth, which supports multi-factor authentication enforced at the GitHub account level.
+**Dashboard authentication.** Dashboard access requires either GitHub OAuth, which supports multi-factor authentication enforced at the GitHub account level, or a single-use sign-in link sent to the user's email address that expires after 15 minutes. Email sign-in relies on access to the mailbox and has no second factor of its own.
 
 **Scope-based authorization.** Each API key carries a defined set of permission scopes (for example, capture-only or read-only). Keys cannot be used to perform operations outside their authorized scope.
 
@@ -312,7 +313,7 @@ The following measures are in place as of the Effective Date. WRL will not reduc
 
 **Credential visibility.** API keys are displayed to the user once at creation. Only a one-way hash is retained thereafter.
 
-**Minimal identity data.** Dashboard authentication stores only the GitHub user ID and username required for account management. Email addresses, repositories, and other GitHub profile data are not requested or stored.
+**Minimal identity data.** Dashboard authentication stores only what account management needs: the GitHub user ID and username, or the email address for email sign-in. The primary verified email address GitHub returns is stored as the notification address. Repositories and other GitHub profile data are not requested or stored.
 
 ### Physical Security
 
