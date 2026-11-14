@@ -135,7 +135,7 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
   const scheduleLimit = getEffectiveScheduleLimit(tenantConfig);
   const count = await countSchedules(env.DB, auth.tenantId);
   if (count >= scheduleLimit) {
-    return problemResponse(429, `Schedule limit reached (${scheduleLimit}). Delete an existing schedule to create a new one.`);
+    return problemResponse(429, `Schedule limit reached (${scheduleLimit}). Delete an existing schedule to create a new one.`, {}, { limitType: 'schedules' });
   }
 
   // Generate ID and compute first run time
