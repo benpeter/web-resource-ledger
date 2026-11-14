@@ -37,6 +37,8 @@ Every push to `main` automatically runs three jobs in sequence in `deploy-stagin
 
 After a successful staging deploy, the production pipeline triggers automatically via `workflow_run`. See [Deploy to Production](#deploy-to-production).
 
+Staging deploys run one at a time (`concurrency: deploy-staging`), and so do production deploys (`concurrency: deploy-production`). A push that lands while a deploy is running waits for it; if several pushes wait, only the newest runs and the others show as cancelled.
+
 **Manual trigger (GitHub UI):**
 1. Go to Actions > Deploy to Staging > Run workflow
 2. Select the branch (no other inputs -- always deploys HEAD of the selected branch)

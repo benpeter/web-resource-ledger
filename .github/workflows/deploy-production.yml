@@ -20,6 +20,11 @@ permissions:
   contents: read
   deployments: write
 
+# One deploy at a time; a newer trigger replaces a waiting one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   staging-smoke:
     if: github.event_name == 'workflow_dispatch'
