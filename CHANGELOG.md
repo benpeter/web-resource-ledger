@@ -15,6 +15,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - The MCP `get_usage` tool gave storage in two units ("2560014 KB / 10240 MB"); it now gives both in GB, as the quota messages do. Its description promised the date the quota resets, which the output left out; it now has a `Resets:` line
 - The example output of the `@w-r-l/verify` CLI on Getting Started and Verification matched no released version ("Verification PASSED", a "Captured URL" line, a TSA name); it now shows what `npx @w-r-l/verify` prints. The MCP `get_certificate` example gave the timestamp states as `ok` and `none`, which it never prints (`present`, `skipped` or `error`), and the `verify_capture` example padded its check lines
 - The authentication guide said keys issued by the admin API start with `wrl_live_`; every key does, including the first key and keys created in Settings
+- The MCP `get_capture` example padded its artifact lines, and the `diff_captures` example left out the `HTML hunks` section the tool prints whenever the HTML changed. `list_captures` now has an example output too
 
 ## [1.4.1] - 2026-11-14
 
