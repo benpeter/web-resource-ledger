@@ -1776,6 +1776,62 @@ components:
             weekly_digest:
               type: boolean
 
+    TenantConfig:
+      type: object
+      description: >
+        Per-tenant overrides of the defaults. A `PUT` replaces the whole
+        configuration, so send every override you want to keep. To return a
+        tenant to a default, leave the field out, or set its group (for example
+        `quotas`) to null.
+      properties:
+        quotas:
+          type: ['object', 'null']
+          properties:
+            capturesPerMonth:
+              type: integer
+              minimum: 1
+              description: Monthly capture limit. Replaces the tier default.
+            storageBytes:
+              type: integer
+              minimum: 1
+              description: Storage limit in bytes. Replaces the tier default.
+        schedules:
+          type: ['object', 'null']
+          properties:
+            maxSchedules:
+              type: integer
+              minimum: 1
+              maximum: 100
+              description: Maximum number of schedules, paused ones included. Replaces the default of 10.
+        rateLimit:
+          type: ['object', 'null']
+          properties:
+            capture:
+              type: object
+              required: [limit]
+              properties:
+                limit:
+                  type: integer
+                  minimum: 1
+                  description: Captures per window. Replaces the default of 10; values above 100 are treated as 100.
+                period:
+                  type: integer
+                  enum: [10, 60]
+                  description: Window length in seconds. Defaults to 60.
+
+    TenantConfigRecord:
+      allOf:
+        - $ref: '#/components/schemas/TenantConfig'
+        - type: object
+          required: [updatedAt, updatedBy]
+          properties:
+            updatedAt:
+              type: string
+              format: date-time
+            updatedBy:
+              type: string
+              description: Who wrote the configuration; `admin_key` for this endpoint.
+
   responses:
     Problem400:
       description: Bad request — missing or malformed body, missing `url` field, invalid URL scheme.
@@ -5410,6 +5466,120 @@ paths:
                 status: 404
                 title: Not Found
                 detail: "Tenant not found."
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/admin/tenants/{tenantId}/config:
+    get:
+      operationId: adminGetTenantConfig
+      summary: Get a tenant's configuration overrides
+      description: >
+        Returns the tenant's quota, schedule and rate-limit overrides. A tenant
+        without overrides answers 404 and runs on the defaults.
+
+        ```bash
+        curl https://api.webresourceledger.com/v1/admin/tenants/acme-corp/config \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: acme-corp
+      responses:
+        '200':
+          description: The tenant's configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigRecord'
+              example:
+                quotas:
+                  capturesPerMonth: 25000
+                schedules:
+                  maxSchedules: 50
+                updatedAt: '2026-03-23T09:00:00.000Z'
+                updatedBy: admin_key
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: The tenant has no configuration overrides.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant configuration not found."
+        '429':
+          $ref: '#/components/responses/Problem429'
+    put:
+      operationId: adminPutTenantConfig
+      summary: Replace a tenant's configuration overrides
+      description: >
+        Replaces the tenant's quota, schedule and rate-limit overrides with the
+        request body. Fields left out fall back to the defaults, so send every
+        override you want to keep.
+
+        ```bash
+        curl -X PUT https://api.webresourceledger.com/v1/admin/tenants/acme-corp/config \
+          -H "Authorization: Bearer $ADMIN_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"quotas": {"capturesPerMonth": 25000}, "schedules": {"maxSchedules": 50}}' | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: acme-corp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantConfig'
+      responses:
+        '200':
+          description: The saved configuration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantConfigRecord'
+        '400':
+          description: The body is not a JSON object, or an override is out of range.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 400
+                title: Bad Request
+                detail: "schedules.maxSchedules cannot exceed 100"
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '415':
+          description: Unsupported Media Type -- Content-Type is not application/json.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '429':
           $ref: '#/components/responses/Problem429'
 
