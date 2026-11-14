@@ -86,6 +86,7 @@ export async function buildWacz(url, captureDate, artifacts, env, options = {}) 
     mainPageUrl: url,
     mainPageDate: captureDate,
     ...(artifacts.captureSettings ? { captureSettings: artifacts.captureSettings } : {}),
+    ...(artifacts.captureQuality ? { captureQuality: artifacts.captureQuality } : {}),
     resources: [
       { name: 'data.warc', path: 'archive/data.warc', hash: warcHash, bytes: warcBytes.byteLength },
       { name: 'index.cdxj', path: 'indexes/index.cdxj', hash: cdxjHash, bytes: cdxjBytes.byteLength },

@@ -114,7 +114,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `retryable` | INTEGER | nullable, CHECK IN `(0,1)` | Whether failure is retryable |
 | `render_quality` | TEXT | nullable, CHECK IN `('full','partial')` | |
 | `artifacts` | TEXT | nullable | JSON: `{ screenshot, screenshotBefore?, html, headers? }` — R2 key paths |
-| `wacz` | TEXT | nullable | JSON: `{ key, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus }` |
+| `wacz` | TEXT | nullable | JSON: `{ key, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus }`. Null without `SIGNING_KEY`, and on partial captures made before phase 0138 |
 | `render` | TEXT | nullable | JSON: browser render metadata |
 | `capture_settings` | TEXT | nullable | JSON: `{ version, consent: { library, libraryVersion, action, result, cmpDetected? } }` |
 | `schedule_id` | TEXT | nullable, FK → `schedules(id)` | Added in 0007. NULL for on-demand captures |

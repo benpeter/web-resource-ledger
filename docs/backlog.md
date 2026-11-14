@@ -119,7 +119,7 @@ Deferred items with explicit activation triggers. Revisit when condition is met.
 | [consider] Screenshot height cap configurability | When a user reports capped screenshots as a problem | edge-minion, capture-endpoint |
 | [consider] Viewport parameterization | When a user reports viewport size as a problem | 0017-advisory: api-design, security |
 | ~~[consider] Capture options metadata schema (`captureSettings`)~~ | ~~When any capture parameterization feature ships~~ | DONE (shipped with #58 in 0025) |
-| [consider] WACZ captureQuality in datapackage.json | When partial captures are common enough to warrant evidence chain enrichment | security-minion, staged-fallback-timeout advisory |
+| ~~[consider] WACZ captureQuality in datapackage.json~~ | ~~When partial captures are common enough to warrant evidence chain enrichment~~ | DONE (0138-sign-partial-captures: partial captures are signed, every bundle records captureQuality) |
 
 ### API Enhancements
 
