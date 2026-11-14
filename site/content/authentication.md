@@ -28,7 +28,7 @@ curl https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-Replace `YOUR_API_KEY` with your actual key. Keys issued by the admin API are prefixed with `wrl_live_`. Keep your key secret -- anyone who has it can submit captures and read your capture history.
+Replace `YOUR_API_KEY` with your actual key. Every WRL API key starts with `wrl_live_`, whether it was shown at your first sign-in, created in Settings or issued by the admin API. Keep your key secret -- anyone who has it can submit captures and read your capture history.
 
 ### Scopes
 
