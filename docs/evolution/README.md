@@ -139,3 +139,4 @@ software development.
 | [0130-bulk-capture](0130-bulk-capture/) | Read a sitemap through the API, MCP and dashboard, and capture a pasted list or sitemap from the dashboard at the tenant's rate limit |
 | [0131-email-login](0131-email-login/) | Sign in with an emailed link as an alternative to GitHub |
 | [0132-schedule-management](0132-schedule-management/) | Edit, pause and resume schedules (API, MCP, dashboard), see one schedule's captures, schedule status follows its capture |
+| [0133-ci-node24-playwright](0133-ci-node24-playwright/) | Scheduled E2E runs work again on Ubuntu 26.04 runners (Playwright 1.65), and every GitHub Action runs on Node 24 |
