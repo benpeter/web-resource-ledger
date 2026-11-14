@@ -41,12 +41,13 @@ describe('isAnalyticsExcluded', () => {
 });
 
 describe('trackCaptureEvent', () => {
-  it('sends the event with the submitter ip and user agent and the source, without tenant or capture ids', async () => {
+  it('sends the event with the submitter user agent and the source, without the captured site ip or tenant and capture ids', async () => {
     let captured;
     fetchMock.get('https://api.pirsch.io')
       .intercept({ path: '/api/v1/event', method: 'POST' })
       .reply(200, (req) => { captured = JSON.parse(req.body); return 'ok'; });
 
+    // The queue message's ip is the captured site's address (validateUrl), not the submitter's
     await trackCaptureEvent(env, 'Capture Completed', {
       captureId: 'cap_' + 'a'.repeat(32), tenantId: 'gh-16527634', ip: '198.51.100.7',
       ua: 'Mozilla/5.0 Test', source: 'dashboard',
@@ -54,7 +55,7 @@ describe('trackCaptureEvent', () => {
 
     expect(captured.event_name).toBe('Capture Completed');
     expect(captured.url).toBe('https://api.webresourceledger.com/v1/captures');
-    expect(captured.ip).toBe('198.51.100.7');
+    expect(captured.ip).toBe('192.0.2.1');
     expect(captured.user_agent).toBe('Mozilla/5.0 Test');
     expect(captured.event_meta).toEqual({ source: 'dashboard', qualified: 'no' });
     expect(JSON.stringify(captured)).not.toMatch(/gh-16527634|cap_a/);
