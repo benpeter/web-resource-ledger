@@ -181,6 +181,10 @@ max_retries = 0
 #   GOOGLE_WEB_RISK_API_KEY -- Google Web Risk API key (without this, threat checks degrade gracefully)
 # Cache purge (set via wrangler secret put):
 #   CLOUDFLARE_CACHE_PURGE_TOKEN -- API token with Cache Purge permission for the zone
+# Analytics (set via wrangler secret put):
+#   PIRSCH_ACCESS_KEY    -- Pirsch server-side events; none are sent without it
+# docs/INTERNALS.md "Secrets and Variables" lists every secret and variable the
+# Worker reads; test/env-sync.test.js checks that list against src/.
 [vars]
 ENABLE_EDGE_CACHE = "true"
 # Tenants whose activity is not sent to Pirsch (src/analytics.js): the founder's
@@ -195,7 +199,6 @@ TSA_URL = "http://timestamp.digicert.com"
 # pre-encoded base64 user:pass) is only sent if set, for TSAs that require it.
 QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23liIG5Of9wSbgcFqW"
-STRIPE_PUBLISHABLE_KEY = "pk_live_51TDsOBR6ZdLyu7lGn7qg5KGMLs2mcYvkV4GHrYvGymIMxABXUEJjVOdl8BHnUrLoHMvM9HH8FNenohLPZABdRA3X002Ajerxi0"
 STRIPE_CAPTURE_PRICE_ID = "price_1TE4aAR6ZdLyu7lGVLN895yU"
 # Cron expression for the nightly URL re-scan job. Must match the value in [triggers].crons.
 RESCAN_CRON = "0 3 * * *"
@@ -205,7 +208,7 @@ RESCAN_CRON = "0 3 * * *"
 
 # --- Staging environment ---
 # Fully isolated: separate Worker, KV, R2, rate limiters.
-# Secrets (CAPTURE_API_KEY, SIGNING_KEY, CORALOGIX_SEND_KEY, IP_HASH_SEED) are set via:
+# Secrets have the production names (staging has no PIRSCH_ACCESS_KEY) and are set via:
 #   wrangler secret put <NAME> --env staging
 
 [env.staging]
@@ -360,13 +363,15 @@ ENABLE_EDGE_CACHE = "true"
 CLOUDFLARE_ZONE_ID = "9b1b321a3921da4741063f25d6935a74"
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-staging"
+# Links in staging emails and webhook payloads; production leaves it unset and
+# gets https://api.webresourceledger.com.
+VERIFICATION_BASE_URL = "https://staging.webresourceledger.com"
 TSA_URL = "http://timestamp.digicert.com"
 # Qualified (eIDAS) TSA -- used when tenant has eidas_qualified enabled.
 # Sectigo's qualified endpoint needs no auth. QUALIFIED_TSA_AUTH (a secret,
 # pre-encoded base64 user:pass) is only sent if set, for TSAs that require it.
 QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
-STRIPE_PUBLISHABLE_KEY = "pk_test_51TDsOOJQK0cymoiEZrNp6PBKISzkLV3LCIxOIjQ2pkQdcDYtQRECpLiWUagaLe0PtE8Owu7x8bsu5gLemtHMj58G00PTk19u4B"
 STRIPE_CAPTURE_PRICE_ID = "price_1TE3yVJQK0cymoiEc5eoRpBv"
 RESCAN_CRON = "0 4 * * *"
 # Comma-separated origins allowed for CORS preflight (browser clients).

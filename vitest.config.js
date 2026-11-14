@@ -43,7 +43,6 @@ export default defineConfig({
           SESSION_SECRET: 'deadbeef'.repeat(8),
           STRIPE_SECRET_KEY: 'sk_test_placeholder_for_testing',
           STRIPE_WEBHOOK_SECRET: 'whsec_test_placeholder_for_testing',
-          STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder_for_testing',
           STRIPE_CAPTURE_PRICE_ID: 'price_test_placeholder_for_testing',
           PIRSCH_ACCESS_KEY: 'test-pirsch-key-for-vitest',
           // Production excludes internal tenants from analytics; tests mirror that for 'default'.
@@ -56,6 +55,6 @@ export default defineConfig({
   ],
   test: {
     setupFiles: ['./test/apply-migrations.js'],
-    exclude: ['test/integration/**', 'test/e2e/**', 'test/mcp-sync.test.js', 'test/log-severity-sync.test.js', 'test/llms-sync.test.js', 'test/routes-sync.test.js', 'test/rate-limits-sync.test.js', 'test/alerts-sync.test.js', 'packages/**', 'node_modules/**', 'site/**', '.claude/worktrees/**'],
+    exclude: ['test/integration/**', 'test/e2e/**', 'test/mcp-sync.test.js', 'test/log-severity-sync.test.js', 'test/llms-sync.test.js', 'test/routes-sync.test.js', 'test/rate-limits-sync.test.js', 'test/alerts-sync.test.js', 'test/env-sync.test.js', 'packages/**', 'node_modules/**', 'site/**', '.claude/worktrees/**'],
   },
 });

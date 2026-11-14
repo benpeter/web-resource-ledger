@@ -125,10 +125,13 @@ curl -s -X DELETE "$API/v1/admin/tenants/$T/deletion" -H "Authorization: Bearer 
 curl -s -X DELETE "$API/v1/admin/tenants/$T?confirm=$T" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
 # -> { deleted: { captures, r2Objects }, stripeCustomerId }
 
-# Cached capture responses stay at the edge until purged
+# Cached verification responses stay at the edge until purged (or 24 hours)
 curl -s -X POST "$API/v1/admin/cache/purge" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY" \
   -H "Content-Type: application/json" -d '{"targets":["all"]}'
+# -> 503 "Cache purge is not configured" means CLOUDFLARE_CACHE_PURGE_TOKEN is missing
 ```
+
+The purge needs the `CLOUDFLARE_CACHE_PURGE_TOKEN` secret (a Cloudflare API token with only Zone > Cache Purge on the `webresourceledger.com` zone). Without it the call answers 503 and the deleted captures' verification responses (captured URL and times) stay in Cloudflare's per-location cache until they expire, at most 24 hours after they were cached.
 
 Then, by hand: cancel the subscription and delete the customer in the Stripe dashboard if the response named a `stripeCustomerId`, and tell the customer the deletion is done. Coralogix logs expire on their own and hold no raw personal data. Pending deletions show as `deletionRequestedAt` in `GET /v1/admin/tenants/{tenantId}`; nothing purges automatically.
 
@@ -226,8 +229,17 @@ Worker runtime secrets:
 | `IP_HASH_SEED` | HMAC seed for IP address hashing in logs | Recommended |
 | `CORALOGIX_SEND_KEY` | Structured log ingestion to Coralogix | Required for production observability |
 | `ADMIN_KEY` | Admin API bearer token for key management endpoints | Required for per-tenant key management |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret | Required for GitHub sign-in |
+| `SESSION_SECRET` | HMAC key for session cookies and the tokens in email links (confirmation, unsubscribe) | Required for sign-in, the web UI and email links |
+| `STRIPE_SECRET_KEY` | Stripe API calls (checkout, billing portal, metered usage) | Required for paid plans |
+| `STRIPE_WEBHOOK_SECRET` | Verifies the signature of Stripe webhook events | Required for paid plans |
+| `RESEND_API_KEY` | Transactional email: sign-in links and notifications | Required for email sign-in (503 without it) and notifications |
+| `GOOGLE_WEB_RISK_API_KEY` | URL threat screening before capture and in the nightly re-scan | No -- captures report `threatCheck: unavailable` without it |
+| `CLOUDFLARE_CACHE_PURGE_TOKEN` | API token with Zone > Cache Purge for `POST /v1/admin/cache/purge` | No -- the purge route answers 503 without it; cached verification responses then expire on their own within 24 hours |
+| `QUALIFIED_TSA_AUTH` | Base64 `user:pass` for a qualified TSA that needs HTTP Basic auth | No -- Sectigo's qualified endpoint needs none |
+| `PIRSCH_ACCESS_KEY` | Pirsch server-side events (sign-ups, captures, schedules, billing) | No -- no events are sent without it; staging has none |
 
-See README steps 4-7 for secret generation commands and initial setup.
+The same list, with the Worker variables, is in [docs/INTERNALS.md](docs/INTERNALS.md#secrets-and-variables); `test/env-sync.test.js` fails when the two lists differ or when `src/` reads a name INTERNALS doesn't document. See README steps 4-8b for secret generation commands and initial setup.
 
 ---
 

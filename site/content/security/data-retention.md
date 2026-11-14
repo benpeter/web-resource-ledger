@@ -110,7 +110,7 @@ Capture records and artifact URLs are in the response from `GET /v1/captures`. S
 
 **R2 artifact resolution.** Artifact objects in R2 are keyed by capture ID (e.g., `captures/{captureId}/screenshot.png`); the WACZ bundle is stored under its content hash (`captures/{hash}.wacz`). The capture row lists both, so deletion reads the row first, deletes the R2 objects, then deletes the row. A WACZ object that another capture still references is kept.
 
-**Edge cache purge.** WRL serves capture artifacts through Cloudflare's edge cache. Deletion includes a cache purge call against the Cloudflare Cache Purge API for affected URLs so that deleted artifacts are not served from cache after deletion completes.
+**Edge cache purge.** Artifacts are not cached at the edge, but verification responses for verified captures (they name the captured URL and its times) are kept in Cloudflare's per-location cache for up to 24 hours. Deletion ends with a call to the Cloudflare Cache Purge API so these responses stop being served once deletion completes; any that the purge misses expire within those 24 hours.
 
 **Quarantine purge.** Quarantined captures are purged by a weekly scheduled job (Mondays 09:00 UTC, `0 9 * * MON` in `wrangler.toml`, code in `src/retention.js`). It deletes the R2 objects and D1 rows (the capture and its threat checks) of captures quarantined more than 90 days earlier, up to 100 per run. Quarantined artifacts are not served, so no cache purge is needed. This runs independently of the tenant deletion flow.
 

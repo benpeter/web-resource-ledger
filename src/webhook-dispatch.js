@@ -96,7 +96,7 @@ export function buildWebhookPayload(eventType, captureRecord, env) {
   const eventId = 'evt_' + crypto.randomUUID().replace(/-/g, '');
 
   // Construct the verification URL from a known-safe base.
-  // Uses env.VERIFICATION_BASE_URL if set; otherwise uses the worker hostname.
+  // Uses env.VERIFICATION_BASE_URL if set (staging); otherwise the production API origin.
   // The captureId is validated at creation time via route regex, so safe to include.
   const base = env?.VERIFICATION_BASE_URL
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
