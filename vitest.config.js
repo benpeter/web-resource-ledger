@@ -56,6 +56,6 @@ export default defineConfig({
   ],
   test: {
     setupFiles: ['./test/apply-migrations.js'],
-    exclude: ['test/integration/**', 'test/e2e/**', 'test/mcp-sync.test.js', 'test/log-severity-sync.test.js', 'test/llms-sync.test.js', 'test/routes-sync.test.js', 'test/rate-limits-sync.test.js', 'test/alerts-sync.test.js', 'packages/**', 'node_modules/**', 'site/**', '.claude/worktrees/**'],
+    exclude: ['test/integration/**', 'test/e2e/**', 'test/mcp-sync.test.js', 'test/log-severity-sync.test.js', 'test/llms-sync.test.js', 'test/routes-sync.test.js', 'test/rate-limits-sync.test.js', 'test/alerts-sync.test.js', 'test/env-sync.test.js', 'packages/**', 'node_modules/**', 'site/**', '.claude/worktrees/**'],
   },
 });
