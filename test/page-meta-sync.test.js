@@ -62,6 +62,16 @@ describe('page titles and descriptions', () => {
     }
   });
 
+  // CI doesn't build the docs; only the deploy after merge does. An unquoted
+  // title or description with ": " or " #" breaks its YAML front matter there.
+  it('keeps docs titles and descriptions valid as plain YAML values', () => {
+    for (const { page, title, description } of docsPages()) {
+      for (const [field, value] of [['title', title], ['description', description]]) {
+        expect({ page, field, plain: !/: | #|^["']/.test(value) }).toEqual({ page, field, plain: true });
+      }
+    }
+  });
+
   it('fit search results on every landing page', () => {
     const pages = landingPages();
     expect(pages.length).toBeGreaterThan(5);

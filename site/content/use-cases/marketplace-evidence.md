@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: Capture Evidence of a Seller or Listing
-description: Keep verifiable, timestamped evidence of an online listing, seller profile or review before it changes or disappears, with an optional eIDAS qualified timestamp.
+description: Keep verifiable, timestamped evidence of an online listing, seller profile or review before it changes or disappears, with optional eIDAS qualified timestamps.
 ---
 
 # Capture evidence of a seller or listing

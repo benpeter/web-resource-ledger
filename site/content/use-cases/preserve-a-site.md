@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
-title: Preserve a Website Before It Goes Offline
-description: Capture every page of a website as signed, timestamped WACZ evidence before the domain expires or the site is taken down, and keep a verification link for each page.
+title: Preserve a Site Before It Goes Offline
+description: Capture every page of a website as signed, timestamped WACZ evidence before the domain expires or the site goes down, with a verification link for each page.
 ---
 
 # Preserve a website before it goes offline

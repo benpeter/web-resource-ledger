@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
-title: Document a Compliance Survey Across Many Websites
-description: Capture the same kind of page across many organisations, such as privacy notices or accessibility statements, and attach a verifiable, timestamped record of each one to your findings.
+title: Compliance Surveys Across Many Websites
+description: Capture privacy notices, accessibility statements or similar pages across many organisations, with a verifiable, timestamped record of each for your findings.
 ---
 
 # Document a compliance survey across many websites
