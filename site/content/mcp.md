@@ -169,7 +169,7 @@ Status URL: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9
 
 #### `batch_capture`
 
-Submit up to 20 URLs for capture in a single call. Returns a per-item status report showing accepted captures and any rejected URLs with reasons. Rate limiting charges one slot per URL, not one slot for the batch, so with the default limit of 10 captures a minute a call with more than 10 URLs is refused. Use `get_capture` with each returned ID to track progress.
+Submit up to 20 URLs for capture in a single call. Returns a per-item status report showing accepted captures and any rejected URLs with reasons. Rate limiting charges one slot per URL, not one slot for the batch, so with the default limit of 10 captures a minute a call with more than 10 URLs is refused. The monthly quota is checked for the whole batch too: a batch that would go past it is refused as a whole. Use `get_capture` with each returned ID to track progress.
 
 **Requires:** `capture` scope
 
@@ -390,7 +390,7 @@ Captures used:   42 / 200
 Storage used:    51200 KB / 10240 MB
 ```
 
-With a payment method on file, both limits read `unlimited`. The REST equivalent is `GET /v1/account/usage` with the same API key.
+With a payment method on file, both limits read `unlimited`. When the account is blocked or a deletion is pending, the output ends with a line saying so, and the capture tools refuse. The REST equivalent is `GET /v1/account/usage` with the same API key.
 
 ---
 
@@ -586,6 +586,14 @@ WRL enforces per-tenant rate limits. Wait 60 seconds and retry. If you need high
 ### "Service is at capacity. Retry in 10 seconds."
 
 A global capacity limit applies across all tenants. Retry after 10 seconds.
+
+### "Free tier limit reached" or "Storage quota reached"
+
+`capture_url` and `batch_capture` check the monthly quota before they accept a capture, as the REST API does. Without a payment method an account gets 200 captures and 10 GB of storage a month. `batch_capture` refuses the whole batch when it would go past the limit ("Batch of 20 captures would exceed free tier limit"), even if a few captures are left; send a smaller batch. `get_usage` shows what is left and when it resets. Add a payment method in Settings to remove the limit, or wait for the reset date the message gives. See [Limits & Quotas](/limits/).
+
+### "Account is blocked" or "This account is scheduled for deletion"
+
+The account can't capture: it is blocked for non-payment, or a deletion was requested. The read tools keep working. Contact [hello@webresourceledger.com](mailto:hello@webresourceledger.com); a deletion can be cancelled during the 30 days before it is carried out.
 
 ### "Payload Too Large" or "arguments contain more than the maximum of 1000 elements"
 
