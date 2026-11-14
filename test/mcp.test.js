@@ -177,6 +177,22 @@ describe('MCP protocol -- non-POST method', () => {
   });
 });
 
+describe('MCP protocol -- input limits (GHSA-46jr-4wx8-v453)', () => {
+  it('refuses tool arguments with more than 1000 elements before validating them', async () => {
+    const urls = Array.from({ length: 1001 }, (_, i) => `https://example.com/${i}`);
+    const res = await mcpPost(toolCall('batch_capture', { urls }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const message = body.result?.content?.[0]?.text ?? body.error?.message;
+    expect(message).toContain('more than the maximum of 1000 elements');
+  });
+
+  it('answers 413 to a request body over 256 KiB', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: 'x'.repeat(300_000) }));
+    expect(res.status).toBe(413);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tool: capture_url
 // ---------------------------------------------------------------------------

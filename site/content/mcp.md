@@ -538,6 +538,10 @@ WRL enforces per-tenant rate limits. Wait 60 seconds and retry. If you need high
 
 A global capacity limit applies across all tenants. Retry after 10 seconds.
 
+### "Payload Too Large" or "arguments contain more than the maximum of 1000 elements"
+
+The MCP endpoint accepts request bodies up to 256 KiB and tool arguments with up to 1,000 array elements and object keys in total. The largest tool input, `batch_capture` with 20 URLs, stays far below both. Send larger URL lists as several `batch_capture` calls.
+
 ### Capture stuck in pending
 
 Captures normally complete in 5--15 seconds. If `get_capture` returns pending after 30 seconds:

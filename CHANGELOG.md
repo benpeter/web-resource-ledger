@@ -58,6 +58,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - Dashboard capture form names the limit that was hit (captures or storage), shows the reset date, and points free tenants to adding a payment method
 - Welcome screen: when the first API key is no longer available, it offers to create a new key in place instead of only linking to Settings
 
+### Security
+
+- `/mcp` refuses request bodies over 256 KiB (413) and tool arguments with more than 1,000 array elements and object keys, and runs on MCP SDK 1.32.2 and zod 4.6.7 (GHSA-46jr-4wx8-v453, GHSA-f897-62hf-6gxq, GHSA-mrhx-c7xc-m3w5)
+
 ## [1.0.0] - 2026-03-25
 
 ### Added

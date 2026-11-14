@@ -39,6 +39,10 @@ import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './d
 import { validateCron, nextRun } from './cron.js';
 import { getSigningKeys } from './signing.js';
 
+// Input bounds for /mcp. The SDK defaults allow 4 MiB and unlimited elements.
+const MAX_TOOL_INPUT_ELEMENTS = 1000;
+const MAX_REQUEST_BODY_BYTES = 256 * 1024;
+
 // ---------------------------------------------------------------------------
 // MCP server factory
 // ---------------------------------------------------------------------------
@@ -57,6 +61,9 @@ function createMcpServer(env, ctx, auth, origin) {
   const server = new McpServer({
     name: 'web-resource-ledger',
     version: '0.2.0',
+  }, {
+    // GHSA-46jr-4wx8-v453: the largest real input is batch_capture with 20 URLs
+    maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
   });
 
   // -------------------------------------------------------------------------
@@ -1444,6 +1451,7 @@ export async function handleMcp(request, env, ctx) {
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless: no session management
     enableJsonResponse: true,      // JSON responses instead of SSE streams
+    maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
   });
 
   await server.connect(transport);

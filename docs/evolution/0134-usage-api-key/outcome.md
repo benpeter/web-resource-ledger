@@ -4,7 +4,7 @@
   (`read` scope) when the request has an `Authorization` header.
 - `src/account.js`: the usage log records the auth method.
 - `test/account-usage.test.js`: read key 200 with that tenant's numbers, admin-only key
-  403, unknown key 401, and `/v1/account/keys` still 401 for a key. Red first (865de68).
+  403, unknown key 401, and `/v1/account/keys` still 401 for a key. Red first (dda3452).
 - `test/e2e/quota-enforcement.spec.js`: waits for the usage counter before the second
   capture.
 - `openapi.yaml`: description says which credentials work, 403 response, response schema
