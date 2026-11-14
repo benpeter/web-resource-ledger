@@ -39,7 +39,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "fflate": "^0.8.2",
+    "fflate": "^0.8.3",
     "pkijs": "3.3.3",
     "asn1js": "3.0.5",
     "pvutils": "1.1.3"
