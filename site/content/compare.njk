@@ -9,8 +9,9 @@ wideContent: true
 <p>
   A factual comparison of WRL with other web archiving and evidence tools,
   including criteria where WRL is not the strongest option. Each cell reflects
-  publicly documented capabilities as of March 2026; the ProofSnap column and
-  the DEPT note were checked in November 2026. If something has changed,
+  publicly documented capabilities as of March 2026; the ProofSnap, PageFreezer,
+  Hanzo, Page Vault and MirrorWeb columns and the DEPT note were checked in
+  November 2026. If something has changed,
   <a href="https://github.com/benpeter/web-resource-ledger/issues">open an issue</a>.
 </p>
 
@@ -28,7 +29,7 @@ wideContent: true
         <th scope="col"><a href="https://hanzo.co">Hanzo</a></th>
         <th scope="col"><a href="https://page-vault.com">Page Vault</a></th>
         <th scope="col"><a href="https://getproofsnap.com">ProofSnap</a></th>
-        <th scope="col"><a href="https://mirrorweb.com">MirrorWeb</a></th>
+        <th scope="col"><a href="https://www.redoak.com/archiving">MirrorWeb (Red Oak)</a></th>
         <th scope="col"><a href="https://stillio.com">Stillio</a></th>
         <th scope="col"><a href="https://archive-it.org">Archive-It</a></th>
       </tr>
@@ -41,10 +42,10 @@ wideContent: true
         <td data-tool="Webrecorder"><span class="badge badge--skip">WACZ-Auth spec (not default)</span></td>
         <td data-tool="Wayback Machine"><span class="badge badge--fail">No</span></td>
         <td data-tool="PageFreezer"><span class="badge badge--skip">SHA-256 signing</span></td>
-        <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--skip">SHA-256 hashing</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">SHA-256 hashing</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--pass">RSA-4096 (every capture)</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--skip">SHA-1 per docs</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--skip">Not documented</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">Checksums only</span></td>
       </tr>
@@ -54,11 +55,11 @@ wideContent: true
         <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
         <td data-tool="Webrecorder"><span class="badge badge--skip">RFC 3161 in spec (not default)</span></td>
         <td data-tool="Wayback Machine"><span class="badge badge--fail">Crawl timestamps only</span></td>
-        <td data-tool="PageFreezer"><span class="badge badge--skip">Stratum-1 clock (not RFC 3161)</span></td>
-        <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--skip">TSA, Stratum-1 clock</span></td>
+        <td data-tool="Hanzo"><span class="badge badge--skip">Timestamps (source not documented)</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Internal timestamps</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--pass">OpenTimestamps (Bitcoin)</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--skip">Timestamped (not RFC 3161)</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--skip">Timestamps (source not documented)</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">Metadata only</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">Crawl timestamps</span></td>
       </tr>
@@ -72,7 +73,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Expert witness service</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--pass">Package verifier (in browser)</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--fail">No (platform-only)</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--fail">No (platform-only)</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--skip">Public access (no crypto)</span></td>
       </tr>
@@ -86,7 +87,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--pass">Optional (per stamp)</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--fail">No</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
       </tr>
@@ -100,7 +101,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--pass">REST API, MCP</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--skip">Limited API</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--skip">Limited API</span></td>
         <td data-tool="Stillio"><span class="badge badge--skip">Basic API</span></td>
         <td data-tool="Archive-It"><span class="badge badge--pass">Yes (WASAPI)</span></td>
       </tr>
@@ -110,11 +111,11 @@ wideContent: true
         <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
         <td data-tool="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
         <td data-tool="Wayback Machine"><span class="badge badge--pass">WARC</span></td>
-        <td data-tool="PageFreezer"><span class="badge badge--fail">PDF</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--pass">WARC, PDF</span></td>
         <td data-tool="Hanzo"><span class="badge badge--pass">WARC</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">Proprietary / PDF</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">ZIP package, optional WARC</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--pass">WARC</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--pass">WARC</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">PNG / JPEG</span></td>
         <td data-tool="Archive-It"><span class="badge badge--pass">WARC</span></td>
       </tr>
@@ -128,7 +129,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">Not documented</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--fail">No</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
       </tr>
@@ -142,7 +143,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--pass">Social + collaboration</span></td>
         <td data-tool="Page Vault"><span class="badge badge--pass">6 platforms</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">Via browser extension</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--pass">6 platforms</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--pass">6 platforms</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
       </tr>
@@ -156,7 +157,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--pass">Continuous</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Recurring (new 2025)</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">Up to 200 URLs (by plan)</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--pass">Configurable</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--pass">Configurable</span></td>
         <td data-tool="Stillio"><span class="badge badge--pass">Up to every 5 min</span></td>
         <td data-tool="Archive-It"><span class="badge badge--pass">10+ frequencies</span></td>
       </tr>
@@ -170,7 +171,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--pass">Yes (10+ court cases)</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">Not documented</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--fail">No</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
       </tr>
@@ -184,7 +185,7 @@ wideContent: true
         <td data-tool="Hanzo"><span class="badge badge--pass">6+ platforms</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">Chats via extension</span></td>
-        <td data-tool="MirrorWeb"><span class="badge badge--pass">Slack, Teams, Zoom, SMS</span></td>
+        <td data-tool="MirrorWeb (Red Oak)"><span class="badge badge--pass">Slack, Teams, Zoom, SMS</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
       </tr>
@@ -239,26 +240,31 @@ wideContent: true
 
 <h3>PageFreezer</h3>
 <p>
-  Enterprise-grade compliance platform (FedRAMP authorized, SOC 2). SHA-256 digital signatures with their
-  own timestamping infrastructure (Stratum-1 atomic clock, ESIGN Act compliant). Timestamps are not from
-  an independent third-party TSA per RFC 3161. Strong in social media archiving (Teams, Workplace) which
-  WRL does not offer. Verification is internal to their platform.
+  Enterprise-grade compliance platform (FedRAMP authorized for website archiving, SOC 2). Each archived
+  page carries a SHA-256 digital signature and a timestamp from a time stamp authority synchronized with a
+  Stratum-1 time server. PageFreezer calls that authority "RFC 3136 compliant", which reads like a typo for
+  RFC 3161, and does not say whether a third party runs it. Archives export as PDF, WARC and native files.
+  Strong in social media archiving (Teams, Workplace) which WRL does not offer; its WebPreserver browser
+  extension also collects social media evidence. Verification is internal to their platform. Timestamp,
+  export and extension details checked November 2026.
 </p>
 
 <h3>Hanzo</h3>
 <p>
-  Focused on dynamic content capture (SPAs, interactive elements) and eDiscovery workflows. SOC 2 Type 2
-  certified. No public API (confirmed by multiple review sources). Integrity approach is proprietary and
-  not publicly documented. Note: Hanzo (hanzo.co) the web archiving company is distinct from Hanzo AI
-  (hanzo.ai).
+  Focused on dynamic content capture (SPAs, interactive elements) with Hanzo Chronicle, and on eDiscovery
+  for Slack, Teams and other collaboration tools. SOC 2 Type 2 certified. No public API (confirmed by
+  multiple review sources). Chronicle stores each capture as WARC on write-once (WORM) storage with
+  SHA-256 hash values and time-stamped records; Hanzo does not say whether an independent authority
+  issues the timestamps. Note: Hanzo (hanzo.co) the web archiving company is distinct from Hanzo AI
+  (hanzo.ai). Capture details checked November 2026.
 </p>
 
 <h3>Page Vault</h3>
 <p>
   Purpose-built for US litigation. Provides expert witness testimony and affidavit services for court
   admissibility under FRE 901(b)(9) and FRE 902(13)/902(14). SHA-256 hashing with internal timestamps.
-  No API -- browser extension and managed capture service. WRL provides machine-verifiable proof; Page
-  Vault provides human-verifiable expert testimony.
+  No API -- Page Vault Browser, a remote browsing application, and a managed capture service (Page Vault
+  On Demand). WRL provides machine-verifiable proof; Page Vault provides human-verifiable expert testimony.
 </p>
 
 <h3>ProofSnap</h3>
@@ -277,11 +283,14 @@ wideContent: true
   November 2026.
 </p>
 
-<h3>MirrorWeb</h3>
+<h3>MirrorWeb (Red Oak)</h3>
 <p>
-  Financial services compliance focus (SEC 17a-4, FINRA 2210, FCA COBS 4). Documentation references
-  SHA-1 digital signatures, though this may have been updated (SHA-1 is cryptographically deprecated).
-  SOC 2 certified. Multi-channel archiving including social media and SMS.
+  Financial services compliance focus (SEC 17a-4, FINRA 2210, FCA COBS 4). MirrorWeb has combined with
+  Red Oak, and its archiving now runs as part of Red Oak's compliance platform. The archive keeps websites
+  as WARC on write-once (WORM) storage, alongside email, collaboration tools such as Slack, Teams and Zoom,
+  SMS and messaging apps, and social media. Red Oak's archiving page does not say how captures are hashed
+  or signed; MirrorWeb's earlier documentation referenced SHA-1, which is cryptographically deprecated.
+  Archiving details checked November 2026.
 </p>
 
 <h3>Stillio</h3>
@@ -316,7 +325,7 @@ wideContent: true
 
 <p>
   All claims are based on publicly available documentation, product pages, and review platforms as of
-  March 2026 (ProofSnap and DEPT: November 2026). Where a capability could not be confirmed from public sources, the cell reads "Not
+  March 2026 (ProofSnap, PageFreezer, Hanzo, Page Vault, MirrorWeb and DEPT: November 2026). Where a capability could not be confirmed from public sources, the cell reads "Not
   documented" rather than "No". We do not have accounts with every listed service -- claims reflect
   what each service publicly represents, not hands-on testing of every feature. If any information is
   outdated or incorrect, please
@@ -338,13 +347,13 @@ wideContent: true
   <dd><a href="https://webrecorder.net">Webrecorder</a> created the WACZ format WRL uses. Their Browsertrix platform handles large-scale crawling, and everything is open source and self-hostable on Kubernetes. Backed by the IIPC, British Library, and Harvard.</dd>
 
   <dt>Bulk compliance monitoring (thousands of URLs on a schedule)</dt>
-  <dd><a href="https://pagefreezer.com">PageFreezer</a> and <a href="https://mirrorweb.com">MirrorWeb</a> offer continuous, enterprise-scale archiving with compliance dashboards, AI-powered surveillance, and regulatory reporting.</dd>
+  <dd><a href="https://pagefreezer.com">PageFreezer</a> and <a href="https://www.redoak.com/archiving">MirrorWeb</a> (now part of Red Oak) offer continuous, enterprise-scale archiving with compliance dashboards, AI-powered surveillance, and regulatory reporting.</dd>
 
   <dt>Social media archiving</dt>
   <dd><a href="https://hanzo.co">Hanzo</a> and <a href="https://pagefreezer.com">PageFreezer</a> integrate with platform APIs to capture posts, comments, reactions, edits, and deletions across 6-8+ social platforms.</dd>
 
   <dt>Collaboration tool capture (Slack, Teams, Google Workspace)</dt>
-  <dd><a href="https://hanzo.co">Hanzo</a> captures Slack, Teams, Google Workspace, Jira, Confluence, and Asana. <a href="https://mirrorweb.com">MirrorWeb</a> adds email, SMS, WhatsApp, and Zoom. WRL captures web pages only.</dd>
+  <dd><a href="https://hanzo.co">Hanzo</a> captures Slack, Teams, Google Workspace, Jira, Confluence, and Asana. <a href="https://www.redoak.com/archiving">MirrorWeb</a> adds email, SMS, WhatsApp, and Zoom. WRL captures web pages only.</dd>
 
   <dt>Passive capture of your entire browsing session</dt>
   <dd><a href="https://hunch.ly">Hunchly</a> (now part of <a href="https://maltego.com">Maltego</a>) captures every page you visit while investigating. It records what you see in your browser; WRL captures a URL on demand from a server. Different use cases, often complementary.</dd>
