@@ -144,3 +144,4 @@ software development.
 | [0135-mcp-sdk-security](0135-mcp-sdk-security/) | `/mcp` limits request bodies to 256 KiB and tool arguments to 1,000 elements; MCP SDK 1.32.2 and zod 4.6.7; production dependencies have no audit findings |
 | [0136-landing-assets-log](0136-landing-assets-log/) | Landing and docs Workers log failed asset fetches, the queue consumer logs when it can't mark a capture failed, and telemetry no longer shows as Critical in Coralogix |
 | [0137-mcp-docs-sync](0137-mcp-docs-sync/) | MCP guide documents every tool and a test keeps it that way; `list_schedules` shows paused schedules; `docs/mcp.md` points to the guide |
+| [0138-sign-partial-captures](0138-sign-partial-captures/) | Partial captures get a signed, timestamped WACZ and verify like full ones; every bundle records `captureQuality`; the verify page and `verify_capture` show a partial render |
