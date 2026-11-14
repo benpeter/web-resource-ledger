@@ -9,8 +9,9 @@ wideContent: true
 <p>
   A factual comparison of WRL with other web archiving and evidence tools,
   including criteria where WRL is not the strongest option. Each cell reflects
-  publicly documented capabilities as of March 2026; the ProofSnap column and
-  the DEPT note were checked in November 2026. If something has changed,
+  publicly documented capabilities as of March 2026; the ProofSnap and
+  PageFreezer columns and the DEPT note were checked in November 2026. If
+  something has changed,
   <a href="https://github.com/benpeter/web-resource-ledger/issues">open an issue</a>.
 </p>
 
@@ -54,7 +55,7 @@ wideContent: true
         <td data-tool="Manual + Notary"><span class="badge badge--skip">Notary timestamp</span></td>
         <td data-tool="Webrecorder"><span class="badge badge--skip">RFC 3161 in spec (not default)</span></td>
         <td data-tool="Wayback Machine"><span class="badge badge--fail">Crawl timestamps only</span></td>
-        <td data-tool="PageFreezer"><span class="badge badge--skip">Stratum-1 clock (not RFC 3161)</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--skip">TSA, Stratum-1 clock</span></td>
         <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Internal timestamps</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--pass">OpenTimestamps (Bitcoin)</span></td>
@@ -110,7 +111,7 @@ wideContent: true
         <td data-tool="Manual + Notary"><span class="badge badge--fail">N/A</span></td>
         <td data-tool="Webrecorder"><span class="badge badge--pass">WACZ + WARC</span></td>
         <td data-tool="Wayback Machine"><span class="badge badge--pass">WARC</span></td>
-        <td data-tool="PageFreezer"><span class="badge badge--fail">PDF</span></td>
+        <td data-tool="PageFreezer"><span class="badge badge--pass">WARC, PDF</span></td>
         <td data-tool="Hanzo"><span class="badge badge--pass">WARC</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">Proprietary / PDF</span></td>
         <td data-tool="ProofSnap"><span class="badge badge--skip">ZIP package, optional WARC</span></td>
@@ -239,10 +240,13 @@ wideContent: true
 
 <h3>PageFreezer</h3>
 <p>
-  Enterprise-grade compliance platform (FedRAMP authorized, SOC 2). SHA-256 digital signatures with their
-  own timestamping infrastructure (Stratum-1 atomic clock, ESIGN Act compliant). Timestamps are not from
-  an independent third-party TSA per RFC 3161. Strong in social media archiving (Teams, Workplace) which
-  WRL does not offer. Verification is internal to their platform.
+  Enterprise-grade compliance platform (FedRAMP authorized for website archiving, SOC 2). Each archived
+  page carries a SHA-256 digital signature and a timestamp from a time stamp authority synchronized with a
+  Stratum-1 time server. PageFreezer calls that authority "RFC 3136 compliant", which reads like a typo for
+  RFC 3161, and does not say whether a third party runs it. Archives export as PDF, WARC and native files.
+  Strong in social media archiving (Teams, Workplace) which WRL does not offer; its WebPreserver browser
+  extension also collects social media evidence. Verification is internal to their platform. Timestamp,
+  export and extension details checked November 2026.
 </p>
 
 <h3>Hanzo</h3>
@@ -316,7 +320,7 @@ wideContent: true
 
 <p>
   All claims are based on publicly available documentation, product pages, and review platforms as of
-  March 2026 (ProofSnap and DEPT: November 2026). Where a capability could not be confirmed from public sources, the cell reads "Not
+  March 2026 (ProofSnap, PageFreezer and DEPT: November 2026). Where a capability could not be confirmed from public sources, the cell reads "Not
   documented" rather than "No". We do not have accounts with every listed service -- claims reflect
   what each service publicly represents, not hands-on testing of every feature. If any information is
   outdated or incorrect, please

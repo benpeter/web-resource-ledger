@@ -16,6 +16,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The comparison pages marked PageFreezer's format as PDF only and its timestamps as not RFC 3161; PageFreezer exports WARC as well as PDF and describes a time stamp authority synchronized with a Stratum-1 time server
 - The comparison page said it covered 13 tools and the landing page linked to it as 14, while its table compared WRL with 9; both pages now give the number of tools in the table
 - The MCP `verify_capture` description names the eIDAS-qualified timestamp check, and `delete_schedule` says it answers "Schedule not found." for an unknown or another account's schedule; it said it returns 404, which MCP callers never see
 
