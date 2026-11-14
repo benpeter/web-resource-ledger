@@ -283,14 +283,12 @@ function buildUsageSection(usageData) {
 
   section.appendChild(storageMetric);
 
-  // Footer: plan name, reset date, refresh button
+  // Footer: reset date, refresh button
   var footer = document.createElement('div');
   footer.className = 'usage-footer';
 
   var footerLeft = document.createElement('span');
-  var tierText = usageData.tierDisplay ? 'Plan: ' + usageData.tierDisplay : '';
-  var resetText = usageData.resetsAt ? 'Resets ' + formatDate(usageData.resetsAt) : '';
-  footerLeft.textContent = [tierText, resetText].filter(Boolean).join('  \u00b7  ');
+  footerLeft.textContent = usageData.resetsAt ? 'Resets ' + formatDate(usageData.resetsAt) : '';
   footer.appendChild(footerLeft);
 
   var refreshBtn = document.createElement('button');
