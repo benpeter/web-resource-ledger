@@ -290,7 +290,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 
 Special-case routes handled before the regex router: `POST /mcp`, `OPTIONS /mcp`, `OPTIONS /v1/captures`.
 
-`HEAD` runs as `GET` and drops the body on the paths in `HEAD_PATHS` (`src/index.js`): `/health`, `/favicon.ico`, `/ui`, `/v1/verify/{id}`, `/v1/captures/{id}` with its status, certificate and artifacts, and `/.well-known/signing-key(s)`. Link checkers and uptime monitors send `HEAD`. Other paths answer `HEAD` with 404, so GET routes with side effects (the one-time first key, the emailed links) never run on it.
+`HEAD` runs as `GET` and drops the body on the paths in `HEAD_PATHS` (`src/index.js`): `/health`, `/favicon.ico`, `/ui`, `/v1/verify/{id}`, `/v1/captures/{id}` with its status, certificate and artifacts, `/.well-known/signing-key(s)` and `/.well-known/security.txt`. Link checkers and uptime monitors send `HEAD`. Other paths answer `HEAD` with 404, so GET routes with side effects (the one-time first key, the emailed links) never run on it.
 
 For request/response schemas, see `openapi.yaml`.
 
@@ -313,6 +313,7 @@ For request/response schemas, see `openapi.yaml`.
 | GET | `/v1/verify/{captureId}` | none | verify | public-api |
 | GET | `/.well-known/signing-key` | none | verify | public-api |
 | GET | `/.well-known/signing-keys` | none | verify | public-api |
+| GET | `/.well-known/security.txt` | none | — | infra |
 | POST | `/v1/admin/keys` | admin-key | admin | admin |
 | GET | `/v1/admin/keys` | admin-key | admin | admin |
 | DELETE | `/v1/admin/keys/{keyHash}` | admin-key | admin | admin |

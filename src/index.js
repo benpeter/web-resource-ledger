@@ -88,6 +88,7 @@ const routes = [
   ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
   ['GET',    /^\/\.well-known\/signing-key$/, handleGetSigningKey],
   ['GET',    /^\/\.well-known\/signing-keys$/, handleGetSigningKeys],
+  ['GET',    /^\/\.well-known\/security\.txt$/, handleSecurityTxt],
   ['POST',   /^\/v1\/admin\/keys$/, handleAdminCreateKey],
   ['GET',    /^\/v1\/admin\/keys$/, handleAdminListKeys],
   ['DELETE', /^\/v1\/admin\/keys\/([a-f0-9]{64})$/, handleAdminRevokeKey],
@@ -159,6 +160,7 @@ const HEAD_PATHS = [
   /^\/v1\/verify\/cap_[a-f0-9]{32}$/,
   /^\/v1\/captures\/cap_[a-f0-9]{32}(\/status|\/certificate|\/artifacts\/(screenshot-before|screenshot|html|headers|wacz))?$/,
   /^\/\.well-known\/signing-keys?$/,
+  /^\/\.well-known\/security\.txt$/,
 ];
 
 function getAllowedOrigin(request, env) {
@@ -567,6 +569,7 @@ export default {
       const VERIFY_ALLOWLIST = [
         /^\/v1\/verify\/cap_[a-f0-9]{32}$/,
         /^\/\.well-known\/signing-keys?$/,
+        /^\/\.well-known\/security\.txt$/,
         /^\/health$/,
         /^\/favicon\.ico$/,
         /^\/v1\/captures\/cap_[a-f0-9]{32}\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/,
@@ -813,6 +816,16 @@ export default {
     return response;
   },
 };
+
+// security.txt (RFC 9116) lives on the landing site; this host points there.
+const SECURITY_TXT_URL = 'https://webresourceledger.com/.well-known/security.txt';
+
+function handleSecurityTxt() {
+  return new Response(null, {
+    status: 301,
+    headers: { Location: SECURITY_TXT_URL, 'Cache-Control': 'public, max-age=86400' },
+  });
+}
 
 function handleFavicon() {
   // Serve SVG as favicon (modern browsers accept SVG favicons)

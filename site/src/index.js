@@ -15,8 +15,14 @@ const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 };
 
+// security.txt (RFC 9116) lives on the landing site.
+const SECURITY_TXT_URL = 'https://webresourceledger.com/.well-known/security.txt';
+
 export default {
   async fetch(request, env, ctx) {
+    if (new URL(request.url).pathname === '/.well-known/security.txt') {
+      return new Response(null, { status: 301, headers: { Location: SECURITY_TXT_URL, ...SECURITY_HEADERS } });
+    }
     let response;
     try {
       response = await env.ASSETS.fetch(request);
