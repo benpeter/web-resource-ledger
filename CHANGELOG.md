@@ -10,6 +10,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-14
+
 ### Added
 
 - A docs page, Email Notifications, lists the emails WRL sends (capture failures, approaching limit, limit reached, invoice, payment failure, weekly digest), when each goes out, where they go and how to turn them off; the docs didn't mention them
@@ -295,7 +297,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ---
 
-[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.1.0...v1.2.0
