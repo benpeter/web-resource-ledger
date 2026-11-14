@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import worker from '../src/index.js';
 import { MINUTE_CRON } from '../src/crons.js';
 import { failStaleCaptures } from '../src/stale-captures.js';
-import { seedCapture, seedSchedule, cleanDb } from './fixtures.js';
+import { seedCapture, seedSchedule, seedWebhook, cleanDb } from './fixtures.js';
 
 const NOW = new Date('2026-11-14T12:00:00.000Z');
 const HOUR = 60 * 60 * 1000;
@@ -19,6 +19,7 @@ const RECENT = 'cap_' + '2'.repeat(32);
 const OLD_COMPLETE = 'cap_' + '3'.repeat(32);
 const STALE_WITH_REASON = 'cap_' + '4'.repeat(32);
 const SCH = 'sch_' + '5'.repeat(32);
+const WEBHOOK = 'whk_' + '6'.repeat(32);
 
 async function captureRow(id) {
   return env.DB.prepare('SELECT status, error, retryable, failed_at FROM captures WHERE id = ?').bind(id).first();
@@ -64,6 +65,41 @@ describe('failStaleCaptures', () => {
     await failStaleCaptures(env, NOW);
     const sch = await env.DB.prepare('SELECT last_capture_status FROM schedules WHERE id = ?').bind(SCH).first();
     expect(sch.last_capture_status).toBe('failed');
+  });
+});
+
+// Phase 0169: a webhook consumer waiting for complete or failed never heard of
+// these captures, and the failure email left them out too.
+describe('a capture WRL lost track of is reported like any other failure', () => {
+  it('sends a capture.failed webhook', async () => {
+    await seedWebhook(env.DB, WEBHOOK);
+    await seedCapture(env.DB, STALE, { createdAt: ago(25) });
+    const sent = [];
+    await failStaleCaptures({ ...env, WEBHOOK_QUEUE: { send: async (msg) => { sent.push(msg); } } }, NOW);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].eventType).toBe('capture.failed');
+    expect(JSON.parse(sent[0].payload).data).toMatchObject({
+      captureId: STALE,
+      status: 'failed',
+      failedAt: NOW.toISOString(),
+      error: 'WRL lost track of this capture before it finished.',
+      retryable: true,
+    });
+  });
+
+  it('queues the capture failure email', async () => {
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO tenants (id) VALUES ('default')"),
+      env.DB.prepare(
+        `INSERT INTO notification_preferences (tenant_id, email, email_verified)
+         VALUES ('default', 'user@example.com', 1)`,
+      ),
+    ]);
+    await seedCapture(env.DB, STALE, { createdAt: ago(25) });
+    const sent = [];
+    await failStaleCaptures({ ...env, EMAIL_QUEUE: { send: async (msg) => { sent.push(msg); } } }, NOW);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].notificationType).toBe('capture_failure');
   });
 });
 
