@@ -12,6 +12,7 @@ import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
 import { runRetentionJobs } from './retention.js';
+import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
@@ -492,6 +493,7 @@ export default {
     await handleScheduledTick(controller, env, ctx);
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
+      ctx.waitUntil(failStaleCaptures(env, new Date(controller.scheduledTime)));
     }
   },
 

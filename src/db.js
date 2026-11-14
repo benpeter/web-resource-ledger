@@ -229,6 +229,35 @@ export async function failCaptureAfterRetries(db, captureId, attempts) {
 }
 
 /**
+ * Mark captures still pending before `before` as failed, keeping the reason of
+ * the last failed attempt when one was recorded (phase 0139). Retries finish
+ * within an hour, so such a capture lost its queue message and nothing else
+ * would ever finish it.
+ *
+ * @param {D1Database} db
+ * @param {string} before   ISO timestamp; captures created earlier are failed
+ * @param {string} failedAt ISO timestamp written to failed_at
+ * @returns {Promise<string[]>} IDs of the captures it failed
+ */
+export async function failStalePendingCaptures(db, before, failedAt) {
+  const { results } = await db.prepare(
+    `UPDATE captures
+     SET status = 'failed',
+         failed_at = ?,
+         error = CASE
+           WHEN error IS NOT NULL AND error <> '' THEN rtrim(error, '.') || '. WRL then lost track of the capture.'
+           ELSE 'WRL lost track of this capture before it finished.'
+         END,
+         retryable = 1
+     WHERE status = 'pending' AND created_at < ?
+     RETURNING id`,
+  ).bind(failedAt, before).all();
+  const ids = results.map((r) => r.id);
+  if (ids.length > 0) await db.batch(ids.map((id) => syncScheduleStatusStatement(db, id)));
+  return ids;
+}
+
+/**
  * Read a single capture record by ID.
  *
  * @param {D1Database} db
