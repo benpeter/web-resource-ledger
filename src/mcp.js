@@ -1042,7 +1042,8 @@ function createMcpServer(env, ctx, auth, origin) {
         lines.push(`  Name:     ${r.name}`);
         lines.push(`  URL:      ${displayUrl}`);
         lines.push(`  Cron:     ${r.cron}`);
-        lines.push(`  Next run: ${r.nextRunAt ?? 'unknown'}`);
+        lines.push(`  Status:   ${r.paused ? 'paused' : 'active'}`);
+        lines.push(`  Next run: ${r.paused ? '(paused)' : (r.nextRunAt ?? 'unknown')}`);
         lines.push(`  Created:  ${r.createdAt}`);
       }
 
