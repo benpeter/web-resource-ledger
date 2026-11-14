@@ -88,7 +88,7 @@ describe('GET /v1/account/usage -- auth', () => {
 
   it('returns 403 with an API key that lacks the read scope', async () => {
     const rawKey = 'wrl_live_' + 'v'.repeat(43);
-    await seedApiKey(env.DB, rawKey, { tenantId: 'usage-key-tenant', scopes: ['capture'] });
+    await seedApiKey(env.DB, rawKey, { tenantId: 'usage-key-tenant', scopes: ['admin'] });
 
     const res = await SELF.fetch(USAGE_URL, {
       headers: {
