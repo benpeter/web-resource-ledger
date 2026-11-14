@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Added
+
+- A docs page, Email Notifications, lists the emails WRL sends (capture failures, approaching limit, limit reached, invoice, payment failure, weekly digest), when each goes out, where they go and how to turn them off; the docs didn't mention them
+
 ### Changed
 
 - The comparison page compares ProofSnap, which now has an API, an MCP server and optional eIDAS-qualified timestamps, describes DEPT and its evidx capture tool, explains with the archive.today removal from Wikipedia why a signature made at capture time matters, and points to ProofSnap and evidx for pages behind a login

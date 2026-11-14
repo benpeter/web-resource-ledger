@@ -30,6 +30,7 @@ export default {
         { title: "API Reference", url: "/api-reference/" },
         { title: "Limits & Quotas", url: "/limits/" },
         { title: "Webhooks", url: "/webhooks/" },
+        { title: "Email Notifications", url: "/notifications/" },
         { title: "MCP Server", url: "/mcp/" },
         { title: "Architecture", url: "/architecture/" },
         { title: "Compare", url: "/compare/" },
