@@ -76,6 +76,7 @@ curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b
   "verified": true,
   "capture": {
     "id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+    "url": "https://example.com/terms",
     "createdAt": "2026-03-22T10:30:00.000Z",
     "completedAt": "2026-03-22T10:30:12.481Z",
     "renderQuality": "full"
@@ -110,6 +111,8 @@ The `verifyUrl` included in every capture record also renders as a human-readabl
 | **Digital signature** (`signature`) | The bundle was signed by the operator's Ed25519 private key. The signature is over the bundle hash. |
 | **Time verification** (`timeVerification`) | An independent timestamp authority recorded the time of capture. Shows the strongest available tier: qualified electronic timestamp (eIDAS Art. 41) when present, otherwise standard RFC 3161 timestamp. |
 | **Timestamp chain** (`timestampChain`) | The timestamp was signed by a certificate authority in a trusted chain (CLI only). Confirms the TSA itself is legitimate. |
+
+The browser page and the CLI's readable output show time verification as one row. In the JSON of `GET /v1/verify/{id}` and of the CLI's `--json` it is two checks: `timestamp` for the RFC 3161 timestamp, and `qualifiedTimestamp` for captures that also have an eIDAS-qualified one.
 
 When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture -- meaning the capture cannot have been backdated. WRL's SHA-256 hashing and documentation practices align with SWGDE Best Practices for Acquiring Online Content sections 7.3 and 7.5; see [SWGDE Alignment](/security/swgde-compliance/) for the full mapping.
 

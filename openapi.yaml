@@ -691,32 +691,45 @@ components:
           type: ['string', 'null']
           description: ID of the schedule that triggered this capture, if any. Null for manually submitted captures.
         changeSummary:
-          type: object
+          $ref: '#/components/schemas/ChangeSummary'
           description: >
             Summary of what changed compared to the previous scheduled capture of
             the same URL. Present only on captures produced by a schedule that has
             a prior capture to compare against.
+
+    ChangeSummary:
+      type: object
+      description: What changed between a scheduled capture and the schedule's previous capture.
+      properties:
+        changed:
+          type: boolean
+          description: True if any artifact changed.
+        previousCaptureId:
+          $ref: '#/components/schemas/CaptureId'
+        html:
+          type: object
           properties:
             changed:
               type: boolean
-              description: True if any artifact changed.
-            previousCaptureId:
-              $ref: '#/components/schemas/CaptureId'
-            html:
-              type: object
-              properties:
-                changed:
-                  type: boolean
-            screenshot:
-              type: object
-              properties:
-                changed:
-                  type: boolean
-            headers:
-              type: object
-              properties:
-                changed:
-                  type: boolean
+            additions:
+              type: integer
+              description: Lines added to the rendered HTML.
+            deletions:
+              type: integer
+              description: Lines removed from the rendered HTML.
+        screenshot:
+          type: object
+          properties:
+            changed:
+              type: boolean
+        headers:
+          type: object
+          properties:
+            changed:
+              type: boolean
+            changes:
+              type: integer
+              description: Response headers added, removed or changed, plus one if the HTTP status changed.
 
     CaptureSummary:
       type: object
@@ -1500,7 +1513,10 @@ components:
         nextRunAt:
           type: ['string', 'null']
           format: date-time
-          description: ISO 8601 timestamp of the next scheduled run. Null when the schedule is paused.
+          description: >
+            ISO 8601 timestamp of the next scheduled run. A paused schedule keeps the
+            time computed before it was paused and doesn't run then; resuming sets a
+            new time from now.
         lastRunAt:
           type: ['string', 'null']
           format: date-time
@@ -1511,10 +1527,22 @@ components:
         lastCaptureStatus:
           type: ['string', 'null']
           description: Status of the most recent capture. Null when the schedule has not run yet.
+        changeSummary:
+          oneOf:
+            - $ref: '#/components/schemas/ChangeSummary'
+            - type: 'null'
+          description: >
+            Change summary of the schedule's most recent capture. Filled in by
+            `GET /v1/schedules`; null in the other schedule responses and when the
+            last capture had nothing to compare against.
         createdAt:
           type: string
           format: date-time
           description: ISO 8601 timestamp when this schedule was created.
+        updatedAt:
+          type: ['string', 'null']
+          format: date-time
+          description: ISO 8601 timestamp of the last change to the schedule (edit, pause, resume or run). Null for a schedule that was never changed.
 
     ScheduleCreate:
       type: object
@@ -1574,18 +1602,21 @@ components:
       properties:
         name:
           type: string
-          enum: [artifactHashes, bundleHash, signature, timestamp]
+          enum: [artifactHashes, bundleHash, signature, timestamp, qualifiedTimestamp]
           description: >
             Which check this result represents. artifactHashes verifies individual
             file integrity; bundleHash verifies the overall archive; signature
             verifies the Ed25519 signature over the bundle hash; timestamp verifies
-            the RFC 3161 independent timestamp when present (v0.2.0 bundles only).
+            the RFC 3161 independent timestamp (v0.2.0 bundles only);
+            qualifiedTimestamp verifies the eIDAS-qualified RFC 3161 timestamp,
+            only for captures that have one.
         status:
           type: string
           enum: [pass, fail, skip]
           description: >
-            Outcome of the check. "skip" means the check was not performed because
-            a prerequisite check failed.
+            Outcome of the check. "skip" means the check was not performed: a
+            prerequisite check failed, or (for timestamp) no timestamp was obtained
+            when the capture was made. A skip doesn't make `verified` false.
         detail:
           type: string
           description: Human-readable failure reason. Present only when status is "fail" or "skip" with context.
@@ -1626,14 +1657,31 @@ components:
             tsa:
               type: string
               description: TSA endpoint URL.
+        qualifiedTimestamp:
+          type: object
+          description: >
+            eIDAS-qualified RFC 3161 timestamp data. Present only when the capture has a
+            qualified timestamp and it verified.
+          properties:
+            genTime:
+              type: string
+              format: date-time
+              description: Time recorded by the qualified TSA.
+            tsa:
+              type: string
+              description: Qualified TSA endpoint URL.
 
     VerificationCapture:
       type: object
       description: Capture identity and timing metadata, extracted from the database record.
-      required: [id, createdAt, completedAt]
+      required: [id, url, createdAt, completedAt]
       properties:
         id:
           $ref: '#/components/schemas/CaptureId'
+        url:
+          type: string
+          format: uri
+          description: The captured URL.
         createdAt:
           type: string
           format: date-time
@@ -1677,8 +1725,9 @@ components:
           type: array
           description: >
             Verification check results, always in order: artifactHashes, bundleHash, signature,
-            and (for v0.2.0 bundles) timestamp. Legacy v0.1.0 bundles produce three checks;
-            v0.2.0 bundles produce up to four.
+            and (for v0.2.0 bundles) timestamp, then qualifiedTimestamp for captures with an
+            eIDAS-qualified timestamp. Legacy v0.1.0 bundles produce three checks; v0.2.0
+            bundles four, or five with a qualified timestamp.
           items:
             $ref: '#/components/schemas/VerificationCheck'
         captureSettings:
@@ -3779,6 +3828,7 @@ paths:
                     verified: true
                     capture:
                       id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      url: https://example.com/
                       createdAt: '2024-01-15T10:30:00.000Z'
                       completedAt: '2024-01-15T10:30:45.123Z'
                       renderQuality: full
@@ -3801,6 +3851,7 @@ paths:
                     verified: true
                     capture:
                       id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      url: https://example.com/
                       createdAt: '2024-01-15T10:30:00.000Z'
                       completedAt: '2024-01-15T10:30:45.123Z'
                       renderQuality: full
@@ -3820,6 +3871,7 @@ paths:
                     verified: false
                     capture:
                       id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      url: https://example.com/
                       createdAt: '2024-01-15T10:30:00.000Z'
                       completedAt: '2024-01-15T10:30:45.123Z'
                       renderQuality: full
@@ -3838,6 +3890,7 @@ paths:
                     verified: false
                     capture:
                       id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                      url: https://example.com/
                       createdAt: '2024-01-15T10:30:00.000Z'
                       completedAt: '2024-01-15T10:30:45.123Z'
                     signing: null
@@ -5239,6 +5292,10 @@ paths:
                           type: integer
                         eidasCaptureCount:
                           type: integer
+                        updatedAt:
+                          type: string
+                          format: date-time
+                          description: When this period's counters last changed.
         '400':
           $ref: '#/components/responses/Problem400'
         '401':

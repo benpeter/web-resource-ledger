@@ -10,6 +10,15 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Removed
+
+- `tenant_id` from schedule responses (create, list, get, update): an internal field that the API reference never listed, holding the caller's own tenant id
+
+### Fixed
+
+- The API reference lists the `qualifiedTimestamp` verification check, which captures with an eIDAS-qualified timestamp get, and `signing.qualifiedTimestamp`; a client validating verify responses against the reference rejected them. It also documents `capture.url` in verify responses, `html.additions`, `html.deletions` and `headers.changes` in change summaries, `changeSummary` and `updatedAt` on schedules, and `updatedAt` in the admin usage history
+- The API reference and the schedules guide say a paused schedule keeps its `nextRunAt`; the reference said it was null
+
 ## [1.3.0] - 2026-11-14
 
 ### Added
