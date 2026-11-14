@@ -22,6 +22,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Batch captures, MCP captures and scheduled captures get a qualified (eIDAS) timestamp when the account has qualified timestamps turned on; only `POST /v1/captures` requested one
 - The security overview and whitepaper say eleven alert rules (they said nine), the subprocessor list covers email sign-in and Pirsch, and the whitepaper says which capture paths are screened
 - The legal-evidence page and the verify README describe what the `--legal` report contains; they listed an operator identity, the timestamp token and the TSA certificate chain, which the report doesn't include, and said every capture has a timestamp
 - MCP `capture_url` and `batch_capture` check the monthly quota and the account state, like the REST capture endpoints; before, an MCP client could capture past the 200 free captures, and a blocked account could still capture through MCP
