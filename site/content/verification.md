@@ -115,6 +115,24 @@ When all checks pass, you know: every byte matches what was captured; the WACZ w
 
 For how these technical properties map to legal authentication standards (FRE 901/902, eIDAS), see [Legal Evidence](/legal-evidence/). To obtain a certification document designed to support a Rule 902(13) self-authentication foundation, use `GET /v1/captures/{captureId}/certificate` or the "Download Certificate" button in the web UI -- see [Certified records](/legal-evidence/#rule-902-13-certified-records).
 
+### Partial captures
+
+When a page has not finished loading after 20 seconds but its HTML has (the browser fired `DOMContentLoaded`), WRL captures the page as it stands instead of failing. The capture has `"renderQuality": "partial"`. Images, fonts or content that would have loaded later may be missing from the screenshot and the HTML.
+
+A partial capture is signed and timestamped like a full one, and every check above runs the same way. The bundle's `datapackage.json` records how far the page got, so that record is covered by the signature too:
+
+```json
+"captureQuality": {
+  "renderQuality": "partial",
+  "waitUntilReached": "domcontentloaded",
+  "timedOut": true
+}
+```
+
+A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` and `"timedOut": false`. `GET /v1/verify/{id}` returns `capture.renderQuality`, and the verification page shows a partial capture with a "Page load" row under the checks.
+
+Partial captures made before November 2026 have no WACZ bundle, because partial captures were not signed then. They cannot be verified, and `GET /v1/verify/{id}` returns `404` for them.
+
 ---
 
 <details>

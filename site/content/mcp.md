@@ -275,6 +275,7 @@ Verification PASSED for capture cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.
 Captured URL: https://example.com
 Captured: 2026-03-22T10:30:00.000Z
 Completed: 2026-03-22T10:30:12.481Z
+Render quality: full
 
 Checks:
   artifactHashes: PASS
@@ -587,7 +588,7 @@ Captures normally complete in 5--15 seconds. If `get_capture` returns pending af
 
 ### "Capture not found or not yet complete"
 
-`verify_capture` only works on complete captures. If you call it while a capture is still pending, wait for completion and try again. If the ID does not exist, confirm you are using the correct capture ID.
+`verify_capture` only works on complete captures. If you call it while a capture is still pending, wait for completion and try again. If the ID does not exist, confirm you are using the correct capture ID. Complete captures without a WACZ bundle give the same message; that includes partial captures made before November 2026, which were not signed (see [Partial captures](/verification/#partial-captures)).
 
 ### "WACZ bundle exceeds maximum verifiable size (100 MB)"
 

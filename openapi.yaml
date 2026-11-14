@@ -571,8 +571,10 @@ components:
             Render quality of the capture. 'full' when the page reached the load
             milestone before capture (followed by an adaptive settle phase, up to
             3s). 'partial' when the capture was taken after a navigation timeout
-            but DOMContentLoaded had fired. Defaults to 'full' for captures
-            created before this feature.
+            but DOMContentLoaded had fired. Partial captures get a signed,
+            timestamped WACZ bundle like full ones, and the bundle's
+            datapackage.json records the render quality in `captureQuality`.
+            Defaults to 'full' for captures created before this feature.
         render:
           $ref: '#/components/schemas/RenderInfo'
           description: >
@@ -591,7 +593,8 @@ components:
           description: >
             URL to the human-readable verification page for this capture's WACZ bundle.
             Present only when `wacz` is present. Omitted when the capture has no WACZ
-            bundle (e.g., partial captures from navigation timeouts).
+            bundle (no signing key configured, or a partial capture made before
+            November 2026, when partial captures were not yet signed).
           examples:
             - https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
         certificateUrl:
@@ -1579,7 +1582,10 @@ components:
         renderQuality:
           type: string
           enum: [full, partial]
-          description: Render quality of the verified capture.
+          description: >
+            Render quality of the verified capture. 'partial' means the page did not
+            finish loading before it was captured; the bundle is signed and verified
+            all the same.
 
     VerificationResult:
       type: object
@@ -3087,7 +3093,7 @@ paths:
                     completedAt: '2024-01-15T10:30:45.123Z'
                     renderQuality: partial
                     render:
-                      waitUntilReached: load
+                      waitUntilReached: domcontentloaded
                       timedOut: true
                       durationMs: 20012
                     artifacts:
@@ -3547,8 +3553,10 @@ paths:
         **A 200 status does NOT mean the capture is verified -- check the `verified` field.**
         The endpoint returns 200 for all reachable captures, even when verification fails.
 
-        Captures without a WACZ bundle (including partial captures from navigation
-        timeouts) return 404 from this endpoint.
+        Partial captures (navigation timed out after DOMContentLoaded) are signed
+        and verify like full captures; `capture.renderQuality` is `partial` for
+        them. Captures without a WACZ bundle return 404 from this endpoint; that
+        includes partial captures made before November 2026, which were not signed.
       tags: [verification]
       security: []
       parameters:

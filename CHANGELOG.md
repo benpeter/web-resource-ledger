@@ -21,6 +21,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - Support page in the docs: where to ask, what to include, and that no plan includes an SLA
 - Captures quarantined by threat detection are deleted 90 days after quarantine, and usage counters older than 12 billing periods are removed, as the data-retention page describes
 - Landing hero links to a real capture (Wikipedia's "Link rot" article) that visitors can verify without an account
+- Every WACZ bundle records `captureQuality` (`renderQuality`, `waitUntilReached`, `timedOut`) in its signed `datapackage.json`
+- The verification page shows a "Page load" row for a partial capture, and MCP `verify_capture` prints the render quality
 
 ### Privacy
 
@@ -39,9 +41,11 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - Captures of a Cloudflare bot check ("Just a moment...") now fail with a message instead of completing; they aren't counted against the quota and no timestamp is spent on them
 - Failed captures keep the reason of the last attempt, followed by "WRL tried 4 times.", instead of "Capture permanently failed after all retry attempts", in the API, webhooks, failure emails and the dashboard
 - Screenshots render at 2x device scale instead of 4x, so the largest is 2,560 by 16,000 pixels and screenshots take about a quarter of the space
+- Partial captures (the page timed out after its HTML loaded) get a signed, timestamped WACZ bundle, a verification link and a certificate, like full captures; with qualified timestamps turned on they use one too
 
 ### Fixed
 
+- The `capture.complete` webhook sent a `verificationUrl` for partial captures that answered 404; partial captures now verify
 - MCP `list_schedules` shows whether each schedule is active or paused, and `(paused)` instead of a next run for paused schedules
 - The MCP guide documents `update_schedule` and the `schedule_id` filter on `list_captures`, and its `get_usage` example matches the output
 - `GET /v1/account/usage` answered 401 to API keys although the API reference documents bearer auth; it now takes an API key with the `read` scope, like the MCP tool `get_usage`. The API reference now lists the fields the endpoint returns (`billingStatus`, `hasPaymentMethod`, `gracePeriodEnd`, `billing`) instead of `tierDisplay`, which it never sent

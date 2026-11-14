@@ -34,7 +34,7 @@
 | 3 | `capture.dequeued` | Queue consumer picked up a capture message |
 | 3 | `capture.start` | Browser render starting (`performCapture` entry) |
 | 3 | `capture.success` | Full capture completed successfully |
-| 3 | `capture.partial` | Capture completed but with degraded quality (nav timeout) |
+| 3 | `capture.partial` | Capture completed but with degraded quality (nav timeout); signed like a full capture since phase 0138 (waczStatus, timestampStatus) |
 | 3 | `capture.batch` | Batch capture request accepted |
 | 6 | `capture.list` | Captures list query (verbose/audit) |
 | 4 | `capture.retry` | Capture being retried after failure |

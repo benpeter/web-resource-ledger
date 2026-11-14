@@ -166,6 +166,8 @@ A failed capture has an `error` that says why, in the API status response, the c
 
 After repeated attempts the message ends with "WRL tried 4 times." Failed captures don't count against your monthly quota.
 
+A page that times out after its HTML has loaded doesn't fail. WRL captures it as it stands and marks it `"renderQuality": "partial"`; it is signed, timestamped and counted like any other capture. See [Partial captures](/verification/#partial-captures).
+
 ## Custom Quotas (Operators)
 
 Operators can override the default tier quotas for individual tenants via the admin API. This is useful for granting higher limits to enterprise tenants or restricting a specific tenant below the tier default.
