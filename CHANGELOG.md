@@ -14,8 +14,15 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 - `GET /v1/schedules` returns the account's schedule limit as `limit`, and MCP `list_schedules` starts with "N of LIMIT schedules"
 
+### Removed
+
+- The unread `STRIPE_PUBLISHABLE_KEY` variable (checkout and the billing portal are Stripe-hosted pages)
+
 ### Fixed
 
+- Staging emails (email confirmation, unsubscribe, billing) and staging webhook payloads link to staging. They linked to production, where staging captures and tokens don't exist
+- The data-retention page says what Cloudflare's edge cache holds: verification responses of verified captures, for up to 24 hours. It said capture artifacts, which are not edge-cached
+- OPERATIONS.md and INTERNALS list every secret and variable the Worker reads, including `PIRSCH_ACCESS_KEY`, `VERIFICATION_BASE_URL`, `MAX_BATCH_SIZE` and `ANALYTICS_EXCLUDE_TENANTS`; a sync test keeps them in step with the code
 - The webhooks guide says WRL waits 10 seconds for an endpoint to answer before it counts the delivery as failed and retries
 - The README and the MCP guide count five verification checks for captures with a qualified timestamp; they said four
 - The dashboard's schedule panel shows the account's real schedule limit. It read `limit` from `GET /v1/schedules`, which didn't send one, so it always showed 10 and refused an eleventh schedule in the browser even when an operator had raised the limit
