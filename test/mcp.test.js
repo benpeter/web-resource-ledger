@@ -900,6 +900,7 @@ describe('tool: get_usage', () => {
   });
 
   afterEach(async () => {
+    await env.DB.prepare('DELETE FROM usage_counters WHERE tenant_id = ?').bind('default').run();
     await env.DB.prepare('DELETE FROM tenants WHERE id = ?').bind('default').run();
   });
 
@@ -911,6 +912,14 @@ describe('tool: get_usage', () => {
     expect(body.result.isError).toBeUndefined();
     const text = body.result.content[0].text;
     expect(text.toLowerCase()).toMatch(/usage|captures used/i);
+  });
+
+  // It said "2560014 KB / 10240 MB" for the founder's account: two units an
+  // agent has to convert before it can compare them
+  it('gives used and free storage in GB, as the quota messages do', async () => {
+    await seedUsageCounter(env.DB, { period: computePeriod(), storageBytes: 2621440000 });
+    const body = await (await mcpPost(toolCall('get_usage', {}))).json();
+    expect(body.result.content[0].text).toContain('Storage used:    2.4 GB / 10.0 GB');
   });
 });
 
