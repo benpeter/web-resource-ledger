@@ -281,6 +281,8 @@ If your endpoint does not return a 2xx response, WRL retries with a fixed schedu
 
 After all retries are exhausted, the event is moved to the dead-letter queue and no further delivery is attempted.
 
+WRL waits 10 seconds for your endpoint to answer. A delivery that takes longer counts as failed and is retried, like a 5xx response or a connection error.
+
 **Non-retryable responses:** 4xx responses other than 408 (Request Timeout) and 429 (Too Many Requests) are treated as permanent failures and are not retried. Your endpoint should return 200 immediately after receiving and queuing the payload -- do not block on processing.
 
 ---
