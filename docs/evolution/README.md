@@ -140,3 +140,4 @@ software development.
 | [0131-email-login](0131-email-login/) | Sign in with an emailed link as an alternative to GitHub |
 | [0132-schedule-management](0132-schedule-management/) | Edit, pause and resume schedules (API, MCP, dashboard), see one schedule's captures, schedule status follows its capture |
 | [0133-ci-node24-playwright](0133-ci-node24-playwright/) | Scheduled E2E runs work again on Ubuntu 26.04 runners (Playwright 1.65), and every GitHub Action runs on Node 24 |
+| [0134-usage-api-key](0134-usage-api-key/) | `GET /v1/account/usage` takes an API key as documented, its API reference matches the response, and the quota E2E test waits for the usage counter |
