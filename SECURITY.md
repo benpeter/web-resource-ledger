@@ -8,6 +8,8 @@ WRL is a hosted service, and only the version running at `api.webresourceledger.
 
 Please report security vulnerabilities through [GitHub Security Advisories](https://github.com/benpeter/web-resource-ledger/security/advisories/new). This creates a private discussion where we can assess the issue before any public disclosure.
 
+The same channel is listed in [`security.txt`](https://webresourceledger.com/.well-known/security.txt) (RFC 9116); the API, verification and docs hosts redirect there.
+
 **Please do not open a public issue for security vulnerabilities.**
 
 ## What to Expect
