@@ -94,7 +94,10 @@ function cookieFrom(res) {
 
 let savedResendKey;
 beforeEach(async () => {
+  // Clean all metadata tables and rate limit counters
   await cleanDb(env.DB);
+  const { keys: rlKeys } = await env.KV.list({ prefix: 'rl:' });
+  for (const k of rlKeys) await env.KV.delete(k.name);
   stubResend();
   savedResendKey = env.RESEND_API_KEY;
   env.RESEND_API_KEY = 're_test_key_for_vitest';
