@@ -394,6 +394,7 @@ A capture job goes through `wrl-captures` like this (`handleCaptureMessage` in `
 4. **Retryable failure.** The reason of this attempt is stored in `captures.error` while the status stays `pending` (`recordAttemptError`; the API shows `error` only once a capture failed). The message is retried with exponential backoff: `min(10 * 2^(attempt-1), 300)` seconds, i.e. 10 s, 20 s, 40 s. `capture.retry` is logged with `retryReason`.
 5. **Retries exhausted.** After the fourth attempt (`max_retries = 3`, `CAPTURE_MAX_ATTEMPTS = 4`) the queue moves the message to `wrl-captures-dlq`. `handleDlqMessage` calls `failCaptureAfterRetries`, which keeps the last stored reason and adds "WRL tried 4 times.", then dispatches `capture.failed` webhooks and email and logs `capture.dlq`. The "[WRL] Captures Dead-Lettered" alert counts these (phase 0123).
 6. **Catastrophic error** (an exception escapes the handler, e.g. a D1 outage). The catch-all records the reason and retries with the same backoff; on the fourth attempt it fails the capture directly with `failCaptureAfterRetries` and logs `capture.fail`, which the "[WRL] Capture Failures" alert counts.
+7. **Lost message.** If the message never comes back (8 captures from July to September 2026 stayed pending that way), `failStaleCaptures` in `src/stale-captures.js` fails the capture on the hour once it is 24 hours old, keeping a recorded attempt reason, and logs `capture.stale_fail`. It sends no webhook or email.
 
 Webhook and email deliveries work differently: they retry on a fixed schedule of 60 s, 300 s and 900 s (`webhookRetryDelay`, `emailRetryDelay`) and only for failures that may pass later (5xx, 429, network errors). Permanent answers (webhook 400/422, email 401/403) are acked without retry, and a webhook deleted after enqueue is acked silently. Once the schedule is exhausted the handler acks the message itself, so their DLQ handlers mostly see messages that crashed the consumer; they only log, the per-attempt `webhook.deliver_fail` / `email.*` events carry the history.
 
@@ -403,7 +404,7 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 
 | Expression | Handler | Purpose |
 |---|---|---|
-| `*/1 * * * *` | `handleScheduledTick` + hourly `reportPendingMeterEvents` | Evaluate due tenant schedules; enqueue capture jobs. On the hour: flush pending Stripe meter events |
+| `*/1 * * * *` | `handleScheduledTick` + hourly `reportPendingMeterEvents`, `failStaleCaptures` | Evaluate due tenant schedules; enqueue capture jobs. On the hour: flush pending Stripe meter events, and fail captures still pending 24 hours after creation (phase 0139) |
 | `0 3 * * *` | `handleRescanTick` | Nightly re-scan of complete non-quarantined captures for threat changes |
 | `0 9 * * MON` | `handleWeeklyDigest`, `runRetentionJobs` | Weekly email digest and retention jobs (Monday 09:00 UTC). Cloudflare numbers weekdays from 1 = Sunday, so the day is named; until 2026-10-23 this was `0 9 * * 1` and ran on Sundays |
 

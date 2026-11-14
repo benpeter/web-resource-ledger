@@ -1,6 +1,6 @@
 # WRL Coralogix Log Events — Complete Reference
 
-**128 unique events** across 15 subsystems. Severities: 3=INFO, 4=WARN, 5=ERROR, 6=VERBOSE, 7=DEBUG.
+Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=WARNING, 5=ERROR, 6=CRITICAL. WRL doesn't log at 6; telemetry sent as 6 used to show up as Critical (fixed in phase 0136).
 
 ---
 
@@ -36,7 +36,7 @@
 | 3 | `capture.success` | Full capture completed successfully |
 | 3 | `capture.partial` | Capture completed but with degraded quality (nav timeout); signed like a full capture since phase 0138 (waczStatus, timestampStatus) |
 | 3 | `capture.batch` | Batch capture request accepted |
-| 6 | `capture.list` | Captures list query (verbose/audit) |
+| 2 | `capture.list` | Captures list query (telemetry) |
 | 4 | `capture.retry` | Capture being retried after failure |
 | 4 | `capture.consent_error` | Cookie consent dismissal threw an error |
 | 4 | `capture.header_fail` | HTTP header fetch failed (parallel fetch) |
@@ -46,6 +46,8 @@
 | 4 | `capture.qtsa_fail` | eIDAS qualified timestamp request failed (5s timeout) |
 | 4 | `capture.threat_check_storage_fail` | Threat check result couldn't be stored in D1 |
 | 4 | `capture.diff_headers_parse_fail` | JSON parse error when comparing capture headers |
+| 4 | `capture.attempt_error_record_fail` | Couldn't store the reason of a failed attempt before the retry |
+| 4 | `capture.stale_fail` | Hourly sweep failed captures still pending 24 hours after creation (count, captureIds); their queue message was lost (phase 0139) |
 | 5 | `capture.stage.fail` | Browser render stage failed (with errorCategory + retryable flag) |
 | 5 | `capture.fail` | Catch-all unhandled error in capture pipeline |
 | 5 | `capture.invalid_message` | Malformed queue message (bad structure/types) |
@@ -54,6 +56,8 @@
 | 5 | `capture.kv_create_fail` | D1 record creation failed |
 | 5 | `capture.list_fail` | Captures list query threw an error |
 | 5 | `capture.dlq` | All retry attempts exhausted, dead-letter queue |
+| 5 | `capture.fail_record_fail` | Couldn't mark a capture failed after its last attempt or from the DLQ; it stays pending until the hourly sweep |
+| 5 | `capture.stale_fail_error` | The hourly sweep of stale pending captures threw |
 
 ### Default Renderer (`render.default.*`)
 
@@ -229,6 +233,13 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 5 | `schedule.list_fail` | Schedule list query failed |
 | 5 | `schedule.batch_enqueue_fail` | Schedule batch enqueue failed |
 
+## Sitemap (`sitemap`)
+
+| Sev | Event | Meaning |
+|-----|-------|---------|
+| 2 | `sitemap.read` | `POST /v1/sitemap` read a sitemap (urls, total, sitemapsRead) |
+| 2 | `sitemap.read_fail` | The sitemap couldn't be read (status, detail) |
+
 ## Meter (`meter`)
 
 | Sev | Event | Meaning |
@@ -271,3 +282,10 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | Sev | Event | Meaning |
 |-----|-------|---------|
 | 5 | `unsubscribe.db_error` | Unsubscribe D1 operation failed |
+
+## Landing and docs Workers (`pageview`)
+
+| Sev | Event | Meaning |
+|-----|-------|---------|
+| 5 | `landing.assets_fail` | The landing Worker couldn't fetch a static asset and answered 500 |
+| 5 | `docs.assets_fail` | The docs Worker couldn't fetch a static asset and answered 500 |

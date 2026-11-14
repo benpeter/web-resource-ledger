@@ -163,6 +163,7 @@ A failed capture has an `error` that says why, in the API status response, the c
 | The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it. This happens on some pages with heavy animation. | Yes |
 | Page exceeded 500 subresource limit / 50MB size limit | The page loads more than WRL captures. | No |
 | Could not navigate to the target URL, or a message about the browser session | A problem on WRL's side or the network. | Yes |
+| WRL lost track of this capture before it finished | A problem on WRL's side: the capture was still pending 24 hours after it was submitted. Submit it again. | No |
 
 After repeated attempts the message ends with "WRL tried 4 times." Failed captures don't count against your monthly quota.
 
