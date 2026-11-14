@@ -6,7 +6,7 @@ description: Third-party subprocessors used by WRL — cloud infrastructure, sto
 
 # Subprocessors
 
-Last updated: 2026-10-23
+Last updated: 2026-11-14
 
 > **What this page is:** WRL runs on Cloudflare's infrastructure and integrates with a small set of external services to authenticate users, process payments, send email, screen URLs for threats, and issue cryptographic timestamps. This page lists every third-party service that processes data on behalf of WRL or its customers, what data each service receives, and the legal mechanism that governs the transfer. No service receives personal data beyond what is strictly necessary for its function.
 
@@ -34,7 +34,7 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 ### GitHub
 
 **Entity:** GitHub, Inc. (USA), a Microsoft subsidiary
-**Purpose:** OAuth authentication — WRL uses GitHub as its identity provider
+**Purpose:** OAuth authentication — one of two ways to sign in to WRL (the other is a sign-in link sent by email through Resend)
 **Data processed:** GitHub user ID, GitHub username, and primary verified email address (via `read:user user:email` OAuth scopes). The GitHub access token is used once to fetch identity, then discarded and never stored.
 **Data location:** USA
 **Transfer mechanism:** EU-US Data Privacy Framework + Standard Contractual Clauses
@@ -100,7 +100,7 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 ### Google (Web Risk API)
 
 **Entity:** Google LLC (USA)
-**Purpose:** URL threat screening — WRL checks submitted URLs against Google's Web Risk threat intelligence before initiating a capture
+**Purpose:** URL threat screening — WRL checks each URL against Google's Web Risk threat intelligence before a capture starts (REST API, MCP tools and scheduled captures), and re-checks captured URLs daily
 **Data processed:** The URL submitted for capture. URLs may contain personal data if query strings include identifiable information (for example, a URL with a name or email address as a parameter).
 **Data location:** USA
 **Transfer mechanism:** EU-US Data Privacy Framework + Standard Contractual Clauses

@@ -25,7 +25,7 @@ import { z } from 'zod';
 import { verifyApiKey, hasScope } from './auth.js';
 import { validateUrl } from './url-validation.js';
 import {
-  createCapture, getCapture, failCapture, listCaptures, getTenantConfig,
+  createCapture, getCapture, failCapture, listCaptures, getTenantConfig, setCaptureThreatCheck,
   createSchedule, listSchedules, deleteSchedule, getSchedule, updateSchedule,
   countSchedules, getEffectiveScheduleLimit,
 } from './db.js';
@@ -36,6 +36,7 @@ import { log } from './log.js';
 import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
 import { readSitemap } from './sitemap.js';
 import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage } from './quotas.js';
+import { checkUrl, checkUrls } from './threat-check.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { validateCron, nextRun } from './cron.js';
@@ -109,6 +110,34 @@ async function mcpQuotaRefusal(env, ctx, auth, batchSize) {
       .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: auth.tenantId })));
   }
   return { isError: true, content: [{ type: 'text', text: quotaLimitDetail(quotaCheck, batchSize) }] };
+}
+
+// Web Risk screening, as on the REST capture endpoints: logs a block or an
+// unavailable check, and returns true when the URL is flagged.
+function mcpThreatBlocked(env, ctx, auth, threat) {
+  const caller = {
+    tenantId: auth.tenantId,
+    keyName: auth.keyName,
+    keyHashPrefix: auth.keyHashPrefix,
+    authMethod: auth.authMethod,
+    via: 'mcp',
+  };
+  if (!threat.safe) {
+    ctx.waitUntil(log(env, 5, 'security', { event: 'threatcheck.block', ...caller, threatTypes: threat.threatTypes, responseStatus: 422 }) ?? Promise.resolve());
+    return true;
+  }
+  if (threat.degraded) {
+    ctx.waitUntil(log(env, 4, 'security', { event: 'threatcheck.api_fail', ...caller, context: 'pre_capture', reason: threat.reason }) ?? Promise.resolve());
+  }
+  return false;
+}
+
+// Store the pre-capture check on the capture, so the daily re-scan knows it ran
+function mcpRecordThreatCheck(env, ctx, captureId, threat) {
+  ctx.waitUntil(
+    setCaptureThreatCheck(env.DB, captureId, threat.degraded ? 'unavailable' : 'pass')
+      .catch(err => log(env, 4, 'capture', { event: 'capture.threat_check_storage_fail', errorMessage: String(err?.message ?? '').slice(0, 128) })),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +266,15 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
+      // Step 3b: Threat check (content security screening)
+      const threat = await checkUrl(result.url, env);
+      if (mcpThreatBlocked(env, ctx, auth, threat)) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'URL flagged by content security screening' }],
+        };
+      }
+
       // Step 4: Generate capture ID
       const captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
 
@@ -260,6 +298,7 @@ function createMcpServer(env, ctx, auth, origin) {
           content: [{ type: 'text', text: 'Could not create capture record. Please try again.' }],
         };
       }
+      mcpRecordThreatCheck(env, ctx, captureId, threat);
 
       // Step 6: Dispatch to queue
       try {
@@ -698,9 +737,14 @@ function createMcpServer(env, ctx, auth, origin) {
       const results = [];
       let accepted = 0;
 
+      // SSRF validation for every URL first, then one Web Risk fan-out
+      const validations = [];
       for (const rawUrl of urls) {
-        // SSRF validation
-        const validation = await validateUrl(rawUrl);
+        validations.push(await validateUrl(rawUrl));
+      }
+      const threats = await checkUrls(validations.filter(v => v.ok).map(v => v.url), env);
+
+      for (const validation of validations) {
         if (!validation.ok) {
           ctx.waitUntil(log(env, 5, 'security', {
             event: 'security.ssrf_block',
@@ -713,6 +757,12 @@ function createMcpServer(env, ctx, auth, origin) {
             via: 'mcp',
           }) ?? Promise.resolve());
           results.push({ status: 'rejected', reason: validation.detail });
+          continue;
+        }
+
+        const threat = threats.get(validation.url) ?? { safe: true };
+        if (mcpThreatBlocked(env, ctx, auth, threat)) {
+          results.push({ status: 'rejected', reason: 'URL flagged by content security screening' });
           continue;
         }
 
@@ -735,6 +785,7 @@ function createMcpServer(env, ctx, auth, origin) {
           results.push({ status: 'rejected', reason: 'Could not create capture record.' });
           continue;
         }
+        mcpRecordThreatCheck(env, ctx, captureId, threat);
 
         // Dispatch to queue
         try {

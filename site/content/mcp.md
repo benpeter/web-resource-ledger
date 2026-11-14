@@ -591,6 +591,10 @@ A global capacity limit applies across all tenants. Retry after 10 seconds.
 
 `capture_url` and `batch_capture` check the monthly quota before they accept a capture, as the REST API does. Without a payment method an account gets 200 captures and 10 GB of storage a month. `batch_capture` refuses the whole batch when it would go past the limit ("Batch of 20 captures would exceed free tier limit"), even if a few captures are left; send a smaller batch. `get_usage` shows what is left and when it resets. Add a payment method in Settings to remove the limit, or wait for the reset date the message gives. See [Limits & Quotas](/limits/).
 
+### "URL flagged by content security screening"
+
+Google Web Risk lists the URL as malware, social engineering (phishing) or unwanted software, so WRL won't capture it. `capture_url` refuses it; `batch_capture` rejects that URL and captures the others. The REST API refuses the same URLs. If you think the listing is wrong, Google has a form to report it; WRL doesn't override the list.
+
 ### "Account is blocked" or "This account is scheduled for deletion"
 
 The account can't capture: it is blocked for non-payment, or a deletion was requested. The read tools keep working. Contact [hello@webresourceledger.com](mailto:hello@webresourceledger.com); a deletion can be cancelled during the 30 days before it is carried out.

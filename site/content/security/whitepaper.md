@@ -24,7 +24,7 @@ WRL runs entirely on Cloudflare's serverless infrastructure. There is no WRL-ope
 - **SSRF prevention** — all caller-supplied URLs are validated against a comprehensive private IP blocklist before being passed to Browser Rendering. The blocklist covers RFC 1918, link-local, CGNAT, loopback, and all IPv4 encoding variants (see `src/url-validation.js`).
 - **API key authentication with timing-safe comparison** — API keys are stored as SHA-256 hashes in D1. Key comparison uses `crypto.subtle.timingSafeEqual`. Raw keys are never logged or stored after creation (see `src/auth.js`).
 
-WRL is operated as a sole-proprietor service. There is no operations team, no 24/7 SOC, and no dedicated security staff. Incident detection relies on nine Coralogix alert rules with email notification. This constraint is disclosed in Section 12.
+WRL is operated as a sole-proprietor service. There is no operations team, no 24/7 SOC, and no dedicated security staff. Incident detection relies on eleven Coralogix alert rules with email notification. This constraint is disclosed in Section 12.
 
 ---
 
@@ -318,7 +318,7 @@ This risk is acknowledged in the source code at `src/url-validation.js` (header 
 
 ### 8.1 Pre-Capture Threat Screening
 
-Every URL submitted to `POST /v1/captures` is checked against the Google Web Risk API before being enqueued. The API is queried for `MALWARE`, `SOCIAL_ENGINEERING`, and `UNWANTED_SOFTWARE` threat types. Only known threat types are acted upon; unknown values returned by future API versions are filtered (allowlist pattern). The API key is sent in the `X-Goog-Api-Key` header rather than the query string to avoid exposure in logs (see `src/threat-check.js`).
+Every URL submitted for capture is checked against the Google Web Risk API before being enqueued: through `POST /v1/captures` and `POST /v1/captures/batch`, the MCP tools `capture_url` and `batch_capture`, and each scheduled capture. A flagged URL is refused (422 on the REST API, a tool error on MCP; a scheduled capture is skipped). Until November 2026 the MCP tools skipped this check, so the daily re-scan was their only screening. The API is queried for `MALWARE`, `SOCIAL_ENGINEERING`, and `UNWANTED_SOFTWARE` threat types. Only known threat types are acted upon; unknown values returned by future API versions are filtered (allowlist pattern). The API key is sent in the `X-Goog-Api-Key` header rather than the query string to avoid exposure in logs (see `src/threat-check.js`).
 
 If the Web Risk API is unavailable, the capture proceeds with `threatCheck: "unavailable"` recorded in metadata. This fail-open design prevents transient Web Risk outages from blocking legitimate captures. The daily re-scan provides a safety net for captures made during a degraded window (see Section 8.2).
 

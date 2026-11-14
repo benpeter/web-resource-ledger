@@ -28,7 +28,7 @@ The DPA is a GDPR Article 28 agreement for enterprise customers who need a forma
 
 ## Subprocessor List
 
-This page lists every third-party service that processes data on behalf of WRL or its customers, including the data each service receives, its location, and the legal transfer mechanism. Current subprocessors are Cloudflare (all infrastructure), GitHub (OAuth identity), Stripe (payments), Coralogix (operational logs, EU region), Resend (transactional email), DigiCert (RFC 3161 timestamps), Sectigo (eIDAS-qualified timestamps), and Google Web Risk (URL threat screening). DigiCert and Sectigo receive no personal data — only a SHA-256 hash of the capture bundle. WRL will give 30 days' notice before adding any subprocessor that receives personal data.
+This page lists every third-party service that processes data on behalf of WRL or its customers, including the data each service receives, its location, and the legal transfer mechanism. Current subprocessors are Cloudflare (all infrastructure), GitHub (sign-in with GitHub), Stripe (payments), Coralogix (operational logs, EU region), Resend (transactional email, including sign-in links), DigiCert (RFC 3161 timestamps), Sectigo (eIDAS-qualified timestamps), Google Web Risk (URL threat screening), and Pirsch (cookieless website analytics, EU). DigiCert and Sectigo receive no personal data — only a SHA-256 hash of the capture bundle. WRL will give 30 days' notice before adding any subprocessor that receives personal data.
 
 [Read the Subprocessor List](/security/subprocessors/)
 
@@ -36,7 +36,7 @@ This page lists every third-party service that processes data on behalf of WRL o
 
 ## Incident Response
 
-This document describes how WRL detects and responds to security incidents. Detection relies on nine Coralogix alert rules covering capture failures, 5xx errors, authentication anomalies, and threat screening failures. WRL is sole-proprietor operated with no 24/7 SOC; the document is explicit about what this means for response times. In the event of a confirmed personal data breach, WRL commits to notifying affected customers within 48 hours and the supervisory authority within 72 hours (GDPR Articles 33 and 34). The document includes a breach assessment decision tree and a severity classification table. Customers whose security review requires SLA commitments should read Section on Operational Model carefully.
+This document describes how WRL detects and responds to security incidents. Detection relies on eleven Coralogix alert rules covering capture failures, 5xx errors, authentication anomalies, and threat screening failures. WRL is sole-proprietor operated with no 24/7 SOC; the document is explicit about what this means for response times. In the event of a confirmed personal data breach, WRL commits to notifying affected customers within 48 hours and the supervisory authority within 72 hours (GDPR Articles 33 and 34). The document includes a breach assessment decision tree and a severity classification table. Customers whose security review requires SLA commitments should read Section on Operational Model carefully.
 
 [Read the Incident Response Policy](/security/incident-response/)
 
