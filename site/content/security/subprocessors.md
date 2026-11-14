@@ -66,10 +66,10 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 
 ### Sectigo
 
-**Entity:** Sectigo Limited (USA)
+**Entity:** Sectigo (Europe) SL (Spain), the qualified trust service provider named in the timestamp certificates
 **Purpose:** eIDAS-qualified RFC 3161 timestamping — WRL submits a SHA-256 hash of each WACZ bundle to Sectigo's qualified timestamp authority (EU Trust List) when eIDAS timestamps are enabled for a tenant
 **Data processed:** SHA-256 hash of the WACZ bundle only. No personal data is transmitted.
-**Data location:** USA
+**Data location:** Spain (EU)
 **Transfer mechanism:** No personal data transferred
 **DPA / Privacy:** [sectigo.com/privacy-policy](https://sectigo.com/privacy-policy)
 
