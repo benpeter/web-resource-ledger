@@ -32,6 +32,18 @@ function pirschEvents(count) {
   return events;
 }
 
+/**
+ * Create a test session with ToS accepted.
+ * All /v1/account/* routes except /tos require tosAcceptedAt.
+ */
+async function createTosSession(overrides = {}) {
+  const session = await createTestSession(env.DB, env, overrides);
+  await env.DB.prepare(
+    "UPDATE github_users SET tos_accepted_at = '2026-01-01T00:00:00.000Z', tos_version = '1.0' WHERE github_id = ?",
+  ).bind(session.githubId).run();
+  return session;
+}
+
 function getFirstKey(cookie) {
   return SELF.fetch('https://wrl.test/v1/account/first-key', {
     headers: { Cookie: cookie, 'User-Agent': UA, 'CF-Connecting-IP': '198.51.100.20' },
@@ -80,9 +92,19 @@ describe('first key retention', () => {
 });
 
 describe('GET /v1/account/first-key', () => {
+  it('answers 403 until the terms are accepted, and keeps the key', async () => {
+    // createTestSession leaves the terms unaccepted
+    const { cookie, tenantId } = await createTestSession(env.DB, env, { githubId: 88910 });
+    await env.KV.put(`first_key:${tenantId}`, 'wrl_live_testkey');
+
+    const res = await getFirstKey(cookie);
+    expect(res.status).toBe(403);
+    expect(await env.KV.get(`first_key:${tenantId}`)).toBe('wrl_live_testkey');
+  });
+
   it('returns the key once, then 404', async () => {
     pirschEvents(2);
-    const { cookie, tenantId } = await createTestSession(env.DB, env, { githubId: 88902 });
+    const { cookie, tenantId } = await createTosSession({ githubId: 88902 });
     await env.KV.put(`first_key:${tenantId}`, 'wrl_live_testkey');
 
     const first = await getFirstKey(cookie);
@@ -95,7 +117,7 @@ describe('GET /v1/account/first-key', () => {
 
   it('says the key is kept for 24 hours and shown once when it is gone', async () => {
     pirschEvents(1);
-    const { cookie } = await createTestSession(env.DB, env, { githubId: 88903 });
+    const { cookie } = await createTosSession({ githubId: 88903 });
     const res = await getFirstKey(cookie);
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -105,7 +127,7 @@ describe('GET /v1/account/first-key', () => {
 
   it('sends First Key Shown with the visitor user agent and no account ids', async () => {
     const events = pirschEvents(1);
-    const { cookie, tenantId } = await createTestSession(env.DB, env, { githubId: 88904 });
+    const { cookie, tenantId } = await createTosSession({ githubId: 88904 });
     await env.KV.put(`first_key:${tenantId}`, 'wrl_live_testkey2');
 
     await getFirstKey(cookie);
@@ -117,7 +139,7 @@ describe('GET /v1/account/first-key', () => {
 
   it('sends First Key Missing when the key is gone', async () => {
     const events = pirschEvents(1);
-    const { cookie } = await createTestSession(env.DB, env, { githubId: 88905 });
+    const { cookie } = await createTosSession({ githubId: 88905 });
 
     await getFirstKey(cookie);
 
@@ -125,7 +147,7 @@ describe('GET /v1/account/first-key', () => {
   });
 
   it('sends nothing for tenants excluded from analytics', async () => {
-    const { cookie } = await createTestSession(env.DB, env, { githubId: 88906, tenantId: 'default' });
+    const { cookie } = await createTosSession({ githubId: 88906, tenantId: 'default' });
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     try {
       const ctx = createExecutionContext();
