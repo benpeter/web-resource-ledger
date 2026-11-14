@@ -180,7 +180,7 @@ The capture record says when that happened: `render.screenshotClipped` is `true`
 
 ## Why Captures Fail
 
-A failed capture has an `error` that says why, in the API status response, the capture record, the `capture.failed` webhook, the failure email and the dashboard. WRL tries a capture up to 4 times, a few minutes apart, when the failure may pass on another try, and reports the reason of the last attempt.
+A failed capture has an `error` that says why, in the API status response, the capture record, the `capture.failed` webhook, the failure email and the dashboard. WRL tries a capture up to 4 times when the failure may pass on another try, waiting 10, 20 and then 40 seconds after a failed attempt, and reports the reason of the last attempt.
 
 | Message | What happened | Retried |
 |---|---|---|

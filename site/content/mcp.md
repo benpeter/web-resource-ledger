@@ -254,7 +254,7 @@ List recent captures with optional filters. Returns summaries in reverse chronol
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `status` | string | no | Filter by status: `pending`, `complete`, or `failed` |
-| `limit` | integer | no | Number of results (1--100, default 20) |
+| `limit` | integer | no | Number of results (1-100, default 20) |
 | `offset` | integer | no | Number of captures to skip for pagination (default 0) |
 | `url` | string | no | Filter by URL prefix (min 4 characters) |
 | `created_after` | string | no | ISO 8601 datetime -- only captures after this time |
@@ -429,7 +429,7 @@ Register a recurring capture schedule for a URL using a cron expression. Minimum
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `url` | string | yes | The URL to capture on each run (`http://` or `https://`) |
-| `name` | string | yes | Human-readable name (1--128 characters; letters, digits, spaces, and `_ . : -` only) |
+| `name` | string | yes | Human-readable name (1-128 characters; letters, digits, spaces, and `_ . : -` only) |
 | `cron` | string | yes | Cron expression (e.g. `0 * * * *` for hourly). Minimum interval: 1 hour. |
 
 **Example output:**
@@ -456,7 +456,7 @@ Change a schedule: rename it, point it at a different URL, change how often it r
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `schedule_id` | string | yes | The schedule to change (`sch_` followed by 32 hex characters) |
-| `name` | string | no | New name (1--128 characters; letters, digits, spaces, and `_ . : -` only) |
+| `name` | string | no | New name (1-128 characters; letters, digits, spaces, and `_ . : -` only) |
 | `url` | string | no | New URL to capture (`http://` or `https://`, public address) |
 | `cron` | string | no | New 5-field cron expression in UTC, at most hourly |
 | `paused` | boolean | no | `true` pauses the schedule, `false` resumes it |
@@ -605,7 +605,7 @@ The MCP endpoint accepts request bodies up to 256 KiB and tool arguments with up
 
 ### Capture stuck in pending
 
-Captures normally complete in 20--60 seconds. WRL makes up to four attempts, so a capture can stay pending for a few minutes before it completes or fails. Keep calling `get_capture` every few seconds until it does; submitting the URL again meanwhile creates a second capture.
+Captures normally complete in 20-60 seconds. WRL makes up to four attempts, so a capture can stay pending for a few minutes before it completes or fails. Keep calling `get_capture` every few seconds until it does; submitting the URL again meanwhile creates a second capture.
 
 A capture still pending 24 hours after it was submitted is marked failed with "WRL lost track of this capture before it finished." Submit it again with `capture_url`.
 

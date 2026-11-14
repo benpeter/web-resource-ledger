@@ -20,6 +20,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Limits & Quotas said WRL retries a failed capture a few minutes apart; it waits 10, 20 and then 40 seconds after a failed attempt
 - The MCP `capture_url` and `batch_capture` tools and the docs said captures complete in 5-15 seconds; on-demand captures take 36 seconds at the median and 1% finished within 15 seconds, so they now say 20-60 seconds. The MCP guide said WRL retries a failed attempt up to four times (it makes four attempts in all)
 - The batch docs and the OpenAPI description said URLs over the rate limit or the monthly quota get per-item `429` results while the rest are accepted. With an API key, a batch with more URLs than are left of the minute, or one that would go past the quota, is refused as a whole with one `429`; per-item `429` results come only from a self-hosted operator's legacy key. The quota example submitted a batch of 50 URLs, which the 20-URL maximum refuses first, and the per-tenant rate limit was called a rolling window; it starts again at the start of each minute
 - `HEAD` requests got a 404 on every route, so link checkers and uptime monitors saw verification links, capture records and `/health` as missing. `HEAD` now answers like `GET` without a body on `/health`, `/ui`, `/v1/verify/{id}`, `/v1/captures/{id}` with its status, certificate and artifacts, and the signing keys

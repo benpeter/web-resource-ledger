@@ -78,7 +78,7 @@ curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a
 
 When `status` is `complete`, fetch the full capture record at the `captureUrl` to get artifact links. When `status` is `pending`, wait and check again. When `status` is `failed`, the response includes an `error` message and a `retryable` boolean.
 
-Captures typically complete in 20--60 seconds. For the full set of status values and the complete polling lifecycle, see the [API Reference](/api-reference/).
+Captures typically complete in 20-60 seconds. For the full set of status values and the complete polling lifecycle, see the [API Reference](/api-reference/).
 
 ---
 
