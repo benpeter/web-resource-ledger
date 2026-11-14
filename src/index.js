@@ -1758,7 +1758,7 @@ async function handlePutTenantConfig(request, env, ctx, match) {
   try {
     saved = await setTenantConfig(env.DB, tenantId, body, 'admin_key');
   } catch (err) {
-    if (err.message && (err.message.startsWith('rateLimit.') || err.message.startsWith('quotas.') || err.message.startsWith('Invalid tenantId'))) {
+    if (err.message && (err.message.startsWith('rateLimit.') || err.message.startsWith('quotas.') || err.message.startsWith('schedules.') || err.message.startsWith('Invalid tenantId'))) {
       return problemResponse(400, err.message);
     }
     throw err;
