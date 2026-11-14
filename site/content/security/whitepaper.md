@@ -19,7 +19,7 @@ WRL runs entirely on Cloudflare's serverless infrastructure. There is no WRL-ope
 **Key security properties:**
 
 - **Ed25519 signing** — every WACZ bundle is signed with an Ed25519 private key. The corresponding public key is published at `GET /.well-known/signing-key`. A valid signature proves the bundle was produced by the WRL operator and has not been modified since (see `src/signing.js`).
-- **RFC 3161 timestamps** — every capture receives a standard timestamp from DigiCert's TSA (`https://timestamp.digicert.com`). Tenants who have opted in to eIDAS-qualified timestamps additionally receive a qualified timestamp from Sectigo (`https://timestamp.sectigo.com/qualified`). Timestamps are cryptographically bound to the bundle hash and cannot be transferred or backdated (see `src/rfc3161.js`).
+- **RFC 3161 timestamps** — every capture receives a standard timestamp from DigiCert's TSA (`http://timestamp.digicert.com`). Tenants who have opted in to eIDAS-qualified timestamps additionally receive a qualified timestamp from Sectigo (`https://timestamp.sectigo.com/qualified`). Timestamps are cryptographically bound to the bundle hash and cannot be transferred or backdated (see `src/rfc3161.js`).
 - **IP pseudonymization** — client IP addresses are never stored in plaintext. A two-step HMAC-SHA-256 derivation produces a daily-rotating pseudonym (`cip`) used in logs for abuse correlation. The derivation resets every 24 hours; cross-day correlation is not possible from logs alone (see `src/ip-hash.js`).
 - **SSRF prevention** — all caller-supplied URLs are validated against a comprehensive private IP blocklist before being passed to Browser Rendering. The blocklist covers RFC 1918, link-local, CGNAT, loopback, and all IPv4 encoding variants (see `src/url-validation.js`).
 - **API key authentication with timing-safe comparison** — API keys are stored as SHA-256 hashes in D1. Key comparison uses `crypto.subtle.timingSafeEqual`. Raw keys are never logged or stored after creation (see `src/auth.js`).
@@ -324,7 +324,7 @@ If the Web Risk API is unavailable, the capture proceeds with `threatCheck: "una
 
 ### 8.2 Daily Re-Scan and Quarantine
 
-A daily cron job (`0 3 * * *` UTC) re-scans all non-quarantined capture URLs against Google Web Risk. URLs that have since been listed by the threat intelligence feed are quarantined automatically. Quarantined captures:
+A daily cron job (`0 3 * * *` UTC) re-scans the URLs of all complete, non-quarantined captures against Google Web Risk, each URL once a night, up to 500 URLs a run with the longest unchecked first. URLs that have since been listed by the threat intelligence feed are quarantined automatically. Quarantined captures:
 
 - Have their status updated to `quarantined` in API responses.
 - Remain in storage with their artifacts intact for operator review.

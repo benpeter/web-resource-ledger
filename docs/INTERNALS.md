@@ -425,7 +425,7 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | Expression | Handler | Purpose |
 |---|---|---|
 | `*/1 * * * *` | `handleScheduledTick` + hourly `reportPendingMeterEvents`, `failStaleCaptures`, `purgeExpiredSignIns` | Evaluate due tenant schedules; enqueue capture jobs. On the hour: flush pending Stripe meter events, fail captures still pending 24 hours after creation (phase 0139), and delete expired sessions and sign-in links a day past their expiry |
-| `0 3 * * *` | `handleRescanTick` | Nightly re-scan of complete non-quarantined captures for threat changes |
+| `0 3 * * *` | `handleRescanTick` | Nightly re-scan of complete non-quarantined captures for threat changes: each URL not checked in the last 12 hours, up to 500 a run (a 24-hour cutoff skipped most URLs every second night until phase 0170) |
 | `0 9 * * MON` | `handleWeeklyDigest`, `runRetentionJobs` | Weekly email digest and retention jobs (Monday 09:00 UTC). Cloudflare numbers weekdays from 1 = Sunday, so the day is named; until 2026-10-23 this was `0 9 * * 1` and ran on Sundays |
 
 ---

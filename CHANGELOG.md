@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The nightly re-scan against Google Web Risk checked most captured URLs only every second night: a check from the previous run was a few seconds short of 24 hours old when the next run started, so the run skipped it. URLs not checked in the last 12 hours are now checked, so each one is checked every night, as the security whitepaper says. The whitepaper also gave DigiCert's timestamp address as `https://`; WRL uses `http://timestamp.digicert.com`
 - The MCP `get_usage` tool gave storage in two units ("2560014 KB / 10240 MB"); it now gives both in GB, as the quota messages do. Its description promised the date the quota resets, which the output left out; it now has a `Resets:` line
 - The example output of the `@w-r-l/verify` CLI on Getting Started and Verification matched no released version ("Verification PASSED", a "Captured URL" line, a TSA name); it now shows what `npx @w-r-l/verify` prints. The MCP `get_certificate` example gave the timestamp states as `ok` and `none`, which it never prints (`present`, `skipped` or `error`), and the `verify_capture` example padded its check lines
 - The authentication guide said keys issued by the admin API start with `wrl_live_`; every key does, including the first key and keys created in Settings
