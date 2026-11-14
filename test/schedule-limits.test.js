@@ -109,6 +109,14 @@ describe('schedule limit -- default (10)', () => {
     const body = await res.json();
     expect(body.limitType).toBe('schedules');
   });
+  it('GET /v1/schedules reports the limit', async () => {
+    const res = await SELF.fetch('https://worker.test/v1/schedules', {
+      headers: { Authorization: AUTH, 'CF-Connecting-IP': nextIp() },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.limit).toBe(10);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -192,6 +200,17 @@ describe('schedule limit -- admin config API', () => {
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.detail).toContain('3');
+  });
+
+  it('GET /v1/schedules reports a limit set by the admin', async () => {
+    const putRes = await putTenantConfig({ schedules: { maxSchedules: 25 } });
+    expect(putRes.status).toBe(200);
+
+    const res = await SELF.fetch('https://worker.test/v1/schedules', {
+      headers: { Authorization: AUTH, 'CF-Connecting-IP': nextIp() },
+    });
+    const body = await res.json();
+    expect(body.limit).toBe(25);
   });
 
   it('returns 400 when maxSchedules is below 1', async () => {

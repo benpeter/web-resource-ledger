@@ -74,11 +74,12 @@ curl https://api.webresourceledger.com/v1/schedules \
       "lastCaptureStatus": "complete",
       "createdAt": "2026-03-01T10:00:00.000Z"
     }
-  ]
+  ],
+  "limit": 10
 }
 ```
 
-`lastCaptureId` and `lastCaptureStatus` reflect the most recent run. `lastCaptureStatus` is `pending` while that capture runs, then `complete` or `failed`. It is `skipped` when the run was skipped because the monthly quota was used up, and `blocked` when the URL was flagged as unsafe. Use `lastCaptureId` to retrieve the full capture record or verify the artifact.
+`limit` is how many schedules your account can have (see [Schedule limits](#schedule-limits)). `lastCaptureId` and `lastCaptureStatus` reflect the most recent run. `lastCaptureStatus` is `pending` while that capture runs, then `complete` or `failed`. It is `skipped` when the run was skipped because the monthly quota was used up, and `blocked` when the URL was flagged as unsafe. Use `lastCaptureId` to retrieve the full capture record or verify the artifact.
 
 To see only captures triggered by a specific schedule, add the `schedule_id` filter when listing captures:
 

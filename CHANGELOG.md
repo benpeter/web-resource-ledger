@@ -10,6 +10,14 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Added
+
+- `GET /v1/schedules` returns the account's schedule limit as `limit`, and MCP `list_schedules` starts with "N of LIMIT schedules"
+
+### Fixed
+
+- The dashboard's schedule panel shows the account's real schedule limit. It read `limit` from `GET /v1/schedules`, which didn't send one, so it always showed 10 and refused an eleventh schedule in the browser even when an operator had raised the limit
+
 ## [1.2.0] - 2026-11-14
 
 ### Added

@@ -1181,13 +1181,14 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
+      const limit = getEffectiveScheduleLimit(await getTenantConfig(env.DB, auth.tenantId));
       if (records.length === 0) {
         return {
-          content: [{ type: 'text', text: 'No schedules found. Use create_schedule to add one.' }],
+          content: [{ type: 'text', text: `No schedules found. Use create_schedule to add one; this account can have ${limit}.` }],
         };
       }
 
-      const lines = [`${records.length} schedule(s):`];
+      const lines = [`${records.length} of ${limit} schedules:`];
       for (const r of records) {
         const displayUrl = (r.url ?? '').replace(/#.*$/, '').slice(0, 80);
         lines.push('');
