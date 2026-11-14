@@ -22,6 +22,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The SWGDE page says the browser process is reused between captures (each capture still gets its own browser context), that WRL declines cookie banners and keeps a screenshot from before, that the bundle doesn't name the browser version, and that bundles download without an API key; it said every capture got a fresh browser, the browser version was logged and downloads needed authentication
 - The API reference documents `GET` and `PUT /v1/admin/tenants/{tenantId}/config`, which the limits page already described; the limits page said a single override could be set to `null` to remove it, which answers `400`
 - `POST /v1/schedules` over the schedule limit answers `429` with `limitType: "schedules"`, as the API reference and the schedules guide say; the field was missing
 - `PUT /v1/admin/tenants/{tenantId}/config` answers `400` for a `schedules.maxSchedules` below 1 or above 100; it answered 500

@@ -18,7 +18,7 @@ Capture the same page again later if you need to show that it changed or was tak
 
 ## Check the screenshot
 
-Some marketplaces put a bot check in front of their pages. WRL doesn't get around those: when it sees one ("Just a moment..."), the capture fails with "The site showed a bot check instead of the page" and doesn't count against your quota. Try again later, or capture the page another way. Open the screenshot of every capture that completed anyway, before you rely on it.
+Some marketplaces put a bot check in front of their pages. WRL doesn't get around those: when it sees one ("Just a moment..."), the capture fails with "The site showed a Cloudflare bot check instead of the page" and doesn't count against your quota. Try again later, or capture the page another way. Open the screenshot of every capture that completed anyway, before you rely on it.
 
 ## Qualified timestamps for EU proceedings
 
