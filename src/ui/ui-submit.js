@@ -70,6 +70,7 @@ var _countEl = null;   // the count display element
 var _moreBtn = null;   // "Load more" button
 var _liveEl = null;    // aria-live region
 var _elapsedTimers = {}; // captureId -> intervalId for "Capturing... Ns" labels
+var _scheduleNudgeShown = false; // the schedule hint shows at most once per page load
 
 // ---------------------------------------------------------------------------
 // Elapsed time ticker for pending items
@@ -221,6 +222,7 @@ function updateCaptureItem(captureId, statusData) {
       timeCell.title = new Date().toISOString();
     }
     announce('Capture complete.');
+    submit_maybeShowScheduleNudge(captureId);
   } else if (statusData.status === 'failed') {
     badge.className = 'badge badge--fail';
     badge.textContent = 'Failed';
@@ -348,6 +350,48 @@ function capturesFilterText(schedule) {
 function capturesEmptyText(filtered) {
   if (filtered) return 'This schedule has not made any captures yet. Its first one runs at the next scheduled time.';
   return 'Submit a URL above to create your first capture. The page will be captured with a screenshot and cryptographic verification.';
+}
+
+// The schedule nudge in the captures list: signed-in users whose account has
+// no schedules yet (scheduleCount is null until the schedules have loaded).
+function submit_showScheduleNudge(authMethod, scheduleCount) {
+  return authMethod === 'session' && scheduleCount === 0;
+}
+
+// After a capture made here completes, suggest a schedule for its URL when the
+// account has none. Inserted above the table, where the schedule filter goes.
+function submit_maybeShowScheduleNudge(captureId) {
+  if (_scheduleNudgeShown || _authMethod !== 'session' || !_listEl) return;
+  var capture = _captures.filter(function(c) { return c.id === captureId; })[0];
+  var href = capture ? scheduleNudgeHref(capture.url) : null;
+  if (!href) return;
+  _scheduleNudgeShown = true;
+  var listEl = _listEl;
+  apiFetch('/v1/schedules').then(function(res) {
+    return res && res.ok ? res.json() : null;
+  }).then(function(body) {
+    var count = body && Array.isArray(body.data) ? body.data.length : null;
+    if (!submit_showScheduleNudge(_authMethod, count) || listEl !== _listEl) return;
+    var nudge = document.createElement('p');
+    nudge.className = 'schedule-nudge';
+    nudge.setAttribute('role', 'status');
+    nudge.appendChild(document.createTextNode('To capture ' + truncate(capture.url, 60) + ' again automatically, '));
+    var link = document.createElement('a');
+    link.href = href;
+    link.textContent = 'put it on a schedule';
+    nudge.appendChild(link);
+    nudge.appendChild(document.createTextNode('. '));
+    var dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.className = 'btn btn--ghost btn--sm schedule-nudge-dismiss';
+    dismiss.textContent = 'Not now';
+    dismiss.addEventListener('click', function() { nudge.remove(); });
+    nudge.appendChild(dismiss);
+    var section = listEl.parentNode;
+    section.insertBefore(nudge, section.querySelector('.capture-header-row') || listEl);
+  }).catch(function() {
+    _scheduleNudgeShown = false; // schedules didn't load: try again after the next capture
+  });
 }
 
 function capturesScheduleFilter(query) {

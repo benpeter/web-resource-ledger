@@ -1435,14 +1435,26 @@ input, select, textarea {
 
 /* Captures list filtered to one schedule */
 
-.captures-filter {
+.captures-filter,
+.schedule-nudge {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   margin: 0 0 var(--space-2);
 }
 
-.captures-filter a {
+.captures-filter a,
+.schedule-nudge a {
   color: var(--color-accent);
+}
+
+/* Schedule nudge on capture pages and in the captures list */
+
+.detail-section .schedule-nudge {
+  margin: var(--space-3) 0 0;
+}
+
+.schedule-nudge-dismiss {
+  margin-left: var(--space-1);
 }
 
 /* Header row */
