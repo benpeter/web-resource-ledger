@@ -72,6 +72,10 @@ describe('notificationDescription -- description text', () => {
     expect(result.toLowerCase()).toMatch(/weekly|summary/);
   });
 
+  it('B3b: weekly_digest description covers all captures, not only scheduled ones', () => {
+    expect(notificationDescription('weekly_digest')).toBe('Weekly summary of your captures, in weeks with captures');
+  });
+
   it('B4: approaching_limit description mentions limit', () => {
     const result = notificationDescription('approaching_limit');
     expect(result.toLowerCase()).toContain('limit');
