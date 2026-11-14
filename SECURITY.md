@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Web Resource Ledger does not publish versioned releases yet. Security fixes are applied to the `main` branch. We recommend always running the latest commit on `main`.
+WRL is a hosted service, and only the version running at `api.webresourceledger.com` is supported. Security fixes go to the `main` branch and are deployed from there. Releases are tagged on GitHub (`vX.Y.Z`) and listed in the [CHANGELOG](CHANGELOG.md), but older versions get no fixes. The `@w-r-l/verify` package gets fixes in its latest version on npm.
 
 ## Reporting a Vulnerability
 
