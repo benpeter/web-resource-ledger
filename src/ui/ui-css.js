@@ -622,6 +622,14 @@ input, select, textarea {
   color: var(--color-error-text);
 }
 
+.capture-empty p {
+  margin: 0;
+}
+
+.capture-empty p + p {
+  margin-top: var(--space-3);
+}
+
 /* Load more button */
 
 .captures-more-btn {
@@ -1443,7 +1451,8 @@ input, select, textarea {
 }
 
 .captures-filter a,
-.schedule-nudge a {
+.schedule-nudge a,
+.capture-empty a {
   color: var(--color-accent);
 }
 
