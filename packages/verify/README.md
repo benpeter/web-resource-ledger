@@ -71,9 +71,9 @@ npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --lega
 
 Produces a structured plain-text report designed for use in legal proceedings or formal documentation. No ANSI color codes are written -- the output is safe to redirect to a file or attach as a document.
 
-The report is organized into seven sections: a plain-language summary, a description of the subject (captured URL, capture time), per-check explanations in non-technical terms, a chain of custody narrative, applicable legal standards (FRE 901(b)(9) and eIDAS Art. 41), a methodology description, and full technical details with untruncated cryptographic values. The format version is WRL-LEGAL-1.0, which appears in the report header.
+The report is organized into seven sections: a plain-language summary, a description of the subject (when it was signed, its bundle hash), per-check explanations in non-technical terms, a chain of custody narrative, applicable legal standards (FRE 901(b)(9) and eIDAS Art. 41), a methodology description, and full technical details with untruncated cryptographic values. The format version is WRL-LEGAL-1.0, which appears in the report header.
 
-Standard and qualified timestamps are reported separately when both are present. A standard RFC 3161 timestamp (DigiCert) is included for every capture. An eIDAS-qualified timestamp appears only when the capturing account has opted into a qualified Trust Service Provider; the report identifies which tier applies and what legal weight it carries.
+Standard and qualified timestamps are reported separately when both are present. A standard RFC 3161 timestamp (DigiCert) is included whenever the timestamp authority answered at capture time; the report says so when a capture has none. An eIDAS-qualified timestamp appears only when the capturing account has opted into a qualified Trust Service Provider; the report identifies which tier applies and what legal weight it carries.
 
 ```bash
 # Machine-readable version of the same report
