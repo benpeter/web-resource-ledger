@@ -48,8 +48,10 @@ const MAX_TOOL_INPUT_ELEMENTS = 1000;
 const MAX_REQUEST_BODY_BYTES = 256 * 1024;
 
 // MCP methods that show what WRL offers. MCP directories call them without a
-// key, so they answer without one; tools/call still needs a key.
-const KEYLESS_METHODS = new Set(['initialize', 'notifications/initialized', 'ping', 'tools/list']);
+// key, so they answer without one; tools/call still needs a key. server/discover
+// isn't in the SDK, which answers it with method not found; directories that
+// try it first then fall back to initialize instead of stopping at a 401.
+const KEYLESS_METHODS = new Set(['initialize', 'notifications/initialized', 'ping', 'tools/list', 'server/discover']);
 
 /**
  * The JSON-RPC method of each message in a request. Reads a copy of the body,
