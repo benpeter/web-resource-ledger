@@ -24,10 +24,10 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, acceptTosEmail, computePeriod, getEidasQualified, setEidasQualified } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, acceptTos, acceptTosEmail, getEidasQualified, setEidasQualified } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
-import { checkQuota, getEffectiveQuota, computeQuotaReset } from './quotas.js';
+import { checkQuota, computeQuotaReset, readTenantUsage } from './quotas.js';
 import { calculateCharges, INVOICE_THRESHOLD_EUR } from './pricing.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
@@ -505,28 +505,10 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
   } else {
     // Already over a limit or billing blocked. checkQuota returns a limited shape.
     // Read the tenant + usage rows directly to build a complete response.
-    period = result.period ?? computePeriod();
-    const [tenantRow, usageRow] = await env.DB.batch([
-      env.DB.prepare(
-        `SELECT config, payment_method_added_at, billing_status, grace_period_end,
-                stripe_invoice_amount_cents, stripe_invoice_currency
-         FROM tenants WHERE id = ?`,
-      ).bind(tenantId),
-      env.DB.prepare(
-        'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
-      ).bind(tenantId, period),
-    ]);
-    const tenantData     = tenantRow.results?.[0];
-    const config         = tenantData?.config ? JSON.parse(tenantData.config) : null;
-    hasPaymentMethod     = tenantData?.payment_method_added_at != null;
-    billingStatus        = tenantData?.billing_status ?? 'active';
-    gracePeriodEnd       = tenantData?.grace_period_end ?? null;
-    invoiceCacheCents    = tenantData?.stripe_invoice_amount_cents ?? null;
-    invoiceCacheCurrency = tenantData?.stripe_invoice_currency ?? null;
-    quota                = getEffectiveQuota(hasPaymentMethod, config);
-    const usageData      = usageRow.results?.[0];
-    captureCount         = usageData?.capture_count ?? 0;
-    storageBytes         = usageData?.storage_bytes ?? 0;
+    const usage = await readTenantUsage(env.DB, tenantId, result.period);
+    if (!usage) return jsonResponse({ error: 'tenant_not_found' }, 404, ACCOUNT_CACHE);
+    ({ hasPaymentMethod, billingStatus, gracePeriodEnd, invoiceCacheCents, invoiceCacheCurrency,
+      quota, captureCount, storageBytes, period } = usage);
   }
 
   // Derive the public-facing billingStatus.

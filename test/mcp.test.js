@@ -3,8 +3,8 @@ import { env, SELF } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
-import { seedApiKey, seedSchedule, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer } from './fixtures.js';
-import { createCapture } from '../src/db.js';
+import { seedApiKey, seedSchedule, seedUsageCounter, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer } from './fixtures.js';
+import { createCapture, computePeriod } from '../src/db.js';
 import { performCapture } from '../src/capture.js';
 
 // ---------------------------------------------------------------------------
@@ -313,6 +313,67 @@ describe('tool: capture_url -- happy path', () => {
   });
 
   afterEach(cleanupCaptures);
+});
+
+// The REST capture endpoints check the monthly quota and the account state
+// before accepting a capture; the MCP capture tools have to do the same.
+describe('capture tools -- quota and account state', () => {
+  const QUOTA_KEY = 'wrl_live_' + 'q'.repeat(43);
+  const QUOTA_TENANT = 'mcp-quota';
+  // An IP literal, so the URL check needs no DNS
+  const URL_OK = 'https://93.184.216.34/';
+
+  beforeEach(async () => {
+    await cleanDb(env.DB);
+    const { keys } = await env.KV.list({ prefix: 'rl:' });
+    for (const k of keys) await env.KV.delete(k.name);
+    await seedApiKey(env.DB, QUOTA_KEY, { tenantId: QUOTA_TENANT, scopes: ['capture', 'read'] });
+  });
+
+  afterEach(async () => {
+    await cleanDb(env.DB);
+  });
+
+  async function call(name, args) {
+    const body = await (await mcpPost(toolCall(name, args), `Bearer ${QUOTA_KEY}`)).json();
+    const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM captures WHERE tenant_id = ?').bind(QUOTA_TENANT).first();
+    return { result: body.result, captures: n };
+  }
+
+  it('capture_url refuses when the free captures are used up', async () => {
+    await seedUsageCounter(env.DB, { tenantId: QUOTA_TENANT, period: computePeriod(), captureCount: 200 });
+    const { result, captures } = await call('capture_url', { url: URL_OK });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/free tier limit reached/i);
+    expect(captures).toBe(0);
+  });
+
+  it('batch_capture refuses a batch that would go past the free captures', async () => {
+    await seedUsageCounter(env.DB, { tenantId: QUOTA_TENANT, period: computePeriod(), captureCount: 199 });
+    const { result, captures } = await call('batch_capture', { urls: [URL_OK, 'https://93.184.216.35/'] });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/free tier limit/i);
+    expect(captures).toBe(0);
+  });
+
+  it('capture_url refuses for an account blocked for non-payment', async () => {
+    await env.DB.prepare("UPDATE tenants SET billing_status = 'blocked' WHERE id = ?").bind(QUOTA_TENANT).run();
+    const { result, captures } = await call('capture_url', { url: URL_OK });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/blocked/i);
+    expect(captures).toBe(0);
+  });
+
+  it('capture_url and batch_capture refuse while a deletion is pending', async () => {
+    await env.DB.prepare('UPDATE tenants SET deletion_requested_at = ? WHERE id = ?')
+      .bind(new Date().toISOString(), QUOTA_TENANT).run();
+    const single = await call('capture_url', { url: URL_OK });
+    expect(single.result.isError).toBe(true);
+    expect(single.result.content[0].text).toMatch(/scheduled for deletion/);
+    const batch = await call('batch_capture', { urls: [URL_OK] });
+    expect(batch.result.isError).toBe(true);
+    expect(batch.captures).toBe(0);
+  });
 });
 
 describe('tool: capture_url -- invalid URL', () => {
@@ -684,6 +745,48 @@ describe('tool: get_usage', () => {
     expect(body.result.isError).toBeUndefined();
     const text = body.result.content[0].text;
     expect(text.toLowerCase()).toMatch(/usage|captures used/i);
+  });
+});
+
+describe("tool: get_usage -- accounts that can't capture", () => {
+  const USAGE_KEY = 'wrl_live_' + 'u'.repeat(43);
+  const USAGE_TENANT = 'mcp-usage';
+
+  beforeEach(async () => {
+    await cleanDb(env.DB);
+    await seedApiKey(env.DB, USAGE_KEY, { tenantId: USAGE_TENANT, scopes: ['read'] });
+  });
+
+  afterEach(async () => {
+    await cleanDb(env.DB);
+  });
+
+  async function usageText() {
+    const body = await (await mcpPost(toolCall('get_usage', {}), `Bearer ${USAGE_KEY}`)).json();
+    return body.result.content[0].text;
+  }
+
+  it('shows the real numbers for an account past the free captures', async () => {
+    await seedUsageCounter(env.DB, { tenantId: USAGE_TENANT, period: computePeriod(), captureCount: 250 });
+    expect(await usageText()).toMatch(/Captures used: +250 \/ 200/);
+  });
+
+  it('shows the numbers and the block for a blocked account', async () => {
+    await seedUsageCounter(env.DB, { tenantId: USAGE_TENANT, period: computePeriod(), captureCount: 150 });
+    await env.DB.prepare("UPDATE tenants SET billing_status = 'blocked' WHERE id = ?").bind(USAGE_TENANT).run();
+    const text = await usageText();
+    expect(text).toMatch(/Captures used: +150 \/ 200/);
+    expect(text).toContain('Billing status: blocked');
+    expect(text).toContain('Account is blocked');
+  });
+
+  it('shows the numbers and the deletion date while a deletion is pending', async () => {
+    await seedUsageCounter(env.DB, { tenantId: USAGE_TENANT, period: computePeriod(), captureCount: 20 });
+    await env.DB.prepare('UPDATE tenants SET deletion_requested_at = ? WHERE id = ?')
+      .bind('2026-11-01T00:00:00.000Z', USAGE_TENANT).run();
+    const text = await usageText();
+    expect(text).toMatch(/Captures used: +20 \/ 200/);
+    expect(text).toContain('scheduled for deletion on 2026-12-01');
   });
 });
 

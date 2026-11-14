@@ -70,13 +70,12 @@ Content-Type: application/json
   "type": "about:blank",
   "status": 429,
   "title": "Too Many Requests",
-  "detail": "Monthly capture quota exceeded. Your quota resets on 2026-04-01.",
+  "detail": "Free tier limit reached (200/200). Add a payment method to continue capturing. Resets 2026-04-01T00:00:00.000Z.",
   "limitType": "quota",
   "quota": {
-    "resource": "captures",
     "limit": 200,
     "used": 200,
-    "remaining": 0,
+    "resource": "captures",
     "resetsAt": "2026-04-01T00:00:00.000Z"
   }
 }
@@ -95,6 +94,19 @@ Batch requests check quota upfront for the entire batch before any capture is qu
 For example, if you have 30 captures remaining and submit a batch of 50 URLs, all 50 are rejected. Resubmit a smaller batch that fits within the remaining quota, or wait until the quota resets.
 
 See [Batch Captures](/batch/) for full batch error handling patterns.
+
+### MCP Captures and Quotas
+
+The MCP tools `capture_url` and `batch_capture` check the same quota, and `batch_capture` checks it for the whole batch. Instead of a `429` they answer with a tool error whose text is the `detail` above, for example "Free tier limit reached (200/200). Add a payment method to continue capturing. Resets 2026-04-01T00:00:00.000Z."
+
+### Accounts That Can't Capture
+
+An account that is blocked for non-payment, or that has a pending deletion, can't capture at all. Capture requests answer `403` instead of `429`, and the MCP capture tools return the same text as a tool error:
+
+- "Account is blocked. Contact support to restore access."
+- "This account is scheduled for deletion on 2026-12-14 and can't capture. Contact support to cancel the deletion."
+
+Retrying doesn't help; contact [hello@webresourceledger.com](mailto:hello@webresourceledger.com). A deletion can be cancelled during the 30 days before it is carried out (see [Data Retention](/security/data-retention/)).
 
 ---
 
@@ -127,6 +139,9 @@ If you need a higher capture limit, email [hello@webresourceledger.com](mailto:h
 ```
 HTTP/1.1 429 Too Many Requests
 Retry-After: 42
+X-RateLimit-Limit: 10
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 42
 Content-Type: application/json
 ```
 
@@ -135,7 +150,7 @@ Content-Type: application/json
   "type": "about:blank",
   "status": 429,
   "title": "Too Many Requests",
-  "detail": "Rate limit exceeded. Retry after 42 seconds.",
+  "detail": "Per-tenant rate limit exceeded.",
   "limitType": "tenant"
 }
 ```

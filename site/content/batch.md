@@ -116,8 +116,8 @@ curl -X POST https://api.webresourceledger.com/v1/captures/batch \
       "error": {
         "type": "about:blank",
         "status": 422,
-        "title": "Unprocessable Entity",
-        "detail": "URL resolves to a private IP address."
+        "title": "Unprocessable Content",
+        "detail": "Host resolves to a private IP address"
       }
     },
     {

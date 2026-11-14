@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, failCaptureAfterRetries, recordAttemptError, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent, DELETION_GRACE_DAYS } from './db.js';
+import { createCapture, getCapture, failCapture, failCaptureAfterRetries, recordAttemptError, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent } from './db.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
@@ -15,7 +15,7 @@ import { runRetentionJobs } from './retention.js';
 import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
-import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
+import { checkQuota, FREE_CAPTURE_LIMIT, limitReachedEmailData, accountRefusalDetail, quotaLimitDetail } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
@@ -916,27 +916,6 @@ function buildQuotaHeaders(quotaCheck) {
   };
 }
 
-// 429 detail for a storage_limit refusal.
-function storageLimitDetail(quotaCheck) {
-  if (quotaCheck.hasPaymentMethod) {
-    return `Storage quota reached. Resets ${quotaCheck.resetsAt}. View usage in Settings.`;
-  }
-  return `Storage quota reached (${formatStorage(quotaCheck.used)} of ${formatStorage(quotaCheck.limit)}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`;
-}
-
-// Refusals that aren't about the quota: the account itself may not capture.
-// Returns null for quota refusals, which answer 429 with quota details.
-function accountRefusalDetail(quotaCheck) {
-  if (quotaCheck.reason === 'deletion_requested') {
-    const purgeAfter = new Date(Date.parse(quotaCheck.deletionRequestedAt) + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
-    return `This account is scheduled for deletion on ${purgeAfter.toISOString().slice(0, 10)} and can't capture. Contact support to cancel the deletion.`;
-  }
-  if (quotaCheck.reason === 'billing_blocked') {
-    return 'Account is blocked. Contact support to restore access.';
-  }
-  return null;
-}
-
 async function handleCreateCapture(request, env, ctx) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
@@ -1017,11 +996,7 @@ async function handleCreateCapture(request, env, ctx) {
         ...rlHeaders,
       };
       const isCaptureLimit = quotaCheck.reason === 'capture_limit' || quotaCheck.reason === 'payment_required';
-      const detail = quotaCheck.reason === 'payment_required'
-        ? `Free tier limit reached (${quotaCheck.used}/${quotaCheck.limit}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`
-        : isCaptureLimit
-          ? `Monthly capture quota reached (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
-          : storageLimitDetail(quotaCheck);
+      const detail = quotaLimitDetail(quotaCheck);
 
       // 3c: Notify tenant when free tier limit is reached
       const limitEmail = limitReachedEmailData(env, quotaCheck);
@@ -1322,11 +1297,7 @@ async function handleBatchCapture(request, env, ctx) {
         ...rlHeaders,
       };
       const isCaptureLimit = quotaCheck.reason === 'capture_limit' || quotaCheck.reason === 'payment_required';
-      const detail = quotaCheck.reason === 'payment_required'
-        ? `Batch of ${body.urls.length} captures would exceed free tier limit (${quotaCheck.used}/${quotaCheck.limit}). Add a payment method to continue capturing.`
-        : isCaptureLimit
-          ? `Batch of ${body.urls.length} captures would exceed monthly quota (${quotaCheck.used}/${quotaCheck.limit}). Resets ${quotaCheck.resetsAt}. View usage in Settings.`
-          : storageLimitDetail(quotaCheck);
+      const detail = quotaLimitDetail(quotaCheck, body.urls.length);
 
       const limitEmail = limitReachedEmailData(env, quotaCheck);
       if (limitEmail) {

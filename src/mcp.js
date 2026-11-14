@@ -35,7 +35,8 @@ import { performVerification } from './verify.js';
 import { log } from './log.js';
 import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
 import { readSitemap } from './sitemap.js';
-import { checkQuota } from './quotas.js';
+import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage } from './quotas.js';
+import { dispatchNotification } from './email-dispatch.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { validateCron, nextRun } from './cron.js';
 import { getSigningKeys } from './signing.js';
@@ -69,6 +70,45 @@ async function isKeylessDiscovery(request) {
   }
   const messages = Array.isArray(body) ? body : [body];
   return messages.length > 0 && messages.every((message) => KEYLESS_METHODS.has(message?.method));
+}
+
+// Monthly quota and account state, checked as on the REST capture endpoints.
+// Returns a tool error result, or null when the capture may go ahead.
+// batchSize is the number of URLs for batch_capture; leave it out for capture_url.
+async function mcpQuotaRefusal(env, ctx, auth, batchSize) {
+  // The legacy key has no D1 tenant record, so it has no quota (as on REST)
+  if (auth.authMethod === 'legacy') return null;
+  const quotaCheck = await checkQuota(env.DB, auth.tenantId, batchSize ?? 1);
+  if (quotaCheck.allowed) return null;
+
+  const refusal = accountRefusalDetail(quotaCheck);
+  const caller = {
+    tenantId: auth.tenantId,
+    keyName: auth.keyName,
+    keyHashPrefix: auth.keyHashPrefix,
+    authMethod: auth.authMethod,
+    reason: quotaCheck.reason,
+    via: 'mcp',
+  };
+  if (refusal) {
+    ctx.waitUntil(log(env, 4, 'security', { event: 'security.account_refused', ...caller, responseStatus: 403 }) ?? Promise.resolve());
+    return { isError: true, content: [{ type: 'text', text: refusal }] };
+  }
+
+  ctx.waitUntil(log(env, 4, 'security', {
+    event: 'security.quota_exceeded',
+    ...caller,
+    limit: quotaCheck.limit,
+    used: quotaCheck.used,
+    ...(batchSize ? { requested: batchSize } : {}),
+    responseStatus: 429,
+  }) ?? Promise.resolve());
+  const limitEmail = limitReachedEmailData(env, quotaCheck);
+  if (limitEmail) {
+    ctx.waitUntil(dispatchNotification(env, auth.tenantId, 'limit_reached', limitEmail)
+      .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: auth.tenantId })));
+  }
+  return { isError: true, content: [{ type: 'text', text: quotaLimitDetail(quotaCheck, batchSize) }] };
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +196,9 @@ function createMcpServer(env, ctx, auth, origin) {
           };
         }
       }
+      // Monthly quota and account state
+      const quotaRefusal = await mcpQuotaRefusal(env, ctx, auth);
+      if (quotaRefusal) return quotaRefusal;
       if (env.GLOBAL_CAPTURE_LIMITER) {
         const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
         if (!success) {
@@ -628,6 +671,9 @@ function createMcpServer(env, ctx, auth, origin) {
           };
         }
       }
+      // Monthly quota and account state, for the whole batch
+      const quotaRefusal = await mcpQuotaRefusal(env, ctx, auth, batchSize);
+      if (quotaRefusal) return quotaRefusal;
       if (env.GLOBAL_CAPTURE_LIMITER) {
         const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
         if (!success) {
@@ -987,13 +1033,22 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      const captureCount = result.captureCount ?? 0;
-      const storageBytes = result.storageBytes ?? 0;
-      const billingStatus = result.billingStatus ?? 'active';
-      const hasPaymentMethod = Boolean(result.hasPaymentMethod);
-      const captureLimit = result.quota?.capturesPerMonth;
-      const storageLimit = result.quota?.storageBytes;
-      const period = result.period ?? '(unknown)';
+      // A refusal (blocked, deletion pending, over a limit) leaves out the
+      // counts, so read them directly then
+      const usage = result.allowed ? result : await readTenantUsage(env.DB, auth.tenantId, result.period);
+      if (!usage) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Tenant not found.' }],
+        };
+      }
+      const captureCount = usage.captureCount ?? 0;
+      const storageBytes = usage.storageBytes ?? 0;
+      const billingStatus = usage.billingStatus ?? 'active';
+      const hasPaymentMethod = Boolean(usage.hasPaymentMethod);
+      const captureLimit = usage.quota?.capturesPerMonth;
+      const storageLimit = usage.quota?.storageBytes;
+      const period = usage.period ?? '(unknown)';
 
       const publicBillingStatus = (billingStatus === 'active' && !hasPaymentMethod) ? 'free' : billingStatus;
 
@@ -1014,9 +1069,10 @@ function createMcpServer(env, ctx, auth, origin) {
         `Storage used:    ${Math.round(storageBytes / 1024)} KB / ${storLimitText}`,
       ];
 
-      if (!result.allowed && result.reason === 'billing_blocked') {
+      const refusal = result.allowed ? null : accountRefusalDetail(result);
+      if (refusal) {
         lines.push('');
-        lines.push('Account is blocked. Contact support to restore access.');
+        lines.push(refusal);
       }
 
       return {
