@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.0 (unreleased)
+
+- Name the captured page: the standard output shows it, the `--legal` report lists it in the summary and the subject section with the time it was captured, and `--json` and `--legal --json` carry `capture.url` and `capture.capturedAt`. The values come from `datapackage.json`, which the signature covers
+- The README describes what the `--legal` report contains
+
 ## v0.3.0 (2026-03-26)
 
 - Add `--legal` flag for detailed, court-admissible verification reports

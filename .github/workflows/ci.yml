@@ -62,6 +62,23 @@ jobs:
       - if: steps.changes.outputs.code == 'false'
         run: echo "Docs-only change -- skipping tests and lint."
 
+  test-verify:
+    # The @w-r-l/verify package's own tests; nothing else runs them
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/verify
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: 'packages/verify/package-lock.json'
+      - run: npm ci
+      - run: npm test
+
   test-integration:
     # On ubuntu-26.04, miniflare failed to start local Chromium (spawn ETXTBSY)
     # in 2 of 16 trial runs, against none in 24 runs on 24.04 (2026-11-14).

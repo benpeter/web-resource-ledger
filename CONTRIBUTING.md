@@ -91,11 +91,13 @@ the deployed commit SHA matches the expected `GITHUB_SHA` (with retry for propag
 
 ## Running Tests
 
-Two test suites, separate concerns:
+The test suites, separate concerns:
 
 ```bash
 npm test                    # Unit tests (~35s, mocked browser)
 npm run test:integration    # Integration tests (~90s, real Chromium)
+npm run test:sync           # Docs agree with the code: routes, MCP tools, llms.txt, rate limits, alerts, log severities
+cd packages/verify && npm test   # The @w-r-l/verify CLI (plain node --test)
 ```
 
 **Unit tests** (`npm test`) use mocked renderers and `fetchMock` -- fast, no network, no browser. **Integration tests** (`npm run test:integration`) exercise the real capture pipeline through headless Chromium: browser rendering, WACZ bundling, TSA timestamping. The first run downloads Chromium automatically via miniflare.
