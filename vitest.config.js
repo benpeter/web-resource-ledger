@@ -43,7 +43,6 @@ export default defineConfig({
           SESSION_SECRET: 'deadbeef'.repeat(8),
           STRIPE_SECRET_KEY: 'sk_test_placeholder_for_testing',
           STRIPE_WEBHOOK_SECRET: 'whsec_test_placeholder_for_testing',
-          STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder_for_testing',
           STRIPE_CAPTURE_PRICE_ID: 'price_test_placeholder_for_testing',
           PIRSCH_ACCESS_KEY: 'test-pirsch-key-for-vitest',
           // Production excludes internal tenants from analytics; tests mirror that for 'default'.

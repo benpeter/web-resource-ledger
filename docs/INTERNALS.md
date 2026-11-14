@@ -56,22 +56,25 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `GOOGLE_WEB_RISK_API_KEY` | Google Web Risk API key (optional; degrades gracefully if absent) |
 | `CLOUDFLARE_CACHE_PURGE_TOKEN` | CF API token with Cache Purge permission for the zone |
 | `QUALIFIED_TSA_AUTH` | Base64-encoded `user:pass` for eIDAS-qualified TSA HTTP Basic auth |
+| `PIRSCH_ACCESS_KEY` | Pirsch access key for server-side events (sign-ups, captures, schedules, billing); no events are sent without it |
 
 ### Variables (from `wrangler.toml [vars]`)
 
 | Name | Value | Purpose |
 |---|---|---|
 | `ENABLE_EDGE_CACHE` | `"true"` | Enable Cloudflare edge caching for capture responses |
+| `ANALYTICS_EXCLUDE_TENANTS` | `"gh-398734,default"` | Tenants whose captures are not sent to Pirsch (the founder's tenant and the legacy `CAPTURE_API_KEY` tenant) |
 | `CLOUDFLARE_ZONE_ID` | `9b1b321a...` | Zone ID for cache purge API calls |
 | `CORALOGIX_ENDPOINT` | `https://ingress.eu2.coralogix.com/logs/v1/singles` | Log ingestion endpoint |
 | `APPLICATION_NAME` | `"wrl"` | Application label in Coralogix log payloads |
-| `TSA_URL` | `https://timestamp.digicert.com` | Standard timestamp authority |
+| `TSA_URL` | `http://timestamp.digicert.com` | Standard timestamp authority |
 | `QUALIFIED_TSA_URL` | `https://timestamp.sectigo.com/qualified` | eIDAS-qualified TSA for qualified timestamps |
 | `GITHUB_CLIENT_ID` | `Ov23liIG5Of9wSbgcFqW` | GitHub OAuth App client ID (public) |
-| `STRIPE_PUBLISHABLE_KEY` | `pk_live_51T...` | Stripe publishable key (public) |
 | `STRIPE_CAPTURE_PRICE_ID` | `price_1TE4aAR...` | Stripe price ID for capture volume |
 | `RESCAN_CRON` | `"0 3 * * *"` | Cron expression for nightly URL re-scan (must match `[triggers].crons`) |
 | `CORS_ORIGINS` | _(unset)_ | Comma-separated allowed origins for CORS preflight; empty = CORS disabled |
+| `VERIFICATION_BASE_URL` | _(unset)_ | Origin of the links in emails and webhook payloads (verification, email confirmation, unsubscribe, billing); unset = `https://api.webresourceledger.com` |
+| `MAX_BATCH_SIZE` | _(unset)_ | URLs allowed per `POST /v1/captures/batch`; unset = 20, never more than 100 |
 
 ---
 
@@ -459,9 +462,10 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | Rate limiter namespace IDs | `1001`–`1006` | `2001`–`2006` |
 | Domains | `api.webresourceledger.com`, `verify.webresourceledger.com` | `staging.webresourceledger.com`, `verify-staging.webresourceledger.com` |
 | `APPLICATION_NAME` | `"wrl"` | `"wrl-staging"` |
-| `STRIPE_PUBLISHABLE_KEY` | `pk_live_51T...` (live) | `pk_test_51T...` (test) |
 | `STRIPE_CAPTURE_PRICE_ID` | `price_1TE4aAR...` | `price_1TE3yVJ...` |
 | `GITHUB_CLIENT_ID` | `Ov23liIG5Of9wSbgcFqW` | `Ov23li0lii7I7Y43lbUs` |
 | `RESCAN_CRON` | `"0 3 * * *"` | `"0 4 * * *"` |
+| `VERIFICATION_BASE_URL` | _(unset: `https://api.webresourceledger.com`)_ | `https://staging.webresourceledger.com` |
+| `PIRSCH_ACCESS_KEY` secret | set | not set, so staging sends no analytics events |
 | Captures queue `max_concurrency` | 10 | 2 (constrained by browser session pool) |
 | Emails queue `max_concurrency` | 5 | 2 |
