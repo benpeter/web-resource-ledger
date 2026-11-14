@@ -35,7 +35,7 @@ import { performVerification } from './verify.js';
 import { log } from './log.js';
 import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
 import { readSitemap } from './sitemap.js';
-import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage } from './quotas.js';
+import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage, formatStorage } from './quotas.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
@@ -1124,7 +1124,7 @@ function createMcpServer(env, ctx, auth, origin) {
         : String(captureLimit);
       const storLimitText = (storageLimit === undefined || storageLimit === Infinity || hasPaymentMethod)
         ? 'unlimited'
-        : `${Math.round(storageLimit / (1024 * 1024))} MB`;
+        : formatStorage(storageLimit);
 
       const lines = [
         `Usage for: ${auth.tenantId}`,
@@ -1133,7 +1133,7 @@ function createMcpServer(env, ctx, auth, origin) {
         `Payment method on file: ${hasPaymentMethod ? 'yes' : 'no'}`,
         '',
         `Captures used:   ${captureCount} / ${capLimitText}`,
-        `Storage used:    ${Math.round(storageBytes / 1024)} KB / ${storLimitText}`,
+        `Storage used:    ${formatStorage(storageBytes)} / ${storLimitText}`,
       ];
 
       const refusal = result.allowed ? null : accountRefusalDetail(result);
