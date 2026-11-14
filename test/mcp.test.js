@@ -19,17 +19,18 @@ const COMPLETE_ID = 'cap_' + 'c'.repeat(32);
 // Helper: send a JSON-RPC request to /mcp
 // ---------------------------------------------------------------------------
 
-function mcpPost(body, authHeader = AUTH) {
+function mcpPost(body, authHeader = AUTH, extraHeaders = {}) {
   const headers = {
     'Content-Type': 'application/json',
     // MCP Streamable HTTP requires both content types in Accept
     'Accept': 'application/json, text/event-stream',
+    ...extraHeaders,
   };
   if (authHeader !== null) headers['Authorization'] = authHeader;
   return SELF.fetch('http://localhost/mcp', {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
 
@@ -191,6 +192,62 @@ describe('MCP protocol -- input limits (GHSA-46jr-4wx8-v453)', () => {
   it('answers 413 to a request body over 256 KiB', async () => {
     const res = await mcpPost(toolCall('get_capture', { capture_id: 'x'.repeat(300_000) }));
     expect(res.status).toBe(413);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Keyless discovery: MCP directories list the tools without a key
+// ---------------------------------------------------------------------------
+
+describe('keyless discovery', () => {
+  const TOOLS_LIST = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
+
+  it('answers initialize without a key', async () => {
+    const res = await mcpPost(initRequest(), null);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.serverInfo.name).toBe('web-resource-ledger');
+  });
+
+  it('lists the same tools without a key as with one', async () => {
+    const keyless = await mcpPost(TOOLS_LIST, null);
+    expect(keyless.status).toBe(200);
+    const keylessTools = (await keyless.json()).result.tools;
+    const keyedTools = (await (await mcpPost(TOOLS_LIST)).json()).result.tools;
+    expect(keylessTools.map((tool) => tool.name)).toContain('capture_url');
+    expect(keylessTools).toEqual(keyedTools);
+  });
+
+  it('accepts notifications/initialized and ping without a key', async () => {
+    const notified = await mcpPost({ jsonrpc: '2.0', method: 'notifications/initialized' }, null);
+    expect(notified.status).toBe(202);
+    const ping = await mcpPost({ jsonrpc: '2.0', id: 3, method: 'ping' }, null);
+    expect(ping.status).toBe(200);
+  });
+
+  it('answers 401 to a batch that mixes tools/list with a tool call', async () => {
+    const res = await mcpPost([TOOLS_LIST, toolCall('list_captures', {})], null);
+    expect(res.status).toBe(401);
+  });
+
+  it('answers 401 to tools/list with an invalid key', async () => {
+    const res = await mcpPost(TOOLS_LIST, 'Bearer not-a-real-key-xxxxxxxxxxxxxxx');
+    expect(res.status).toBe(401);
+  });
+
+  it('answers 401 to a keyless body that is not JSON', async () => {
+    const res = await mcpPost('{"jsonrpc":', null);
+    expect(res.status).toBe(401);
+  });
+
+  it('allows 60 keyless requests a minute per IP', async () => {
+    const ip = { 'CF-Connecting-IP': '10.0.7.1' };
+    for (let i = 0; i < 60; i++) {
+      expect((await mcpPost(TOOLS_LIST, null, ip)).status).toBe(200);
+    }
+    const res = await mcpPost(TOOLS_LIST, null, ip);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
   });
 });
 
