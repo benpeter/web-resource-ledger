@@ -42,6 +42,7 @@ import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './d
 import { validateCron, nextRun } from './cron.js';
 import { getSigningKeys } from './signing.js';
 import { computeCip } from './ip-hash.js';
+import { releaseVersion } from './build-info.js';
 
 // Input bounds for /mcp. The SDK defaults allow 4 MiB and unlimited elements.
 const MAX_TOOL_INPUT_ELEMENTS = 1000;
@@ -172,7 +173,7 @@ function mcpRecordThreatCheck(env, ctx, captureId, threat) {
 function createMcpServer(env, ctx, auth, origin) {
   const server = new McpServer({
     name: 'web-resource-ledger',
-    version: '0.2.0',
+    version: releaseVersion(),
   }, {
     // GHSA-46jr-4wx8-v453: the largest real input is batch_capture with 20 URLs
     maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
