@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- A new account's empty captures list says what a capture produces, offers Wikipedia's "Link rot" article as an example URL to fill in, and links the API quick start and the MCP setup guide; it said only "Submit a URL above to create your first capture"
 - Links to the landing page, its policy pages and the docs show a preview image when shared; the landing page asked for a large preview card but named no image
 
 ### Removed

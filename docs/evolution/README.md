@@ -170,3 +170,4 @@ software development.
 | [0161-bundle-software](0161-bundle-software/) | Evidence bundles and the header fetch name the WRL release and commit (`WRL/1.3.0+564eae4`) instead of `WRL/0.1` |
 | [0162-api-response-schemas](0162-api-response-schemas/) | Schedule responses drop the internal `tenant_id`; the API reference documents the fields the responses carry, including the `qualifiedTimestamp` check |
 | [0163-og-image](0163-og-image/) | Shared links to the landing page, its policy pages and the docs show a preview card image |
+| [0164-first-capture-guide](0164-first-capture-guide/) | The empty captures list of a new account says what a capture gives, offers an example URL and links the API and MCP guides |

@@ -172,3 +172,42 @@ describe('bulk_nextStep -- pacing batches by the rate-limit headers', () => {
     expect(bulk_nextStep(h({}))).toEqual({ chunk: 10, waitSeconds: 0 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Empty captures list: new accounts reached it and left without a capture
+// (wrl-backlog#90). It says what a capture gives, offers an example URL to
+// fill in, and links the API and MCP guides for those who came to build.
+// ---------------------------------------------------------------------------
+
+describe('empty captures list -- what a capture gives and where to start', () => {
+  const submit_emptyState = evalFromSource(SUBMIT_VIEW_JS, 'submit_emptyState');
+
+  it('says what a capture produces and that anyone can check it', () => {
+    const { text } = submit_emptyState(false);
+    for (const word of ['screenshot', 'HTML', 'WACZ', 'signed', 'timestamped', 'anyone']) {
+      expect(text).toContain(word);
+    }
+  });
+
+  it('offers an example URL to fill in, the article the landing page shows', () => {
+    expect(submit_emptyState(false).example).toEqual({
+      url: 'https://en.wikipedia.org/wiki/Link_rot',
+      label: 'Try it with Wikipedia\u2019s \u201cLink rot\u201d article',
+    });
+  });
+
+  it('links the API quick start and the MCP guide', () => {
+    expect(submit_emptyState(false).links).toEqual([
+      { href: 'https://docs.webresourceledger.com/', text: 'API quick start' },
+      { href: 'https://docs.webresourceledger.com/mcp/', text: 'MCP setup for AI assistants' },
+    ]);
+  });
+
+  it('keeps a list filtered to one schedule to its own text, without example or links', () => {
+    expect(submit_emptyState(true)).toEqual({
+      text: 'This schedule has not made any captures yet. Its first one runs at the next scheduled time.',
+      example: null,
+      links: [],
+    });
+  });
+});

@@ -349,7 +349,60 @@ function capturesFilterText(schedule) {
 // Empty-list text; a filtered list is empty because the schedule hasn't run yet.
 function capturesEmptyText(filtered) {
   if (filtered) return 'This schedule has not made any captures yet. Its first one runs at the next scheduled time.';
-  return 'Submit a URL above to create your first capture. The page will be captured with a screenshot and cryptographic verification.';
+  return 'Capture a page to get a screenshot, its HTML and a WACZ web archive, signed and timestamped, with a public link anyone can use to check them.';
+}
+
+// What the empty captures list shows: its text and, for an account without
+// captures, an example URL to fill in and the guides for capturing from code.
+function submit_emptyState(filtered) {
+  if (filtered) return { text: capturesEmptyText(true), example: null, links: [] };
+  return {
+    text: capturesEmptyText(false),
+    example: { url: 'https://en.wikipedia.org/wiki/Link_rot', label: 'Try it with Wikipedia\u2019s \u201cLink rot\u201d article' },
+    links: [
+      { href: 'https://docs.webresourceledger.com/', text: 'API quick start' },
+      { href: 'https://docs.webresourceledger.com/mcp/', text: 'MCP setup for AI assistants' },
+    ],
+  };
+}
+
+// Renders submit_emptyState into the list. The example button only fills the
+// URL box; the capture starts when the user submits it.
+function submit_renderEmptyState(listEl, filtered) {
+  var state = submit_emptyState(filtered);
+  var box = document.createElement('div');
+  box.className = 'capture-empty';
+  var text = document.createElement('p');
+  text.textContent = state.text;
+  box.appendChild(text);
+  if (state.example) {
+    var exampleRow = document.createElement('p');
+    var exampleBtn = document.createElement('button');
+    exampleBtn.type = 'button';
+    exampleBtn.className = 'btn btn--ghost btn--sm';
+    exampleBtn.textContent = state.example.label;
+    exampleBtn.addEventListener('click', function() {
+      var input = document.getElementById('capture-url-input');
+      if (!input) return;
+      input.value = state.example.url;
+      input.focus();
+    });
+    exampleRow.appendChild(exampleBtn);
+    box.appendChild(exampleRow);
+  }
+  if (state.links.length) {
+    var linksRow = document.createElement('p');
+    linksRow.appendChild(document.createTextNode('From code: '));
+    state.links.forEach(function(link, i) {
+      if (i) linksRow.appendChild(document.createTextNode(' \u00b7 '));
+      var a = document.createElement('a');
+      a.href = link.href;
+      a.textContent = link.text;
+      linksRow.appendChild(a);
+    });
+    box.appendChild(linksRow);
+  }
+  listEl.appendChild(box);
 }
 
 // The schedule nudge in the captures list: signed-in users whose account has
@@ -418,10 +471,7 @@ function loadCaptures() {
     _captures = items.slice();
 
     if (items.length === 0) {
-      var guidance = document.createElement('p');
-      guidance.className = 'capture-empty';
-      guidance.textContent = capturesEmptyText(!!_scheduleFilter);
-      if (_listEl) _listEl.appendChild(guidance);
+      if (_listEl) submit_renderEmptyState(_listEl, !!_scheduleFilter);
     } else {
       appendCaptures(items);
     }
