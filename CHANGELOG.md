@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Fixed
+
+- The MCP `verify_capture` description names the eIDAS-qualified timestamp check, and `delete_schedule` says it answers "Schedule not found." for an unknown or another account's schedule; it said it returns 404, which MCP callers never see
+
 ## [1.4.0] - 2026-11-14
 
 ### Added
