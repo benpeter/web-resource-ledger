@@ -161,6 +161,33 @@ describe('MCP protocol -- CORS preflight', () => {
   });
 });
 
+// serverInfo said 0.2.0 while the service was at 1.3.0; MCP directories show it.
+describe('MCP protocol -- server version', () => {
+  afterEach(() => {
+    delete globalThis.BUILD_VERSION;
+  });
+
+  async function serverVersion() {
+    const ctx = createExecutionContext();
+    const res = await handleMcp(new Request('http://localhost/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
+      body: JSON.stringify(initRequest()),
+    }), env, ctx);
+    await waitOnExecutionContext(ctx);
+    return (await res.json()).result.serverInfo.version;
+  }
+
+  it('reports the WRL release the deploy stamped', async () => {
+    globalThis.BUILD_VERSION = '1.3.0';
+    expect(await serverVersion()).toBe('1.3.0');
+  });
+
+  it('reports dev without a stamped release', async () => {
+    expect(await serverVersion()).toBe('dev');
+  });
+});
+
 describe('MCP protocol -- security headers', () => {
   it('POST /mcp responses include security headers', async () => {
     const res = await mcpPost(initRequest());
