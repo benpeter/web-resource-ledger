@@ -43,7 +43,7 @@ From `package.json` (root):
 | `croner` | `^10.0.1` | Cron expression validation and next-run calculation for tenant schedules (`src/cron.js`) |
 | `diff-match-patch-es` | `1.0.1` | Character-level HTML diffing (`src/diff.js`) |
 | `pdf-lib` | `1.17.1` | Generates signed PDF certificates of authenticity (`src/certificate.js`) |
-| `fflate` | `^0.8.2` (devDep — used by `src/wacz.js`) | ZIP creation for WACZ bundles (`zipSync`) |
+| `fflate` | `^0.8.3` (devDep — used by `src/wacz.js`) | ZIP creation for WACZ bundles (`zipSync`) |
 | `zod` | `^4.3.6` | Schema validation in MCP tool definitions (`src/mcp.js`) |
 | `@redocly/cli` | `^2.78.0` (devDep) | Lints `openapi.yaml` (`npm run lint:api`) |
 | `yaml` | `^2.8.2` (devDep) | YAML parsing in scripts |

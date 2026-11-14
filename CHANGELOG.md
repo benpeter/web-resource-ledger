@@ -16,6 +16,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Security
 
+- `@w-r-l/verify` requires fflate 0.8.3 or later; with 0.8.0 to 0.8.2 a malformed ZIP64 archive could make it loop forever while unzipping (GHSA-px8p-9vwx-vf98). The service already ran 0.8.3
 - MCP `capture_url` and `batch_capture` screen URLs with Google Web Risk before capturing, like the REST endpoints; before, an MCP client could capture a flagged page, which the daily re-scan quarantined up to a day later
 - `GET /v1/account/first-key` answers 403 until the terms of service are accepted, like the other account routes; before, the first API key could be fetched and used without accepting them
 - A request without credentials no longer runs as the previous caller of the same Worker instance: keyless reads of public captures returned 404 after an authenticated request, and the diff endpoint accepted a keyless request as that caller
