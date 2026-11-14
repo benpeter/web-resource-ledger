@@ -273,7 +273,9 @@ components:
           description: >
             HTTP status code for this item (400, 422, 429, 500, 503). A 422 may
             indicate a private IP, double-encoded URL, or a URL flagged by
-            content security screening.
+            content security screening. 429 and 503 occur only with a
+            self-hosted operator's legacy single key; API keys get a top-level
+            429 for the whole batch instead.
         url:
           type: string
           description: The URL as submitted (raw input for errors, empty string for structural errors).
@@ -2772,14 +2774,17 @@ paths:
         Designed for bulk archival use cases: legal holds, compliance monitoring,
         CI pipelines that need to snapshot multiple pages simultaneously.
 
-        Each URL is validated and rate-limited independently. A URL that fails
-        validation or hits a per-item rate limit does not affect other items in
-        the batch. Rate-limit tokens are consumed per URL, not per request.
+        Each URL is validated independently. A URL that fails validation does
+        not affect other items in the batch. Rate-limit tokens are consumed per
+        URL, not per request, and are checked for the whole batch before any URL
+        is accepted: a batch with more URLs than the tenant has left this minute
+        gets a top-level 429 with `limitType: 'tenant'`. Only a self-hosted
+        operator's legacy single key is rate-limited URL by URL, with per-item
+        429 or 503 results for the URLs after the limit.
 
         Monthly quota: each accepted URL counts against the tenant's monthly capture quota.
-        When the quota is exhausted mid-batch, remaining items receive per-item 429 errors
-        with `limitType: 'quota'`. If the quota is exhausted before processing begins
-        (e.g., zero remaining), a top-level 429 is returned with `limitType: 'quota'` and a
+        The quota is checked for the whole batch before any URL is accepted: a batch that
+        would go past it gets a top-level 429 with `limitType: 'quota'` and a
         `quota.requested` field indicating how many captures were requested. Quota headers
         (`X-Quota-Limit`, `X-Quota-Used`, `X-Quota-Remaining`) are present on 207 responses.
 

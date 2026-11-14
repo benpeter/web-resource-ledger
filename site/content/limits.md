@@ -14,7 +14,7 @@ WRL enforces two types of request limits: **rate limits** (short-term burst prot
 |---|---|---|
 | **Scope** | Per IP or per tenant | Per tenant |
 | **Window** | 60 seconds | Calendar month |
-| **Reset** | Rolling window (seconds) | First of next month |
+| **Reset** | Within 60 seconds (`Retry-After` gives the seconds) | First of next month |
 | **429 `limitType`** | `'tenant'` or absent | `'quota'` |
 | **`Retry-After` format** | Seconds (integer) | HTTP-date |
 
@@ -91,7 +91,7 @@ Key differences from rate-limit `429` responses:
 
 Batch requests check quota upfront for the entire batch before any capture is queued. If the batch would exceed the remaining quota, the **entire batch is rejected** with a single `429` response -- no items are accepted.
 
-For example, if you have 30 captures remaining and submit a batch of 50 URLs, all 50 are rejected. Resubmit a smaller batch that fits within the remaining quota, or wait until the quota resets.
+For example, if you have 5 captures remaining and submit a batch of 8 URLs, all 8 are rejected. Resubmit a smaller batch that fits within the remaining quota, or wait until the quota resets.
 
 See [Batch Captures](/batch/) for full batch error handling patterns.
 
@@ -135,7 +135,7 @@ Unauthenticated or low-trust requests are subject to per-IP rate limiting. The l
 
 ### Per-Tenant Limits
 
-Authenticated requests are rate-limited per tenant. The window is 60 seconds, rolling.
+Authenticated requests are rate-limited per tenant. The count starts again at the start of each minute; `Retry-After` and `X-RateLimit-Reset` say how many seconds away that is.
 
 | What | Default per tenant |
 |---|---|

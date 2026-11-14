@@ -42,7 +42,7 @@ curl -X POST https://api.webresourceledger.com/v1/captures \
 
 Save the `id`. You will use it in the next two steps.
 
-The capture runs in the background. WRL takes a screenshot, saves the rendered HTML and HTTP response headers, and assembles a cryptographically signed WACZ bundle. This typically takes 5--15 seconds.
+The capture runs in the background. WRL takes a screenshot, saves the rendered HTML and HTTP response headers, and assembles a cryptographically signed WACZ bundle. This typically takes 20--60 seconds.
 
 ## Step 2: Check the result
 
