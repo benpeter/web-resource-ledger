@@ -322,7 +322,7 @@ A daily cron job (`0 3 * * *` UTC) re-scans all non-quarantined capture URLs aga
 
 - Have their status updated to `quarantined` in API responses.
 - Remain in storage with their artifacts intact for operator review.
-- Log a `threatcheck.quarantine` event to Coralogix, which triggers the [WRL] Threat Check Quarantines alert if five or more quarantines occur within 24 hours.
+- Log a `threatcheck.quarantine` event to Coralogix, which triggers the [WRL] Threat Check Quarantines alert if more than five quarantines occur within 24 hours.
 
 Quarantine resolution requires manual operator intervention. There is no automated un-quarantine path.
 
@@ -338,19 +338,21 @@ IP addresses are pseudonymized to a `cip` value (16-character hex) using a daily
 
 ### 9.2 Alert Rules
 
-Nine Coralogix alert rules monitor production health (see `docs/operations/alerts.md`):
+Eleven Coralogix alert rules monitor production health (see `docs/operations/alerts.md`):
 
 | Alert name | Priority | What it monitors |
 |---|---|---|
 | [WRL] Capture Failures | P1 | Terminal capture failures after all retries |
 | [WRL] Worker Errors (5xx) | P1 | HTTP 5xx responses from any subsystem |
-| [WRL] Auth Failure Spike | P1 | Authentication failures (key enumeration signal) |
+| [WRL] Auth Failure Spike | P1 | Rejected API keys (key enumeration signal) |
+| [WRL] Captures Dead-Lettered | P2 | Captures that failed all four attempts |
 | [WRL] Qualified TSA Failures | P2 | Sectigo eIDAS-qualified timestamp failures |
 | [WRL] Threat Check API Failures | P2 | Google Web Risk API unavailable during pre-capture |
 | [WRL] Email Delivery Failures | P2 | Resend email dispatch failures |
 | [WRL] TSA Failures | P3 | DigiCert standard timestamp failures |
 | [WRL] Threat Check Quarantines | P3 | Captures quarantined by daily re-scan |
 | [WRL] Email Bounces | P3 | Hard bounces from email delivery |
+| [WRL] New API Key Created | P4 | Keys issued through the admin API |
 
 All alerts send email to the operator with a 60-minute retriggering suppression window (24-hour window for email bounce alerts).
 
@@ -421,7 +423,7 @@ The following risks are known, accepted, and documented. Each is accompanied by 
 | **No data residency guarantees** | Cloudflare distributes D1, R2, and KV globally by default. WRL does not configure geo-restriction on storage. | Accepted: WRL's target market does not require EU data residency enforcement at this time. |
 | **Sole-proprietor operational model** | WRL is operated by one person. There is no second-person approval for production changes, no on-call rotation, and no 24/7 SOC. | Alert monitoring via Coralogix with email notification. Incident response times are best-effort. Not suitable for use cases requiring contractual SLA or 24/7 security monitoring. |
 | **RFC 3161 certificate chain validation deferred** | `src/rfc3161.js` verifies nonce and messageImprint but does not perform full X.509 CMS certificate chain validation. The code comment notes this is "not feasible in Cloudflare Workers." | The raw token DER is stored in the WACZ bundle. Offline verification (`npx @w-r-l/verify`) can perform full chain validation using the token. The TSA's signing certificate is requested in the `certReq` flag of each `TimeStampReq`. Tracked in `docs/backlog.md`. |
-| **Fail-open threat check** | Google Web Risk API failures allow captures to proceed without pre-capture URL screening. | `threatCheck: "unavailable"` is recorded in capture metadata. The daily re-scan cron provides a compensating control: captures made during a degraded window are re-screened within 24 hours. The [WRL] Threat Check API Failures alert (P2) fires after two failures in 10 minutes. |
+| **Fail-open threat check** | Google Web Risk API failures allow captures to proceed without pre-capture URL screening. | `threatCheck: "unavailable"` is recorded in capture metadata. The daily re-scan cron provides a compensating control: captures made during a degraded window are re-screened within 24 hours. The [WRL] Threat Check API Failures alert (P2) fires after more than two failures in 10 minutes. |
 | **Single signing key** | A single Ed25519 private key signs all WACZ bundles. Key compromise would affect all captures made with that key. | Key rotation is supported: `src/signing.js` detects rotation by comparing the `SIGNING_KEY` secret value. Historical public keys are archived in D1 `signing_keys` and published at `GET /.well-known/signing-keys`. All historical captures remain verifiable after rotation. |
 
 ---
