@@ -235,8 +235,8 @@ Render quality: full
 
 Artifacts:
   Screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
-  HTML:       https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
-  Headers:    https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+  HTML: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
+  Headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
   WACZ bundle: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz (2847362 bytes)
 
 Verify integrity: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
@@ -261,6 +261,30 @@ List recent captures with optional filters. Returns summaries in reverse chronol
 | `created_before` | string | no | ISO 8601 datetime -- only captures before this time |
 | `sort` | string | no | Sort order: `-created_at` (default, newest first) or `created_at` |
 | `schedule_id` | string | no | Only captures made by this schedule (`sch_` followed by 32 hex characters); `list_schedules` shows the IDs |
+
+**Example output (with `limit` 2):**
+
+```
+Found 2 capture(s) (57 total):
+
+  ID: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+  URL: https://example.com
+  Status: complete
+  Created: 2026-03-22T10:30:00.000Z
+  Completed: 2026-03-22T10:30:36.210Z
+  Render quality: full
+
+  ID: cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
+  URL: https://example.com/slow
+  Status: failed
+  Created: 2026-03-22T09:15:00.000Z
+  Failed: 2026-03-22T09:18:41.077Z
+  Error: Capture permanently failed after all retry attempts
+
+Next page: pass offset=2 to list_captures for the next page.
+```
+
+A failed capture shows `Failed:` and `Error:` instead of `Completed:` and `Render quality:`.
 
 ---
 
@@ -319,7 +343,7 @@ Target URL: https://example.com
 Overall changed: YES
 
 Summary:
-  HTML:       changed (+12 -4)
+  HTML:       changed (+1 -1)
   Screenshot: changed
   Headers:    changed (1 field(s))
 
@@ -327,7 +351,17 @@ Headers modified:
   ~ last-modified
       was: Mon, 01 Jun 2025 10:00:00 GMT
       now: Tue, 02 Jun 2025 14:00:00 GMT
+
+HTML hunks (1):
+  @@ base:118 target:118 @@
+    <section class="pricing">
+    <h2>Plans</h2>
+    <p class="price">
+  - From 19 EUR a month
+  + From 24 EUR a month
 ```
+
+The HTML section shows up to 10 changed places, each with at most 5 lines; `+` marks a line added in the target, `-` a line removed from the base.
 
 ---
 
