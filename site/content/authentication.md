@@ -54,7 +54,7 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `GET /v1/captures/{id}/status` | None (public) |
 | `GET /v1/captures/{id}/artifacts/*` | None (public) |
 | `GET /v1/captures/{id}/certificate` | None (public) |
-| `GET /v1/captures/{id}/diff/{baseId}` | `read` |
+| `GET /v1/captures/{baseId}/diff/{targetId}` | `read` |
 | `GET /v1/verify/{id}` | None (public endpoint) |
 | `GET /.well-known/signing-key` | None (public endpoint) |
 | `GET /.well-known/signing-keys` | None (public endpoint) |

@@ -28,7 +28,7 @@ description: WRL data retention periods — how long capture data, ephemeral dat
 | Webhooks | D1 database | Until deleted by tenant or account deletion |
 | Notification preferences and email address | D1 database | Until account deletion |
 | Quarantined captures | R2 + D1 database | 90 days from quarantine date, then purged automatically |
-| Rate limit counters | KV store | 60-120 seconds (auto-expire); sign-in link counters, keyed by hashes of the IP and address, 2 hours |
+| Rate limit counters | KV store | 2 minutes after the last counted request (auto-expire); sign-in link counters, keyed by hashes of the IP and address, 2 hours after the last link |
 | OAuth state tokens | KV store | 600 seconds (auto-expire) |
 | Operational logs | Coralogix (EU2 region) | 90 days; pseudonymized -- no raw IP addresses or personal identifiers |
 
