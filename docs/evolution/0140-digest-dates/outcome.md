@@ -3,7 +3,7 @@
 - `src/notifications.js`: `handleWeeklyDigest(env, now)`, dates for the template,
   `dedupPeriod` removed. `src/index.js`: the weekly cron passes `scheduledTime`.
 - `test/notification-triggers.test.js`: subject and text name the period as dates. Red
-  first (see `git log`).
+  first (b9be618).
 - CHANGELOG under Fixed.
 
 ## Backlog changes
