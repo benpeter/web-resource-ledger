@@ -40,10 +40,12 @@ export function isAnalyticsExcluded(env, tenantId) {
 
 /**
  * Send a capture event ('First Capture', 'Capture Completed', 'Capture Failed').
+ * The message's ip is the captured site's address, not the submitter's, so the
+ * event goes without an ip and Pirsch gets the documentation address.
  *
  * @param {object} env
  * @param {string} eventName
- * @param {object} body  capture queue message body (tenantId, ip, ua, source, ...)
+ * @param {object} body  capture queue message body (tenantId, ua, source, ...)
  * @param {object} [meta]  extra coarse flags, string values
  * @returns {Promise<void>|undefined}
  */
@@ -51,7 +53,6 @@ export function trackCaptureEvent(env, eventName, body, meta = {}) {
   if (isAnalyticsExcluded(env, body?.tenantId)) return undefined;
   return trackServerEvent(env, eventName, {
     path: '/v1/captures',
-    ip: body?.ip,
     userAgent: body?.ua,
     meta: { source: captureSource(body), ...meta },
   });
