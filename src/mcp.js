@@ -35,7 +35,7 @@ import { performVerification } from './verify.js';
 import { log } from './log.js';
 import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
 import { readSitemap } from './sitemap.js';
-import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData } from './quotas.js';
+import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage } from './quotas.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { validateCron, nextRun } from './cron.js';
@@ -1033,13 +1033,22 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      const captureCount = result.captureCount ?? 0;
-      const storageBytes = result.storageBytes ?? 0;
-      const billingStatus = result.billingStatus ?? 'active';
-      const hasPaymentMethod = Boolean(result.hasPaymentMethod);
-      const captureLimit = result.quota?.capturesPerMonth;
-      const storageLimit = result.quota?.storageBytes;
-      const period = result.period ?? '(unknown)';
+      // A refusal (blocked, deletion pending, over a limit) leaves out the
+      // counts, so read them directly then
+      const usage = result.allowed ? result : await readTenantUsage(env.DB, auth.tenantId, result.period);
+      if (!usage) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Tenant not found.' }],
+        };
+      }
+      const captureCount = usage.captureCount ?? 0;
+      const storageBytes = usage.storageBytes ?? 0;
+      const billingStatus = usage.billingStatus ?? 'active';
+      const hasPaymentMethod = Boolean(usage.hasPaymentMethod);
+      const captureLimit = usage.quota?.capturesPerMonth;
+      const storageLimit = usage.quota?.storageBytes;
+      const period = usage.period ?? '(unknown)';
 
       const publicBillingStatus = (billingStatus === 'active' && !hasPaymentMethod) ? 'free' : billingStatus;
 
@@ -1060,9 +1069,10 @@ function createMcpServer(env, ctx, auth, origin) {
         `Storage used:    ${Math.round(storageBytes / 1024)} KB / ${storLimitText}`,
       ];
 
-      if (!result.allowed && result.reason === 'billing_blocked') {
+      const refusal = result.allowed ? null : accountRefusalDetail(result);
+      if (refusal) {
         lines.push('');
-        lines.push('Account is blocked. Contact support to restore access.');
+        lines.push(refusal);
       }
 
       return {

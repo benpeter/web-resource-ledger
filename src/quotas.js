@@ -165,6 +165,44 @@ export async function checkQuota(db, tenantId, count = 1) {
 }
 
 /**
+ * Read a tenant's billing state and current-period usage directly. For callers
+ * that show usage when checkQuota() refused: its refusals leave out the counts.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @param {string} [period]  YYYY-MM, defaults to the current period
+ * @returns {Promise<object|null>}  null when the tenant doesn't exist
+ */
+export async function readTenantUsage(db, tenantId, period = computePeriod()) {
+  const [tenantRow, usageRow] = await db.batch([
+    db.prepare(
+      `SELECT config, payment_method_added_at, billing_status, grace_period_end,
+              stripe_invoice_amount_cents, stripe_invoice_currency
+       FROM tenants WHERE id = ?`,
+    ).bind(tenantId),
+    db.prepare(
+      'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
+    ).bind(tenantId, period),
+  ]);
+  const tenant = tenantRow.results?.[0];
+  if (!tenant) return null;
+  const config           = tenant.config ? JSON.parse(tenant.config) : null;
+  const hasPaymentMethod = tenant.payment_method_added_at != null;
+  const usage            = usageRow.results?.[0];
+  return {
+    hasPaymentMethod,
+    billingStatus:        tenant.billing_status ?? 'active',
+    gracePeriodEnd:       tenant.grace_period_end ?? null,
+    invoiceCacheCents:    tenant.stripe_invoice_amount_cents ?? null,
+    invoiceCacheCurrency: tenant.stripe_invoice_currency ?? null,
+    quota:                getEffectiveQuota(hasPaymentMethod, config),
+    captureCount:         usage?.capture_count ?? 0,
+    storageBytes:         usage?.storage_bytes ?? 0,
+    period,
+  };
+}
+
+/**
  * Format a byte count as gigabytes for quota messages, e.g. "10.0 GB".
  *
  * @param {number} bytes
