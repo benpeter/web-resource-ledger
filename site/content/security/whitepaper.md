@@ -279,7 +279,7 @@ WRL's source code is open and hosted at [github.com/benpeter/web-resource-ledger
 
 ### 10.2 Runtime Dependencies
 
-WRL Workers have no npm runtime dependencies beyond `@cloudflare/playwright` (Browser Rendering client) and `@duckduckgo/autoconsent` (cookie consent dismissal). There are no general-purpose HTTP, crypto, or data-manipulation libraries. All cryptographic operations use the Web Crypto API (`crypto.subtle.*`) built into the Cloudflare Workers runtime.
+The WRL Worker bundles these npm packages: `@cloudflare/playwright` (Browser Rendering client), `@duckduckgo/autoconsent` (cookie consent dismissal), `@modelcontextprotocol/sdk` and `zod` (MCP server and its input schemas), `croner` (cron expressions of schedules), `diff-match-patch-es` (HTML diffs between captures), `pdf-lib` (certificate PDFs) and `fflate` (zipping and unzipping WACZ bundles). There is no general-purpose HTTP client or crypto library. Signing, signature verification and hashing use the Web Crypto API (`crypto.subtle.*`) built into the Cloudflare Workers runtime; `node:crypto` only derives the public key from the private signing key (`src/signing.js`).
 
 Development and tooling dependencies (test framework, linter, bundler) are not deployed to production Workers.
 
