@@ -1,0 +1,84 @@
+# Publishes server.json to the official MCP Registry
+# (registry.modelcontextprotocol.io) when a GitHub release is published, or by
+# hand from the Actions tab.
+#
+# Authentication is GitHub OIDC: the registry grants the io.github.benpeter/*
+# namespace to workflows in benpeter's repositories, so no secret is needed.
+#
+# Registry versions can't be overwritten. The job skips the publish when the
+# version in server.json is already listed, so a re-run is harmless.
+
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MCP_PUBLISHER_VERSION: v1.8.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check versions are in sync
+        run: ./scripts/check-version-sync.sh
+
+      - name: Verify version matches the release tag
+        if: github.event_name == 'release'
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MCP_VERSION=$(jq -r .version server.json)
+          if [ "$TAG_VERSION" != "$MCP_VERSION" ]; then
+            echo "::error::Release tag ($TAG_VERSION) does not match server.json version ($MCP_VERSION)"
+            exit 1
+          fi
+
+      - name: Check whether this version is already published
+        id: listed
+        run: |
+          NAME=$(jq -r .name server.json | sed 's|/|%2F|')
+          VERSION=$(jq -r .version server.json)
+          STATUS=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0/servers/${NAME}/versions/${VERSION}")
+          case "$STATUS" in
+            200) echo "::notice::Version $VERSION is already in the registry -- skipping"; echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::Registry answered $STATUS for version $VERSION"; exit 1 ;;
+          esac
+
+      - name: Install cosign
+        if: steps.listed.outputs.published == 'false'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Download and verify mcp-publisher
+        if: steps.listed.outputs.published == 'false'
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+
+      - name: Authenticate to the MCP Registry
+        if: steps.listed.outputs.published == 'false'
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server.json
+        if: steps.listed.outputs.published == 'false'
+        run: ./mcp-publisher publish
