@@ -7,9 +7,10 @@
 //   - Authenticated cross-tenant access returns 404 (NOT 403) with identical response body
 //   - The verify endpoint (/v1/verify/) must remain unauthenticated (in verify-integration.test.js)
 
-import { env, SELF } from 'cloudflare:test';
+import { env, SELF, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createCapture, completeCapture, failCapture } from '../src/db.js';
+import worker from '../src/index.js';
 import {
   cleanDb,
   seedApiKey,
@@ -197,6 +198,44 @@ describe('GET /v1/captures/{id} -- tenant isolation', () => {
   it('Cache-Control: no-store on 200 (not private since responses are public)', async () => {
     const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}`);
     expect(res.headers.get('Cache-Control')).toBe('no-store');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auth stays with its request. The fetch handler kept the caller's tenant on
+// the env object, which Workers share between requests in an isolate, so a
+// keyless request after an authenticated one ran as that tenant.
+// ---------------------------------------------------------------------------
+
+describe('auth does not carry over to the next request', () => {
+  it('a keyless request after tenant B\'s request still sees tenant A\'s public capture', async () => {
+    const keyed = await SELF.fetch(`https://worker.test/v1/captures/${CAP_B}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
+    expect(keyed.status).toBe(200);
+    const keyless = await SELF.fetch(`https://worker.test/v1/captures/${CAP_A}/status`);
+    expect(keyless.status).toBe(200);
+  });
+
+  it('a keyless diff after an authenticated request still answers 401', async () => {
+    await SELF.fetch(`https://worker.test/v1/captures/${CAP_B}`, {
+      headers: { Authorization: `Bearer ${TEST_TENANT_KEY_B}` },
+    });
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${CAP_B}/diff/${CAP_A}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('leaves no request state on env', async () => {
+    for (const path of [`/v1/captures/${CAP_A}`, '/v1/account/usage']) {
+      const ctx = createExecutionContext();
+      const res = await worker.fetch(new Request(`https://worker.test${path}`, {
+        headers: { Authorization: `Bearer ${TEST_TENANT_KEY}`, 'CF-Connecting-IP': '10.0.8.1' },
+      }), env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+    }
+    expect(env._captureAuth).toBeUndefined();
+    expect(env._session).toBeUndefined();
   });
 });
 
