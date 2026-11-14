@@ -435,10 +435,9 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | Group | Default | Overridable |
 |---|---|---|
 | `capture` | 10 req/60s | Yes (ceiling: `BINDING_CEILING = 100`) |
-| `verify` | 60 req/60s | No |
-| `admin` | 5 req/60s | No |
-| `auth` | 20 req/60s | No |
-| `account` | 30 req/60s | No |
+| `sitemap` | 10 req/60s | No |
+
+`RATE_LIMITS.verify` (60), `.admin` (30) and `.auth` (10) have no KV counter. They only set `X-RateLimit-Limit` on responses that don't carry their own rate-limit headers, and must equal the binding limits above; `test/rate-limits-sync.test.js` checks them against `wrangler.toml`. Account and billing routes report the `auth` group, because they share `AUTH_RATE_LIMITER` with sign-in.
 
 ---
 

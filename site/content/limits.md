@@ -106,6 +106,11 @@ Rate limits protect against short bursts of traffic. They apply independently of
 
 Unauthenticated or low-trust requests are subject to per-IP rate limiting. The limit applies to the originating IP address.
 
+| What | Limit per IP address |
+|---|---|
+| Verification and signing keys (`/v1/verify/{id}`, `/.well-known/signing-key`, `/.well-known/signing-keys`), and artifact and certificate downloads without an API key | 60 a minute, shared |
+| `GET /v1/account/usage`, sign-in and the dashboard's account routes | 10 a minute, shared |
+
 ### Per-Tenant Limits
 
 Authenticated requests are rate-limited per tenant. The window is 60 seconds, rolling.

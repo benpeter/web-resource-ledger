@@ -5242,6 +5242,9 @@ paths:
         submitting large batches. It accepts an API key with the `read` scope (a `capture`
         key includes it) or a dashboard session; it is the only `/v1/account/` route that
         takes an API key. MCP's `get_usage` tool returns the same numbers.
+
+        It allows 10 requests a minute per IP address, shared with sign-in and the
+        dashboard's account routes.
       tags: [account]
       security:
         - bearerAuth: []
