@@ -74,14 +74,22 @@ curl https://api.webresourceledger.com/v1/schedules \
       "lastRunAt": "2026-03-31T00:00:00.000Z",
       "lastCaptureId": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
       "lastCaptureStatus": "complete",
-      "createdAt": "2026-03-01T10:00:00.000Z"
+      "changeSummary": {
+        "changed": true,
+        "previousCaptureId": "cap_f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3",
+        "html": { "changed": true, "additions": 12, "deletions": 3 },
+        "screenshot": { "changed": true },
+        "headers": { "changed": false, "changes": 0 }
+      },
+      "createdAt": "2026-03-01T10:00:00.000Z",
+      "updatedAt": "2026-03-31T00:00:12.000Z"
     }
   ],
   "limit": 10
 }
 ```
 
-`limit` is how many schedules your account can have (see [Schedule limits](#schedule-limits)). `lastCaptureId` and `lastCaptureStatus` reflect the most recent run. `lastCaptureStatus` is `pending` while that capture runs, then `complete` or `failed`. It is `skipped` when the run was skipped because the monthly quota was used up, and `blocked` when the URL was flagged as unsafe. Use `lastCaptureId` to retrieve the full capture record or verify the artifact.
+`limit` is how many schedules your account can have (see [Schedule limits](#schedule-limits)). `lastCaptureId` and `lastCaptureStatus` reflect the most recent run. `lastCaptureStatus` is `pending` while that capture runs, then `complete` or `failed`. It is `skipped` when the run was skipped because the monthly quota was used up, and `blocked` when the URL was flagged as unsafe. Use `lastCaptureId` to retrieve the full capture record or verify the artifact. `changeSummary` says what changed in that capture compared with the schedule's capture before it: lines added and removed in the HTML, whether the screenshot differs, and how many response headers changed. It is `null` until there are two captures to compare, and only the list fills it in.
 
 To see only captures triggered by a specific schedule, add the `schedule_id` filter when listing captures:
 

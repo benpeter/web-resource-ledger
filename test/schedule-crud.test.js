@@ -307,3 +307,39 @@ describe('DELETE /v1/schedules/:id', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Response shape: schedules went out with the raw `tenant_id` column, which the
+// API reference never listed (the scheduler still reads it internally)
+// ---------------------------------------------------------------------------
+
+describe('schedule responses carry no internal tenant_id', () => {
+  let ip;
+  beforeEach(async () => {
+    ip = nextIp();
+    await setup();
+  });
+  afterEach(() => cleanDb(env.DB));
+
+  it('on create, list, get and update', async () => {
+    const created = await (await makePost(ip)(VALID_CREATE_BODY)).json();
+    expect(created.id).toMatch(/^sch_/);
+    expect(created).not.toHaveProperty('tenant_id');
+
+    const list = await (await makeGet(ip)()).json();
+    expect(list.data[0].id).toBe(created.id);
+    expect(list.data[0]).not.toHaveProperty('tenant_id');
+
+    const one = await (await makeGetOne(ip)(created.id)).json();
+    expect(one.id).toBe(created.id);
+    expect(one).not.toHaveProperty('tenant_id');
+
+    const updated = await (await SELF.fetch(`https://worker.test/v1/schedules/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: TENANT_AUTH, 'CF-Connecting-IP': ip },
+      body: JSON.stringify({ paused: true }),
+    })).json();
+    expect(updated.paused).toBe(true);
+    expect(updated).not.toHaveProperty('tenant_id');
+  });
+});

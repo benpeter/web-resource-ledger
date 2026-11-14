@@ -40,6 +40,11 @@ const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const ALLOWED_CREATE_FIELDS = new Set(['url', 'cron', 'name']);
 const ALLOWED_UPDATE_FIELDS = ['name', 'url', 'cron', 'paused'];
 
+// A schedule as the API returns it: without the tenant_id the scheduler reads.
+function publicSchedule({ tenant_id, ...schedule }) {
+  return schedule;
+}
+
 // ---------------------------------------------------------------------------
 // Local dual auth: session cookie first, then API key
 // ---------------------------------------------------------------------------
@@ -166,7 +171,7 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
     }) ?? Promise.resolve());
   }
 
-  return jsonResponse(record, 201);
+  return jsonResponse(publicSchedule(record), 201);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +200,7 @@ export async function handleListSchedules(request, env, ctx, _match) {
     responseStatus: 200,
   }) ?? Promise.resolve());
 
-  return jsonResponse({ data: records, limit });
+  return jsonResponse({ data: records.map(publicSchedule), limit });
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +233,7 @@ export async function handleGetSchedule(request, env, ctx, match) {
     responseStatus: 200,
   }) ?? Promise.resolve());
 
-  return jsonResponse(record);
+  return jsonResponse(publicSchedule(record));
 }
 
 // ---------------------------------------------------------------------------
@@ -370,7 +375,7 @@ export async function handleUpdateSchedule(request, env, ctx, match) {
     responseStatus: 200,
   }) ?? Promise.resolve());
 
-  return jsonResponse(record);
+  return jsonResponse(publicSchedule(record));
 }
 
 // ---------------------------------------------------------------------------
