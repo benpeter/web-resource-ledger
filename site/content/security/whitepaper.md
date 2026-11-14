@@ -220,8 +220,12 @@ sequenceDiagram
     GitHub->>Worker: {id, login}
     Worker->>Worker: Discard access_token (never stored)
     Worker->>Worker: Generate sessionId (32 bytes), hash SHA-256
-    Worker->>KV: [new user only] PUT first_key:{tenantId} = rawApiKey, TTL=3600s
+    Worker->>KV: [new user only] PUT first_key:{tenantId} = rawApiKey, TTL=86400s
     Worker->>User: 302 /ui, Set-Cookie: __Host-wrl_session=...
+
+    User->>Worker: POST /v1/account/tos (first sign-in; other account routes answer 403 until then)
+    User->>Worker: GET /v1/account/first-key
+    Worker->>KV: GET first_key:{tenantId} (shown once)
 ```
 
 ---
