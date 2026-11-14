@@ -103,6 +103,19 @@ describe('GET /v1/account/first-key', () => {
     expect(await env.KV.get(`first_key:${tenantId}`)).toBe('wrl_live_testkey');
   });
 
+  it('keeps the key on a HEAD request', async () => {
+    // HEAD runs as GET only on public pages and files; this GET deletes the key
+    const { cookie, tenantId } = await createTosSession({ githubId: 88990 });
+    await env.KV.put(`first_key:${tenantId}`, 'wrl_live_testkey');
+
+    const res = await SELF.fetch('https://wrl.test/v1/account/first-key', {
+      method: 'HEAD',
+      headers: { Cookie: cookie, 'User-Agent': UA, 'CF-Connecting-IP': '198.51.100.20' },
+    });
+    expect(res.status).toBe(404);
+    expect(await env.KV.get(`first_key:${tenantId}`)).toBe('wrl_live_testkey');
+  });
+
   it('returns the key once, then 404', async () => {
     pirschEvents(2);
     const { cookie, tenantId } = await createTosSession({ githubId: 88902 });

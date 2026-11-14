@@ -50,6 +50,24 @@ afterEach(() => {
 // Content negotiation -- Accept header routing
 // ---------------------------------------------------------------------------
 
+describe('HEAD /v1/verify/{id} and artifacts', () => {
+  it('answers the verification page like GET, without a body', async () => {
+    const res = await SELF.fetch(
+      new Request(`https://worker.test/v1/verify/${TEST_ID}`, { method: 'HEAD', headers: { Accept: 'text/html' } }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/html');
+    expect(await res.text()).toBe('');
+  });
+
+  it('answers an artifact like GET, without a body', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/${TEST_ID}/artifacts/screenshot`, { method: 'HEAD' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('image/png');
+    expect(await res.text()).toBe('');
+  });
+});
+
 describe('GET /v1/verify/{id} -- content negotiation', () => {
   it('Accept: text/html returns HTML Content-Type', async () => {
     const res = await SELF.fetch(
