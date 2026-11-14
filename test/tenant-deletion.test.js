@@ -83,6 +83,10 @@ describe('POST /v1/admin/tenants/{id}/deletion', () => {
     // Asking again keeps the first date
     const again = await (await admin('POST', `/v1/admin/tenants/${TENANT}/deletion`)).json();
     expect(again.deletionRequestedAt).toBe(body.deletionRequestedAt);
+
+    // The tenant detail shows the pending deletion
+    const detail = await (await admin('GET', `/v1/admin/tenants/${TENANT}`)).json();
+    expect(detail.deletionRequestedAt).toBe(body.deletionRequestedAt);
   });
 
   it('stops captures and schedules but keeps the captures readable', async () => {
