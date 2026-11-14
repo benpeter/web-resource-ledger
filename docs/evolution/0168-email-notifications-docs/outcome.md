@@ -1,6 +1,6 @@
 # Outcome
 
-- Red first (7b75aa1), then green.
+- Red first (7b75aa1), then green (8e7ece9).
 - `site/content/notifications.md` (new), `site/_data/site.js` (nav),
   `site/content/llms.njk` (docs llms.txt).
 - Tests: `test/notifications-sync.test.js` (in `npm run test:sync`): every
