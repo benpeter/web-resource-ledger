@@ -25,7 +25,8 @@
     "build:docs": "cd site && npm run build",
     "test:battery": "node scripts/test-battery.js",
     "test:sync": "vitest run --config vitest.sync.config.ts",
-    "vendor:autoconsent": "node scripts/vendor-autoconsent.js"
+    "vendor:autoconsent": "node scripts/vendor-autoconsent.js",
+    "docs:diagrams": "node scripts/render-diagrams.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.8.2",

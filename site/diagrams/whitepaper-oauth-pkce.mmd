@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant User as Browser / Extension
+    participant Worker as WRL Worker
+    participant KV as Workers KV
+    participant GitHub as GitHub OAuth
+
+    User->>Worker: GET /auth/login
+    Worker->>Worker: Generate state (32 bytes), code_verifier (64 bytes)
+    Worker->>Worker: code_challenge = BASE64URL(SHA-256(code_verifier))
+    Worker->>KV: PUT oauth_state:{state} = {codeVerifier, createdAt}, TTL=600s
+    Worker->>User: 302 -> github.com/login/oauth/authorize?...&code_challenge=...
+
+    User->>GitHub: Authorize
+    GitHub->>User: 302 -> /auth/callback?code=...&state=...
+
+    User->>Worker: GET /auth/callback?code=...&state=...
+    Worker->>KV: GET oauth_state:{state} (read + delete, single-use)
+    Worker->>GitHub: POST /login/oauth/access_token (+ code_verifier for PKCE)
+    GitHub->>Worker: access_token
+    Worker->>GitHub: GET /user (Bearer access_token)
+    GitHub->>Worker: {id, login}
+    Worker->>Worker: Discard access_token (never stored)
+    Worker->>Worker: Generate sessionId (32 bytes), hash SHA-256
+    Worker->>KV: [new user only] PUT first_key:{tenantId} = rawApiKey, TTL=86400s
+    Worker->>User: 302 /ui, Set-Cookie: __Host-wrl_session=...
+
+    User->>Worker: POST /v1/account/tos (first sign-in: other account routes answer 403 until then)
+    User->>Worker: GET /v1/account/first-key
+    Worker->>KV: GET first_key:{tenantId} (shown once)

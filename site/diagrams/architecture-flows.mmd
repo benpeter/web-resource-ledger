@@ -1,0 +1,63 @@
+sequenceDiagram
+    actor Tenant as Tenant (API Consumer)
+    participant API as WRL API
+    participant DB as Database
+    participant Q as Queue
+    participant Browser as Browser Rendering
+    participant Storage as Object Storage
+    participant Verifier as Verifier
+
+    note over Tenant,API: Authentication -- three paths
+
+    alt GitHub OAuth (interactive / web UI)
+        Tenant->>API: GET /auth/login
+        API-->>Tenant: Redirect to GitHub (PKCE)
+        Tenant->>API: GET /auth/callback?code=...
+        API-->>Tenant: Session cookie
+    else Emailed sign-in link (interactive / web UI)
+        Tenant->>API: POST /auth/email
+        API-->>Tenant: Single-use link by email, valid 15 minutes
+        Tenant->>API: POST /auth/email/verify (the page's Sign in button)
+        API-->>Tenant: Session cookie
+    else API Key (programmatic)
+        note over Tenant,API: Bearer token in Authorization header
+    end
+
+    note over Tenant,Q: Capture lifecycle (single or batch)
+
+    alt Single capture
+        Tenant->>API: POST /v1/captures
+    else Batch capture
+        Tenant->>API: POST /v1/captures/batch
+    end
+
+    API->>DB: Record capture(s) as pending
+    API->>Q: Enqueue capture job(s)
+    API-->>Tenant: 202 Accepted + capture ID(s)
+
+    note over Q,Storage: Async processing (see pipeline diagram)
+    Q->>Browser: Render URL
+    Browser->>Storage: Store artifacts
+    Q->>DB: Mark complete
+
+    Tenant->>API: GET /v1/captures/{id}/status
+    API-->>Tenant: {status: "complete"}
+    Tenant->>API: GET /v1/captures/{id}
+    API-->>Tenant: Capture record + artifact URLs + verifyUrl
+
+    note over Tenant,Verifier: Verification (unauthenticated by design)
+
+    Verifier->>API: GET /v1/verify/{id}
+    API->>Storage: Fetch WACZ bundle
+    API->>DB: Resolve signing key by keyId
+    API-->>Verifier: 5 check results + verified flag
+
+    opt Download certificate (PDF)
+        Verifier->>API: GET /v1/captures/{id}/certificate
+        API-->>Verifier: PDF certificate
+    end
+
+    note over Tenant,API: Account management (brief)
+    note over Tenant,API: API key CRUD: /v1/account/keys
+    note over Tenant,API: Webhooks: /v1/webhooks
+    note over Tenant,API: eIDAS opt-in: PATCH /v1/account/settings

@@ -9,11 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default function (eleventyConfig) {
   // Syntax highlighting (Prism, build-time)
-  eleventyConfig.addPlugin(syntaxHighlight, {
-    init({ Prism }) {
-      Prism.languages.mermaid = {}; // passthrough — preserves class for client-side rendering
-    },
-  });
+  eleventyConfig.addPlugin(syntaxHighlight);
 
   // Give headings an id so links like /limits/#why-captures-fail land on them.
   // checkDuplicates off: api-reference.njk already repeats some operation ids.

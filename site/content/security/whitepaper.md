@@ -32,48 +32,7 @@ WRL is operated as a sole-proprietor service. There is no operations team, no 24
 
 WRL is a Cloudflare-native system. All components run in Cloudflare's network. External dependencies are contacted only for specific bounded operations (OAuth, timestamping, threat screening, payments, email).
 
-```mermaid
-flowchart TB
-    subgraph Callers["Callers (untrusted)"]
-        API_CONSUMER["API Consumer (tenant)"]
-        EXT_USER["Browser Extension User"]
-    end
-
-    subgraph WRL["WRL System (Cloudflare)"]
-        WORKER["Cloudflare Worker<br/>(src/index.js)"]
-        D1[("D1 (SQLite)<br/>Metadata")]
-        R2[("R2<br/>Artifact Storage")]
-        KV["Workers KV<br/>Sessions / OAuth State"]
-        QUEUE["Capture Queue<br/>(wrl-captures)"]
-        BROWSER["Browser Rendering<br/>(headless Chromium)"]
-    end
-
-    subgraph External["External Services"]
-        GITHUB["GitHub<br/>(OAuth identity)"]
-        DIGICERT["DigiCert<br/>(RFC 3161 TSA)"]
-        SECTIGO["Sectigo<br/>(eIDAS qualified TSA)"]
-        WEBRISK["Google Web Risk<br/>(threat screening)"]
-        STRIPE["Stripe<br/>(payments)"]
-        CORALOGIX["Coralogix EU2<br/>(structured logs)"]
-        RESEND["Resend<br/>(transactional email)"]
-    end
-
-    API_CONSUMER -- "Bearer API key (HTTPS)" --> WORKER
-    EXT_USER -- "Session cookie (HTTPS)" --> WORKER
-    WORKER -- "enqueue" --> QUEUE
-    QUEUE -- "consume" --> WORKER
-    WORKER -- "render" --> BROWSER
-    WORKER --> D1
-    WORKER --> R2
-    WORKER --> KV
-    WORKER -- "OAuth PKCE" --> GITHUB
-    WORKER -- "TimeStampReq" --> DIGICERT
-    WORKER -- "TimeStampReq" --> SECTIGO
-    WORKER -- "URI lookup" --> WEBRISK
-    WORKER -- "billing events" --> STRIPE
-    WORKER -- "log entries" --> CORALOGIX
-    WORKER -- "email delivery" --> RESEND
-```
+[![Architecture diagram: API and MCP clients and dashboard users call the Cloudflare Worker, which uses D1, R2, Workers KV, the capture queue and Browser Rendering, and contacts GitHub, DigiCert, Sectigo, Google Web Risk, Stripe, Coralogix and Resend](/assets/diagrams/whitepaper-architecture.svg)](/assets/diagrams/whitepaper-architecture.svg)
 
 **Trust model:** The Worker is the sole trust boundary enforcer. Every request is authenticated and authorized before touching D1, R2, or KV. External services are contacted over TLS with per-service API keys stored as Cloudflare Worker secrets. No service has access to another service's credentials.
 
@@ -110,33 +69,7 @@ flowchart TB
 
 ### 3.3 Personal Data Flow
 
-```mermaid
-flowchart LR
-    subgraph Entry["Entry Points"]
-        IP["Client IP<br/>(CF-Connecting-IP)"]
-        GH["GitHub Identity<br/>(OAuth)"]
-        EMAIL["Email<br/>(manual opt-in)"]
-    end
-
-    subgraph Transform["Transformations (src/ip-hash.js, src/oauth.js)"]
-        HMAC["HMAC-SHA-256<br/>daily key rotation"]
-        DISCARD["Access token<br/>discarded after /user"]
-        SHA256["Session ID<br/>SHA-256 hashed"]
-    end
-
-    subgraph Storage["Storage"]
-        LOGS["Coralogix EU2<br/>(cip pseudonym only)"]
-        D1_GH["D1: github_users<br/>(githubId, githubLogin, tenantId)"]
-        D1_SESS["D1: sessions<br/>(idHash only)"]
-        D1_NOTIF["D1: notification_preferences<br/>(email, if opted in)"]
-    end
-
-    IP --> HMAC --> LOGS
-    GH --> DISCARD
-    GH --> D1_GH
-    EMAIL --> D1_NOTIF
-    GH --> SHA256 --> D1_SESS
-```
+[![Personal data flow: client IPs become daily HMAC pseudonyms in the logs, GitHub access tokens are discarded after the user lookup, session IDs and sign-in link tokens are stored as SHA-256 hashes, and email addresses are kept in email_users and notification_preferences](/assets/diagrams/whitepaper-personal-data.svg)](/assets/diagrams/whitepaper-personal-data.svg)
 
 **What is never logged:** Raw API keys, raw session cookie values, OAuth authorization codes, OAuth state parameters, raw IP addresses, email addresses, GitHub access tokens, `Authorization` header values. The NEVER LOG contract is documented in `src/log.js`.
 
@@ -196,37 +129,7 @@ Six Cloudflare rate limit bindings are declared in `wrangler.toml`. These are in
 
 ### 4.5 OAuth PKCE Flow
 
-```mermaid
-sequenceDiagram
-    participant User as Browser / Extension
-    participant Worker as WRL Worker
-    participant KV as Workers KV
-    participant GitHub as GitHub OAuth
-
-    User->>Worker: GET /auth/login
-    Worker->>Worker: Generate state (32 bytes), code_verifier (64 bytes)
-    Worker->>Worker: code_challenge = BASE64URL(SHA-256(code_verifier))
-    Worker->>KV: PUT oauth_state:{state} = {codeVerifier, createdAt}, TTL=600s
-    Worker->>User: 302 -> github.com/login/oauth/authorize?...&code_challenge=...
-
-    User->>GitHub: Authorize
-    GitHub->>User: 302 -> /auth/callback?code=...&state=...
-
-    User->>Worker: GET /auth/callback?code=...&state=...
-    Worker->>KV: GET oauth_state:{state} (read + delete, single-use)
-    Worker->>GitHub: POST /login/oauth/access_token (+ code_verifier for PKCE)
-    GitHub->>Worker: access_token
-    Worker->>GitHub: GET /user (Bearer access_token)
-    GitHub->>Worker: {id, login}
-    Worker->>Worker: Discard access_token (never stored)
-    Worker->>Worker: Generate sessionId (32 bytes), hash SHA-256
-    Worker->>KV: [new user only] PUT first_key:{tenantId} = rawApiKey, TTL=86400s
-    Worker->>User: 302 /ui, Set-Cookie: __Host-wrl_session=...
-
-    User->>Worker: POST /v1/account/tos (first sign-in; other account routes answer 403 until then)
-    User->>Worker: GET /v1/account/first-key
-    Worker->>KV: GET first_key:{tenantId} (shown once)
-```
+[![Sequence diagram of the GitHub OAuth sign-in with PKCE: the state and code verifier are kept in Workers KV for 600 seconds, the code is exchanged together with the verifier, the GitHub access token is discarded, and a session is created whose ID is stored as a SHA-256 hash](/assets/diagrams/whitepaper-oauth-pkce.svg)](/assets/diagrams/whitepaper-oauth-pkce.svg)
 
 ---
 
