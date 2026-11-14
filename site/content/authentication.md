@@ -113,7 +113,7 @@ Request fields:
 |-------|------|-------------|
 | `tenantId` | string | Identifier for the tenant this key belongs to. Lowercase letters, digits, underscores, and hyphens. Max 64 characters. |
 | `scopes` | array | One or more of: `capture`, `read`, `admin`. |
-| `name` | string | Human-readable label. 1--128 characters. |
+| `name` | string | Human-readable label. 1-128 characters. |
 
 ### List keys
 
