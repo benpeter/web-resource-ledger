@@ -379,17 +379,14 @@ const WEEKLY_DIGEST_TENANT_LIMIT = 50;
  *
  * Skips tenants with zero captures in the last 7 days.
  * Limited to WEEKLY_DIGEST_TENANT_LIMIT tenants per invocation.
- * Deduplication uses notification_sent with YYYY-MM period key.
+ * Not deduplicated: the weekly cron is what limits it to one a week.
  *
  * @param {object} env  Worker env bindings
+ * @param {Date}   [now] End of the digest period (the cron's scheduled time)
  */
-export async function handleWeeklyDigest(env) {
-  const now = new Date();
+export async function handleWeeklyDigest(env, now = new Date()) {
   const periodEnd = now.toISOString();
   const periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  // YYYY-MM period key for deduplication (monthly, matching notification_sent CHECK constraint)
-  const dedupPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
   const baseUrl = env.VERIFICATION_BASE_URL
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
@@ -434,7 +431,7 @@ export async function handleWeeklyDigest(env) {
   for (const row of tenantRows) {
     const tenantId = row.tenant_id;
     try {
-      await sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, dedupPeriod, baseUrl);
+      await sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, baseUrl);
     } catch (err) {
       log(env, 4, 'email', {
         event: 'email.dispatch_error',
@@ -452,10 +449,9 @@ export async function handleWeeklyDigest(env) {
  * @param {string} tenantId
  * @param {string} periodStart  ISO timestamp
  * @param {string} periodEnd    ISO timestamp
- * @param {string} dedupPeriod  YYYY-MM string for notification_sent
  * @param {string} baseUrl
  */
-async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, dedupPeriod, baseUrl) {
+async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, baseUrl) {
   // Query captures for this tenant in the period, grouped by schedule URL
   const captureResult = await env.DB.prepare(`
     SELECT s.url, COUNT(c.id) AS total,
@@ -488,9 +484,11 @@ async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, 
     return;
   }
 
+  // The template shows the period as dates ("Nov 2"), not timestamps
+  const day = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   await dispatchNotification(env, tenantId, 'weekly_digest', {
-    periodStart,
-    periodEnd,
+    periodStart: day(periodStart),
+    periodEnd: day(periodEnd),
     schedules,
     dashboardUrl: `${baseUrl}/ui`,
   });

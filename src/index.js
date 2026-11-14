@@ -479,7 +479,7 @@ export default {
     // and meter reporting belong to the per-minute cron only (running the tick
     // here too created duplicate scheduled captures).
     if (controller.cron === WEEKLY_CRON) {
-      ctx.waitUntil(handleWeeklyDigest(env).catch(err => log(env, 4, 'email', {
+      ctx.waitUntil(handleWeeklyDigest(env, new Date(controller.scheduledTime)).catch(err => log(env, 4, 'email', {
         event: 'email.digest_error',
         error: err?.message,
       })));
