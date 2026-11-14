@@ -161,3 +161,4 @@ software development.
 | [0152-tenant-deletion](0152-tenant-deletion/) | Admin routes request, cancel and carry out the account deletion the data-retention page promises; blocked accounts get a 403 instead of a garbled 429 |
 | [0153-mcp-quota](0153-mcp-quota/) | MCP capture tools check the monthly quota and account state like the REST endpoints; `get_usage` shows real numbers for blocked accounts |
 | [0154-verify-page-url](0154-verify-page-url/) | `@w-r-l/verify` 0.4.0 names the captured page and its capture time from the signed manifest; CI runs the package tests |
+| [0155-mcp-threat-check](0155-mcp-threat-check/) | MCP capture tools screen URLs with Google Web Risk like the REST endpoints; security pages say eleven alerts and cover email sign-in |
