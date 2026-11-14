@@ -707,6 +707,31 @@ describe('3f: weekly digest handler', () => {
   });
 });
 
+describe('3f: weekly digest dates', () => {
+  it('names the period as dates, not timestamps', async () => {
+    const tenantId = 'digest-tenant-dates';
+    await env.DB.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId).run();
+    await seedNotificationPrefs(env.DB, tenantId);
+    const schedId = 'sch_' + randomBytes(16).toString('hex');
+    await env.DB.prepare(
+      `INSERT INTO schedules (id, tenant_id, url, name, cron, next_run_at)
+       VALUES (?, ?, 'https://example.com/', 'Test', '0 * * * *', '2026-11-09T10:00:00Z')`,
+    ).bind(schedId, tenantId).run();
+    await env.DB.prepare(
+      `INSERT INTO captures (id, tenant_id, url, ip, status, created_at, schedule_id)
+       VALUES (?, ?, 'https://example.com/', null, 'complete', '2026-11-06T09:00:00.000Z', ?)`,
+    ).bind('cap_' + randomBytes(16).toString('hex'), tenantId, schedId).run();
+
+    const sent = [];
+    await handleWeeklyDigest(makeEmailEnv(sent), new Date('2026-11-09T09:00:19.051Z'));
+
+    expect(sent.length).toBe(1);
+    expect(sent[0].subject).toBe('Weekly capture digest: Nov 2 - Nov 9');
+    expect(sent[0].text).toContain('Nov 2');
+    expect(sent[0].text).not.toContain('T09:00');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 3g: OAuth email auto-population
 // ---------------------------------------------------------------------------
