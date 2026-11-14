@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Fixed
+
+- The authentication guide said keys issued by the admin API start with `wrl_live_`; every key does, including the first key and keys created in Settings
+
 ## [1.4.1] - 2026-11-14
 
 ### Added
