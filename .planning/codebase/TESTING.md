@@ -15,15 +15,15 @@ From `package.json`:
 
 ```json
 "devDependencies": {
-  "@cloudflare/vitest-pool-workers": "0.12.21",
-  "@playwright/test": "^1.58.2",
-  "vitest": "3.2.4",
-  "wrangler": "4.73.0"
+  "@cloudflare/vitest-plugin": "1.8.2",
+  "@playwright/test": "^1.65.1",
+  "vitest": "4.1.12",
+  "wrangler": "4.162.0"
 }
 ```
 
 - **Vitest** is the test runner.
-- **`@cloudflare/vitest-pool-workers`** runs each test inside a real
+- **`@cloudflare/vitest-plugin`** runs each test inside a real
   miniflare/workerd Worker, with bindings (`env.DB`, `env.BUCKET`,
   `env.KV`, `env.BROWSER`, …) wired up exactly as production.
 - **Playwright** is used only for browser-driven E2E suites (`test/e2e/`)

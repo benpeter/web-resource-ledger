@@ -104,7 +104,7 @@ cd packages/verify && npm test   # The @w-r-l/verify CLI (plain node --test)
 
 A few gotchas worth knowing before you write tests:
 
-- Tests run in `@cloudflare/vitest-pool-workers`, not plain Node.js. Some Node APIs are unavailable.
+- Tests run in `@cloudflare/vitest-plugin` (formerly `@cloudflare/vitest-pool-workers`), not plain Node.js. Some Node APIs are unavailable.
 - Import `SELF`, `env` and `createExecutionContext` from `cloudflare:test`, and `fetchMock` from `./fetch-mock.js` (vitest-pool-workers 0.13 dropped the built-in one; the shim keeps its `get().intercept().reply()` calls).
 - Storage is isolated per test file, not per test. Clean up in `beforeEach`: `cleanDb(env.DB)` for D1, and delete the `rl:` KV keys when a test goes through rate limits.
 - Test signing keys are auto-generated at load time; no key setup is needed.

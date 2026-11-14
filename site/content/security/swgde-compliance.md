@@ -133,7 +133,7 @@ WRL's approach to tool validation operates across three layers:
 
 **Independent verification.** The `@w-r-l/verify` package is a separate, source-available verifier that runs independently of WRL's infrastructure. Any party can verify a capture bundle by fetching it and running the verifier locally. The verifier resolves the signing key from WRL's public key endpoint and validates the RFC 3161 timestamp against DigiCert's certificate chain. This verification does not require trusting WRL for the pass/fail decision. See [Verification](/verification/) for the full verification protocol.
 
-**CI test suite.** Deployments to production require a passing CI run. The test suite exercises the capture pipeline, hashing, signing, and verification against the Cloudflare Workers runtime using `@cloudflare/vitest-pool-workers`. Tests are run against the real Workers runtime, not a mocked environment.
+**CI test suite.** Deployments to production require a passing CI run. The test suite exercises the capture pipeline, hashing, signing, and verification against the Cloudflare Workers runtime using `@cloudflare/vitest-plugin`. Tests are run against the real Workers runtime, not a mocked environment.
 
 WRL does not hold a third-party forensic tool certification. Examiners whose agency policies require a certified tool should evaluate WRL's source availability and independent verification capability against those requirements.
 

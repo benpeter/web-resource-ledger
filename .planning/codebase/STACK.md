@@ -35,7 +35,7 @@ From `package.json` (root):
 | --- | --- | --- |
 | `wrangler` | `4.162.0` (devDep) | Cloudflare Workers CLI: `dev`, `deploy`, secret management |
 | `@cloudflare/playwright` | `^1.1.2` | Headless Chromium for capture pipeline (Cloudflare Browser Rendering binding); used in `src/capture.js` via `connect`, `acquire`, `sessions`, `limits` |
-| `@cloudflare/vitest-pool-workers` | `0.23.0` (devDep) | Runs Vitest tests inside Miniflare with Workers runtime semantics |
+| `@cloudflare/vitest-plugin` | `1.8.2` (devDep; replaced `@cloudflare/vitest-pool-workers`) | Runs Vitest tests inside Miniflare with Workers runtime semantics |
 | `vitest` | `4.1.12` (devDep) | Unit + integration test runner |
 | `@playwright/test` | `^1.58.2` (devDep) | E2E tests against staging (`test/e2e/`) |
 | `@duckduckgo/autoconsent` | `^14.75.0` (origin/main; local working tree was `^14.66.0` at mapping time) | Cookie banner dismissal during capture; bundled in `src/vendor/autoconsent-script.js` and `src/vendor/autoconsent.playwright.js` (vendored via `scripts/vendor-autoconsent.js`); auto-bumped by the autoconsent CI pipeline (Phase 0088, PR #229). **Note:** the codebase mapper read this from the local working tree rather than `origin/main` and was 1 commit behind (PR #276 / d042b44). Treat any version-sensitive claim in this doc as a snapshot of local working tree, not necessarily current `origin/main`. |
@@ -55,7 +55,7 @@ There is **no HTTP framework** (no Hono, no itno, no Express). Routing is a hand
 ## Build & Tooling
 
 - **Bundler:** `wrangler` (esbuild under the hood) — no separate Vite/Rollup/Webpack config. The Worker is bundled at deploy time from `src/index.js`.
-- **Test runner:** Vitest via `@cloudflare/vitest-pool-workers`, which runs tests inside Miniflare with real D1, KV, R2, and Browser Rendering bindings.
+- **Test runner:** Vitest via `@cloudflare/vitest-plugin`, which runs tests inside Miniflare with real D1, KV, R2, and Browser Rendering bindings.
 - **E2E runner:** `@playwright/test` against staging URLs.
 - **API linting:** `@redocly/cli` against `openapi.yaml` (config: `redocly.yaml` extends `recommended`; ignores in `.redocly.lint-ignore.yaml`).
 - **Docs builder:** Eleventy (`@11ty/eleventy ^3.0.0`) in `site/`.
@@ -72,7 +72,7 @@ There is **no HTTP framework** (no Hono, no itno, no Express). Routing is a hand
 - `package.json` — Root manifest; declares `"type": "module"`, `engines.node >= 20.0.0`, and all npm scripts (`dev`, `deploy`, `test`, `test:integration`, `test:e2e`, `test:battery`, `test:sync`, `lint:api`, `smoke`, `build:docs`, `vendor:autoconsent`).
 - `package-lock.json` — npm lockfile.
 - `.nvmrc` — pins Node `22` for local dev (CI / Workers runtime decoupled).
-- `vitest.config.js` — Default test config. Uses `@cloudflare/vitest-pool-workers`, points at `wrangler.test.toml`, generates ephemeral Ed25519 signing keys at load time, applies migrations in setup, injects test secrets (`CAPTURE_API_KEY`, `ADMIN_KEY`, `SIGNING_KEY`, `STRIPE_*`, `GITHUB_*`, `SESSION_SECRET`, `IP_HASH_SEED`, etc.), and disables R2 isolated storage to avoid SQLite WAL leak between tests.
+- `vitest.config.js` — Default test config. Uses `@cloudflare/vitest-plugin`, points at `wrangler.test.toml`, generates ephemeral Ed25519 signing keys at load time, applies migrations in setup, injects test secrets (`CAPTURE_API_KEY`, `ADMIN_KEY`, `SIGNING_KEY`, `STRIPE_*`, `GITHUB_*`, `SESSION_SECRET`, `IP_HASH_SEED`, etc.), and disables R2 isolated storage to avoid SQLite WAL leak between tests.
 - `vitest.integration.config.js` — Integration tests under `test/integration/**`. Uses real `wrangler.toml`, 60 s test timeout, no fetchMock (real network).
 - `vitest.sync.config.ts` — Tiny Node-only config that runs only `test/mcp-sync.test.js` outside the Workers pool.
 - `test/e2e/playwright.config.js` — Playwright E2E config; defaults `E2E_BASE_URL` to `https://staging.webresourceledger.com`, single Chromium project, html reporter.
@@ -83,7 +83,7 @@ There is **no HTTP framework** (no Hono, no itno, no Express). Routing is a hand
 
 ## Dev Dependencies of Note
 
-- **`@cloudflare/vitest-pool-workers`** — runs tests against the actual Workers runtime (Miniflare) with D1/R2/KV/Browser bindings. Avoids the trap of mocking Workers behaviour in plain Node.
+- **`@cloudflare/vitest-plugin`** — runs tests against the actual Workers runtime (Miniflare) with D1/R2/KV/Browser bindings. Avoids the trap of mocking Workers behaviour in plain Node.
 - **`wrangler 4.73`** — pinned exact-major; both `dev` and `deploy` go through it.
 - **`@redocly/cli`** — keeps the very large `openapi.yaml` (~222 KB) honest.
 - **`fflate`** — small, fast, dependency-free zip lib chosen for WACZ bundling in a Worker context where heavy deps would inflate cold-start size.
