@@ -6,9 +6,13 @@
  *   partial failure is safe, since deleting a missing R2 key is a no-op.
  * - Usage counters older than 12 billing periods are deleted.
  *
- * Both match site/content/security/data-retention.md.
+ * purgeExpiredSignIns runs hourly from the per-minute cron instead: expired
+ * sessions, and sign-in links a day past their expiry.
+ *
+ * All match site/content/security/data-retention.md.
  */
 import { log } from './log.js';
+import { deleteExpiredSessions, deleteExpiredLoginTokens } from './db.js';
 
 export const QUARANTINE_RETENTION_DAYS = 90;
 export const USAGE_RETENTION_PERIODS = 12;
@@ -81,6 +85,26 @@ export async function trimUsageCounters(env, now = new Date()) {
   const deleted = res?.meta?.changes ?? 0;
   await log(env, 3, 'retention', { event: 'retention.usage_trimmed', cutoff, deleted });
   return { cutoff, deleted };
+}
+
+/**
+ * Expired sessions and sign-in links a day past their expiry, hourly. Sign-ins
+ * also delete them, but with few sign-ins the rows stayed for weeks.
+ */
+export async function purgeExpiredSignIns(env, now = new Date()) {
+  try {
+    const sessions = await deleteExpiredSessions(env.DB, now);
+    const loginTokens = await deleteExpiredLoginTokens(env.DB, now);
+    if (sessions > 0 || loginTokens > 0) {
+      await log(env, 3, 'retention', { event: 'retention.sign_ins_purged', sessions, loginTokens });
+    }
+  } catch (err) {
+    await log(env, 4, 'retention', {
+      event: 'retention.job_fail',
+      job: 'sign_ins',
+      errorMessage: String(err?.message ?? err).slice(0, 200),
+    });
+  }
 }
 
 /** Both jobs, each on its own so one failing doesn't skip the other. */

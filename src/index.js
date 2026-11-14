@@ -11,7 +11,7 @@ import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
-import { runRetentionJobs } from './retention.js';
+import { runRetentionJobs, purgeExpiredSignIns } from './retention.js';
 import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
@@ -512,6 +512,7 @@ export default {
     if (new Date(controller.scheduledTime).getUTCMinutes() === 0) {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
       ctx.waitUntil(failStaleCaptures(env, new Date(controller.scheduledTime)));
+      ctx.waitUntil(purgeExpiredSignIns(env, new Date(controller.scheduledTime)));
     }
   },
 
