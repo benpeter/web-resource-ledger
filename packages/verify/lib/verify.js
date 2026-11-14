@@ -300,6 +300,9 @@ export async function verifyWacz(waczBytes, publicKeyBytes, options = {}) {
       signature:  selfSig?.signature ?? null,
       publicKey:  selfSig?.publicKey ?? null,   // informational only -- NOT used for verification
       signedAt:   signedData.created ?? null,
+      // The captured page, from datapackage.json: covered by the bundle hash
+      url:        typeof datapackage.mainPageUrl === 'string' ? datapackage.mainPageUrl : null,
+      capturedAt: typeof datapackage.mainPageDate === 'string' ? datapackage.mainPageDate : null,
     };
     if (timestampData) {
       result.capture.timestamp = timestampData;
