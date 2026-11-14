@@ -13,7 +13,7 @@ Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=W
 | 5 | `security.invalid_tenant_id` | API key maps to a non-existent tenant |
 | 5 | `security.kv_error` | Key-value store error during auth lookup |
 | 5 | `signing.key_unavailable` | Signing key not configured (MCP endpoint) |
-| 4 | `security.rate_limit` | Request rate-limited (per-IP, per-tenant, admin, artifact, verify, or signing key limiter) |
+| 4 | `security.rate_limit` | Request rate-limited (per-IP, per-tenant, admin, artifact, verify, or signing key limiter; `via: mcp` for keyless MCP discovery) |
 | 4 | `security.capacity_limit` | Global browser capacity full, 503 returned |
 | 4 | `security.quota_exceeded` | Monthly capture or storage quota exceeded |
 | 4 | `security.legacy_auth_used` | Request used deprecated auth mechanism |
