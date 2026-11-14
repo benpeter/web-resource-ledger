@@ -20,7 +20,7 @@ To use another address, enter it on the **Notifications** page. WRL sends a veri
 
 | Notification | When it is sent |
 |---|---|
-| **Capture failures** | A capture failed after its attempts (WRL makes up to four), whether it came from the dashboard, the API, MCP or a schedule. At most one a month; later failures in the same month send no email. The email names the URL and the reason. |
+| **Capture failures** | A capture failed after its attempts (WRL makes up to four), or was still pending 24 hours after it was submitted, whether it came from the dashboard, the API, MCP or a schedule. At most one a month; later failures in the same month send no email. The email names the URL and the reason. |
 | **Approaching limit** | An account without a payment method has used 160 of its 200 free captures this month. Once a month. |
 | **Limit reached** | An account without a payment method had a capture refused because the 200 free captures or the 10 GB of storage for the month are used up. Once a month. A batch that is only larger than the captures left gets a `429` but no email. See [Limits & Quotas](/limits/). |
 | **Invoice generated** | Stripe finalized an invoice for your account, with the amount due. |

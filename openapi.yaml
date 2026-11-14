@@ -335,7 +335,11 @@ components:
           description: Present when status is "failed". Human-readable failure reason.
         retryable:
           type: boolean
-          description: Present when status is "failed". True if submitting a new capture may succeed.
+          description: >
+            Present when status is "failed". True when the failure was on WRL's
+            side, such as a capture WRL lost track of, so submitting a new capture
+            may well succeed. False once WRL has used its attempts or the error is
+            one another attempt won't fix.
 
     CaptureArtifacts:
       type: object
@@ -681,8 +685,9 @@ components:
         quarantineReason:
           type: ['string', 'null']
           description: >
-            Human-readable reason why the capture was quarantined. Present only
-            when status is "quarantined".
+            The Google Web Risk threat lists the nightly re-scan found the URL
+            on, comma-separated: MALWARE, SOCIAL_ENGINEERING or
+            UNWANTED_SOFTWARE. Present only when status is "quarantined".
         quarantinedAt:
           type: ['string', 'null']
           format: date-time
@@ -782,7 +787,11 @@ components:
           description: Present when status is "failed". Human-readable failure reason.
         retryable:
           type: boolean
-          description: Present when status is "failed". True if submitting a new capture may succeed.
+          description: >
+            Present when status is "failed". True when the failure was on WRL's
+            side, such as a capture WRL lost track of, so submitting a new capture
+            may well succeed. False once WRL has used its attempts or the error is
+            one another attempt won't fix.
         threatCheck:
           type: ['string', 'null']
           enum: [pass, fail, unavailable, null]
@@ -792,8 +801,9 @@ components:
         quarantineReason:
           type: ['string', 'null']
           description: >
-            Human-readable reason why the capture was quarantined. Present only
-            when status is "quarantined".
+            The Google Web Risk threat lists the nightly re-scan found the URL
+            on, comma-separated: MALWARE, SOCIAL_ENGINEERING or
+            UNWANTED_SOFTWARE. Present only when status is "quarantined".
         quarantinedAt:
           type: ['string', 'null']
           format: date-time
@@ -1208,9 +1218,10 @@ components:
           enum: [capture.complete, capture.failed, capture.quarantined, ping]
           description: >
             Event type. "capture.complete" fires when a capture finishes
-            successfully. "capture.failed" fires when a capture fails.
-            "capture.quarantined" fires when a capture is quarantined by
-            content security screening. "ping" is sent by
+            successfully. "capture.failed" fires when a capture fails,
+            including one still pending 24 hours after it was submitted.
+            "capture.quarantined" fires when the nightly re-scan finds the URL of
+            a complete capture on a Google Web Risk threat list. "ping" is sent by
             POST /v1/webhooks/{id}/ping for testing.
         createdAt:
           type: string
@@ -1252,8 +1263,8 @@ components:
             url: https://example.com/missing-page
             verificationUrl: https://api.webresourceledger.com/v1/verify/cap_b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7
             failedAt: '2026-03-22T12:05:10.000Z'
-            error: Navigation timeout
-            retryable: true
+            error: Page did not finish loading within 20 seconds. WRL tried 4 times.
+            retryable: false
         - id: evt_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
           type: capture.quarantined
           createdAt: '2026-03-22T12:05:20.000Z'
@@ -2383,8 +2394,8 @@ paths:
                         url: https://slow-site.example.com
                         createdAt: '2024-01-15T11:00:00.000Z'
                         failedAt: '2024-01-15T11:00:30.000Z'
-                        error: Page did not finish loading within 20 seconds
-                        retryable: true
+                        error: Page did not finish loading within 20 seconds. WRL tried 4 times.
+                        retryable: false
                       - id: cap_c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
                         status: pending
                         url: https://another.example.com
@@ -3212,12 +3223,12 @@ paths:
                     status: complete
                     captureUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                 failed:
-                  summary: Capture failed with a retryable error
+                  summary: Capture failed after all attempts
                   value:
                     id: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                     status: failed
-                    error: Page did not finish loading within 20 seconds
-                    retryable: true
+                    error: Page did not finish loading within 20 seconds. WRL tried 4 times.
+                    retryable: false
         '404':
           $ref: '#/components/responses/Problem404'
 
