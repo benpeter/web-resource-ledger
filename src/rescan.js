@@ -3,9 +3,11 @@
  * rescan.js -- Daily re-scan cron handler for threat detection
  *
  * Runs at 03:00 UTC daily (production) / 04:00 UTC (staging).
- * Queries D1 for complete captures whose last threat check is older than 24h,
+ * Queries D1 for complete captures whose last threat check is older than 12h,
  * re-checks each unique URL against Google Web Risk, and quarantines any that
- * have become malicious since capture.
+ * have become malicious since capture. A check from the previous night's run is
+ * a few seconds less than 24h old when the next run starts, so a 24h cutoff
+ * checked most URLs only every second night (phase 0170).
  *
  * Design constraints:
  *   - Serial URL processing to respect Web Risk API rate limits (6000 req/min).
@@ -24,6 +26,8 @@ import {
 } from './db.js';
 import { dispatchWebhooks } from './webhook-dispatch.js';
 
+const RESCAN_MIN_AGE_MS = 12 * 60 * 60 * 1000;
+
 /**
  * Handle the daily re-scan cron tick.
  * Checks existing complete captures against Google Web Risk.
@@ -36,7 +40,7 @@ export async function handleRescanTick(controller, env, ctx) {
   const start = Date.now();
 
   try {
-    const olderThan = new Date(start - 24 * 60 * 60 * 1000).toISOString();
+    const olderThan = new Date(start - RESCAN_MIN_AGE_MS).toISOString();
     const captures = await listCapturesNeedingThreatCheck(env.DB, olderThan, 500);
 
     if (captures.length === 0) {
