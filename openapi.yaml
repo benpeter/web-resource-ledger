@@ -1293,15 +1293,15 @@ components:
           description: Units consumed in the current billing period.
           example: 42
         limit:
-          type: integer
+          type: ['integer', 'null']
           minimum: 0
-          description: Maximum units allowed in the current billing period.
-          example: 100
+          description: Maximum units allowed in the current billing period; null when there is no limit (payment method on file for captures).
+          example: 200
         remaining:
-          type: integer
+          type: ['integer', 'null']
           minimum: 0
-          description: Units remaining before the quota is reached.
-          example: 58
+          description: Units remaining before the quota is reached; null when there is no limit.
+          example: 158
 
     AccountUsageResponse:
       type: object
@@ -1309,7 +1309,7 @@ components:
         Current-period usage and quota summary for the authenticated tenant.
         Values reflect the tenant's effective quotas (tier defaults unless an
         admin override is in effect).
-      required: [tenantId, period, tierDisplay, captures, storageBytes, resetsAt]
+      required: [tenantId, period, billingStatus, hasPaymentMethod, gracePeriodEnd, captures, storageBytes, resetsAt, billing]
       properties:
         tenantId:
           type: string
@@ -1320,10 +1320,19 @@ components:
           pattern: '^\d{4}-\d{2}$'
           description: Billing period in YYYY-MM format.
           example: "2026-03"
-        tierDisplay:
+        billingStatus:
           type: string
-          description: Human-readable tier name for UI display.
-          example: "Starter"
+          enum: [free, active, grace_period, blocked]
+          description: >
+            `free` is an active tenant without a payment method. `active` has a payment
+            method on file. `grace_period` and `blocked` follow a failed payment.
+        hasPaymentMethod:
+          type: boolean
+          description: Whether a payment method is on file. Paid tenants have no capture limit.
+        gracePeriodEnd:
+          type: ['string', 'null']
+          format: date-time
+          description: End of the grace period when `billingStatus` is `grace_period`, otherwise null.
         captures:
           $ref: '#/components/schemas/UsageMetric'
           description: Capture count usage and quota for the current period.
@@ -1335,6 +1344,67 @@ components:
           format: date-time
           description: ISO 8601 timestamp when the current period quotas reset (first of next month).
           example: "2026-04-01T00:00:00.000Z"
+        billing:
+          type: object
+          description: Charges so far this period under the volume pricing tiers.
+          required: [currentCharges, tier, tiers, invoiceThreshold]
+          properties:
+            currentCharges:
+              type: object
+              required: [amount, currency, source]
+              properties:
+                amount:
+                  type: number
+                  description: Charges so far this period.
+                currency:
+                  type: string
+                  example: EUR
+                source:
+                  type: string
+                  enum: [local, stripe]
+                  description: "`stripe` when the amount comes from Stripe's upcoming invoice, `local` when WRL computed it."
+            tier:
+              $ref: '#/components/schemas/PricingTier'
+            tiers:
+              type: array
+              items:
+                $ref: '#/components/schemas/PricingTier'
+            invoiceThreshold:
+              type: object
+              required: [amount, currency, met]
+              properties:
+                amount:
+                  type: number
+                  example: 5
+                currency:
+                  type: string
+                  example: EUR
+                met:
+                  type: boolean
+                  description: Whether this period's charges reached the amount at which an invoice is sent.
+
+    PricingTier:
+      type: object
+      description: One volume pricing bracket. Captures from `from` to `to` cost `unitPrice` each.
+      required: [id, name, unitPrice, from, to]
+      properties:
+        id:
+          type: string
+          example: tier_1
+        name:
+          type: string
+          example: Standard
+        unitPrice:
+          type: number
+          description: Price per capture in EUR.
+          example: 0.05
+        from:
+          type: integer
+          example: 201
+        to:
+          type: ['integer', 'null']
+          description: Last capture in the bracket; null for the open-ended top bracket.
+          example: 10000
 
     Schedule:
       type: object
@@ -5094,7 +5164,9 @@ paths:
         Quotas reflect tier defaults unless an admin override is in effect for this tenant.
 
         Use this endpoint to build quota-aware UIs or to check remaining capacity before
-        submitting large batches.
+        submitting large batches. It accepts an API key with the `read` scope (a `capture`
+        key includes it) or a dashboard session; it is the only `/v1/account/` route that
+        takes an API key. MCP's `get_usage` tool returns the same numbers.
       tags: [account]
       security:
         - bearerAuth: []
@@ -5129,48 +5201,83 @@ paths:
                   value:
                     tenantId: gh-12345
                     period: "2026-03"
-                    tierDisplay: "Starter"
+                    billingStatus: free
+                    hasPaymentMethod: false
+                    gracePeriodEnd: null
                     captures:
                       used: 42
-                      limit: 100
-                      remaining: 58
+                      limit: 200
+                      remaining: 158
                     storageBytes:
                       used: 157286400
                       limit: 10737418240
                       remaining: 10580131840
                     resetsAt: "2026-04-01T00:00:00.000Z"
+                    billing:
+                      currentCharges: { amount: 0, currency: EUR, source: local }
+                      tier: { id: tier_0, name: Free, unitPrice: 0, from: 1, to: 200 }
+                      tiers:
+                        - { id: tier_0, name: Free, unitPrice: 0, from: 1, to: 200 }
+                        - { id: tier_1, name: Standard, unitPrice: 0.05, from: 201, to: 10000 }
+                        - { id: tier_2, name: Volume, unitPrice: 0.035, from: 10001, to: 100000 }
+                        - { id: tier_3, name: High Volume, unitPrice: 0.015, from: 100001, to: null }
+                      invoiceThreshold: { amount: 5, currency: EUR, met: false }
                 atLimit:
                   summary: Tenant at capture quota limit
                   value:
                     tenantId: gh-12345
                     period: "2026-03"
-                    tierDisplay: "Starter"
+                    billingStatus: free
+                    hasPaymentMethod: false
+                    gracePeriodEnd: null
                     captures:
-                      used: 100
-                      limit: 100
+                      used: 200
+                      limit: 200
                       remaining: 0
                     storageBytes:
                       used: 204800
                       limit: 10737418240
                       remaining: 10737213440
                     resetsAt: "2026-04-01T00:00:00.000Z"
+                    billing:
+                      currentCharges: { amount: 0, currency: EUR, source: local }
+                      tier: { id: tier_0, name: Free, unitPrice: 0, from: 1, to: 200 }
+                      tiers:
+                        - { id: tier_0, name: Free, unitPrice: 0, from: 1, to: 200 }
+                        - { id: tier_1, name: Standard, unitPrice: 0.05, from: 201, to: 10000 }
+                        - { id: tier_2, name: Volume, unitPrice: 0.035, from: 10001, to: 100000 }
+                        - { id: tier_3, name: High Volume, unitPrice: 0.015, from: 100001, to: null }
+                      invoiceThreshold: { amount: 5, currency: EUR, met: false }
                 fresh:
                   summary: Tenant with no usage this period
                   value:
                     tenantId: gh-12345
                     period: "2026-03"
-                    tierDisplay: "Starter"
+                    billingStatus: free
+                    hasPaymentMethod: false
+                    gracePeriodEnd: null
                     captures:
                       used: 0
-                      limit: 100
-                      remaining: 100
+                      limit: 200
+                      remaining: 200
                     storageBytes:
                       used: 0
                       limit: 10737418240
                       remaining: 10737418240
                     resetsAt: "2026-04-01T00:00:00.000Z"
+                    billing:
+                      currentCharges: { amount: 0, currency: EUR, source: local }
+                      tier: { id: tier_0, name: Free, unitPrice: 0, from: 1, to: 200 }
+                      tiers:
+                        - { id: tier_0, name: Free, unitPrice: 0, from: 1, to: 200 }
+                        - { id: tier_1, name: Standard, unitPrice: 0.05, from: 201, to: 10000 }
+                        - { id: tier_2, name: Volume, unitPrice: 0.035, from: 10001, to: 100000 }
+                        - { id: tier_3, name: High Volume, unitPrice: 0.015, from: 100001, to: null }
+                      invoiceThreshold: { amount: 5, currency: EUR, met: false }
         '401':
           $ref: '#/components/responses/Problem401'
+        '403':
+          $ref: '#/components/responses/Problem403'
         '429':
           $ref: '#/components/responses/Problem429'
 
