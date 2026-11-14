@@ -290,6 +290,8 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 
 Special-case routes handled before the regex router: `POST /mcp`, `OPTIONS /mcp`, `OPTIONS /v1/captures`.
 
+`HEAD` runs as `GET` and drops the body on the paths in `HEAD_PATHS` (`src/index.js`): `/health`, `/favicon.ico`, `/ui`, `/v1/verify/{id}`, `/v1/captures/{id}` with its status, certificate and artifacts, and `/.well-known/signing-key(s)`. Link checkers and uptime monitors send `HEAD`. Other paths answer `HEAD` with 404, so GET routes with side effects (the one-time first key, the emailed links) never run on it.
+
 For request/response schemas, see `openapi.yaml`.
 
 | Method | Path | Auth | Rate Limit | Surface |
