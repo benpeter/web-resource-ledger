@@ -184,6 +184,7 @@ export async function handleListSchedules(request, env, ctx, _match) {
   if (!auth.ok) return auth.response;
 
   const records = await listSchedules(env.DB, auth.tenantId);
+  const limit = getEffectiveScheduleLimit(await getTenantConfig(env.DB, auth.tenantId));
 
   ctx.waitUntil(log(env, 3, 'schedule', {
     event: 'schedule.list',
@@ -194,7 +195,7 @@ export async function handleListSchedules(request, env, ctx, _match) {
     responseStatus: 200,
   }) ?? Promise.resolve());
 
-  return jsonResponse({ data: records });
+  return jsonResponse({ data: records, limit });
 }
 
 // ---------------------------------------------------------------------------
