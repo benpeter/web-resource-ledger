@@ -193,6 +193,11 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       renderQuality,
       ...(render?.waitUntilReached !== undefined ? { waitUntilReached: render.waitUntilReached } : {}),
       ...(render?.timedOut !== undefined ? { timedOut: render.timedOut } : {}),
+      ...(render?.screenshotClipped !== undefined ? {
+        pageHeight: render.pageHeight,
+        screenshotHeight: render.screenshotHeight,
+        screenshotClipped: render.screenshotClipped,
+      } : {}),
     };
 
     // WACZ bundling (optional -- degrades gracefully if signing key is absent)
@@ -567,7 +572,8 @@ async function defaultRenderer(env, url, captureId) {
 
         await log(env, 3, 'capture', { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
         try {
-          const { screenshot } = await takeCappedScreenshot(page);
+          const shot = await takeCappedScreenshot(page);
+          const { screenshot } = shot;
           const tScreenshot = Date.now();
 
           if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
@@ -587,6 +593,7 @@ async function defaultRenderer(env, url, captureId) {
               waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
               timedOut: true,
               durationMs: tContent - renderStart,
+              ...screenshotCoverage(shot),
               stages: {
                 sessionAcquireMs: tSession - renderStart,
                 contextSetupMs: tContext - tSession,
@@ -699,9 +706,11 @@ async function defaultRenderer(env, url, captureId) {
 
     // After-screenshot only when consent was successfully dismissed
     let screenshot;
+    let shot = shotBefore;
     const tookAfterScreenshot = consent.status === 'dismissed';
     if (tookAfterScreenshot) {
-      ({ screenshot } = await takeCappedScreenshot(page));
+      shot = await takeCappedScreenshot(page);
+      ({ screenshot } = shot);
     } else {
       screenshot = screenshotBefore;
     }
@@ -721,6 +730,7 @@ async function defaultRenderer(env, url, captureId) {
         waitUntilReached: 'load',
         timedOut: false,
         durationMs: tContent - renderStart,
+        ...screenshotCoverage(shot),
         settleMs: settle.settleMs,
         settleReason: settle.settleReason,
         stages: {
@@ -748,6 +758,18 @@ async function defaultRenderer(env, url, captureId) {
       return log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
+}
+
+/**
+ * What a screenshot from takeCappedScreenshot covers, recorded in the capture's
+ * render info and signed into its WACZ (backlog #32). screenshotHeight is
+ * stored rather than derived from MAX_PAGE_HEIGHT, so a later change of the cap
+ * doesn't misstate older captures.
+ *
+ * @param {{ pageHeight: number, capped: boolean }} shot
+ */
+function screenshotCoverage({ pageHeight, capped }) {
+  return { pageHeight, screenshotHeight: Math.min(pageHeight, MAX_PAGE_HEIGHT), screenshotClipped: capped };
 }
 
 /**

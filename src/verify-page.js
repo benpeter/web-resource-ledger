@@ -441,6 +441,12 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       ? (retrievalData.artifacts && retrievalData.artifacts.screenshotBefore
          ? retrievalData.artifacts.screenshotBefore : null)
       : null;
+    // A screenshot stops at a fixed height; say so when the page was taller
+    var render = retrievalData && retrievalData.render;
+    var clipNote = render && render.screenshotClipped
+      ? 'Shows the top ' + Number(render.screenshotHeight).toLocaleString('en-US') + ' px of a ' +
+        Number(render.pageHeight).toLocaleString('en-US') + ' px page. The HTML in the bundle has the whole page.'
+      : null;
 
     var captureSettings = verifyData.captureSettings;
     var consentResult = captureSettings && captureSettings.consent
@@ -508,6 +514,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       html += '<section aria-label="Screenshot" class="screenshot-section"><h2>Screenshot</h2>' +
         '<div id="screenshot-wrap"></div>' +
         '<p class="screenshot-caption" id="screenshot-caption"></p>' +
+        (clipNote ? '<p class="screenshot-caption" id="screenshot-clip-note">' + clipNote + '</p>' : '') +
         '<div id="screenshot-before-wrap"></div>' +
         '</section>';
     }
