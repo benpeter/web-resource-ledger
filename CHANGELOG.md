@@ -10,6 +10,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-14
+
 ### Added
 
 - MCP: `initialize`, `ping` and `tools/list` answer without an API key, so MCP directories and clients can list WRL's tools; tool calls still need a key. Keyless requests are limited to 60 a minute per IP
@@ -94,7 +96,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 - Version synchronized across openapi.yaml (was 0.8.0), package.json (was 0.1.0), and git tags to 1.0.0
 
-## [0.8.0] - 2026-03-24
+## 0.8.0 - 2026-03-24
 
 ### Added
 
@@ -110,7 +112,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - `shareToken` query parameter support on `GET /v1/captures/{id}` (#174)
 - `tokens` array from capture metadata responses (#174)
 
-## [0.7.0] - 2026-03-23
+## 0.7.0 - 2026-03-23
 
 ### Added
 
@@ -122,7 +124,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - `qualifiedTimestamp` field on capture responses — eIDAS-qualified RFC 3161 timestamp from a qualified TSA (#158)
 - `GET /v1/settings/eidas` and `PUT /v1/settings/eidas` — per-tenant eIDAS qualified timestamp opt-in (#158)
 
-## [0.6.0] - 2026-03-22
+## 0.6.0 - 2026-03-22
 
 ### Added
 
@@ -133,7 +135,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - `X-RateLimit-Tenant-*` headers on all authenticated responses reflecting per-tenant quota status (#135)
 - Custom API domain: `api.webresourceledger.com` replaces `wrl.benpeter.workers.dev` (#140)
 
-## [0.5.0] - 2026-03-17
+## 0.5.0 - 2026-03-17
 
 ### Added
 
@@ -143,7 +145,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - `POST /v1/captures/batch` — submit up to 10 capture requests in a single call, returns 207 Multi-Status (#119)
 - Stripe-based usage metering; capture events reported to `captures` and `eidas_timestamps` meters (#129)
 
-## [0.4.0] - 2026-03-16
+## 0.4.0 - 2026-03-16
 
 ### Added
 
@@ -151,7 +153,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - `captureSettings` field on capture responses reflecting effective browser configuration used during capture (#65)
 - `screenshots` array on capture responses with `full` and `viewport` entries for dual-screenshot captures (#65)
 
-## [0.3.0] - 2026-03-16
+## 0.3.0 - 2026-03-16
 
 ### Added
 
@@ -164,7 +166,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 - 13 discrepancies between OpenAPI spec and actual API behavior (#62)
 
-## [0.2.0] - 2026-03-16
+## 0.2.0 - 2026-03-16
 
 ### Added
 
@@ -193,13 +195,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ---
 
-[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.8.0...v1.0.0
-[0.8.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/benpeter/web-resource-ledger/compare/v0.1.0...v0.2.0
+[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/benpeter/web-resource-ledger/releases/tag/v1.0.0
 [0.1.0]: https://github.com/benpeter/web-resource-ledger/releases/tag/v0.1.0

@@ -70,6 +70,23 @@ The `staging-smoke` job is skipped for automatic triggers because staging alread
 
 ---
 
+## Releases
+
+`package.json` `version` is the API version: CI deploys it as `WRL-API-Version` on every response and as `build.version` in `/health`, and `scripts/check-version-sync.sh` requires `openapi.yaml` `info.version` to match. Bump it by SemVer: minor for added endpoints, fields or tools, major for breaking changes.
+
+1. On a branch: `npm version X.Y.Z --no-git-tag-version`, set `info.version` in `openapi.yaml`, and in CHANGELOG.md add `## [X.Y.Z] - <date>` under `## [Unreleased]` plus the compare links at the bottom.
+2. Merge the PR and wait for the production deploy (`/health` shows the new `build.version`).
+3. Tag the merge commit and publish the release with the CHANGELOG section as notes:
+
+```bash
+git tag -a vX.Y.Z <merge-sha> -m "vX.Y.Z" && git push origin vX.Y.Z
+gh release create vX.Y.Z --title vX.Y.Z --notes-file <changelog-section.md>
+```
+
+`v*` tags trigger nothing; `verify/v*` tags publish `@w-r-l/verify` (see `packages/verify/`).
+
+---
+
 ## Rollback
 
 ### Decision tree
