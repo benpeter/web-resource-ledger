@@ -1,11 +1,12 @@
 // tva
-import { env, SELF } from 'cloudflare:test';
+import { env, SELF, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
 import { seedApiKey, seedSchedule, seedUsageCounter, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer } from './fixtures.js';
 import { createCapture, computePeriod } from '../src/db.js';
 import { performCapture } from '../src/capture.js';
+import { handleMcp } from '../src/mcp.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -373,6 +374,75 @@ describe('capture tools -- quota and account state', () => {
     const batch = await call('batch_capture', { urls: [URL_OK] });
     expect(batch.result.isError).toBe(true);
     expect(batch.captures).toBe(0);
+  });
+});
+
+describe('capture tools -- threat screening', () => {
+  const THREAT_KEY = 'wrl_live_' + 't'.repeat(43);
+  const THREAT_TENANT = 'mcp-threat';
+  // IP literals, so the URL check needs no DNS
+  const FLAGGED = 'https://93.184.216.34/';
+  const CLEAN = 'https://93.184.216.35/';
+  // Web Risk runs only with an API key; the test config has none
+  const threatEnv = { ...env, GOOGLE_WEB_RISK_API_KEY: 'test-web-risk-key' };
+
+  beforeEach(async () => {
+    await cleanDb(env.DB);
+    const { keys } = await env.KV.list({ prefix: 'rl:' });
+    for (const k of keys) await env.KV.delete(k.name);
+    await seedApiKey(env.DB, THREAT_KEY, { tenantId: THREAT_TENANT, scopes: ['capture', 'read'] });
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+    fetchMock.get('https://webrisk.googleapis.com')
+      .intercept({ path: (p) => p.includes(encodeURIComponent(FLAGGED)) })
+      .reply(200, { threat: { threatTypes: ['MALWARE'] } })
+      .persist();
+    fetchMock.get('https://webrisk.googleapis.com')
+      .intercept({ path: (p) => p.includes(encodeURIComponent(CLEAN)) })
+      .reply(200, {})
+      .persist();
+  });
+
+  afterEach(async () => {
+    fetchMock.deactivate();
+    await cleanDb(env.DB);
+  });
+
+  async function call(name, args) {
+    const ctx = createExecutionContext();
+    const res = await handleMcp(new Request('http://localhost/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+        'Authorization': `Bearer ${THREAT_KEY}`,
+      },
+      body: JSON.stringify(toolCall(name, args)),
+    }), threatEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    const body = await res.json();
+    const { results } = await env.DB.prepare('SELECT url, threat_check FROM captures WHERE tenant_id = ?')
+      .bind(THREAT_TENANT).all();
+    return { result: body.result, rows: results };
+  }
+
+  it('capture_url refuses a URL flagged by Web Risk', async () => {
+    const { result, rows } = await call('capture_url', { url: FLAGGED });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/flagged by content security screening/);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('capture_url records the passed check on the capture', async () => {
+    const { result, rows } = await call('capture_url', { url: CLEAN });
+    expect(result.isError).toBeUndefined();
+    expect(rows).toEqual([{ url: CLEAN, threat_check: 'pass' }]);
+  });
+
+  it('batch_capture rejects the flagged URL and captures the clean one', async () => {
+    const { result, rows } = await call('batch_capture', { urls: [FLAGGED, CLEAN] });
+    expect(result.content[0].text).toMatch(/flagged by content security screening/);
+    expect(rows).toEqual([{ url: CLEAN, threat_check: 'pass' }]);
   });
 });
 
