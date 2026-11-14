@@ -135,7 +135,7 @@ describe('captures list texts when filtered to one schedule', () => {
 
   it('explains an empty filtered list instead of inviting a first capture', () => {
     expect(capturesEmptyText(true)).toBe('This schedule has not made any captures yet. Its first one runs at the next scheduled time.');
-    expect(capturesEmptyText(false)).toMatch(/^Submit a URL above to create your first capture/);
+    expect(capturesEmptyText(false)).toMatch(/^Capture a page to get a screenshot/);
   });
 });
 
