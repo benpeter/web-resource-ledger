@@ -159,7 +159,8 @@ function getRateLimitGroup(method, pathname) {
   if (pathname === '/v1/captures' || pathname === '/v1/captures/batch') return 'capture';
   if (pathname.startsWith('/v1/schedules')) return 'capture';
   if (pathname.startsWith('/v1/verify/') || pathname.startsWith('/.well-known/signing-key')) return 'verify';
-  if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'account';
+  // Account and billing routes share AUTH_RATE_LIMITER with sign-in
+  if (pathname.startsWith('/v1/account/') || pathname.startsWith('/v1/billing/')) return 'auth';
   if (pathname.startsWith('/auth/')) return 'auth';
   if (pathname.startsWith('/v1/notifications/unsubscribe')) return 'auth';
   if (pathname.startsWith('/v1/notifications/verify-email')) return 'auth';

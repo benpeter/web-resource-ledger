@@ -47,6 +47,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- `X-RateLimit-Limit` on sign-in, account, billing, unsubscribe and verify-email routes said 20 or 30 requests a minute; they share a limit of 10 a minute per IP address, and the header now says 10. The limits page lists the per-IP limits
 - The API reference listed `GET` and `PUT /v1/account/notifications` as needing no authentication; they take a dashboard session only and refuse API keys. The API key description says where keys come from (first sign-in, Settings → API Keys)
 - The API reference didn't list `timestamps` (which timestamps a capture's bundle holds) on capture records and list items, or `render.stages.scrollMs`
 - The weekly digest's subject and heading showed the period as timestamps ("2026-11-02T09:00:19.051Z - 2026-11-09T09:00:19.051Z"); they show dates ("Nov 2 - Nov 9")

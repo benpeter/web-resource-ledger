@@ -149,3 +149,4 @@ software development.
 | [0140-digest-dates](0140-digest-dates/) | The weekly digest names its period as dates instead of timestamps |
 | [0141-screenshot-coverage](0141-screenshot-coverage/) | Captures record whether the screenshot shows the whole page or only its top 8,000 px, signed into the WACZ and shown on the verify page and in `get_capture` |
 | [0142-route-table-sync](0142-route-table-sync/) | The INTERNALS route table lists every route with the right auth, the API reference marks the notification routes session-only, and a test keeps router, table and spec in step |
+| [0143-auth-ratelimit-header](0143-auth-ratelimit-header/) | `X-RateLimit-Limit` on sign-in, account and billing routes says 10, the limit they share; the limits page lists the per-IP limits |
