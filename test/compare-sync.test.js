@@ -1,10 +1,10 @@
 // tva
 // The docs comparison page said it covered 13 tools and the landing page linked
-// to it as 14, while its table compared WRL with 9. Neither page named ProofSnap
-// or DEPT, the two tools the 2026-03-26 positioning decisions added. Both tables
-// keep one cell per column in every row, every linked tool has a note, and both
-// counts come from the docs table. Reads the sources as text, like
-// og-image-sync.test.js.
+// to it as 10 and 14, while its table compared WRL with 9. Neither page named
+// ProofSnap or DEPT, the two tools the 2026-03-26 positioning decisions added.
+// Both tables keep one cell per column in every row, every linked tool has a
+// note, and the counts on both pages come from the docs table. Reads the sources
+// as text, like og-image-sync.test.js.
 import { readFileSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -64,8 +64,8 @@ describe('comparison tables', () => {
   it('counts the compared tools the same on both pages as the docs table', () => {
     const compared = toolColumns(table(comparePage).headers).length - 1;
     const description = comparePage.match(/^description: .*?\b(\d+)\b/m);
-    const landingLink = landingPage.match(/Full comparison (?:across|of WRL with) (\d+) /);
+    const landingLinks = [...landingPage.matchAll(/comparison across (\d+) /g)].map((m) => Number(m[1]));
     expect(description && Number(description[1])).toBe(compared);
-    expect(landingLink && Number(landingLink[1])).toBe(compared);
+    expect(landingLinks).toEqual([compared, compared]);
   });
 });
