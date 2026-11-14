@@ -41,7 +41,7 @@ done
 
 ## Step 3: Check the results
 
-Each capture takes a few seconds to a minute. Poll `GET /v1/captures/{id}/status` until it says `complete` or `failed`, or list everything you captured today:
+Each capture usually takes 20-60 seconds. Poll `GET /v1/captures/{id}/status` until it says `complete` or `failed`, or list everything you captured today:
 
 ```bash
 curl "https://api.webresourceledger.com/v1/captures?created_after=2026-10-22T00:00:00Z&limit=100" \
