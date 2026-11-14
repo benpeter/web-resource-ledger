@@ -117,19 +117,22 @@ export async function handleEmailLoginRequest(request, env, ctx) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const ipKey = (await hashApiKey(`login-ip:${ip}`)).slice(0, 32);
   const emailKey = (await hashApiKey(`login-email:${email}`)).slice(0, 32);
+  // A failed counter write leaves the count short, so the limit stops working.
+  // Each write is handed to waitUntil as soon as it starts.
+  const counterWriteFailed = (err) =>
+    log(env, 5, 'oauth', { event: 'oauth.email_link_counter_write_fail', cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
   const byIp = await rateLimitCounter(env.KV, ipKey, 'email-login-ip', LINKS_PER_IP_PER_HOUR, 3600);
+  ctx.waitUntil(byIp.writePromise.catch(counterWriteFailed));
   if (byIp.exceeded) {
     ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_link_rate_limited', cip, scope: 'ip' }) ?? Promise.resolve());
     return problemResponse(429, 'Too many sign-in links requested. Try again in an hour.');
   }
   const byEmail = await rateLimitCounter(env.KV, emailKey, 'email-login-address', LINKS_PER_EMAIL_PER_HOUR, 3600);
+  ctx.waitUntil(byEmail.writePromise.catch(counterWriteFailed));
   if (byEmail.exceeded) {
     ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_link_rate_limited', cip, scope: 'address' }) ?? Promise.resolve());
     return problemResponse(429, 'Too many sign-in links sent to this address. Try again in an hour.');
   }
-  // A failed write leaves the counters short, so the limits above stop working.
-  ctx.waitUntil(Promise.all([byIp.writePromise, byEmail.writePromise]).catch((err) =>
-    log(env, 5, 'oauth', { event: 'oauth.email_link_counter_write_fail', cip, errorMessage: String(err?.message ?? '').slice(0, 256) })));
 
   const token = toBase64url(crypto.getRandomValues(new Uint8Array(32)));
   const tokenHash = await hashApiKey(token);

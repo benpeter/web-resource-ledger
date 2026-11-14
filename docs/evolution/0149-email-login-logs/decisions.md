@@ -5,6 +5,11 @@
   counting, with nothing in the logs. That now logs
   `oauth.email_link_counter_write_fail` at severity 5: a control is off, but the
   request itself is fine, so it still answers 202.
+- Each counter write now goes to `ctx.waitUntil` with its catch as soon as it starts.
+  The old code collected both writes in one `Promise.all` after the second counter's
+  KV read, so a write that failed early sat unhandled across that read (CI reported it
+  as an unhandled rejection), and when the address limit answered 429 the IP counter's
+  write was never handed to `waitUntil` at all.
 - The cleanup of expired login tokens logs `oauth.login_token_cleanup_fail` at
   severity 4. The next link request runs it again.
 - The two `computeCip(...).catch(() => null)` calls stay: the pseudonymized IP only
