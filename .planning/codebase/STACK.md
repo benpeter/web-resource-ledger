@@ -33,9 +33,9 @@ From `package.json` (root):
 
 | Library | Version | Purpose |
 | --- | --- | --- |
-| `wrangler` | `4.73.0` (devDep) | Cloudflare Workers CLI: `dev`, `deploy`, secret management |
+| `wrangler` | `4.162.0` (devDep) | Cloudflare Workers CLI: `dev`, `deploy`, secret management |
 | `@cloudflare/playwright` | `^1.1.2` | Headless Chromium for capture pipeline (Cloudflare Browser Rendering binding); used in `src/capture.js` via `connect`, `acquire`, `sessions`, `limits` |
-| `@cloudflare/vitest-pool-workers` | `0.19.1` (devDep) | Runs Vitest tests inside Miniflare with Workers runtime semantics |
+| `@cloudflare/vitest-pool-workers` | `0.23.0` (devDep) | Runs Vitest tests inside Miniflare with Workers runtime semantics |
 | `vitest` | `4.1.12` (devDep) | Unit + integration test runner |
 | `@playwright/test` | `^1.58.2` (devDep) | E2E tests against staging (`test/e2e/`) |
 | `@duckduckgo/autoconsent` | `^14.75.0` (origin/main; local working tree was `^14.66.0` at mapping time) | Cookie banner dismissal during capture; bundled in `src/vendor/autoconsent-script.js` and `src/vendor/autoconsent.playwright.js` (vendored via `scripts/vendor-autoconsent.js`); auto-bumped by the autoconsent CI pipeline (Phase 0088, PR #229). **Note:** the codebase mapper read this from the local working tree rather than `origin/main` and was 1 commit behind (PR #276 / d042b44). Treat any version-sensitive claim in this doc as a snapshot of local working tree, not necessarily current `origin/main`. |
@@ -45,7 +45,7 @@ From `package.json` (root):
 | `pdf-lib` | `1.17.1` | Generates signed PDF certificates of authenticity (`src/certificate.js`) |
 | `fflate` | `^0.8.2` (devDep — used by `src/wacz.js`) | ZIP creation for WACZ bundles (`zipSync`) |
 | `zod` | `^4.3.6` | Schema validation in MCP tool definitions (`src/mcp.js`) |
-| `@redocly/cli` | `^1.34.0` (devDep) | Lints `openapi.yaml` (`npm run lint:api`) |
+| `@redocly/cli` | `^2.78.0` (devDep) | Lints `openapi.yaml` (`npm run lint:api`) |
 | `yaml` | `^2.8.2` (devDep) | YAML parsing in scripts |
 
 Built-in Node modules used (via `nodejs_compat`): `node:crypto` (Ed25519 keypairs in test configs and `src/signing.js`), `node:url`, `node:path`.
