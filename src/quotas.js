@@ -70,7 +70,7 @@ export async function checkQuota(db, tenantId, count = 1) {
 
   const [tenantResult, usageResult] = await db.batch([
     db.prepare(
-      'SELECT tier, config, payment_method_added_at, billing_status, grace_period_end, eidas_qualified FROM tenants WHERE id = ?',
+      'SELECT tier, config, payment_method_added_at, billing_status, grace_period_end, eidas_qualified, deletion_requested_at FROM tenants WHERE id = ?',
     ).bind(tenantId),
     db.prepare(
       'SELECT capture_count, storage_bytes FROM usage_counters WHERE tenant_id = ? AND period = ?',
@@ -85,6 +85,12 @@ export async function checkQuota(db, tenantId, count = 1) {
   const hasPaymentMethod     = tenant.payment_method_added_at != null;
   const eidasQualified       = Boolean(tenant.eidas_qualified);
   const config               = tenant.config ? JSON.parse(tenant.config) : null;
+
+  // Account deletion requested (phase 0152): no new captures until it is
+  // cancelled or the data is purged.
+  if (tenant.deletion_requested_at) {
+    return { allowed: false, reason: 'deletion_requested', deletionRequestedAt: tenant.deletion_requested_at };
+  }
 
   // Hard block: tenant has been cut off from captures.
   if (billingStatus === 'blocked') {

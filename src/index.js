@@ -1,7 +1,7 @@
 import { problemResponse, jsonResponse, batchItemSuccess, batchItemError } from './responses.js';
 import { verifyApiKey, verifyAdminKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createCapture, getCapture, failCapture, failCaptureAfterRetries, recordAttemptError, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent } from './db.js';
+import { createCapture, getCapture, failCapture, failCaptureAfterRetries, recordAttemptError, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent, DELETION_GRACE_DAYS } from './db.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { rateLimitCounter } from './kv.js';
@@ -17,7 +17,7 @@ import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, formatStorage, limitReachedEmailData } from './quotas.js';
 import { computeCip } from './ip-hash.js';
-import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge } from './admin.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
 import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey, getCache } from './cache.js';
@@ -100,6 +100,10 @@ const routes = [
   // matches first when that path is requested.
   ['GET',    /^\/v1\/admin\/tenants$/, handleAdminListTenants],
   ['GET',    /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})$/, handleAdminGetTenant],
+  // Account deletion (phase 0152)
+  ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})$/, handleAdminPurgeTenant],
+  ['POST',   /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/deletion$/, handleAdminRequestDeletion],
+  ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/deletion$/, handleAdminCancelDeletion],
   ['GET',    /^\/v1\/admin\/overview$/, handleAdminGetOverview],
   ['POST',   /^\/v1\/webhooks$/, handleCreateWebhook],
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
@@ -920,6 +924,19 @@ function storageLimitDetail(quotaCheck) {
   return `Storage quota reached (${formatStorage(quotaCheck.used)} of ${formatStorage(quotaCheck.limit)}). Add a payment method to continue capturing. Resets ${quotaCheck.resetsAt}.`;
 }
 
+// Refusals that aren't about the quota: the account itself may not capture.
+// Returns null for quota refusals, which answer 429 with quota details.
+function accountRefusalDetail(quotaCheck) {
+  if (quotaCheck.reason === 'deletion_requested') {
+    const purgeAfter = new Date(Date.parse(quotaCheck.deletionRequestedAt) + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
+    return `This account is scheduled for deletion on ${purgeAfter.toISOString().slice(0, 10)} and can't capture. Contact support to cancel the deletion.`;
+  }
+  if (quotaCheck.reason === 'billing_blocked') {
+    return 'Account is blocked. Contact support to restore access.';
+  }
+  return null;
+}
+
 async function handleCreateCapture(request, env, ctx) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
@@ -975,6 +992,14 @@ async function handleCreateCapture(request, env, ctx) {
   let quotaCheck = null;
   if (authMethod !== 'legacy') {
     quotaCheck = await checkQuota(env.DB, tenantId);
+    const refusal = quotaCheck.allowed ? null : accountRefusalDetail(quotaCheck);
+    if (refusal) {
+      ctx.waitUntil(log(env, 4, 'security', {
+        event: 'security.account_refused', tenantId, keyName, keyHashPrefix, authMethod,
+        reason: quotaCheck.reason, responseStatus: 403, cip,
+      }) ?? Promise.resolve());
+      return problemResponse(403, refusal, rlHeaders);
+    }
     if (!quotaCheck.allowed) {
       ctx.waitUntil(log(env, 4, 'security', {
         event: 'security.quota_exceeded',
@@ -1271,6 +1296,14 @@ async function handleBatchCapture(request, env, ctx) {
   let quotaCheck = null;
   if (authMethod !== 'legacy') {
     quotaCheck = await checkQuota(env.DB, tenantId, body.urls.length);
+    const refusal = quotaCheck.allowed ? null : accountRefusalDetail(quotaCheck);
+    if (refusal) {
+      ctx.waitUntil(log(env, 4, 'security', {
+        event: 'security.account_refused', tenantId, keyName, keyHashPrefix, authMethod,
+        reason: quotaCheck.reason, responseStatus: 403, cip,
+      }) ?? Promise.resolve());
+      return problemResponse(403, refusal, rlHeaders);
+    }
     if (!quotaCheck.allowed) {
       ctx.waitUntil(log(env, 4, 'security', {
         event: 'security.quota_exceeded',

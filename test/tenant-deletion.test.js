@@ -51,7 +51,7 @@ async function seedStoredCapture(id, tenantId) {
   const wacz = { key: `captures/${'e'.repeat(60)}${id.slice(-4)}.wacz`, bundleHash: 'sha256:' + 'f'.repeat(64), size: 10 };
   await seedCapture(env.DB, id, {
     tenantId, status: 'complete', completedAt: new Date().toISOString(),
-    artifacts: JSON.stringify(artifacts), wacz: JSON.stringify(wacz),
+    artifacts, wacz,
   });
   for (const key of [...Object.values(artifacts), wacz.key]) {
     await env.BUCKET.put(key, 'x');
@@ -178,9 +178,9 @@ describe('DELETE /v1/admin/tenants/{id}', () => {
     expect(await env.KV.get(`first_key:${TENANT}`)).toBeNull();
 
     // The other tenant keeps its key, capture and objects
-    expect((await capture(OTHER_KEY)).status).not.toBe(401);
     expect(await left('SELECT COUNT(*) AS n FROM captures WHERE tenant_id = ?', OTHER)).toBe(1);
     for (const key of otherKeys) expect(await env.BUCKET.head(key), key).not.toBeNull();
+    expect((await capture(OTHER_KEY)).status).not.toBe(401);
   });
 });
 
