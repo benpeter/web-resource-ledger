@@ -107,18 +107,21 @@ npx @w-r-l/verify https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6
 When all checks pass, the output looks like this:
 
 ```
-Verification PASSED
+Fetching capture from https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/wacz
+Verified  https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
-  File integrity     PASS
-  Bundle integrity   PASS
-  Digital signature  PASS
-  Time verification  PASS
-  Timestamp chain    PASS
+  File integrity        pass
+  Bundle integrity      pass
+  Digital signature     pass
+  Time verification     pass
+  Timestamp chain       pass
 
-Captured URL:  https://example.com
-Signed at:     2026-03-22T10:30:12.350Z
-Timestamp:     2026-03-22T10:30:12.481Z
-TSA:           DigiCert Timestamp Authority
+  Signed    2026-03-22T10:30:12.350Z
+  TSA       http://timestamp.digicert.com
+  Key       ab487612 (from api.webresourceledger.com)
+  Hash      sha256:e3b0c44298fc1c14...
+
+Verdict: All 5 cryptographic checks passed. This capture has not been modified since it was signed by the capture service.
 ```
 
 You just captured a web page with cryptographic proof. The Ed25519 signature and RFC 3161 timestamp prove this content existed at this moment -- and anyone can verify it.

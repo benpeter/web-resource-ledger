@@ -287,9 +287,9 @@ Render quality: full
 
 Checks:
   artifactHashes: PASS
-  bundleHash:     PASS
-  signature:      PASS
-  timestamp:      PASS
+  bundleHash: PASS
+  signature: PASS
+  timestamp: PASS
 
 Signing metadata:
   Signed at: 2026-03-22T10:30:12.350Z
@@ -351,11 +351,11 @@ Captured at:    2026-03-22T10:30:12.481Z
 Render quality: full
 
 Integrity evidence:
-  Bundle hash (SHA-256): abc123def456...
+  Bundle hash (SHA-256): sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   Signing algorithm:     Ed25519
-  Key ID:                key_a1b2c3d4
-  RFC 3161 timestamp:    ok
-  eIDAS qualified ts:    none
+  Key ID:                ab487612
+  RFC 3161 timestamp:    present
+  eIDAS qualified ts:    skipped
 
 Certificate URL (PDF):
   https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/certificate
@@ -365,6 +365,8 @@ Verification URL:
 
 Use verify_capture to re-check artifact hashes and signature.
 ```
+
+The two timestamp lines read `present`, `skipped` or `error`. The eIDAS line reads `skipped` unless qualified timestamps are turned on in Settings.
 
 ---
 
