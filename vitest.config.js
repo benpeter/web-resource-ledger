@@ -19,7 +19,7 @@ const TEST_MIGRATIONS = await readD1Migrations(path.join(__dirname, 'migrations'
 export default defineWorkersConfig({
   test: {
     setupFiles: ['./test/apply-migrations.js'],
-    exclude: ['test/integration/**', 'test/e2e/**', 'test/mcp-sync.test.js', 'packages/**', 'node_modules/**', 'site/**', '.claude/worktrees/**'],
+    exclude: ['test/integration/**', 'test/e2e/**', 'test/mcp-sync.test.js', 'test/log-severity-sync.test.js', 'packages/**', 'node_modules/**', 'site/**', '.claude/worktrees/**'],
     poolOptions: {
       workers: {
         wrangler: {
