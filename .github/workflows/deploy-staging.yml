@@ -23,6 +23,12 @@ permissions:
   contents: read
   deployments: write
 
+# One deploy at a time, so an older push can't finish last and leave staging
+# (and then production) on older code. A newer push replaces a waiting one.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
 jobs:
   test:
     # vitest-pool-workers hangs in some runs on ubuntu-26.04 (since 2026-11-14,
