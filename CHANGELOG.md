@@ -10,6 +10,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-14
+
 ### Added
 
 - The dashboard suggests a schedule: a capture's page links to the schedule form with its URL filled in, and the captures list offers the same once a capture finishes in an account without schedules
@@ -248,7 +250,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ---
 
-[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/benpeter/web-resource-ledger/releases/tag/v1.0.0
