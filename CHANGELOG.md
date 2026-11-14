@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The privacy policy said usage counters are kept for the current and previous billing periods; WRL keeps the current period and the 12 before it, as the Data Retention page says. It also said sign-in link hashes are deleted after use; they are deleted a day after the link expires
 - The security whitepaper left out Pirsch, which receives the raw IP of page views and sign-ups and doesn't store it, and said IPs are pseudonymized before they reach any analytics system. It also said `VERIFY_RATE_LIMITER` is per tenant (it is per IP, except for MCP `verify_capture`) and `AUTH_RATE_LIMITER` counts failed sign-ins (it counts every request), that quarantined artifacts stay intact (they answer 451 and are purged 90 days after quarantine), that email addresses are stored only for notification opt-ins, and that there are 9 alert rules (there are 11); the dashboard sign-in heading named a browser extension that doesn't exist
 - Capture events sent to Pirsch (First Capture, Capture Completed, Capture Failed) gave the captured site's resolved address as the visitor's ip; they now send none. No such event was sent yet: every capture since the events started came from a tenant excluded from analytics
 - Data Retention's details for infosec reviewers said expired sessions are never deleted from D1; an hourly job deletes them, as the table on the same page says. They also left the emailed sign-in identities out of the deletion order and of the personal fields
