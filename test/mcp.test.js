@@ -242,6 +242,38 @@ describe('keyless discovery', () => {
     expect(res.status).toBe(401);
   });
 
+  it('logs which methods a refused keyless request asked for', async () => {
+    const logged = [];
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+    fetchMock.get('https://ingress.test.coralogix.com')
+      .intercept({ path: '/logs/v1/singles', method: 'POST' })
+      .reply(200, ({ body }) => {
+        logged.push(JSON.parse(JSON.parse(body)[0].text));
+        return '';
+      })
+      .persist();
+    try {
+      const ctx = createExecutionContext();
+      const res = await handleMcp(new Request('http://localhost/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'CF-Connecting-IP': '203.0.113.9' },
+        body: JSON.stringify([{ jsonrpc: '2.0', id: 1, method: 'prompts/list' }, { jsonrpc: '2.0', id: 2, method: 'resources/list' }]),
+      }), {
+        ...env,
+        CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
+        CORALOGIX_SEND_KEY: 'test-send-key',
+      }, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(401);
+      const event = logged.find((e) => e.event === 'security.auth_fail');
+      expect(event).toMatchObject({ reason: 'missing_header', via: 'mcp', methods: ['prompts/list', 'resources/list'] });
+      expect(event.cip).toEqual(expect.any(String));
+    } finally {
+      fetchMock.deactivate();
+    }
+  });
+
   it('allows 60 keyless requests a minute per IP', async () => {
     const ip = { 'CF-Connecting-IP': '10.0.7.1' };
     for (let i = 0; i < 60; i++) {
