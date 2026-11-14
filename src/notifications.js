@@ -373,11 +373,10 @@ const WEEKLY_DIGEST_TENANT_LIMIT = 50;
  * Send weekly digest emails to all eligible tenants.
  *
  * Eligible tenants must:
- *   - Have at least one active (non-paused) schedule
+ *   - Have made at least one capture in the last 7 days, scheduled or not
  *   - Have notify_weekly_digest = 1 in notification_preferences
  *   - Have email_verified = 1 in notification_preferences
  *
- * Skips tenants with zero captures in the last 7 days.
  * Limited to WEEKLY_DIGEST_TENANT_LIMIT tenants per invocation.
  * Not deduplicated: the weekly cron is what limits it to one a week.
  *
@@ -392,18 +391,20 @@ export async function handleWeeklyDigest(env, now = new Date()) {
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
     : 'https://api.webresourceledger.com';
 
-  // Query tenants with active schedules + digest preference + verified email.
-  // Uses DISTINCT to avoid duplicates when a tenant has multiple active schedules.
+  // Tenants with captures in the period + digest preference + verified email.
   let tenantRows;
   try {
     const result = await env.DB.prepare(`
-      SELECT DISTINCT np.tenant_id
+      SELECT np.tenant_id
       FROM notification_preferences np
-      INNER JOIN schedules s ON s.tenant_id = np.tenant_id AND s.paused = 0
       WHERE np.notify_weekly_digest = 1
         AND np.email_verified = 1
+        AND EXISTS (
+          SELECT 1 FROM captures c
+          WHERE c.tenant_id = np.tenant_id AND c.created_at >= ? AND c.created_at < ?
+        )
       LIMIT ?
-    `).bind(WEEKLY_DIGEST_TENANT_LIMIT).all();
+    `).bind(periodStart, periodEnd, WEEKLY_DIGEST_TENANT_LIMIT).all();
     tenantRows = result.results ?? [];
   } catch (err) {
     log(env, 4, 'email', {
@@ -443,7 +444,8 @@ export async function handleWeeklyDigest(env, now = new Date()) {
 }
 
 /**
- * Query schedule execution results and dispatch digest for one tenant.
+ * Query capture results per active schedule, and for the other captures, and
+ * dispatch the digest for one tenant.
  *
  * @param {object} env
  * @param {string} tenantId
@@ -472,9 +474,24 @@ async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, 
     failed: r.failed ?? 0,
   }));
 
+  // All captures in the period; what the active schedules didn't make is "other"
+  // (dashboard, API, MCP, or a schedule paused or deleted since).
+  const all = await env.DB.prepare(`
+    SELECT COUNT(*) AS total,
+           SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) AS succeeded,
+           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
+    FROM captures
+    WHERE tenant_id = ? AND created_at >= ? AND created_at < ?
+  `).bind(tenantId, periodStart, periodEnd).first();
+  const sum = (key) => schedules.reduce((acc, s) => acc + s[key], 0);
+  const other = {
+    total: (all?.total ?? 0) - sum('total'),
+    succeeded: (all?.succeeded ?? 0) - sum('succeeded'),
+    failed: (all?.failed ?? 0) - sum('failed'),
+  };
+
   // Skip if no captures at all in the period
-  const totalCaptures = schedules.reduce((sum, s) => sum + s.total, 0);
-  if (totalCaptures === 0) {
+  if ((all?.total ?? 0) === 0) {
     log(env, 3, 'email', {
       event: 'email.dispatch_suppressed',
       tenantId,
@@ -490,6 +507,7 @@ async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, 
     periodStart: day(periodStart),
     periodEnd: day(periodEnd),
     schedules,
+    other,
     dashboardUrl: `${baseUrl}/ui`,
   });
 }

@@ -51,7 +51,7 @@ function notificationDescription(key) {
     limit_reached: 'Alert when your free capture limit is reached',
     payment_failure: 'Alert when a payment attempt fails',
     invoice_generated: 'Notification when a new invoice is created',
-    weekly_digest: 'Weekly summary of your scheduled captures'
+    weekly_digest: 'Weekly summary of your captures, in weeks with captures'
   };
   return descriptions[key] || '';
 }
