@@ -148,6 +148,48 @@ function makeMinimalResult() {
   };
 }
 
+function makePageResult() {
+  return makeBaseResult({
+    capture: {
+      ...makeBaseResult().capture,
+      url:        'https://example.com/terms',
+      capturedAt: '2026-03-16T11:59:58.000Z',
+    },
+  });
+}
+
+describe('formatLegal -- captured page', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  it('Section 1 names the captured page', () => {
+    formatLegal(makePageResult());
+    const summary = stdoutOutput.split('2. SUBJECT OF VERIFICATION')[0];
+    assert.match(summary, /Page:\s+https:\/\/example\.com\/terms/);
+  });
+
+  it('Section 2 names the captured page and when it was captured', () => {
+    formatLegal(makePageResult());
+    const subject = stdoutOutput.split('2. SUBJECT OF VERIFICATION')[1].split('3. VERIFICATION CHECKS PERFORMED')[0];
+    assert.match(subject, /Captured page:\s+https:\/\/example\.com\/terms/);
+    assert.match(subject, /Captured at:\s+2026-03-16T11:59:58\.000Z/);
+  });
+
+  it('leaves the page lines out when the archive names no page', () => {
+    formatLegal(makeBaseResult());
+    assert.doesNotMatch(stdoutOutput, /Captured page:/);
+    assert.doesNotMatch(stdoutOutput, /^Page:/m);
+  });
+
+  it('JSON report carries capture.url and capture.capturedAt', () => {
+    formatLegalJson(makePageResult());
+    const out = JSON.parse(stdoutOutput);
+    assert.strictEqual(out.capture.url, 'https://example.com/terms');
+    assert.strictEqual(out.capture.capturedAt, '2026-03-16T11:59:58.000Z');
+    assert.strictEqual(out.summary.capturedUrl, 'https://example.com/terms');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // formatLegal -- Section structure
 // ---------------------------------------------------------------------------
