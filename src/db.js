@@ -1080,10 +1080,13 @@ export async function consumeLoginToken(db, tokenHash) {
  * Delete sign-in tokens that expired more than a day ago.
  *
  * @param {D1Database} db
+ * @param {Date} [now]
+ * @returns {Promise<number>} Count of deleted rows
  */
-export async function deleteExpiredLoginTokens(db) {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  await db.prepare('DELETE FROM login_tokens WHERE expires_at < ?').bind(cutoff).run();
+export async function deleteExpiredLoginTokens(db, now = new Date()) {
+  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const result = await db.prepare('DELETE FROM login_tokens WHERE expires_at < ?').bind(cutoff).run();
+  return result.meta.changes ?? 0;
 }
 
 /**
@@ -1730,16 +1733,18 @@ export async function deleteSession(db, idHash) {
 }
 
 /**
- * Purge all sessions whose expires_at timestamp has passed.
- * Intended to be called periodically (e.g. from a Cron Trigger).
+ * Purge all sessions whose expires_at timestamp has passed. expires_at is an
+ * ISO timestamp, so it is compared with one: SQLite's datetime('now') has a
+ * space where ISO has a T and sorted every session of the same day as unexpired.
  *
  * @param {D1Database} db
+ * @param {Date} [now]
  * @returns {Promise<number>} Count of deleted rows
  */
-export async function deleteExpiredSessions(db) {
+export async function deleteExpiredSessions(db, now = new Date()) {
   const result = await db.prepare(
-    `DELETE FROM sessions WHERE expires_at < datetime('now')`,
-  ).run();
+    'DELETE FROM sessions WHERE expires_at < ?',
+  ).bind(now.toISOString()).run();
   return result.meta.changes ?? 0;
 }
 

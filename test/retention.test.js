@@ -11,10 +11,12 @@ import { WEEKLY_CRON, MINUTE_CRON } from '../src/crons.js';
 import {
   purgeQuarantinedCaptures,
   trimUsageCounters,
+  purgeExpiredSignIns,
   usageCutoffPeriod,
   QUARANTINE_RETENTION_DAYS,
 } from '../src/retention.js';
-import { seedCapture, seedSchedule, seedApiKey, cleanDb, TEST_TENANT_KEY } from './fixtures.js';
+import { createSession, createLoginToken } from '../src/db.js';
+import { seedCapture, seedSchedule, seedApiKey, seedGithubUser, cleanDb, TEST_TENANT_KEY } from './fixtures.js';
 
 const NOW = new Date('2026-10-26T09:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
@@ -164,6 +166,51 @@ describe('scheduled() cron dispatch', () => {
     await worker.scheduled({ cron: MINUTE_CRON, scheduledTime: NOW.getTime(), noRetry() {} }, env, ctx);
     await waitOnExecutionContext(ctx);
     const n = await env.DB.prepare('SELECT count(*) n FROM captures WHERE schedule_id = ?').bind(SCH).first();
+    expect(n.n).toBe(1);
+  });
+});
+
+// Expired sessions and sign-in links: data-retention.md says a sign-in link's
+// row goes a day after it expires and sessions after 7 days. Both were deleted
+// only when someone next signed in, so with few sign-ins they stayed for weeks,
+// and the session query compared ISO timestamps with SQLite's datetime('now'),
+// which kept a session that expired earlier the same day.
+describe('purgeExpiredSignIns', () => {
+  const HOUR = 60 * 60 * 1000;
+  const at = (ms) => new Date(NOW.getTime() + ms).toISOString();
+
+  it('deletes expired sessions, one that expired earlier the same day included, and keeps current ones', async () => {
+    const { githubId, tenantId } = await seedGithubUser(env.DB);
+    await createSession(env.DB, { idHash: 'a'.repeat(64), githubId, tenantId, expiresAt: at(-HOUR) });
+    await createSession(env.DB, { idHash: 'b'.repeat(64), githubId, tenantId, expiresAt: at(HOUR) });
+    await purgeExpiredSignIns(env, NOW);
+    const { results } = await env.DB.prepare('SELECT id_hash FROM sessions').all();
+    expect(results.map((row) => row.id_hash)).toEqual(['b'.repeat(64)]);
+  });
+
+  it('deletes sign-in links a day past their expiry and keeps newer ones', async () => {
+    await createLoginToken(env.DB, { tokenHash: 'c'.repeat(64), email: 'a@example.com', expiresAt: at(-25 * HOUR) });
+    await createLoginToken(env.DB, { tokenHash: 'd'.repeat(64), email: 'a@example.com', expiresAt: at(-23 * HOUR) });
+    await purgeExpiredSignIns(env, NOW);
+    const { results } = await env.DB.prepare('SELECT token_hash FROM login_tokens').all();
+    expect(results.map((row) => row.token_hash)).toEqual(['d'.repeat(64)]);
+  });
+
+  it('runs on the hour from the per-minute cron', async () => {
+    await createLoginToken(env.DB, { tokenHash: 'e'.repeat(64), email: 'a@example.com', expiresAt: at(-25 * HOUR) });
+    const ctx = createExecutionContext();
+    await worker.scheduled({ cron: MINUTE_CRON, scheduledTime: NOW.getTime(), noRetry() {} }, env, ctx);
+    await waitOnExecutionContext(ctx);
+    const n = await env.DB.prepare('SELECT count(*) n FROM login_tokens').first();
+    expect(n.n).toBe(0);
+  });
+
+  it('does not run in the other minutes', async () => {
+    await createLoginToken(env.DB, { tokenHash: 'f'.repeat(64), email: 'a@example.com', expiresAt: at(-25 * HOUR) });
+    const ctx = createExecutionContext();
+    await worker.scheduled({ cron: MINUTE_CRON, scheduledTime: NOW.getTime() + 5 * 60 * 1000, noRetry() {} }, env, ctx);
+    await waitOnExecutionContext(ctx);
+    const n = await env.DB.prepare('SELECT count(*) n FROM login_tokens').first();
     expect(n.n).toBe(1);
   });
 });
