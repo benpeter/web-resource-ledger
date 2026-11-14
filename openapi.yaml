@@ -1791,7 +1791,7 @@ components:
               description: Alerts when a payment attempt fails.
             weekly_digest:
               type: boolean
-              description: Weekly summary of capture activity and usage.
+              description: Weekly summary of your captures, per active schedule plus one line for the other captures. Sent only in weeks with captures.
         updatedAt:
           type: ["string", "null"]
           format: date-time

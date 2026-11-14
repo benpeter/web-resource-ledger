@@ -1,11 +1,11 @@
 /*
  * weekly-digest.js -- Email template for weekly capture digest notifications.
  *
- * Sent weekly to summarize capture activity across all schedules. Includes a
- * table of schedule results, capped at 20 rows to keep the email under Gmail's
- * 102KB clip limit.
+ * Sent weekly to summarize capture activity. Includes a table of schedule
+ * results, capped at 20 rows to keep the email under Gmail's 102KB clip limit,
+ * and one row for the captures no active schedule made.
  *
- * Data: { periodStart, periodEnd, schedules, dashboardUrl, unsubscribeUrl }
+ * Data: { periodStart, periodEnd, schedules, other, dashboardUrl, unsubscribeUrl }
  */
 
 import { escapeHtml } from '../../verify-page.js';
@@ -17,6 +17,9 @@ const { colors, fontSans } = tokens;
 /** Maximum number of schedule rows to include in the digest table. */
 const MAX_SCHEDULES = 20;
 
+/** Label of the row for captures that no active schedule made. */
+const OTHER_LABEL = 'Other captures (not from an active schedule)';
+
 /**
  * Render one table row for a schedule in the digest.
  *
@@ -25,7 +28,7 @@ const MAX_SCHEDULES = 20;
  * @returns {string}
  */
 function renderScheduleRow(schedule, isEven) {
-  const safeUrl = escapeHtml(schedule.url || '');
+  const safeUrl = schedule.label ? `<em>${escapeHtml(schedule.label)}</em>` : escapeHtml(schedule.url || '');
   const total = Number(schedule.total) || 0;
   const succeeded = Number(schedule.succeeded) || 0;
   const failed = Number(schedule.failed) || 0;
@@ -48,25 +51,31 @@ function renderScheduleRow(schedule, isEven) {
  * @param {string} data.periodStart    Start of the digest period, e.g. "Mar 17"
  * @param {string} data.periodEnd      End of the digest period, e.g. "Mar 23"
  * @param {Array}  data.schedules      Array of { url, total, succeeded, failed }
+ * @param {object} [data.other]        { total, succeeded, failed } of the captures no active schedule made
  * @param {string} data.dashboardUrl   URL to the WRL dashboard
  * @param {string} data.unsubscribeUrl Unsubscribe URL for this notification type
  * @returns {{ html: string, text: string, subject: string }}
  */
-export function weeklyDigestEmail({ periodStart, periodEnd, schedules, dashboardUrl, unsubscribeUrl }) {
+export function weeklyDigestEmail({ periodStart, periodEnd, schedules, other, dashboardUrl, unsubscribeUrl }) {
   const safePeriodStart = escapeHtml(periodStart || '');
   const safePeriodEnd = escapeHtml(periodEnd || '');
   const safeDashboardUrl = escapeHtml(dashboardUrl || '');
   const allSchedules = Array.isArray(schedules) ? schedules : [];
   const displayedSchedules = allSchedules.slice(0, MAX_SCHEDULES);
   const hasMore = allSchedules.length > MAX_SCHEDULES;
+  const otherRow = other && Number(other.total) > 0 ? { label: OTHER_LABEL, ...other } : null;
+  const counted = otherRow ? [...allSchedules, otherRow] : allSchedules;
 
-  const totalCaptures = allSchedules.reduce((sum, s) => sum + (Number(s.total) || 0), 0);
-  const totalFailed = allSchedules.reduce((sum, s) => sum + (Number(s.failed) || 0), 0);
+  const totalCaptures = counted.reduce((sum, s) => sum + (Number(s.total) || 0), 0);
+  const totalFailed = counted.reduce((sum, s) => sum + (Number(s.failed) || 0), 0);
 
   const subject = `Weekly capture digest: ${periodStart} - ${periodEnd}`;
-  const preheaderText = `${totalCaptures} captures across ${allSchedules.length} schedule${allSchedules.length === 1 ? '' : 's'} from ${periodStart} to ${periodEnd}.`;
+  const preheaderText = allSchedules.length > 0
+    ? `${totalCaptures} captures, ${allSchedules.length} schedule${allSchedules.length === 1 ? '' : 's'}, from ${periodStart} to ${periodEnd}.`
+    : `${totalCaptures} captures from ${periodStart} to ${periodEnd}.`;
 
-  const scheduleRows = displayedSchedules.map((s, i) => renderScheduleRow(s, i % 2 === 1)).join('');
+  const scheduleRows = displayedSchedules.map((s, i) => renderScheduleRow(s, i % 2 === 1)).join('')
+    + (otherRow ? renderScheduleRow(otherRow, displayedSchedules.length % 2 === 1) : '');
 
   const hasMoreRow = hasMore ? `
             <tr>
@@ -76,7 +85,7 @@ export function weeklyDigestEmail({ periodStart, periodEnd, schedules, dashboard
               </td>
             </tr>` : '';
 
-  const noSchedulesRow = displayedSchedules.length === 0 ? `
+  const noSchedulesRow = displayedSchedules.length === 0 && !otherRow ? `
             <tr>
               <td colspan="4" style="padding:16px 12px;font-family:${fontSans};font-size:13px;color:${colors.textMuted};text-align:center;">No scheduled captures ran during this period.</td>
             </tr>` : '';
@@ -164,7 +173,12 @@ export function weeklyDigestEmail({ periodStart, periodEnd, schedules, dashboard
     textLines.push(`... and ${allSchedules.length - MAX_SCHEDULES} more schedule(s)`);
   }
 
-  if (displayedSchedules.length === 0) {
+  if (otherRow) {
+    textLines.push(OTHER_LABEL);
+    textLines.push(`  Total: ${otherRow.total || 0}  OK: ${otherRow.succeeded || 0}  Failed: ${otherRow.failed || 0}`);
+  }
+
+  if (displayedSchedules.length === 0 && !otherRow) {
     textLines.push('No scheduled captures ran during this period.');
   }
 

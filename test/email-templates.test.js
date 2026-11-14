@@ -457,6 +457,21 @@ describe('weeklyDigestEmail', () => {
     expect(result.text).toContain('No scheduled captures ran');
   });
 
+  it('adds a row for captures not made by an active schedule and counts them in the totals', () => {
+    const { html, text, subject } = weeklyDigestEmail({
+      ...WEEKLY_DIGEST_DATA,
+      schedules: [],
+      other: { total: 3, succeeded: 2, failed: 1 },
+    });
+    expect(html).toContain('Other captures');
+    expect(text).toContain('Other captures (not from an active schedule)');
+    expect(text).toContain('  Total: 3  OK: 2  Failed: 1');
+    expect(text).toContain('Total captures: 3');
+    expect(text).toContain('Failed: 1');
+    expect(text).not.toContain('No scheduled captures ran');
+    expect(subject).toBe('Weekly capture digest: Mar 17 - Mar 23');
+  });
+
   it('HTML escapes a script tag injected into a schedule URL', () => {
     const { html } = weeklyDigestEmail({
       ...WEEKLY_DIGEST_DATA,

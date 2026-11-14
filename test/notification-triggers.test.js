@@ -707,6 +707,62 @@ describe('3f: weekly digest handler', () => {
   });
 });
 
+// wrl-backlog#19: accounts that capture without a schedule got no digest.
+describe('3f: weekly digest for captures without a schedule', () => {
+  it('sends the digest when the only captures in the period have no schedule', async () => {
+    const tenantId = 'digest-tenant-adhoc';
+    await env.DB.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId).run();
+    await seedNotificationPrefs(env.DB, tenantId);
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare(
+      `INSERT INTO captures (id, tenant_id, url, ip, status, created_at)
+       VALUES (?, ?, 'https://example.com/a', null, 'complete', ?)`,
+    ).bind('cap_' + randomBytes(16).toString('hex'), tenantId, threeDaysAgo).run();
+    await env.DB.prepare(
+      `INSERT INTO captures (id, tenant_id, url, ip, status, created_at, failed_at, error, retryable)
+       VALUES (?, ?, 'https://example.com/b', null, 'failed', ?, ?, 'timeout', 0)`,
+    ).bind('cap_' + randomBytes(16).toString('hex'), tenantId, threeDaysAgo, threeDaysAgo).run();
+
+    const sent = [];
+    await handleWeeklyDigest(makeEmailEnv(sent));
+
+    const digest = sent.filter((s) => s.tenantId === tenantId);
+    expect(digest.length).toBe(1);
+    expect(digest[0].text).toContain('Total captures: 2');
+    expect(digest[0].text).toContain('Other captures (not from an active schedule)');
+    expect(digest[0].text).toContain('  Total: 2  OK: 1  Failed: 1');
+  });
+
+  it('lists the schedule and counts the other captures beside it', async () => {
+    const tenantId = 'digest-tenant-mixed';
+    await env.DB.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId).run();
+    await seedNotificationPrefs(env.DB, tenantId);
+    const schedId = 'sch_' + randomBytes(16).toString('hex');
+    await env.DB.prepare(
+      `INSERT INTO schedules (id, tenant_id, url, name, cron, next_run_at)
+       VALUES (?, ?, 'https://scheduled.example/', 'Test', '0 * * * *', '2026-03-24T10:00:00Z')`,
+    ).bind(schedId, tenantId).run();
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    await env.DB.prepare(
+      `INSERT INTO captures (id, tenant_id, url, ip, status, created_at, schedule_id)
+       VALUES (?, ?, 'https://scheduled.example/', null, 'complete', ?, ?)`,
+    ).bind('cap_' + randomBytes(16).toString('hex'), tenantId, threeDaysAgo, schedId).run();
+    await env.DB.prepare(
+      `INSERT INTO captures (id, tenant_id, url, ip, status, created_at)
+       VALUES (?, ?, 'https://example.com/c', null, 'complete', ?)`,
+    ).bind('cap_' + randomBytes(16).toString('hex'), tenantId, threeDaysAgo).run();
+
+    const sent = [];
+    await handleWeeklyDigest(makeEmailEnv(sent));
+
+    const digest = sent.filter((s) => s.tenantId === tenantId);
+    expect(digest.length).toBe(1);
+    expect(digest[0].text).toContain('Total captures: 2');
+    expect(digest[0].text).toContain('URL: https://scheduled.example/');
+    expect(digest[0].text).toContain('Other captures (not from an active schedule)');
+  });
+});
+
 describe('3f: weekly digest dates', () => {
   it('names the period as dates, not timestamps', async () => {
     const tenantId = 'digest-tenant-dates';
