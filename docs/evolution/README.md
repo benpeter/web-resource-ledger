@@ -169,3 +169,4 @@ software development.
 | [0160-schedule-nudge](0160-schedule-nudge/) | The dashboard suggests a schedule on capture pages and after a capture in accounts without schedules, opening the schedule form with the URL filled in |
 | [0161-bundle-software](0161-bundle-software/) | Evidence bundles and the header fetch name the WRL release and commit (`WRL/1.3.0+564eae4`) instead of `WRL/0.1` |
 | [0162-api-response-schemas](0162-api-response-schemas/) | Schedule responses drop the internal `tenant_id`; the API reference documents the fields the responses carry, including the `qualifiedTimestamp` check |
+| [0163-og-image](0163-og-image/) | Shared links to the landing page, its policy pages and the docs show a preview card image |

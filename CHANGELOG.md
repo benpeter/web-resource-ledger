@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Added
+
+- Links to the landing page, its policy pages and the docs show a preview image when shared; the landing page asked for a large preview card but named no image
+
 ### Removed
 
 - `tenant_id` from schedule responses (create, list, get, update): an internal field that the API reference never listed, holding the caller's own tenant id
