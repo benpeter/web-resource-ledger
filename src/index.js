@@ -232,13 +232,15 @@ async function handleCaptureMessage(msg, env, ctx) {
       try {
         await recordAttemptError(env.DB, captureId, categorizeError(err).message);
         await failCaptureAfterRetries(env.DB, captureId, CAPTURE_MAX_ATTEMPTS);
-      } catch {
-        // Best-effort -- do not block ack
+      } catch (dbErr) {
+        // Do not block ack, but the capture stays pending, so say so
+        ctx.waitUntil(log(env, 5, 'capture', { event: 'capture.fail_record_fail', captureId, tenantId, errorMessage: String(dbErr?.message ?? '').slice(0, 256) }) ?? Promise.resolve());
       }
       ctx.waitUntil(trackCaptureEvent(env, 'Capture Failed', msg.body) ?? Promise.resolve());
       msg.ack();
     } else {
-      await recordAttemptError(env.DB, captureId, categorizeError(err).message).catch(() => {});
+      await recordAttemptError(env.DB, captureId, categorizeError(err).message).catch((dbErr) =>
+        log(env, 4, 'capture', { event: 'capture.attempt_error_record_fail', captureId, tenantId, errorMessage: String(dbErr?.message ?? '').slice(0, 256) }));
       const delay = Math.min(10 * Math.pow(2, msg.attempts - 1), 300);
       msg.retry({ delaySeconds: delay });
     }
@@ -429,8 +431,9 @@ async function handleDlqMessage(msg, env, ctx) {
     try {
       // Names the reason of the last failed attempt when one was recorded.
       await failCaptureAfterRetries(env.DB, captureId, CAPTURE_MAX_ATTEMPTS);
-    } catch {
-      // Best-effort
+    } catch (err) {
+      // Do not block the DLQ ack, but the capture stays pending, so say so
+      ctx.waitUntil(log(env, 5, 'capture', { event: 'capture.fail_record_fail', captureId, tenantId: tenantId ?? null, errorMessage: String(err?.message ?? '').slice(0, 256) }) ?? Promise.resolve());
     }
     if (typeof tenantId === 'string') {
       ctx.waitUntil(trackCaptureEvent(env, 'Capture Failed', msg.body) ?? Promise.resolve());
