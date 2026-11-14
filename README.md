@@ -36,13 +36,11 @@ Configure the service via `GOOGLE_WEB_RISK_API_KEY` in your environment (see [st
 
 ## Usage
 
-Requires a running WRL instance. See [Setup](#setup) below.
-
 ```bash
 export WRL_API_KEY=your_tenant_api_key
 ```
 
-Tenant keys are created via the admin API (see [step 8a](#8a-configure-admin-key-required-for-per-tenant-key-management)). For deployments using the legacy static key, `WRL_API_KEY` is your `CAPTURE_API_KEY` value.
+On `api.webresourceledger.com`, [sign in to the web UI](https://api.webresourceledger.com/ui) with GitHub or an emailed link: the first sign-in shows a key with the `capture` and `read` scopes, once, and Settings → API Keys creates more. On your own deployment (see [Setup](#setup)), create tenant keys with the admin API ([step 8a](#8a-configure-admin-key-required-for-per-tenant-key-management)), or use the legacy static `CAPTURE_API_KEY` value.
 
 The examples below use `api.webresourceledger.com`. Replace with `localhost:8787` for local dev or your own deployment URL if self-hosting.
 
@@ -79,7 +77,7 @@ Poll until `status` is `complete` or `failed`. The response includes a `captureU
 curl https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
-Returns metadata and signed artifact URLs (screenshot, html, headers, wacz) plus a `verifyUrl`.
+Returns the capture record: URLs for each artifact (screenshot, html, headers, wacz), a `verifyUrl`, a `certificateUrl`, and render details.
 
 #### Step 4: Verify the bundle
 
@@ -124,16 +122,17 @@ curl https://api.webresourceledger.com/v1/captures \
     }
   ],
   "pagination": {
-    "cursor": null,
-    "hasMore": false,
-    "limit": 20
+    "total": 1,
+    "offset": 0,
+    "limit": 20,
+    "hasMore": false
   }
 }
 ```
 
-Optional query parameters: `limit` (1-100, default 20), `cursor` (for paging), `status` (`pending`, `complete`, `failed`, or `quarantined`).
+Optional query parameters: `limit` (1-100, default 20), `offset` (for paging), `status` (`pending`, `complete`, `failed`, or `quarantined`), `url`, `created_after`, `created_before`, `sort` (`created_at` or `-created_at`, the default) and `schedule_id`.
 
-Captures are rate-limited to 10 per minute per IP. Verification is limited to 60 per minute per IP. Error responses use RFC 9457 `application/problem+json` format. For full details, see [`openapi.yaml`](openapi.yaml).
+Captures are rate-limited to 10 a minute per tenant by default; each URL in a batch counts. Verification is limited to 60 a minute per IP address. See [Limits](https://docs.webresourceledger.com/limits/) for the rest. Error responses use RFC 9457 `application/problem+json` format. For full details, see [`openapi.yaml`](openapi.yaml).
 
 > **Detailed guides**: See [Getting Started](https://docs.webresourceledger.com) for a complete walkthrough, or browse the [API Reference](https://docs.webresourceledger.com/api-reference/) for the full endpoint catalog.
 
@@ -352,8 +351,9 @@ See the [MCP Server Guide](https://docs.webresourceledger.com/mcp/) for setup, t
 ## Web UI
 
 WRL includes a browser-based interface for submitting captures and browsing
-results. Navigate to `/ui` on your WRL deployment to access it. Authentication
-requires a WRL API key with `capture` and `read` scopes.
+results. Navigate to `/ui` on your WRL deployment to access it. Sign in with
+GitHub or an emailed link, or connect with an API key that has the `capture` and
+`read` scopes.
 
 The UI is served directly from the Worker — no separate hosting or CORS
 configuration required.
@@ -422,13 +422,13 @@ WRL followed a three-act development plan. All three acts are complete:
 2. **Evidence-Grade** (complete) -- RFC 3161 timestamps, per-tenant keys, audit logging. Made captures independently verifiable.
 3. **Infrastructure** (complete) -- MCP server, web UI, batch capture, scheduled captures, docs site, landing page, usage metering, webhooks. Expanded WRL into a platform.
 
-See [`docs/backlog.md`](docs/backlog.md) for the ongoing backlog and [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) for detailed tracking.
+[`docs/backlog.md`](docs/backlog.md) is the roadmap record from March to October 2026; open work is tracked privately since then. [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) are open for bug reports and requests.
 
 ## How WRL Was Built
 
 WRL is a production web evidence service. It is also a documented experiment in LLM-driven software development. A human defined what to build and made product decisions; an LLM (Claude) wrote virtually all the code, tests, infrastructure, and documentation.
 
-The full build history is in [`docs/evolution/`](docs/evolution/) -- 60+ phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
+The full build history is in [`docs/evolution/`](docs/evolution/) -- more than 140 phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
 
 ## Reference
 
@@ -497,7 +497,8 @@ All responses include:
 
 - `Link` -- points to the terms-of-service URL with `rel="terms-of-service"`. Present on every response.
 - `Strict-Transport-Security` -- includes `preload` and `includeSubDomains`. Present on every response.
-- `X-RateLimit-Limit` -- the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints (captures, verification, signing key endpoints).
+- `WRL-API-Version` -- the API version that produced the response (see [CHANGELOG.md](CHANGELOG.md)). Present on every response.
+- `X-RateLimit-Limit` -- the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints.
 
 ## Legal
 
