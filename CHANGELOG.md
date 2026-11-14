@@ -15,6 +15,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - The dashboard suggests a schedule: a capture's page links to the schedule form with its URL filled in, and the captures list offers the same once a capture finishes in an account without schedules
 - `GET /v1/schedules` returns the account's schedule limit as `limit`, and MCP `list_schedules` starts with "N of LIMIT schedules"
 
+### Changed
+
+- Evidence bundles name the WRL release and commit that made them, such as `WRL/1.3.0+564eae4`, in `datapackage.json`, the signed `datapackage-digest.json` and the WARC `warcinfo` record. Every bundle said `WRL/0.1`. The fetch of a page's HTTP headers sends the same value as its User-Agent
+
 ### Removed
 
 - The unread `STRIPE_PUBLISHABLE_KEY` variable (checkout and the billing portal are Stripe-hosted pages)

@@ -28,6 +28,7 @@ import { buildCdxj } from './cdxj.js';
 import { canonicalize } from './canonical-json.js';
 import { requestTimestamp } from './rfc3161.js';
 import { log } from './log.js';
+import { softwareId } from './build-info.js';
 
 const enc = new TextEncoder();
 
@@ -81,7 +82,7 @@ export async function buildWacz(url, captureDate, artifacts, env, options = {}) 
     profile: 'data-package',
     wacz_version: '1.1.1',
     title: `WRL capture of ${url}`,
-    software: 'WRL/0.1',
+    software: softwareId(),
     created: captureDate,
     mainPageUrl: url,
     mainPageDate: captureDate,
@@ -169,7 +170,7 @@ export async function buildWacz(url, captureDate, artifacts, env, options = {}) 
     signedData: {
       hash: bundleHash,
       created: captureDate,
-      software: 'WRL/0.1',
+      software: softwareId(),
       version: '0.2.0',
       signatures,
     },
