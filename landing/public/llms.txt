@@ -12,6 +12,8 @@ Web Resource Ledger is a web capture API that produces cryptographically signed 
 - Public verification URLs (no account needed)
 - WACZ open archive format
 - REST API, MCP server, CLI verification tool
+- Batch captures (up to 20 URLs per request) and captures of the URLs in a sitemap
+- Scheduled captures (hourly or slower), each with a summary of what changed since the previous one
 - 200 free captures/month, usage-based pricing after
 - Self-hostable under PolyForm Shield 1.0.0 (source-available; all uses permitted except competing web capture services)
 
@@ -21,6 +23,14 @@ Web Resource Ledger is a web capture API that produces cryptographically signed 
 - Compliance archiving: timestamped, tamper-evident records for regulatory audits
 - AI agent grounding: MCP server for verifiable web observations
 - Journalism: preserve sources with cryptographic proof
+
+## Connect
+
+- Sign in with GitHub or an emailed link, and get an API key: https://api.webresourceledger.com/ui
+- REST API: https://api.webresourceledger.com/v1/ with `Authorization: Bearer <API key>`. OpenAPI: https://raw.githubusercontent.com/benpeter/web-resource-ledger/main/openapi.yaml
+- MCP server: https://api.webresourceledger.com/mcp (Streamable HTTP). `initialize` and `tools/list` answer without a key; tool calls need `Authorization: Bearer <API key>`. Setup: https://docs.webresourceledger.com/mcp/
+- Verify a capture without an account: https://api.webresourceledger.com/v1/verify/{captureId}, or offline with `npx @w-r-l/verify`
+- Every docs page, for agents: https://docs.webresourceledger.com/llms.txt
 
 ## Links
 
