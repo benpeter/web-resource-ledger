@@ -14,6 +14,8 @@
       <span class="badge badge--pass" title="Requires tenant API key">Tenant key</span>
     {% elif op.authRequired == "adminAuth" %}
       <span class="badge badge--fail" title="Requires admin key">Admin key</span>
+    {% elif op.authRequired == "sessionCookie" %}
+      <span class="badge badge--skip" title="Dashboard session only; API keys are refused">Dashboard session</span>
     {% endif %}
   </div>
 

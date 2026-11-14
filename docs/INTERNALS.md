@@ -293,15 +293,17 @@ For request/response schemas, see `openapi.yaml`.
 | GET | `/favicon.ico` | none | — | infra |
 | GET | `/health` | none | — | infra |
 | GET | `/ui` | none | — | ui |
+| GET | `/admin` | none | — | admin |
 | POST | `/mcp` | api-key | — | infra |
 | POST | `/v1/captures/batch` | dual | capture | public-api |
+| POST | `/v1/sitemap` | dual | sitemap | public-api |
 | POST | `/v1/captures` | dual | capture | public-api |
 | GET | `/v1/captures` | dual | — | public-api |
 | GET | `/v1/captures/{captureId}/status` | none (optional dual) | — | public-api |
 | GET | `/v1/captures/{captureId}` | none (optional dual) | — | public-api |
 | GET | `/v1/captures/{captureId}/artifacts/{type}` | none (optional dual) | — | public-api |
 | GET | `/v1/captures/{captureId}/certificate` | none (optional dual) | — | public-api |
-| GET | `/v1/captures/{captureId}/diff/{baseId}` | none (optional dual) | — | public-api |
+| GET | `/v1/captures/{captureId}/diff/{baseId}` | dual | — | public-api |
 | GET | `/v1/verify/{captureId}` | none | verify | public-api |
 | GET | `/.well-known/signing-key` | none | verify | public-api |
 | GET | `/.well-known/signing-keys` | none | verify | public-api |
@@ -312,6 +314,9 @@ For request/response schemas, see `openapi.yaml`.
 | POST | `/v1/admin/cache/purge` | admin-key | admin | admin |
 | GET | `/v1/admin/tenants/{tenantId}/config` | admin-key | admin | admin |
 | PUT | `/v1/admin/tenants/{tenantId}/config` | admin-key | admin | admin |
+| GET | `/v1/admin/tenants` | admin-key | admin | admin |
+| GET | `/v1/admin/tenants/{tenantId}` | admin-key | admin | admin |
+| GET | `/v1/admin/overview` | admin-key | admin | admin |
 | POST | `/v1/webhooks` | dual | — | public-api |
 | GET | `/v1/webhooks` | dual | — | public-api |
 | DELETE | `/v1/webhooks/{webhookId}` | dual | — | public-api |
@@ -319,11 +324,15 @@ For request/response schemas, see `openapi.yaml`.
 | POST | `/v1/schedules` | dual | capture | public-api |
 | GET | `/v1/schedules` | dual | — | public-api |
 | GET | `/v1/schedules/{scheduleId}` | dual | — | public-api |
+| PATCH | `/v1/schedules/{scheduleId}` | dual | — | public-api |
 | DELETE | `/v1/schedules/{scheduleId}` | dual | — | public-api |
 | GET | `/auth/login` | none | auth | auth |
 | GET | `/auth/callback` | none | auth | auth |
 | POST | `/auth/logout` | none | auth | auth |
 | GET | `/auth/session` | none | auth | auth |
+| POST | `/auth/email` | none | auth | auth |
+| GET | `/auth/email/verify` | none | auth | auth |
+| POST | `/auth/email/verify` | none | auth | auth |
 | GET | `/v1/account/first-key` | session | auth | account |
 | POST | `/v1/account/first-key/ack` | session | auth | account |
 | GET | `/v1/account/keys` | session | auth | account |
@@ -417,9 +426,9 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | `CAPTURE_RATE_LIMITER` | 100 req/60s | Per-tenant hard ceiling for capture endpoints. Application KV counters enforce lower per-tenant defaults (10 req/60s). Tenant `config.rateLimit.capture` may override the KV default up to 100. |
 | `VERIFY_RATE_LIMITER` | 60 req/60s | Per-IP ceiling for verify and signing-key endpoints |
 | `GLOBAL_CAPTURE_LIMITER` | 200 req/60s | Global capture ceiling across all tenants |
-| `ADMIN_RATE_LIMITER` | 5 req/60s | Per-IP ceiling for admin and account/billing endpoints |
+| `ADMIN_RATE_LIMITER` | 30 req/60s | Per-IP ceiling for admin endpoints |
 | `CAPTURE_IP_GUARD` | 50 req/60s | Secondary per-IP abuse guard on capture endpoints (layer 3 of 3-layer check) |
-| `AUTH_RATE_LIMITER` | 10 req/60s | Per-IP ceiling for OAuth, unsubscribe, and verify-email endpoints |
+| `AUTH_RATE_LIMITER` | 10 req/60s | Per-IP ceiling for sign-in (`/auth/*`), account and billing (`/v1/account/*`, `/v1/billing/*`), unsubscribe, and verify-email endpoints; one budget shared by all of them |
 
 **Application-layer defaults** (KV counters, overridable per tenant via `tenants.config`):
 

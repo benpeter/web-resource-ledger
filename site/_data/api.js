@@ -128,7 +128,7 @@ function buildOperation(method, pathStr, operation) {
     authRequired = "none";
   } else {
     const scheme = Object.keys(security[0])[0];
-    authRequired = scheme; // "bearerAuth" or "adminAuth"
+    authRequired = scheme; // "bearerAuth", "adminAuth" or "sessionCookie"
   }
 
   // Parameters
