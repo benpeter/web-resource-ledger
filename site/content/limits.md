@@ -240,4 +240,4 @@ Request fields:
 | `rateLimit.capture.limit` | integer | Captures per window for this tenant. Replaces the default of 10; values above 100 are treated as 100. |
 | `rateLimit.capture.period` | integer | Window length in seconds, `10` or `60`. Defaults to 60. |
 
-A `PUT` replaces the tenant's whole configuration, so send every override you want to keep. To remove a custom override and return the tenant to their tier default, omit the field or set it to `null`. `GET /v1/admin/tenants/{tenantId}/config` shows the current configuration.
+A `PUT` replaces the tenant's whole configuration, so send every override you want to keep. To remove a custom override and return the tenant to their tier default, leave the field out, or set its group (for example `quotas`) to `null`; a single field set to `null` is rejected with `400`. `GET /v1/admin/tenants/{tenantId}/config` shows the current configuration.

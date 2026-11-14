@@ -84,7 +84,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | TEXT | PK, `GLOB '[a-z0-9_-]*'`, length 1–64 | Matches `TENANT_ID_RE`. Self-serve format: `gh-{github_numeric_id}` |
-| `config` | TEXT | nullable | JSON: `{ rateLimit: { capture: { limit, period } } }`. Per-tenant rate limit overrides |
+| `config` | TEXT | nullable | JSON: `{ quotas: { capturesPerMonth, storageBytes }, schedules: { maxSchedules }, rateLimit: { capture: { limit, period } }, updatedAt, updatedBy }`. Per-tenant overrides, written whole by `PUT /v1/admin/tenants/{tenantId}/config` |
 | `created_at` | TEXT | NOT NULL, default now | ISO 8601 |
 | `updated_at` | TEXT | nullable | ISO 8601 |
 | `updated_by` | TEXT | nullable | Who last updated |

@@ -58,6 +58,8 @@ const EXCLUDED_OPERATIONS = {
   adminPurgeTenant: 'admin auth boundary',
   adminRequestTenantDeletion: 'admin auth boundary',
   adminCancelTenantDeletion: 'admin auth boundary',
+  adminGetTenantConfig: 'admin auth boundary',
+  adminPutTenantConfig: 'admin auth boundary',
 
   // Infrastructure / health -- not meaningful as an MCP tool action
   getHealth: 'infrastructure/health',
