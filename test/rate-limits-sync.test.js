@@ -35,3 +35,29 @@ describe('RATE_LIMITS header values', () => {
     expect(mismatches).toEqual([]);
   });
 });
+
+// docs/INTERNALS.md states every limiter twice, in the bindings table and the
+// Rate Limiters table; the bindings table said ADMIN_RATE_LIMITER allows 5 req/60s
+// while wrangler.toml and the other table said 30.
+describe('docs/INTERNALS.md rate limiter values', () => {
+  it('match the wrangler.toml bindings in both tables', () => {
+    const toml = readFileSync(wranglerPath, 'utf8');
+    const internals = readFileSync(resolve(dirname(wranglerPath), 'docs/INTERNALS.md'), 'utf8');
+    const bindings = [...toml.matchAll(/name = "(\w+)"\ntype = "ratelimit"\nnamespace_id = "\d+"\nsimple = \{ limit = (\d+), period = (\d+) \}/g)];
+    const rows = [...internals.matchAll(/^\| `(\w+)` \|[^\n]*?(\d+) req\/(\d+)s/gm)];
+    const names = new Set(bindings.map(([, name]) => name));
+    expect(names.size).toBe(6);
+    const mismatches = [];
+    for (const name of names) {
+      const [, , limit, period] = bindings.find(([, n]) => n === name);
+      const found = rows.filter(([, n]) => n === name);
+      expect({ name, rows: found.length }).toEqual({ name, rows: 2 });
+      for (const [, , docLimit, docPeriod] of found) {
+        if (docLimit !== limit || docPeriod !== period) {
+          mismatches.push(`${name}: INTERNALS says ${docLimit}/${docPeriod}s, wrangler.toml ${limit}/${period}s`);
+        }
+      }
+    }
+    expect(mismatches).toEqual([]);
+  });
+});
