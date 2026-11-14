@@ -567,7 +567,7 @@ export async function handleAccountGetUsage(request, env, ctx, _match) {
     event: 'oauth.usage_view',
     cip,
     tenantId,
-    authMethod: 'session',
+    authMethod: env._session.authMethod ?? 'session',
     responseStatus: 200,
   }) ?? Promise.resolve());
 
