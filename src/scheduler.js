@@ -84,8 +84,8 @@ export async function handleScheduledTick(controller, env, ctx) {
     }
 
     if (!quotaResult.allowed) {
-      // Quota exhausted: skip all schedules for this tenant but still advance
-      // their next_run_at so they don't pile up at the same timestamp.
+      // Quota exhausted or deletion requested: skip all schedules for this tenant
+      // but still advance their next_run_at so they don't pile up at the same timestamp.
       for (const schedule of schedules) {
         let nextRunAt;
         try {
@@ -119,7 +119,7 @@ export async function handleScheduledTick(controller, env, ctx) {
           scheduleId: schedule.id,
           tenantId,
           url: schedule.url,
-          skipReason: 'quota_exhausted',
+          skipReason: quotaResult.reason === 'deletion_requested' ? 'deletion_requested' : 'quota_exhausted',
         }) ?? Promise.resolve());
         skippedCount++;
       }

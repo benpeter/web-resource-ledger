@@ -156,6 +156,7 @@ export async function handleAdminGetTenant(request, env, ctx, match) {
     paymentMethodAddedAt: tenant.paymentMethodAddedAt,
     stripeCustomerId: tenant.stripeCustomerId,
     eidasQualified: tenant.eidasQualified,
+    deletionRequestedAt: tenant.deletionRequestedAt,
     config: parsedConfig ?? {},
     createdAt: tenant.createdAt,
     updatedAt: tenant.updatedAt,

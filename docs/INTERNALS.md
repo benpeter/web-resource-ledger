@@ -97,6 +97,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `stripe_invoice_amount_cents` | INTEGER | nullable | Cached Stripe upcoming invoice `amount_due` in cents. Updated hourly by meter reporter |
 | `stripe_invoice_currency` | TEXT | nullable | Cached Stripe invoice currency (e.g. `eur`). Updated with `stripe_invoice_amount_cents` |
 | `stripe_invoice_cached_at` | TEXT | nullable | ISO 8601. When the invoice cache was last refreshed |
+| `deletion_requested_at` | TEXT | nullable | ISO 8601. Pending account deletion: no captures, schedules skipped; the data may be purged 30 days later |
 
 #### `captures`
 
@@ -316,6 +317,9 @@ For request/response schemas, see `openapi.yaml`.
 | PUT | `/v1/admin/tenants/{tenantId}/config` | admin-key | admin | admin |
 | GET | `/v1/admin/tenants` | admin-key | admin | admin |
 | GET | `/v1/admin/tenants/{tenantId}` | admin-key | admin | admin |
+| DELETE | `/v1/admin/tenants/{tenantId}` | admin-key | admin | admin |
+| POST | `/v1/admin/tenants/{tenantId}/deletion` | admin-key | admin | admin |
+| DELETE | `/v1/admin/tenants/{tenantId}/deletion` | admin-key | admin | admin |
 | GET | `/v1/admin/overview` | admin-key | admin | admin |
 | POST | `/v1/webhooks` | dual | — | public-api |
 | GET | `/v1/webhooks` | dual | — | public-api |

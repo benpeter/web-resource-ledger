@@ -16,6 +16,7 @@ Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=W
 | 4 | `security.rate_limit` | Request rate-limited (per-IP, per-tenant, admin, artifact, verify, or signing key limiter; `via: mcp` for keyless MCP discovery) |
 | 4 | `security.capacity_limit` | Global browser capacity full, 503 returned |
 | 4 | `security.quota_exceeded` | Monthly capture or storage quota exceeded |
+| 4 | `security.account_refused` | Capture refused because the account can't capture: `reason` is `billing_blocked` or `deletion_requested` (403) |
 | 4 | `security.legacy_auth_used` | Request used deprecated auth mechanism |
 | 5 | `threatcheck.block` | URL flagged malicious by Google Safe Browsing |
 | 4 | `threatcheck.api_fail` | Safe Browsing API call failed (degraded) |
@@ -227,7 +228,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `schedule.tick_empty` | Cron tick found no due schedules |
 | 3 | `schedule.tick_complete` | Cron tick finished |
 | 3 | `schedule.execute` | Scheduled capture enqueued |
-| 4 | `schedule.execute_skip` | Scheduled capture skipped (e.g. previous still pending) |
+| 4 | `schedule.execute_skip` | Scheduled capture skipped; `skipReason` is `quota_exhausted` (also when billing-blocked) or `deletion_requested` |
 | 4 | `schedule.blocked_threat` | Scheduled URL blocked by threat check |
 | 5 | `schedule.execute_fail` | Scheduled capture execution failed |
 | 5 | `schedule.create_fail` | Schedule creation failed |
@@ -265,6 +266,9 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `admin.cache_purge` | Admin purged CDN cache |
 | 3 | `admin.tenant_config_updated` | Admin updated tenant configuration |
 | 3 | `admin.usage_query` | Admin queried usage stats |
+| 3 | `admin.tenant_deletion_requested` | Admin recorded an account deletion request (`deletionRequestedAt`) |
+| 3 | `admin.tenant_deletion_cancelled` | Admin withdrew a deletion request |
+| 3 | `admin.tenant_purged` | Admin removed all of a tenant's data (`captures`, `r2Objects`) |
 | 3 | `tenant.settings_change` | Tenant settings modified |
 | 4 | `admin.get_tenant_fail` | Admin tenant lookup failed |
 | 4 | `admin.usage_query_fail` | Admin usage query failed |

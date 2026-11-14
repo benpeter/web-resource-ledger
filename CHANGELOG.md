@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Added
+
+- Admin routes for account deletion: `POST /v1/admin/tenants/{tenantId}/deletion` requests it (captures answer 403 and schedules are skipped from then on), `DELETE` on the same path cancels it, and `DELETE /v1/admin/tenants/{tenantId}` removes all of the tenant's data 30 days or more after the request. The admin tenant detail shows `deletionRequestedAt`
+
 ### Security
 
 - `GET /v1/account/first-key` answers 403 until the terms of service are accepted, like the other account routes; before, the first API key could be fetched and used without accepting them
@@ -17,6 +21,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Captures for an account blocked for non-payment answer 403 with a message saying so; they answered 429 with a storage-quota message and an invalid `Retry-After` date
 - The DPA, security whitepaper and data-retention page cover email sign-in and the stored notification address; the legal-evidence page says a capture made while the timestamp authority is unreachable has no timestamp
 - The authentication guide's scope table lists the sitemap, schedule, diff, certificate and usage endpoints, and says which scope each needs
 - The incident-response page and the security whitepaper list all eleven alert rules (they said nine and lacked Captures Dead-Lettered and New API Key Created) with their actual thresholds

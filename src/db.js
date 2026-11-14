@@ -2284,6 +2284,7 @@ export async function getTenantDetail(db, tenantId, periodLimit = 6) {
     paymentMethodAddedAt: tenantRow.payment_method_added_at ?? null,
     stripeCustomerId: tenantRow.stripe_customer_id ?? null,
     eidasQualified: Boolean(tenantRow.eidas_qualified),
+    deletionRequestedAt: tenantRow.deletion_requested_at ?? null,
     config: tenantRow.config ?? null,
     createdAt: tenantRow.created_at,
     updatedAt: tenantRow.updated_at ?? null,
@@ -2370,4 +2371,104 @@ export async function getOverviewStats(db, period) {
     totalEidasCaptures: u.current_eidas_captures ?? 0,
     activeApiKeys: t.active_api_keys ?? 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Account deletion (phase 0152)
+// ---------------------------------------------------------------------------
+
+/** Days between a deletion request and the earliest purge (data-retention page). */
+export const DELETION_GRACE_DAYS = 30;
+
+/**
+ * Record a deletion request. A pending request keeps its first date.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<string|null>} deletion_requested_at, or null for an unknown tenant
+ */
+export async function requestTenantDeletion(db, tenantId) {
+  const row = await db.prepare(
+    `UPDATE tenants SET deletion_requested_at = COALESCE(deletion_requested_at, ?)
+     WHERE id = ? RETURNING deletion_requested_at`,
+  ).bind(new Date().toISOString(), tenantId).first();
+  return row ? row.deletion_requested_at : null;
+}
+
+/**
+ * Withdraw a deletion request.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<boolean>} false for an unknown tenant
+ */
+export async function cancelTenantDeletion(db, tenantId) {
+  const row = await db.prepare(
+    'UPDATE tenants SET deletion_requested_at = NULL WHERE id = ? RETURNING id',
+  ).bind(tenantId).first();
+  return row !== null;
+}
+
+/**
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<{ deletionRequestedAt: string|null, stripeCustomerId: string|null }|null>}
+ *   null for an unknown tenant
+ */
+export async function getTenantDeletion(db, tenantId) {
+  const row = await db.prepare(
+    'SELECT deletion_requested_at, stripe_customer_id FROM tenants WHERE id = ?',
+  ).bind(tenantId).first();
+  if (!row) return null;
+  return { deletionRequestedAt: row.deletion_requested_at ?? null, stripeCustomerId: row.stripe_customer_id ?? null };
+}
+
+/**
+ * R2 keys of a tenant's capture artifacts and WACZ bundles, from the capture rows.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<{ captureCount: number, keys: string[] }>}
+ */
+export async function listTenantObjectKeys(db, tenantId) {
+  const { results } = await db.prepare(
+    'SELECT artifacts, wacz FROM captures WHERE tenant_id = ?',
+  ).bind(tenantId).all();
+  const keys = [];
+  for (const row of results) {
+    const artifacts = row.artifacts ? JSON.parse(row.artifacts) : {};
+    for (const key of Object.values(artifacts)) {
+      if (typeof key === 'string') keys.push(key);
+    }
+    const wacz = row.wacz ? JSON.parse(row.wacz) : null;
+    if (wacz?.key) keys.push(wacz.key);
+  }
+  return { captureCount: results.length, keys };
+}
+
+/**
+ * Delete every row that belongs to a tenant, children before parents, in one
+ * batch (a single transaction). Sign-in links are found through the tenant's
+ * email address, threat checks through its captures.
+ *
+ * @param {D1Database} db
+ * @param {string} tenantId
+ * @returns {Promise<void>}
+ */
+export async function deleteTenantRows(db, tenantId) {
+  await db.batch([
+    db.prepare('DELETE FROM threat_checks WHERE capture_id IN (SELECT id FROM captures WHERE tenant_id = ?)').bind(tenantId),
+    db.prepare('DELETE FROM login_tokens WHERE email IN (SELECT email FROM email_users WHERE tenant_id = ?)').bind(tenantId),
+    db.prepare('DELETE FROM sessions WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM captures WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM schedules WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM webhooks WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM api_keys WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM usage_counters WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM notification_sent WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM notification_preferences WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM github_users WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM email_users WHERE tenant_id = ?').bind(tenantId),
+    db.prepare('DELETE FROM tenants WHERE id = ?').bind(tenantId),
+  ]);
 }

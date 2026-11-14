@@ -18,7 +18,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists, requestTenantDeletion, cancelTenantDeletion, getTenantDeletion, listTenantObjectKeys, deleteTenantRows, DELETION_GRACE_DAYS } from './db.js';
 import { log } from './log.js';
 import { computeCip } from './ip-hash.js';
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
@@ -492,4 +492,78 @@ export async function handleAdminCachePurge(request, env, ctx) {
     urls: purgePayload.files || null,
     purgeId: purgeBody.result?.id,
   }, 200, ADMIN_CACHE);
+}
+
+// ---------------------------------------------------------------------------
+// Account deletion (phase 0152). The data-retention page promises: on request
+// the account stops capturing but stays readable; 30 days later its data is
+// removed. Requests arrive by email, so an operator runs these routes.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function purgeAfter(deletionRequestedAt) {
+  return new Date(Date.parse(deletionRequestedAt) + DELETION_GRACE_DAYS * DAY_MS).toISOString();
+}
+
+/**
+ * POST /v1/admin/tenants/:id/deletion -- request deletion (day 0)
+ */
+export async function handleAdminRequestDeletion(request, env, ctx, match) {
+  const tenantId = match[1];
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const deletionRequestedAt = await requestTenantDeletion(env.DB, tenantId);
+  if (!deletionRequestedAt) return problemResponse(404, 'Tenant not found.', ADMIN_CACHE);
+
+  ctx.waitUntil(log(env, 3, 'admin', { event: 'admin.tenant_deletion_requested', tenantId, deletionRequestedAt, cip }) ?? Promise.resolve());
+  return jsonResponse({ tenantId, deletionRequestedAt, purgeAfter: purgeAfter(deletionRequestedAt) }, 200, ADMIN_CACHE);
+}
+
+/**
+ * DELETE /v1/admin/tenants/:id/deletion -- cancel a deletion request
+ */
+export async function handleAdminCancelDeletion(request, env, ctx, match) {
+  const tenantId = match[1];
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  if (!await cancelTenantDeletion(env.DB, tenantId)) return problemResponse(404, 'Tenant not found.', ADMIN_CACHE);
+
+  ctx.waitUntil(log(env, 3, 'admin', { event: 'admin.tenant_deletion_cancelled', tenantId, cip }) ?? Promise.resolve());
+  return jsonResponse({ tenantId, deletionRequestedAt: null }, 200, ADMIN_CACHE);
+}
+
+/**
+ * DELETE /v1/admin/tenants/:id?confirm=:id -- remove all of a tenant's data
+ *
+ * Only after a deletion request at least DELETION_GRACE_DAYS old, and only
+ * when confirm repeats the tenant id. R2 objects go first: if that fails, the
+ * capture rows that list the keys are still there for a retry.
+ */
+export async function handleAdminPurgeTenant(request, env, ctx, match) {
+  const tenantId = match[1];
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+
+  if (new URL(request.url).searchParams.get('confirm') !== tenantId) {
+    return problemResponse(400, 'Repeat the tenant id in the confirm query parameter to delete its data.', ADMIN_CACHE);
+  }
+  const deletion = await getTenantDeletion(env.DB, tenantId);
+  if (!deletion) return problemResponse(404, 'Tenant not found.', ADMIN_CACHE);
+  if (!deletion.deletionRequestedAt) {
+    return problemResponse(409, 'No deletion has been requested for this tenant.', ADMIN_CACHE);
+  }
+  const earliest = purgeAfter(deletion.deletionRequestedAt);
+  if (Date.now() < Date.parse(earliest)) {
+    return problemResponse(409, `The ${DELETION_GRACE_DAYS}-day grace period runs until ${earliest}.`, ADMIN_CACHE, { purgeAfter: earliest });
+  }
+
+  const { captureCount, keys } = await listTenantObjectKeys(env.DB, tenantId);
+  for (let i = 0; i < keys.length; i += 1000) {
+    await env.BUCKET.delete(keys.slice(i, i + 1000));
+  }
+  await deleteTenantRows(env.DB, tenantId);
+  await env.KV.delete(`first_key:${tenantId}`);
+
+  const deleted = { captures: captureCount, r2Objects: keys.length };
+  ctx.waitUntil(log(env, 3, 'admin', { event: 'admin.tenant_purged', tenantId, ...deleted, cip }) ?? Promise.resolve());
+  // Stripe isn't touched here: the operator cancels the customer by hand (OPERATIONS.md).
+  return jsonResponse({ tenantId, deleted, stripeCustomerId: deletion.stripeCustomerId }, 200, ADMIN_CACHE);
 }

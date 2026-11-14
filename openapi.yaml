@@ -2472,6 +2472,24 @@ paths:
                 missing:
                   summary: No Authorization header
                   value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
+        '403':
+          description: >
+            Forbidden — the API key lacks the capture scope, or the account can't
+            capture: it is blocked for non-payment or scheduled for deletion.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                missingScope:
+                  summary: Key without the capture scope
+                  value: {type: about:blank, status: 403, title: Forbidden, detail: "API key does not grant 'capture' scope"}
+                deletionPending:
+                  summary: Account scheduled for deletion
+                  value: {type: about:blank, status: 403, title: Forbidden, detail: "This account is scheduled for deletion on 2026-12-14 and can't capture. Contact support to cancel the deletion."}
+                blocked:
+                  summary: Account blocked for non-payment
+                  value: {type: about:blank, status: 403, title: Forbidden, detail: Account is blocked. Contact support to restore access.}
         '415':
           description: Unsupported Media Type — Content-Type is not application/json.
           headers:
@@ -2803,6 +2821,24 @@ paths:
                 missing:
                   summary: No Authorization header
                   value: {type: about:blank, status: 401, title: Unauthorized, detail: Authorization header is required.}
+        '403':
+          description: >
+            Forbidden — the API key lacks the capture scope, or the account can't
+            capture: it is blocked for non-payment or scheduled for deletion.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                missingScope:
+                  summary: Key without the capture scope
+                  value: {type: about:blank, status: 403, title: Forbidden, detail: "API key does not grant 'capture' scope"}
+                deletionPending:
+                  summary: Account scheduled for deletion
+                  value: {type: about:blank, status: 403, title: Forbidden, detail: "This account is scheduled for deletion on 2026-12-14 and can't capture. Contact support to cancel the deletion."}
+                blocked:
+                  summary: Account blocked for non-payment
+                  value: {type: about:blank, status: 403, title: Forbidden, detail: Account is blocked. Contact support to restore access.}
         '415':
           description: Unsupported Media Type — Content-Type is not application/json.
           headers:
@@ -5084,6 +5120,10 @@ paths:
                     type: ['string', 'null']
                   eidasQualified:
                     type: boolean
+                  deletionRequestedAt:
+                    type: ['string', 'null']
+                    format: date-time
+                    description: When an account deletion was requested; null when none is pending.
                   config:
                     type: object
                     description: Tenant configuration overrides (admin-set).
@@ -5151,6 +5191,225 @@ paths:
                 status: 404
                 title: Not Found
                 detail: "Tenant 'nonexistent' not found"
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+    delete:
+      operationId: adminPurgeTenant
+      summary: Delete all of a tenant's data
+      description: >
+        Removes everything the tenant owns: capture artifacts and WACZ bundles in R2,
+        all its database rows (captures, keys, sessions, sign-in identities, schedules,
+        webhooks, usage, notification settings) and its first-key entry in KV.
+        Irreversible.
+
+        Only allowed 30 days or more after a deletion request
+        (`POST /v1/admin/tenants/{tenantId}/deletion`), and only when `confirm`
+        repeats the tenant id. Stripe is not touched: the response returns the
+        Stripe customer id so the operator can cancel it. Cached capture responses
+        stay at the edge until purged with `POST /v1/admin/cache/purge`.
+
+        ```bash
+        curl -X DELETE "https://api.webresourceledger.com/v1/admin/tenants/gh-424242?confirm=gh-424242" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: gh-424242
+        - name: confirm
+          in: query
+          required: true
+          description: The tenant id again.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The tenant's data was removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenantId, deleted, stripeCustomerId]
+                properties:
+                  tenantId:
+                    type: string
+                  deleted:
+                    type: object
+                    properties:
+                      captures:
+                        type: integer
+                      r2Objects:
+                        type: integer
+                  stripeCustomerId:
+                    type: ['string', 'null']
+                    description: Stripe customer to cancel by hand, if any.
+        '400':
+          description: confirm is missing or does not repeat the tenant id.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 400
+                title: Bad Request
+                detail: "Repeat the tenant id in the confirm query parameter to delete its data."
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Tenant not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant not found."
+        '409':
+          description: No deletion has been requested, or the 30-day grace period is not over (the body then has `purgeAfter`).
+          content:
+            application/problem+json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ProblemDetail'
+                  - type: object
+                    properties:
+                      purgeAfter:
+                        type: string
+                        format: date-time
+                        description: Earliest time the data may be purged.
+              example:
+                type: about:blank
+                status: 409
+                title: Conflict
+                detail: "The 30-day grace period runs until 2026-12-14T10:00:00.000Z."
+                purgeAfter: '2026-12-14T10:00:00.000Z'
+        '429':
+          $ref: '#/components/responses/Problem429'
+
+  /v1/admin/tenants/{tenantId}/deletion:
+    post:
+      operationId: adminRequestTenantDeletion
+      summary: Request an account deletion
+      description: >
+        Day 0 of an account deletion. From now on the tenant can't capture
+        (captures answer 403) and its schedules are skipped; its captures stay
+        readable so it can export them. Asking again keeps the first date.
+        30 days later `DELETE /v1/admin/tenants/{tenantId}` may remove the data.
+
+        ```bash
+        curl -X POST https://api.webresourceledger.com/v1/admin/tenants/gh-424242/deletion \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: gh-424242
+      responses:
+        '200':
+          description: Deletion requested (or already pending).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenantId, deletionRequestedAt]
+                properties:
+                  tenantId:
+                    type: string
+                  deletionRequestedAt:
+                    type: ['string', 'null']
+                    format: date-time
+                  purgeAfter:
+                    type: string
+                    format: date-time
+                    description: Earliest time the data may be purged, 30 days after the request.
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Tenant not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant not found."
+        '429':
+          $ref: '#/components/responses/Problem429'
+    delete:
+      operationId: adminCancelTenantDeletion
+      summary: Cancel an account deletion
+      description: >
+        Withdraws a pending deletion request; the tenant captures again.
+
+        ```bash
+        curl -X DELETE https://api.webresourceledger.com/v1/admin/tenants/gh-424242/deletion \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: gh-424242
+      responses:
+        '200':
+          description: No deletion is pending.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenantId, deletionRequestedAt]
+                properties:
+                  tenantId:
+                    type: string
+                  deletionRequestedAt:
+                    type: ['string', 'null']
+                    format: date-time
+                  purgeAfter:
+                    type: string
+                    format: date-time
+                    description: Earliest time the data may be purged, 30 days after the request.
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Tenant not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant not found."
         '429':
           $ref: '#/components/responses/Problem429'
 

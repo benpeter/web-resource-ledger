@@ -87,6 +87,35 @@ gh release create vX.Y.Z --title vX.Y.Z --notes-file <changelog-section.md>
 
 ---
 
+## Account Deletion
+
+The [data-retention page](https://docs.webresourceledger.com/security/data-retention/) promises: deletion requests by email to hello@webresourceledger.com, confirmed within 2 business days; the account stops capturing at once but stays readable for 30 days; then all its data is removed. Find the tenant id from the GitHub username or sign-in email (`GET /v1/admin/tenants`, or `github_users` / `email_users` in D1).
+
+```bash
+source ~/.wrl-keys   # WRL_PROD_ADMIN_KEY
+API=https://api.webresourceledger.com
+T=gh-424242
+
+# Day 0: request. Captures answer 403, schedules are skipped, data stays readable.
+curl -s -X POST "$API/v1/admin/tenants/$T/deletion" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
+# -> { deletionRequestedAt, purgeAfter }: reply to the customer with the purgeAfter date.
+
+# Cancel, if the customer changes their mind before purgeAfter
+curl -s -X DELETE "$API/v1/admin/tenants/$T/deletion" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
+
+# Day 30 or later: purge. Refused (409) before purgeAfter, or without confirm.
+curl -s -X DELETE "$API/v1/admin/tenants/$T?confirm=$T" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
+# -> { deleted: { captures, r2Objects }, stripeCustomerId }
+
+# Cached capture responses stay at the edge until purged
+curl -s -X POST "$API/v1/admin/cache/purge" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY" \
+  -H "Content-Type: application/json" -d '{"targets":["all"]}'
+```
+
+Then, by hand: cancel the subscription and delete the customer in the Stripe dashboard if the response named a `stripeCustomerId`, and tell the customer the deletion is done. Coralogix logs expire on their own and hold no raw personal data. Pending deletions show as `deletionRequestedAt` in `GET /v1/admin/tenants/{tenantId}`; nothing purges automatically.
+
+---
+
 ## Rollback
 
 ### Decision tree
