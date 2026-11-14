@@ -189,7 +189,7 @@ WRL records the following documentation automatically for every capture:
 |---|---|
 | URL (full, with protocol, domain, path) | Captured URL stored in D1 and recorded in WACZ `pages.jsonl` and `datapackage.json` |
 | Timestamps | Capture-submitted-at and capture-completed-at in UTC; RFC 3161 timestamp from DigiCert binding the bundle hash to an independently verified time |
-| Browser identity | Headless Chromium on Cloudflare Browser Rendering. The WACZ names the capturing software (`software` in `datapackage.json`), not the browser version |
+| Browser identity | Headless Chromium on Cloudflare Browser Rendering. The WACZ names the WRL release and commit that made it (`software` in `datapackage.json`, the signed `datapackage-digest.json` and the WARC `warcinfo` record, for example `WRL/1.3.0+564eae4`), not the browser version |
 | Access IP address | Originates from Cloudflare egress; Cloudflare egress IPs are publicly documented |
 | Process description | Automated capture pipeline described in certification PDF and [Architecture](/architecture/) |
 

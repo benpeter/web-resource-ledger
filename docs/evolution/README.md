@@ -167,3 +167,4 @@ software development.
 | [0158-schedule-list-limit](0158-schedule-list-limit/) | `GET /v1/schedules` and MCP `list_schedules` report the schedule limit, so the dashboard shows an operator-raised limit instead of always 10 |
 | [0159-env-config-sync](0159-env-config-sync/) | Every Worker secret and variable documented and checked by `test/env-sync.test.js`; staging emails and webhooks link to staging; unread `STRIPE_PUBLISHABLE_KEY` removed |
 | [0160-schedule-nudge](0160-schedule-nudge/) | The dashboard suggests a schedule on capture pages and after a capture in accounts without schedules, opening the schedule form with the URL filled in |
+| [0161-bundle-software](0161-bundle-software/) | Evidence bundles and the header fetch name the WRL release and commit (`WRL/1.3.0+564eae4`) instead of `WRL/0.1` |
