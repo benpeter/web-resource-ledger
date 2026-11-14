@@ -155,3 +155,4 @@ software development.
 | [0146-alerts-sync](0146-alerts-sync/) | The incident-response page, whitepaper and ops guide name all eleven Coralogix alerts with their real thresholds, checked against `provision-alerts.sh` |
 | [0147-request-state-isolation](0147-request-state-isolation/) | A request without credentials no longer inherits the previous caller's tenant: public capture reads stop returning 404 after an authenticated request, and the diff route needs its own key again |
 | [0148-identity-docs](0148-identity-docs/) | The DPA, whitepaper and retention page cover email sign-in and the stored notification address; the legal-evidence page says what happens when the timestamp authority can't be reached |
+| [0149-email-login-logs](0149-email-login-logs/) | Failed writes of the sign-in link counters and failed cleanup of expired links are logged instead of discarded |

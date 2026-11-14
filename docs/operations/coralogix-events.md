@@ -141,6 +141,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `oauth.tenant_create` with `provider: email` | New `em-` tenant created by email sign-in |
 | 4 | `oauth.key_limit_reached` | User hit max API key limit |
 | 4 | `oauth.key_revoke_fail` | Key revocation DB error |
+| 4 | `oauth.login_token_cleanup_fail` | Deleting expired sign-in links failed; they are retried on the next link request |
 | 4 | `oauth.email_link_rate_limited` | Sign-in link refused: `scope` is `ip` (10 an hour) or `address` (3 an hour) |
 | 4 | `oauth.email_login_invalid_token` | Sign-in link expired, already used or unknown |
 | 4 | `oauth.email_login_origin_rejected` | Sign-in form posted from another site (login CSRF) |
@@ -149,6 +150,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 5 | `oauth.first_key_collision` | Auto-generated first API key hash collided |
 | 5 | `oauth.logout_delete_error` | Session deletion during logout failed |
 | 5 | `oauth.session_user_lookup_error` | Session user lookup threw an error |
+| 5 | `oauth.email_link_counter_write_fail` | The hourly sign-in link counters (per IP, per address) could not be written, so those limits are not counting |
 | 5 | `oauth.email_link_send_fail` | Resend refused or did not answer when sending a sign-in link |
 | 5 | `oauth.email_login_fail` | Email sign-in failed while setting up the account or session |
 

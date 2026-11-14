@@ -38,7 +38,7 @@ function stubResend({ status = 200 } = {}) {
   }));
 }
 
-async function requestLink(email, { ip = '198.51.100.10', from } = {}) {
+async function requestLink(email, { ip = '198.51.100.10', from, testEnv = env } = {}) {
   const ctx = createExecutionContext();
   const res = await handleEmailLoginRequest(
     new Request(`${ORIGIN}/auth/email`, {
@@ -46,11 +46,23 @@ async function requestLink(email, { ip = '198.51.100.10', from } = {}) {
       headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': ip, 'User-Agent': UA },
       body: JSON.stringify(from ? { email, from } : { email }),
     }),
-    env,
+    testEnv,
     ctx,
   );
   await waitOnExecutionContext(ctx);
   return res;
+}
+
+const CORALOGIX = {
+  CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
+  CORALOGIX_SEND_KEY: 'test-send-key',
+};
+
+// Events sent to Coralogix through the stubbed fetch.
+function loggedEvents() {
+  return fetch.mock.calls
+    .filter(([url]) => String(url?.url ?? url).includes('coralogix'))
+    .map(([, init]) => JSON.parse(JSON.parse(init.body)[0].text));
 }
 
 function tokenFromLastEmail() {
@@ -151,6 +163,43 @@ describe('POST /auth/email', () => {
     stubResend({ status: 500 });
     const res = await requestLink('ann@example.org');
     expect(res.status).toBe(502);
+  });
+
+  it('logs when the rate-limit counters can not be written', async () => {
+    const failingKv = new Proxy(env.KV, {
+      get(target, prop) {
+        if (prop === 'put') return async () => { throw new Error('KV unavailable'); };
+        const value = target[prop];
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const res = await requestLink('ann@example.org', { testEnv: { ...env, ...CORALOGIX, KV: failingKv } });
+    expect(res.status).toBe(202);
+    expect(loggedEvents()).toContainEqual(expect.objectContaining({
+      event: 'oauth.email_link_counter_write_fail',
+      errorMessage: 'KV unavailable',
+    }));
+  });
+
+  it('logs when expired links can not be deleted', async () => {
+    const failingDb = new Proxy(env.DB, {
+      get(target, prop) {
+        if (prop === 'prepare') {
+          return (sql) => {
+            if (/^\s*DELETE FROM login_tokens/i.test(sql)) throw new Error('D1 unavailable');
+            return target.prepare(sql);
+          };
+        }
+        const value = target[prop];
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const res = await requestLink('ann@example.org', { testEnv: { ...env, ...CORALOGIX, DB: failingDb } });
+    expect(res.status).toBe(202);
+    expect(loggedEvents()).toContainEqual(expect.objectContaining({
+      event: 'oauth.login_token_cleanup_fail',
+      errorMessage: 'D1 unavailable',
+    }));
   });
 });
 
