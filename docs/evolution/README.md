@@ -178,3 +178,4 @@ software development.
 | [0169-stale-fail-webhooks](0169-stale-fail-webhooks/) | A capture WRL lost track of sends the capture.failed webhook and email, and the webhook examples show the real retryable and quarantine values |
 | [0170-rescan-every-night](0170-rescan-every-night/) | The nightly Web Risk re-scan checks every captured URL each night instead of every second night |
 | [0171-docs-diagrams](0171-docs-diagrams/) | The docs diagrams, blocked by the CSP since March, are SVG images rendered from Mermaid sources, with their content corrected |
+| [0172-capture-event-ip](0172-capture-event-ip/) | Capture events sent to Pirsch no longer give the captured site's address as the visitor's ip |
