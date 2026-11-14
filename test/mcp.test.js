@@ -188,6 +188,25 @@ describe('MCP protocol -- server version', () => {
   });
 });
 
+// What agents read before calling a tool: verify_capture left out the fifth
+// check, and delete_schedule promised an HTTP 404 that MCP callers never see.
+describe('MCP protocol -- tool descriptions', () => {
+  async function description(name) {
+    const res = await mcpPost({ jsonrpc: '2.0', id: 5, method: 'tools/list' }, null);
+    return (await res.json()).result.tools.find((tool) => tool.name === name).description;
+  }
+
+  it('verify_capture names the qualified timestamp check', async () => {
+    expect(await description('verify_capture')).toContain('eIDAS-qualified timestamp');
+  });
+
+  it('delete_schedule says what a caller gets for an unknown schedule, not an HTTP status', async () => {
+    const text = await description('delete_schedule');
+    expect(text).not.toMatch(/\b404\b/);
+    expect(text).toContain('Schedule not found');
+  });
+});
+
 describe('MCP protocol -- security headers', () => {
   it('POST /mcp responses include security headers', async () => {
     const res = await mcpPost(initRequest());

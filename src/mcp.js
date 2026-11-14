@@ -541,7 +541,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'verify_capture',
-    'Verify the cryptographic integrity of a captured web page. Checks artifact hashes, WACZ bundle hash, Ed25519 signature, and RFC 3161 timestamp. Confirms the evidence has not been tampered with since capture.',
+    'Verify the cryptographic integrity of a captured web page. Checks artifact hashes, WACZ bundle hash, Ed25519 signature, and RFC 3161 timestamp, plus the eIDAS-qualified timestamp when the capture has one. Confirms the evidence has not been tampered with since capture.',
     { capture_id: z.string().describe('The capture ID to verify.') },
     async ({ capture_id: captureId }) => {
       // Rate limit (verify has its own limiter)
@@ -1342,7 +1342,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'delete_schedule',
-    'Delete a scheduled capture by ID. Requires capture scope; returns 404 for nonexistent or cross-tenant schedules (no information disclosure). Deletion is immediate and irreversible. Use list_schedules to find schedule IDs.',
+    'Delete a scheduled capture by ID. Requires capture scope. Answers "Schedule not found." both for an ID that doesn\'t exist and for another account\'s schedule, without telling them apart. Deletion is immediate and irreversible. Use list_schedules to find schedule IDs.',
     { schedule_id: z.string().describe('The schedule ID to delete (format: sch_ followed by 32 hex characters).') },
     async ({ schedule_id: scheduleId }) => {
       // Scope check: DELETE /v1/schedules/:id requires capture scope (matches HTTP handler)

@@ -268,7 +268,7 @@ List recent captures with optional filters. Returns summaries in reverse chronol
 
 #### `verify_capture`
 
-Verify the cryptographic integrity of a capture. Checks artifact hashes, WACZ bundle hash, Ed25519 signature, and RFC 3161 timestamp. Confirms the evidence has not been tampered with since capture.
+Verify the cryptographic integrity of a capture. Checks artifact hashes, WACZ bundle hash, Ed25519 signature, and RFC 3161 timestamp, plus the eIDAS-qualified timestamp when the capture has one. Confirms the evidence has not been tampered with since capture.
 
 **Requires:** `read` scope
 
@@ -478,7 +478,7 @@ The REST equivalent is `PATCH /v1/schedules/{id}`.
 
 #### `delete_schedule`
 
-Delete a scheduled capture by ID. Returns 404 for nonexistent or cross-tenant schedules (no information disclosure). Deletion is immediate and irreversible. Use `list_schedules` to find schedule IDs.
+Delete a scheduled capture by ID. Answers "Schedule not found." both for an ID that doesn't exist and for another account's schedule, without telling them apart. Deletion is immediate and irreversible. Use `list_schedules` to find schedule IDs.
 
 **Requires:** `capture` scope
 
