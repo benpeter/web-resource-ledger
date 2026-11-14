@@ -26,6 +26,10 @@
   - `test/email-login.test.js` relied on fresh KV per test; with storage per file the
     hourly sign-in counters piled up and later tests got 429. It now deletes the `rl:`
     keys in `beforeEach`, like `batch-capture` and `quota-enforcement` already do.
+- In CI the two queue-consumer tests for the retryable path timed out at 5 s. They
+  counted on the `BROWSER` binding failing at once; miniflare's binding in this pool
+  tries to start a local Chromium instead. The tests now pass an env whose `BROWSER`
+  refuses every call, so the failure no longer depends on the binding.
 - TDD exception: this is a dependency migration, so there is no red commit of its own.
   The existing suite is the check (same 19 DNS-only local failures as main, 0 in CI),
   and the one source change is covered by phase 0147's "leaves no request state on

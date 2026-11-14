@@ -57,10 +57,10 @@ function makeMsg(captureId, overrides = {}) {
   };
 }
 
-async function runConsumer(queueName, messages) {
+async function runConsumer(queueName, messages, testEnv = env) {
   const batch = createMessageBatch(queueName, messages);
   const ctx = createExecutionContext();
-  await worker.queue(batch, env, ctx);
+  await worker.queue(batch, testEnv, ctx);
   return { batch, ctx, result: await getQueueResult(batch, ctx) };
 }
 
@@ -185,10 +185,16 @@ describe('queue consumer -- idempotency: failed record', () => {
 
 // ---------------------------------------------------------------------------
 // 5. Retryable error path: pending KV record, no real browser
-// In the test env, defaultRenderer throws because BROWSER is a mock
-// browserRendering binding that can't actually launch. That error is
-// catch-all retryable. On first attempt (attempts=1, <4), handler retries.
+// BROWSER is replaced by a binding that refuses every call, so defaultRenderer
+// throws at once. (The miniflare binding tries to start a local Chromium, which
+// can take longer than the test timeout.) That error is catch-all retryable.
+// On first attempt (attempts=1, <4), handler retries.
 // ---------------------------------------------------------------------------
+
+const noBrowserEnv = {
+  ...env,
+  BROWSER: { fetch: async () => { throw new Error('browser unavailable in this test'); } },
+};
 
 describe('queue consumer -- retryable path (no real browser)', () => {
   it('retries message on first attempt when performCapture returns retryable', async () => {
@@ -196,7 +202,7 @@ describe('queue consumer -- retryable path (no real browser)', () => {
     await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
 
     const msg = makeMsg(captureId);
-    const { result } = await runConsumer('wrl-captures', [msg]);
+    const { result } = await runConsumer('wrl-captures', [msg], noBrowserEnv);
 
     // retryMessages is an array of { msgId } objects (not plain strings)
     const retried = result.retryMessages.some(m => m.msgId === msg.id);
@@ -211,7 +217,7 @@ describe('queue consumer -- retryable path (no real browser)', () => {
     await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
 
     const msg = makeMsg(captureId, { attempts: 1 });
-    await runConsumer('wrl-captures', [msg]);
+    await runConsumer('wrl-captures', [msg], noBrowserEnv);
 
     const record = await getCapture(env.DB, captureId);
     // On a retryable error at attempt 1, KV should remain pending
