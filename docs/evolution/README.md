@@ -142,3 +142,4 @@ software development.
 | [0133-ci-node24-playwright](0133-ci-node24-playwright/) | Scheduled E2E runs work again on Ubuntu 26.04 runners (Playwright 1.65), and every GitHub Action runs on Node 24 |
 | [0134-usage-api-key](0134-usage-api-key/) | `GET /v1/account/usage` takes an API key as documented, its API reference matches the response, and the quota E2E test waits for the usage counter |
 | [0135-mcp-sdk-security](0135-mcp-sdk-security/) | `/mcp` limits request bodies to 256 KiB and tool arguments to 1,000 elements; MCP SDK 1.32.2 and zod 4.6.7; production dependencies have no audit findings |
+| [0136-landing-assets-log](0136-landing-assets-log/) | Landing and docs Workers log failed asset fetches, the queue consumer logs when it can't mark a capture failed, and telemetry no longer shows as Critical in Coralogix |
