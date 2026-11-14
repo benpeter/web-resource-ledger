@@ -360,7 +360,7 @@ async function handleCaptureMessage(msg, env, ctx) {
             const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
             const alreadySent = await checkNotificationSent(env.DB, tenantId, period, 'approaching_limit');
             if (alreadySent) {
-              log(env, 7, 'email', { event: 'email.dispatch_skipped', tenantId, notificationType: 'approaching_limit', suppressionReason: 'callsite_dedup', period });
+              await log(env, 1, 'email', { event: 'email.dispatch_skipped', tenantId, notificationType: 'approaching_limit', suppressionReason: 'callsite_dedup', period });
             } else {
               const baseUrl = env.VERIFICATION_BASE_URL
                 ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')

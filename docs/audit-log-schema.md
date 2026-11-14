@@ -110,6 +110,7 @@ fewer fields.
 
 | Severity | Level | WRL usage |
 |----------|-------|-----------|
+| 1 | Debug | `email.dispatch_skipped` |
 | 2 | Verbose | Operational telemetry (not part of audit trail), e.g. `capture.list` and sitemap reads |
 | 3 | Info | Successful operations, audit trail events |
 | 4 | Warning | Rate limits, degraded paths, non-critical failures |

@@ -196,7 +196,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 4 | `email.digest_limit_hit` | Digest batch size limit reached |
 | 5 | `email.send_dlq` | Email send permanently failed after retries |
 | 5 | `email.dispatch_error` | Critical email dispatch failure |
-| 7 | `email.dispatch_skipped` | Email dispatch skipped (callsite dedup, debug-level) |
+| 1 | `email.dispatch_skipped` | Approaching-limit email already sent this period, not sent again (debug) |
 
 ## Webhook (`webhook`)
 
