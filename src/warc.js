@@ -15,6 +15,7 @@
  */ // tva
 
 import { toTimestamp14 } from './cdxj.js';
+import { softwareId } from './build-info.js';
 
 const enc = new TextEncoder();
 
@@ -44,7 +45,7 @@ export async function buildWarc(url, captureDate, artifacts) {
   const screenshotBeforeRecordId = `<urn:uuid:${crypto.randomUUID()}>`;
   const screenshotAfterRecordId = screenshotAfter ? `<urn:uuid:${crypto.randomUUID()}>` : null;
 
-  const warcinfoBody = enc.encode('software: WRL/0.1\r\nformat: WARC/1.1\r\n');
+  const warcinfoBody = enc.encode(`software: ${softwareId()}\r\nformat: WARC/1.1\r\n`);
 
   const chunks = [];
   const recordMeta = [];

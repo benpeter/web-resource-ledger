@@ -76,6 +76,7 @@ import { completeCapture, failCapture, recordAttemptError, archiveSigningKey } f
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
 import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
+import { softwareId } from './build-info.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -320,7 +321,7 @@ export async function captureHeaders(url) {
     redirect: 'manual',
     signal: AbortSignal.timeout(HEADER_FETCH_TIMEOUT_MS),
     headers: {
-      'User-Agent': 'WRL/0.1 (Web Resource Ledger)',
+      'User-Agent': `${softwareId()} (Web Resource Ledger)`,
       'Cache-Control': 'no-cache',
     },
     cf: { cacheTtl: 0 },
