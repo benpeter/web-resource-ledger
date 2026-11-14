@@ -10,8 +10,13 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Changed
+
+- The comparison page compares ProofSnap, which now has an API, an MCP server and optional eIDAS-qualified timestamps, describes DEPT and its evidx capture tool, explains with the archive.today removal from Wikipedia why a signature made at capture time matters, and points to ProofSnap and evidx for pages behind a login
+
 ### Fixed
 
+- The comparison page said it covered 13 tools and the landing page linked to it as 14, while its table compared WRL with 9; both pages now give the number of tools in the table
 - The MCP `verify_capture` description names the eIDAS-qualified timestamp check, and `delete_schedule` says it answers "Schedule not found." for an unknown or another account's schedule; it said it returns 404, which MCP callers never see
 
 ## [1.4.0] - 2026-11-14

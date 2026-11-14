@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: How WRL Compares
-description: Feature comparison of WRL with 13 web archiving and evidence tools -- including where WRL is not the right choice.
+description: Feature comparison of WRL with 10 web archiving and evidence tools and approaches -- including where WRL is not the right choice.
 wideContent: true
 ---
 <h1>How WRL Compares</h1>
@@ -9,7 +9,8 @@ wideContent: true
 <p>
   A factual comparison of WRL with other web archiving and evidence tools,
   including criteria where WRL is not the strongest option. Each cell reflects
-  publicly documented capabilities as of March 2026. If something has changed,
+  publicly documented capabilities as of March 2026; the ProofSnap column and
+  the DEPT note were checked in November 2026. If something has changed,
   <a href="https://github.com/benpeter/web-resource-ledger/issues">open an issue</a>.
 </p>
 
@@ -26,6 +27,7 @@ wideContent: true
         <th scope="col"><a href="https://pagefreezer.com">PageFreezer</a></th>
         <th scope="col"><a href="https://hanzo.co">Hanzo</a></th>
         <th scope="col"><a href="https://page-vault.com">Page Vault</a></th>
+        <th scope="col"><a href="https://getproofsnap.com">ProofSnap</a></th>
         <th scope="col"><a href="https://mirrorweb.com">MirrorWeb</a></th>
         <th scope="col"><a href="https://stillio.com">Stillio</a></th>
         <th scope="col"><a href="https://archive-it.org">Archive-It</a></th>
@@ -41,6 +43,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--skip">SHA-256 signing</span></td>
         <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">SHA-256 hashing</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--pass">RSA-4096 (every capture)</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--skip">SHA-1 per docs</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">Checksums only</span></td>
@@ -54,6 +57,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--skip">Stratum-1 clock (not RFC 3161)</span></td>
         <td data-tool="Hanzo"><span class="badge badge--skip">Not documented</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Internal timestamps</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--pass">OpenTimestamps (Bitcoin)</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--skip">Timestamped (not RFC 3161)</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">Metadata only</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">Crawl timestamps</span></td>
@@ -67,6 +71,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--fail">No (platform-only)</span></td>
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Expert witness service</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--pass">Package verifier (in browser)</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--fail">No (platform-only)</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--skip">Public access (no crypto)</span></td>
@@ -80,6 +85,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--pass">Optional (per stamp)</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
@@ -93,6 +99,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--skip">Partner API</span></td>
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--pass">REST API, MCP</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--skip">Limited API</span></td>
         <td data-tool="Stillio"><span class="badge badge--skip">Basic API</span></td>
         <td data-tool="Archive-It"><span class="badge badge--pass">Yes (WASAPI)</span></td>
@@ -106,6 +113,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--fail">PDF</span></td>
         <td data-tool="Hanzo"><span class="badge badge--pass">WARC</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">Proprietary / PDF</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--skip">ZIP package, optional WARC</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--pass">WARC</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">PNG / JPEG</span></td>
         <td data-tool="Archive-It"><span class="badge badge--pass">WARC</span></td>
@@ -119,6 +127,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--skip">Not documented</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
@@ -132,6 +141,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--pass">8+ platforms via API</span></td>
         <td data-tool="Hanzo"><span class="badge badge--pass">Social + collaboration</span></td>
         <td data-tool="Page Vault"><span class="badge badge--pass">6 platforms</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--skip">Via browser extension</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--pass">6 platforms</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
@@ -145,6 +155,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--pass">Daily+ crawls</span></td>
         <td data-tool="Hanzo"><span class="badge badge--pass">Continuous</span></td>
         <td data-tool="Page Vault"><span class="badge badge--skip">Recurring (new 2025)</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--skip">Up to 200 URLs (by plan)</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--pass">Configurable</span></td>
         <td data-tool="Stillio"><span class="badge badge--pass">Up to every 5 min</span></td>
         <td data-tool="Archive-It"><span class="badge badge--pass">10+ frequencies</span></td>
@@ -158,6 +169,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--fail">No</span></td>
         <td data-tool="Hanzo"><span class="badge badge--fail">No</span></td>
         <td data-tool="Page Vault"><span class="badge badge--pass">Yes (10+ court cases)</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--skip">Not documented</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--fail">No</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
@@ -171,6 +183,7 @@ wideContent: true
         <td data-tool="PageFreezer"><span class="badge badge--pass">Teams, Slack, Workplace</span></td>
         <td data-tool="Hanzo"><span class="badge badge--pass">6+ platforms</span></td>
         <td data-tool="Page Vault"><span class="badge badge--fail">No</span></td>
+        <td data-tool="ProofSnap"><span class="badge badge--skip">Chats via extension</span></td>
         <td data-tool="MirrorWeb"><span class="badge badge--pass">Slack, Teams, Zoom, SMS</span></td>
         <td data-tool="Stillio"><span class="badge badge--fail">No</span></td>
         <td data-tool="Archive-It"><span class="badge badge--fail">No</span></td>
@@ -178,6 +191,20 @@ wideContent: true
     </tbody>
   </table>
 </div>
+
+<h2>Why a Signature Made at Capture Time Matters</h2>
+
+<p>
+  In February 2026, English Wikipedia editors agreed to remove and blacklist all
+  links to archive.today, a widely used web archive. The site had used its
+  visitors' browsers for a denial-of-service attack on a blog, and editors found
+  evidence that its operators had altered archived pages
+  (<a href="https://en.wikipedia.org/wiki/Wikipedia:Requests_for_comment/Archive.is_RFC_5">the
+  request for comment and its evidence</a>). An archive without signatures asks
+  readers to trust whoever stores the copy. A signature and an independent timestamp made at capture time let
+  anyone check a copy without that trust, which is what the Cryptographic
+  Signing, Independent Timestamps and Public Verification rows above compare.
+</p>
 
 <h2>Notes</h2>
 
@@ -234,6 +261,22 @@ wideContent: true
   Vault provides human-verifiable expert testimony.
 </p>
 
+<h3>ProofSnap</h3>
+<p>
+  A Chrome and Edge extension, plus a dashboard and REST API where ProofSnap's
+  servers load the page. Each evidence package carries a SHA-256 hash for every
+  file and an RSA-4096 signature over the manifest. API captures, and extension
+  captures from the Professional plan up, are anchored in Bitcoin with
+  OpenTimestamps; eIDAS-qualified timestamps from Disig a.s. are optional. A
+  package is a ZIP file with a screenshot, HTML, a HAR network log, an evidence
+  PDF and, optionally, a WARC copy, and a verifier that runs in the browser checks
+  it. The API adds batches, signed webhooks, schedules with change monitoring and
+  an MCP server. The extension captures pages behind a login and chat apps, which
+  WRL cannot. Extension plans start at $8.99 a month; API captures cost $1.49 each
+  or come with monthly plans, and 50 watermarked test captures are free. Checked
+  November 2026.
+</p>
+
 <h3>MirrorWeb</h3>
 <p>
   Financial services compliance focus (SEC 17a-4, FINRA 2210, FCA COBS 4). Documentation references
@@ -255,11 +298,25 @@ wideContent: true
   and cultural heritage sectors. Public access to archives but no cryptographic verification.
 </p>
 
+<h3>DEPT and evidx</h3>
+<p>
+  The <a href="https://digitalevidencetoolkit.org">Digital Evidence Preservation
+  Toolkit</a> (DEPT) is a research project on how digital evidence is made, broken
+  and made trustworthy again. Its capture product,
+  <a href="https://www.evidx.de">evidx</a>, captures pages on the investigator's own
+  machine, including logged-in and social media pages, signs the result and keeps
+  it on the user's own infrastructure. It is built in Germany and is being piloted
+  with European investigative newsrooms. DEPT is also developing Zeitwerk, an
+  open-source timestamping service meant to be run by a federation of European
+  operators, with proofs that can be exported as RFC 3161 or C2PA. evidx publishes no pricing or API
+  documentation yet, so it is not in the table. Checked November 2026.
+</p>
+
 <h2>Methodology</h2>
 
 <p>
   All claims are based on publicly available documentation, product pages, and review platforms as of
-  March 2026. Where a capability could not be confirmed from public sources, the cell reads "Not
+  March 2026 (ProofSnap and DEPT: November 2026). Where a capability could not be confirmed from public sources, the cell reads "Not
   documented" rather than "No". We do not have accounts with every listed service -- claims reflect
   what each service publicly represents, not hands-on testing of every feature. If any information is
   outdated or incorrect, please
@@ -294,6 +351,9 @@ wideContent: true
 
   <dt>Free citation preservation for courts and academics</dt>
   <dd><a href="https://perma.cc">Perma.cc</a> (Harvard Library) preserves links cited in legal and academic writing. Free for courts and institutions. It solves link rot; WRL solves evidence integrity.</dd>
+
+  <dt>Pages behind a login, chats, and capture on your own machine</dt>
+  <dd>WRL loads each page in a fresh browser on its own servers, so it cannot capture what only a signed-in user sees. <a href="https://getproofsnap.com">ProofSnap</a>'s browser extension captures pages behind a login and chat apps as you see them, and <a href="https://www.evidx.de">evidx</a> captures on your own machine and keeps everything on your infrastructure.</dd>
 
   <dt>eIDAS-qualified mobile evidence certification</dt>
   <dd><a href="https://truescreen.io">TrueScreen</a> offers eIDAS-qualified timestamps from a certified trust service provider, with mobile apps for certifying photos, videos, documents, and web pages on-site. Different approach (mobile-first certification vs. API infrastructure), strong in EU legal contexts.</dd>
