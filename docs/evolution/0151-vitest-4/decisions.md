@@ -36,3 +36,6 @@
 - `npm audit`: 11 findings (0 critical, 10 high, 1 low), all in dev tooling (miniflare,
   wrangler, @redocly/cli, the pool's own zod 3). `npm audit --omit=dev` finds none. The
   rest goes with the wrangler and @redocly/cli bumps on #85.
+- `// tva` stays at the top of `test/fetch-mock.js` and goes back into
+  `test/log-severity-sync.test.js`, where phase 0149 took it out as a stray: it is the
+  code signature an earlier global CLAUDE.md asked for, and 104 JavaScript files carry it.
