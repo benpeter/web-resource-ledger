@@ -136,7 +136,7 @@ This is a rebuttable presumption: courts must accept the time and data integrity
 
 Article 41(3) further provides that a qualified electronic timestamp issued by a qualified Trust Service Provider (TSP) in one Member State is recognized across all EU Member States.
 
-**Standard vs. qualified timestamps.** Every WRL capture receives a standard RFC 3161 timestamp from DigiCert. Standard RFC 3161 timestamps provide strong cryptographic assurance but are **not** eIDAS-qualified. They do not trigger the Article 41(2) presumption. Only captures where the account has opted into a qualified TSA -- a TSP on the EU Trust List -- carry an eIDAS-qualified timestamp. Qualified timestamps are supported as an account-level opt-in, not applied to all captures by default.
+**Standard vs. qualified timestamps.** Every WRL capture requests a standard RFC 3161 timestamp from DigiCert. If DigiCert can't be reached, the capture still completes and is signed, but the verifier reports the timestamp check as skipped ("No independent timestamp was obtained for this capture"), and that capture has no independent proof of when it was made. Standard RFC 3161 timestamps provide strong cryptographic assurance but are **not** eIDAS-qualified. They do not trigger the Article 41(2) presumption. Only captures where the account has opted into a qualified TSA -- a TSP on the EU Trust List -- carry an eIDAS-qualified timestamp. Qualified timestamps are supported as an account-level opt-in, not applied to all captures by default.
 
 | | US (Federal Rules of Evidence) | EU (eIDAS Regulation) |
 |---|---|---|
@@ -144,7 +144,7 @@ Article 41(3) further provides that a qualified electronic timestamp issued by a
 | What is presumed | Nothing is presumed; proponent must produce sufficient authenticating evidence | Accuracy of date/time and integrity of bound data are presumed (rebuttable) |
 | Burden on challenger | No presumption to overcome; challenger disputes sufficiency of authentication evidence | Challenger must produce affirmative evidence to rebut the presumption |
 | Geographic scope | Jurisdiction of the tribunal | Recognized across all EU Member States under Art. 41(3) |
-| WRL coverage | All captures (standard RFC 3161 timestamps support 901(b)(9) arguments) | Qualified timestamps available as account opt-in; standard timestamps do not qualify |
+| WRL coverage | All captures with a timestamp (standard RFC 3161 timestamps support 901(b)(9) arguments) | Qualified timestamps available as account opt-in; standard timestamps do not qualify |
 
 ---
 

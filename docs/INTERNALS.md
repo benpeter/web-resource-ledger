@@ -365,7 +365,7 @@ For request/response schemas, see `openapi.yaml`.
 |---|---|---|---|---|
 | `rl:{tenantId}:{group}:{windowId}` | Integer string | `period * 2` seconds | Per-tenant sliding window rate limit counter | `src/kv.js` |
 | `oauth_state:{state}` | JSON `{ codeVerifier, createdAt }` | 600s | OAuth PKCE state and code verifier, single-use | `src/oauth.js` |
-| `first_key:{tenantId}` | Raw API key string | 3600s | One-time first API key display for new self-serve tenants | `src/oauth.js` |
+| `first_key:{tenantId}` | Raw API key string | 86400s (24 hours) | One-time first API key display for new self-serve tenants; deleted when shown | `src/oauth.js`, `src/email-login.js` |
 | `stripe_evt:{eventId}` | `'1'` | 604800s (7 days) | Stripe webhook event idempotency dedup | `src/stripe-webhook.js` |
 
 ---

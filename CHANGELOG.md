@@ -16,6 +16,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The DPA, security whitepaper and data-retention page cover email sign-in and the stored notification address; the legal-evidence page says a capture made while the timestamp authority is unreachable has no timestamp
 - The authentication guide's scope table lists the sitemap, schedule, diff, certificate and usage endpoints, and says which scope each needs
 - The incident-response page and the security whitepaper list all eleven alert rules (they said nine and lacked Captures Dead-Lettered and New API Key Created) with their actual thresholds
 

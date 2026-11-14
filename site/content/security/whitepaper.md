@@ -90,7 +90,9 @@ flowchart TB
 | IP address | Legitimate interest (abuse prevention) | `CF-Connecting-IP` header | HMAC-SHA-256 pseudonymization (daily rotation) → `cip` | Coralogix logs only; raw IP never stored |
 | GitHub user ID | Contract performance | OAuth callback | Stored as integer after OAuth verification | D1 `github_users` table |
 | GitHub username | Contract performance | OAuth callback | Stored as string after OAuth verification | D1 `github_users` table |
-| Email address | Consent (notification opt-in) | GitHub OAuth or manual entry | Stored only if user enables notifications | D1 `notification_preferences` table |
+| Email address (notifications) | Contract performance | GitHub OAuth, email sign-in or manual entry | Primary verified GitHub address stored at sign-in as the default; a manually entered address is stored once verified | D1 `notification_preferences` table |
+| Email address (sign-in) | Contract performance | `POST /v1/auth/email` | Stored lower-cased as the sign-in identity | D1 `email_users` table |
+| Sign-in link token | Contract performance | Generated per link request | SHA-256 hashed before storage; expires after 15 minutes | D1 `login_tokens` table (hash only) |
 | Session ID | Contract performance | Generated at login | SHA-256 hashed before storage; raw ID in HMAC-signed cookie | D1 `sessions` table (hash only) |
 | GitHub access token | N/A | OAuth token exchange | Used once to fetch identity; never stored or logged | Discarded after `/user` fetch (see `src/oauth.js`) |
 

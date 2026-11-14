@@ -20,12 +20,15 @@ description: WRL data retention periods — how long capture data, ephemeral dat
 | API key hashes | D1 database | Until individually revoked or account deletion |
 | Usage counters | D1 database | Current billing period plus 12 prior periods |
 | Sessions | D1 database | 7 days (auto-expired via `expires_at`) |
-| GitHub identity | D1 database | Until account deletion |
+| GitHub identity (user ID, username) | D1 database | Until account deletion |
+| Email sign-in identity (address, sign-up and last sign-in time) | D1 database | Until account deletion |
+| Sign-in links | D1 database | SHA-256 hash only; a link expires 15 minutes after it is sent, and the row is deleted a day after expiry |
+| First API key, shown once after sign-up | KV store | Deleted when shown, at most 24 hours |
 | Capture schedules | D1 database | Until deleted by tenant or account deletion |
 | Webhooks | D1 database | Until deleted by tenant or account deletion |
 | Notification preferences and email address | D1 database | Until account deletion |
 | Quarantined captures | R2 + D1 database | 90 days from quarantine date, then purged automatically |
-| Rate limit counters | KV store | 60 -- 120 seconds (auto-expire) |
+| Rate limit counters | KV store | 60 -- 120 seconds (auto-expire); sign-in link counters, keyed by hashes of the IP and address, 2 hours |
 | OAuth state tokens | KV store | 600 seconds (auto-expire) |
 | Operational logs | Coralogix (EU2 region) | 90 days; pseudonymized -- no raw IP addresses or personal identifiers |
 
@@ -60,7 +63,7 @@ After the 30-day grace period ends:
 1. All capture artifacts are deleted from R2 object storage.
 2. All capture metadata records are removed from the database.
 3. All sessions and API keys are invalidated.
-4. Your tenant record, GitHub identity, usage counters, schedules, webhooks, and notification preferences are permanently removed.
+4. Your tenant record, GitHub or email sign-in identity, usage counters, schedules, webhooks, and notification preferences are permanently removed.
 5. Your Stripe subscription is cancelled. Any unused prepaid captures are non-refundable after the grace period ends -- see the [Refund Policy](https://webresourceledger.com/refund-policy).
 6. Coralogix operational logs expire naturally within 90 days. Because they are pseudonymized, they cannot be attributed to your account after deletion.
 
@@ -68,7 +71,7 @@ After the 30-day grace period ends:
 
 ### How to request deletion
 
-Email [hello@webresourceledger.com](mailto:hello@webresourceledger.com) with the subject line "Account Deletion Request". Include your GitHub username so we can locate your account. You will receive confirmation within 2 business days.
+Email [hello@webresourceledger.com](mailto:hello@webresourceledger.com) with the subject line "Account Deletion Request". Include your GitHub username or the email address you sign in with so we can locate your account. You will receive confirmation within 2 business days.
 
 > **Note:** Automated self-service deletion from the dashboard is planned. Until it is available, deletion requires a support request as described above.
 

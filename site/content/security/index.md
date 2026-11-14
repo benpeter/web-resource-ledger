@@ -20,7 +20,7 @@ The whitepaper is the primary technical reference for WRL's security architectur
 
 ## Data Processing Agreement (DPA)
 
-The DPA is a GDPR Article 28 agreement for enterprise customers who need a formal processor contract. It defines WRL's role as data processor, specifies the categories of personal data processed (captured URLs, page content, pseudonymized IP addresses, GitHub identity for dashboard users), documents the technical and organizational measures in place, covers sub-processor management with 30-day advance notice of changes, and commits to 48-hour breach notification. The DPA is a template; both parties must execute a signed version. Legal counsel should review before execution.
+The DPA is a GDPR Article 28 agreement for enterprise customers who need a formal processor contract. It defines WRL's role as data processor, specifies the categories of personal data processed (captured URLs, page content, pseudonymized IP addresses, GitHub identity or sign-in email address for dashboard users), documents the technical and organizational measures in place, covers sub-processor management with 30-day advance notice of changes, and commits to 48-hour breach notification. The DPA is a template; both parties must execute a signed version. Legal counsel should review before execution.
 
 [Read the Data Processing Agreement](/security/dpa/)
 
