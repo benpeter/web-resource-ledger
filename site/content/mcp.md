@@ -129,6 +129,7 @@ Configure your client with:
 | `get_usage` | Get current period usage | `read` |
 | `list_schedules` | List recurring capture schedules | `capture` |
 | `create_schedule` | Create a recurring capture schedule | `capture` |
+| `update_schedule` | Rename, retarget, reschedule, pause or resume a schedule | `capture` |
 | `delete_schedule` | Delete a capture schedule | `capture` |
 | `get_certificate` | Get evidence certificate metadata | `read` |
 
@@ -251,6 +252,7 @@ List recent captures with optional filters. Returns summaries in reverse chronol
 | `created_after` | string | no | ISO 8601 datetime -- only captures after this time |
 | `created_before` | string | no | ISO 8601 datetime -- only captures before this time |
 | `sort` | string | no | Sort order: `-created_at` (default, newest first) or `created_at` |
+| `schedule_id` | string | no | Only captures made by this schedule (`sch_` followed by 32 hex characters); `list_schedules` shows the IDs |
 
 ---
 
@@ -370,20 +372,22 @@ Return current-period quota usage for this account, including capture count, sto
 **Example output:**
 
 ```
-Usage for: acme-corp
-Period: 2025-06-01/2025-07-01
-Billing status: active
-Payment method on file: yes
+Usage for: gh-12345
+Period: 2026-11
+Billing status: free
+Payment method on file: no
 
-Captures used:   142 / unlimited
-Storage used:    38 KB / unlimited
+Captures used:   42 / 200
+Storage used:    51200 KB / 10240 MB
 ```
+
+With a payment method on file, both limits read `unlimited`. The REST equivalent is `GET /v1/account/usage` with the same API key.
 
 ---
 
 #### `list_schedules`
 
-List all scheduled captures registered for this account, including their URL, cron expression, and next scheduled run time. Use `create_schedule` to add a new schedule or `delete_schedule` to remove one.
+List all scheduled captures registered for this account, including their URL, cron expression, whether they are paused, and the next run time. Use `create_schedule` to add a schedule, `update_schedule` to change or pause one, and `delete_schedule` to remove one.
 
 **Requires:** `capture` scope
 
@@ -398,9 +402,12 @@ List all scheduled captures registered for this account, including their URL, cr
   Name:     Daily homepage check
   URL:      https://example.com
   Cron:     0 9 * * *
+  Status:   active
   Next run: 2025-06-02T09:00:00.000Z
   Created:  2025-06-01T08:00:00.000Z
 ```
+
+A paused schedule shows `Status:   paused` and `Next run: (paused)`.
 
 ---
 
@@ -428,6 +435,35 @@ Next run: 2025-06-02T09:00:00.000Z
 
 Use list_schedules to view all schedules or delete_schedule to remove this one.
 ```
+
+---
+
+#### `update_schedule`
+
+Change a schedule: rename it, point it at a different URL, change how often it runs, or pause and resume it. Pass only the fields to change. Resuming, or changing the cron expression, sets the next run to the next matching time from now; runs missed while paused are not caught up. A new URL starts a new baseline for change detection.
+
+**Requires:** `capture` scope
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `schedule_id` | string | yes | The schedule to change (`sch_` followed by 32 hex characters) |
+| `name` | string | no | New name (1--128 characters; letters, digits, spaces, and `_ . : -` only) |
+| `url` | string | no | New URL to capture (`http://` or `https://`, public address) |
+| `cron` | string | no | New 5-field cron expression in UTC, at most hourly |
+| `paused` | boolean | no | `true` pauses the schedule, `false` resumes it |
+
+**Example output:**
+
+```
+Schedule updated: sch_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+Name: Daily homepage check
+URL: https://example.com
+Cron: 0 9 * * *
+Status: paused
+Next run: (paused)
+```
+
+The REST equivalent is `PATCH /v1/schedules/{id}`.
 
 ---
 
@@ -528,7 +564,7 @@ All four checks passing confirms: the screenshot, HTML, and HTTP headers match w
 
 ### "Insufficient scope: API key does not grant 'capture' scope"
 
-Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `read_sitemap`, `list_schedules`, `create_schedule`, and `delete_schedule` require `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
+Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `read_sitemap`, `list_schedules`, `create_schedule`, `update_schedule`, and `delete_schedule` require `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
 
 ### "Rate limit exceeded. Try again in 60 seconds."
 

@@ -621,6 +621,16 @@ describe('tool: list_schedules -- with data', () => {
     const text = body.result.content[0].text;
     expect(text).toContain(LIST_SCHEDULE_ID);
     expect(text).toContain('My Test Schedule');
+    expect(text).toContain('Status:   active');
+  });
+
+  it('shows a paused schedule as paused, without a next run', async () => {
+    await cleanupSchedules();
+    await seedSchedule(env.DB, LIST_SCHEDULE_ID, { tenantId: 'default', name: 'Paused one', paused: 1 });
+    const res = await mcpPost(toolCall('list_schedules', {}));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('Status:   paused');
+    expect(text).toContain('Next run: (paused)');
   });
 });
 
