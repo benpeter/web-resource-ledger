@@ -10,6 +10,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-14
+
 ### Added
 
 - Admin routes for account deletion: `POST /v1/admin/tenants/{tenantId}/deletion` requests it (captures answer 403 and schedules are skipped from then on), `DELETE` on the same path cancels it, and `DELETE /v1/admin/tenants/{tenantId}` removes all of the tenant's data 30 days or more after the request. The admin tenant detail shows `deletionRequestedAt`
@@ -224,7 +226,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ---
 
-[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/benpeter/web-resource-ledger/releases/tag/v1.0.0
 [0.1.0]: https://github.com/benpeter/web-resource-ledger/releases/tag/v0.1.0

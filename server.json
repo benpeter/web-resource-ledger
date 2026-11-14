@@ -3,7 +3,7 @@
   "name": "io.github.benpeter/web-resource-ledger",
   "title": "Web Resource Ledger",
   "description": "Capture web pages as cryptographically signed, tamper-evident evidence with WACZ archives.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "websiteUrl": "https://docs.webresourceledger.com",
   "repository": {
     "url": "https://github.com/benpeter/web-resource-ledger",
