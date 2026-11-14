@@ -16,6 +16,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The webhooks guide says WRL waits 10 seconds for an endpoint to answer before it counts the delivery as failed and retries
 - The dashboard's schedule panel shows the account's real schedule limit. It read `limit` from `GET /v1/schedules`, which didn't send one, so it always showed 10 and refused an eleventh schedule in the browser even when an operator had raised the limit
 
 ## [1.2.0] - 2026-11-14
