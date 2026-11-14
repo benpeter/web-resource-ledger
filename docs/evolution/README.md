@@ -172,3 +172,4 @@ software development.
 | [0163-og-image](0163-og-image/) | Shared links to the landing page, its policy pages and the docs show a preview card image |
 | [0164-first-capture-guide](0164-first-capture-guide/) | The empty captures list of a new account says what a capture gives, offers an example URL and links the API and MCP guides |
 | [0165-digest-all-captures](0165-digest-all-captures/) | The weekly digest goes to every account with captures that week, with one row for captures no active schedule made |
+| [0166-sign-in-links](0166-sign-in-links/) | The landing and docs sign-in buttons open the sign-in page with GitHub and an emailed link instead of going straight to GitHub |

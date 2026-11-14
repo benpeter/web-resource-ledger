@@ -12,7 +12,7 @@ A WRL capture loads the page in a real browser, records what it showed, signs it
 
 ## Capture the pages
 
-[Sign in](https://api.webresourceledger.com/auth/login?from=docs) and paste the URL into the capture form in the web UI. Capture each page that matters on its own: the listing, the seller's profile, the reviews, the terms you relied on. A capture takes a few seconds.
+[Sign in](https://api.webresourceledger.com/ui?from=docs) and paste the URL into the capture form in the web UI. Capture each page that matters on its own: the listing, the seller's profile, the reviews, the terms you relied on. A capture takes a few seconds.
 
 Capture the same page again later if you need to show that it changed or was taken down. Each capture keeps its own time and signature.
 
