@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Data Retention's details for infosec reviewers said expired sessions are never deleted from D1; an hourly job deletes them, as the table on the same page says. They also left the emailed sign-in identities out of the deletion order and of the personal fields
 - How WRL Was Built said the evolution log documents 60+ development phases, and the README said more than 140; it has more than 170. The 60+ stays for the first 10 days, when WRL went from first commit to production
 - The security whitepaper said the Worker has no npm runtime dependencies besides `@cloudflare/playwright` and `@duckduckgo/autoconsent`; it also bundles `@modelcontextprotocol/sdk`, `zod`, `croner`, `diff-match-patch-es`, `pdf-lib` and `fflate`, and the section now lists them. `fflate`, which zips and unzips WACZ bundles in the Worker, was declared as a development dependency and is now a runtime dependency
 - `SECURITY.md` said WRL publishes no versioned releases; releases are tagged since 1.0.0, and only the deployed service is supported. Private vulnerability reporting on GitHub, which `SECURITY.md` and the Support page point to, was turned off and is now on

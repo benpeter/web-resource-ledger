@@ -106,7 +106,7 @@ Capture records and artifact URLs are in the response from `GET /v1/captures`. S
 <details>
 <summary>Implementation details for infosec reviewers</summary>
 
-**Deletion ordering.** The D1 schema uses foreign key constraints. Deletion proceeds in dependency order to avoid FK violations: `captures` and `api_keys` reference `tenants`, so child records are removed before the tenant row. Sessions reference `github_users`; `github_users` are deleted after sessions.
+**Deletion ordering.** The D1 schema uses foreign key constraints, so rows are deleted children first, in one batch (a single transaction): threat checks (found through the tenant's captures), sign-in links (found through its email address), sessions, captures, schedules, webhooks, API keys, usage counters, notification records, the GitHub and email sign-in identities, and last the tenant row (`deleteTenantRows` in `src/db.js`).
 
 **R2 artifact resolution.** Artifact objects in R2 are keyed by capture ID (e.g., `captures/{captureId}/screenshot.png`); the WACZ bundle is stored under its content hash (`captures/{hash}.wacz`). The capture row lists both, so deletion reads the row first, deletes the R2 objects, then deletes the row. A WACZ object that another capture still references is kept.
 
@@ -116,9 +116,9 @@ Capture records and artifact URLs are in the response from `GET /v1/captures`. S
 
 **Usage counter trimming.** The same weekly job deletes usage counters for periods more than 12 billing periods before the current one.
 
-**Session TTL.** Sessions have an `expires_at` column set to 7 days from creation. Expired sessions are not automatically deleted from D1 (no cron for this); they are treated as expired at read time and cleaned up opportunistically. For deletion purposes, all sessions for a tenant are removed explicitly regardless of expiry state.
+**Session TTL.** Sessions have an `expires_at` column set to 7 days from creation and count as expired from then on. An hourly job (`purgeExpiredSignIns` in `src/retention.js`, run by the per-minute cron at minute 0) deletes expired sessions, and sign-in links a day after they expired. For deletion purposes, all sessions for a tenant are removed explicitly regardless of expiry state.
 
-**Notification preferences.** The `notification_preferences` and `notification_sent` tables are deleted together in a batched D1 call. The email address stored in `notification_preferences` is the only directly personal field (distinct from hashed or pseudonymized data) that lives outside the `github_users` table.
+**Notification preferences.** The `notification_preferences` and `notification_sent` tables are deleted in the same batch. Apart from the sign-in identities in `github_users` and `email_users`, the email address stored in `notification_preferences` is the only directly personal field (distinct from hashed or pseudonymized data).
 
 </details>
 
