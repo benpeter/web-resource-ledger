@@ -1,4 +1,3 @@
-// tva
 // Stand-in for the fetchMock that cloudflare:test exported until
 // @cloudflare/vitest-pool-workers 0.13 (Vitest 4) removed it. It keeps the
 // undici MockAgent calls the tests use -- get(origin).intercept({ path, method })
