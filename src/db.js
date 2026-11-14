@@ -2284,6 +2284,7 @@ export async function getTenantDetail(db, tenantId, periodLimit = 6) {
     paymentMethodAddedAt: tenantRow.payment_method_added_at ?? null,
     stripeCustomerId: tenantRow.stripe_customer_id ?? null,
     eidasQualified: Boolean(tenantRow.eidas_qualified),
+    deletionRequestedAt: tenantRow.deletion_requested_at ?? null,
     config: tenantRow.config ?? null,
     createdAt: tenantRow.created_at,
     updatedAt: tenantRow.updated_at ?? null,
