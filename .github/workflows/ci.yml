@@ -14,9 +14,7 @@ permissions:
 
 jobs:
   test:
-    # vitest-pool-workers hangs in some runs on ubuntu-26.04 (since 2026-11-14,
-    # never on 24.04); back to ubuntu-latest with the vitest 4 move (backlog #85)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,8 +63,9 @@ jobs:
         run: echo "Docs-only change -- skipping tests and lint."
 
   test-integration:
-    # vitest-pool-workers hangs in some runs on ubuntu-26.04 (since 2026-11-14,
-    # never on 24.04); back to ubuntu-latest with the vitest 4 move (backlog #85)
+    # On ubuntu-26.04, miniflare failed to start local Chromium (spawn ETXTBSY)
+    # in 2 of 16 trial runs, against none in 24 runs on 24.04 (2026-11-14).
+    # The unit tests run on ubuntu-latest again since the vitest 4 move.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     continue-on-error: true  # Integration tests require real browser rendering; flaky without live CF infrastructure
