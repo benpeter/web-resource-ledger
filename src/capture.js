@@ -188,48 +188,53 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       },
     } : null;
 
+    // Signed into the bundle, so a verifier can tell a partial render from a full one
+    const captureQuality = {
+      renderQuality,
+      ...(render?.waitUntilReached !== undefined ? { waitUntilReached: render.waitUntilReached } : {}),
+      ...(render?.timedOut !== undefined ? { timedOut: render.timedOut } : {}),
+    };
+
     // WACZ bundling (optional -- degrades gracefully if signing key is absent)
-    // Skipped for partial captures: WACZ requires a complete page load
     let waczInfo = null;
-    if (!partial) {
-      try {
-        const waczArtifacts = {
-          screenshotBefore: screenshotBefore || screenshot,
-          screenshotAfter: screenshotBefore ? screenshot : null,
-          html,
-          headers, // may be null if header fetch failed
-          captureSettings,
-        };
-        const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env, { qualifiedTimestamps });
-        if (result) {
-          const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus } = result;
-          await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
-            httpMetadata: {
-              contentType: 'application/wacz+zip',
-              contentDisposition: `attachment; filename="${waczHash}.wacz"`,
-            },
-          });
-          // Archive signing key BEFORE completeCapture() -- no race window
-          try {
-            await archiveSigningKey(env.DB, keyId, publicKeyBase64);
-          } catch (err) {
-            // Non-fatal: key may already be archived from a prior capture
-            await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
-          }
-          waczInfo = {
-            key: `captures/${waczHash}.wacz`,
-            bundleHash,
-            size: waczBytes.byteLength,
-            keyId,
-            timestampStatus,
-            qualifiedTimestampStatus,
-          };
+    try {
+      const waczArtifacts = {
+        screenshotBefore: screenshotBefore || screenshot,
+        screenshotAfter: screenshotBefore ? screenshot : null,
+        html,
+        headers, // may be null if header fetch failed
+        captureSettings,
+        captureQuality,
+      };
+      const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env, { qualifiedTimestamps });
+      if (result) {
+        const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus } = result;
+        await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
+          httpMetadata: {
+            contentType: 'application/wacz+zip',
+            contentDisposition: `attachment; filename="${waczHash}.wacz"`,
+          },
+        });
+        // Archive signing key BEFORE completeCapture() -- no race window
+        try {
+          await archiveSigningKey(env.DB, keyId, publicKeyBase64);
+        } catch (err) {
+          // Non-fatal: key may already be archived from a prior capture
+          await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
         }
-      } catch (err) {
-        // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
-        // Distinguish from "no signing key" path (which returns null, no error)
-        await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
+        waczInfo = {
+          key: `captures/${waczHash}.wacz`,
+          bundleHash,
+          size: waczBytes.byteLength,
+          keyId,
+          timestampStatus,
+          qualifiedTimestampStatus,
+        };
       }
+    } catch (err) {
+      // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
+      // Distinguish from "no signing key" path (which returns null, no error)
+      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
     }
 
     await completeCapture(env.DB, captureId, artifacts, waczInfo, renderQuality, render || null, captureSettings);
@@ -242,7 +247,8 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         cip,
         renderQuality,
         durationMs: Date.now() - start,
-        waczStatus: 'skipped',
+        waczStatus: waczInfo ? 'ok' : 'skipped',
+        timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
         render,
         ...(render?.stages ?? {}),
       });
