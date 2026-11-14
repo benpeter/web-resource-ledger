@@ -10,7 +10,7 @@ This page explains how WRL works under the hood -- the flows a tenant API consum
 
 ## User Interaction Flows
 
-The sequence diagram below shows the four interaction patterns available to API consumers: authenticating (via GitHub OAuth or API key), submitting captures (single or batch), polling for results, and verifying a completed capture.
+The sequence diagram below shows the four interaction patterns available to API consumers: authenticating (GitHub, an emailed sign-in link, or an API key), submitting captures (single or batch), polling for results, and verifying a completed capture.
 
 ```mermaid
 sequenceDiagram
@@ -22,12 +22,17 @@ sequenceDiagram
     participant Storage as Object Storage
     participant Verifier as Verifier
 
-    note over Tenant,API: Authentication -- two paths
+    note over Tenant,API: Authentication -- three paths
 
     alt GitHub OAuth (interactive / web UI)
         Tenant->>API: GET /auth/login
         API-->>Tenant: Redirect to GitHub (PKCE)
         Tenant->>API: GET /auth/callback?code=...
+        API-->>Tenant: Session cookie
+    else Emailed sign-in link (interactive / web UI)
+        Tenant->>API: POST /auth/email
+        API-->>Tenant: Single-use link by email, valid 15 minutes
+        Tenant->>API: POST /auth/email/verify (the page's Sign in button)
         API-->>Tenant: Session cookie
     else API Key (programmatic)
         note over Tenant,API: Bearer token in Authorization header
