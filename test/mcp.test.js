@@ -748,6 +748,48 @@ describe('tool: get_usage', () => {
   });
 });
 
+describe("tool: get_usage -- accounts that can't capture", () => {
+  const USAGE_KEY = 'wrl_live_' + 'u'.repeat(43);
+  const USAGE_TENANT = 'mcp-usage';
+
+  beforeEach(async () => {
+    await cleanDb(env.DB);
+    await seedApiKey(env.DB, USAGE_KEY, { tenantId: USAGE_TENANT, scopes: ['read'] });
+  });
+
+  afterEach(async () => {
+    await cleanDb(env.DB);
+  });
+
+  async function usageText() {
+    const body = await (await mcpPost(toolCall('get_usage', {}), `Bearer ${USAGE_KEY}`)).json();
+    return body.result.content[0].text;
+  }
+
+  it('shows the real numbers for an account past the free captures', async () => {
+    await seedUsageCounter(env.DB, { tenantId: USAGE_TENANT, period: computePeriod(), captureCount: 250 });
+    expect(await usageText()).toMatch(/Captures used: +250 \/ 200/);
+  });
+
+  it('shows the numbers and the block for a blocked account', async () => {
+    await seedUsageCounter(env.DB, { tenantId: USAGE_TENANT, period: computePeriod(), captureCount: 150 });
+    await env.DB.prepare("UPDATE tenants SET billing_status = 'blocked' WHERE id = ?").bind(USAGE_TENANT).run();
+    const text = await usageText();
+    expect(text).toMatch(/Captures used: +150 \/ 200/);
+    expect(text).toContain('Billing status: blocked');
+    expect(text).toContain('Account is blocked');
+  });
+
+  it('shows the numbers and the deletion date while a deletion is pending', async () => {
+    await seedUsageCounter(env.DB, { tenantId: USAGE_TENANT, period: computePeriod(), captureCount: 20 });
+    await env.DB.prepare('UPDATE tenants SET deletion_requested_at = ? WHERE id = ?')
+      .bind('2026-11-01T00:00:00.000Z', USAGE_TENANT).run();
+    const text = await usageText();
+    expect(text).toMatch(/Captures used: +20 \/ 200/);
+    expect(text).toContain('scheduled for deletion on 2026-12-01');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tool: list_schedules
 // ---------------------------------------------------------------------------
