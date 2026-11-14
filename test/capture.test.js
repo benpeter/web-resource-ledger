@@ -775,6 +775,32 @@ describe('performCapture -- full capture quality in the WACZ', () => {
       timedOut: false,
     });
   });
+
+  it('records a clipped screenshot and the page height (backlog #32)', async () => {
+    const clippedRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, render: { ...result.render, pageHeight: 21860, screenshotHeight: 8000, screenshotClipped: true } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, clippedRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.render.screenshotClipped).toBe(true);
+    expect(record.render.pageHeight).toBe(21860);
+    expect(record.render.screenshotHeight).toBe(8000);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'full',
+      waitUntilReached: 'load',
+      timedOut: false,
+      pageHeight: 21860,
+      screenshotHeight: 8000,
+      screenshotClipped: true,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -345,7 +345,7 @@ describe('DESIGN_SYSTEM_CSS sync check', () => {
 // Runs the page's own inline script against a stub document and fetch.
 // ---------------------------------------------------------------------------
 
-async function renderVerifyPage(verifyData) {
+async function renderVerifyPage(verifyData, retrievalData = null) {
   const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC).text();
   const script = html.slice(html.indexOf('<script>') + '<script>'.length, html.lastIndexOf('</script>'));
   const result = { innerHTML: '', classList: { add() {} } };
@@ -356,7 +356,7 @@ async function renderVerifyPage(verifyData) {
   };
   const fetch = async (url) => (url.includes('/v1/verify/')
     ? { ok: true, json: async () => verifyData }
-    : { ok: false });
+    : { ok: retrievalData !== null, json: async () => retrievalData });
   new Function('document', 'fetch', 'navigator', 'window', script)(document, fetch, {}, {});
   await new Promise((resolve) => setTimeout(resolve, 0));
   return result.innerHTML;
@@ -390,5 +390,21 @@ describe('verify page script -- render quality', () => {
     });
     expect(out).toContain('data-check-label="signature"');
     expect(out).not.toContain('renderQuality');
+  });
+});
+
+describe('verify page script -- clipped screenshot', () => {
+  it('captions a screenshot that covers only the top of the page', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-14T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      artifacts: { screenshot: 'https://worker.test/v1/captures/' + TEST_ID + '/artifacts/screenshot' },
+      render: { pageHeight: 21860, screenshotHeight: 8000, screenshotClipped: true },
+    });
+    expect(out).toContain('id="screenshot-clip-note"');
+    expect(out).toContain('Shows the top 8,000 px of a 21,860 px page. The HTML in the bundle has the whole page.');
   });
 });
