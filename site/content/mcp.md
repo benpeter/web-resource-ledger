@@ -12,6 +12,12 @@ The MCP server uses Streamable HTTP transport. Configure your client once, then 
 
 > **Try it:** Ask your agent: *"Capture https://example.com as evidence and verify it."*
 
+## Get an API key
+
+[Sign in to the web UI](https://api.webresourceledger.com/ui?from=docs) with GitHub or an emailed link. The first sign-in shows an API key with the `capture` and `read` scopes, once; copy it into your client's configuration below. The free plan covers 200 captures a month.
+
+To give an agent its own key, for example a read-only one that can list and verify but not capture, open Settings → API Keys in the web UI, name the key and pick its scopes. If you run your own WRL deployment, create keys with the admin API instead (see [Authentication](/authentication/)).
+
 ## Setup
 
 ### VS Code (GitHub Copilot)
@@ -565,7 +571,7 @@ All four checks passing confirms: the screenshot, HTML, and HTTP headers match w
 
 ### "Insufficient scope: API key does not grant 'capture' scope"
 
-Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `read_sitemap`, `list_schedules`, `create_schedule`, `update_schedule`, and `delete_schedule` require `capture` scope. Contact your WRL operator to provision a key with the required scopes. See [Authentication](/authentication/).
+Your API key has `read` scope but not `capture` scope. `list_captures`, `get_capture`, `verify_capture`, `diff_captures`, `get_usage`, and `get_certificate` work with `read` scope. `capture_url`, `batch_capture`, `read_sitemap`, `list_schedules`, `create_schedule`, `update_schedule`, and `delete_schedule` require `capture` scope. Create a key with the `capture` scope in Settings → API Keys in the web UI; on a self-hosted deployment, the operator creates it with the admin API. See [Authentication](/authentication/).
 
 ### "Rate limit exceeded. Try again in 60 seconds."
 

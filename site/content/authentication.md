@@ -17,6 +17,8 @@ The [web UI](https://api.webresourceledger.com/ui) offers two ways to sign in:
 
 Signing in the first time creates your account and a first API key, shown once. If your email address is already the verified notification address of an account, an email link signs you into that account instead of creating a new one. Sessions last 7 days.
 
+To create more keys or revoke one, open Settings → API Keys in the web UI. Each key has a name and the `capture` scope, the `read` scope, or both; the full key is shown once, when you create it. A separate key per agent or integration lets you revoke one without breaking the others.
+
 ## Using Your API Key
 
 Set your API key as a bearer token in the `Authorization` header on every request.
