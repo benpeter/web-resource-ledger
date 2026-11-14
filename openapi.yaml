@@ -41,16 +41,26 @@ components:
       type: http
       scheme: bearer
       description: >
-        Per-tenant API key. Obtained via POST /v1/admin/keys or, for legacy
-        deployments, the static CAPTURE_API_KEY secret. Required for capture
-        submission (POST /v1/captures) and capture listing (GET /v1/captures).
+        Per-tenant API key. The first key (scopes `capture` and `read`) is shown
+        once after the first sign-in at /ui; create and revoke more in the
+        dashboard under Settings → API Keys. Operators of their own deployment
+        can also issue keys with POST /v1/admin/keys or set the static
+        CAPTURE_API_KEY secret.
     adminAuth:
       type: http
       scheme: bearer
       description: >
         Admin infrastructure key. Set via wrangler secret put ADMIN_KEY.
-        Grants access to key management endpoints. Does not grant tenant
+        Grants access to the /v1/admin/ endpoints. Does not grant tenant
         capture or read access.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-wrl_session
+      description: >
+        Dashboard session, set when signing in at /ui with GitHub or an emailed
+        link. Only the dashboard uses it; an API key gets 401 on the routes
+        that require it.
   headers:
     ReferrerPolicy:
       description: Prevents referrer leakage.
@@ -5354,9 +5364,11 @@ paths:
         Returns the authenticated tenant's email notification preferences.
         If no preferences have been configured, synthesised defaults are returned
         (all notification types enabled, email null, updatedAt null).
+
+        Dashboard session only; an API key gets 401.
       tags: [account, notifications]
       security:
-        - {}
+        - sessionCookie: []
       responses:
         '200':
           description: Current notification preferences for the authenticated tenant.
@@ -5417,10 +5429,11 @@ paths:
         Changing `email` automatically resets `emailVerified` to false and sets
         `emailSource` to 'manual'. Setting `email` to null clears the address.
 
-        Requires the `X-WRL-CSRF` header.
+        Requires the `X-WRL-CSRF` header. Dashboard session only; an API key
+        gets 401.
       tags: [account, notifications]
       security:
-        - {}
+        - sessionCookie: []
       requestBody:
         required: true
         content:
