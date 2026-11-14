@@ -74,13 +74,14 @@ async function isKeylessDiscovery(request) {
 }
 
 // Monthly quota and account state, checked as on the REST capture endpoints.
-// Returns a tool error result, or null when the capture may go ahead.
+// Returns { refusal } with a tool error result, or { refusal: null } and the
+// account's eIDAS setting when the capture may go ahead.
 // batchSize is the number of URLs for batch_capture; leave it out for capture_url.
-async function mcpQuotaRefusal(env, ctx, auth, batchSize) {
+async function mcpQuotaCheck(env, ctx, auth, batchSize) {
   // The legacy key has no D1 tenant record, so it has no quota (as on REST)
-  if (auth.authMethod === 'legacy') return null;
+  if (auth.authMethod === 'legacy') return { refusal: null, eidasQualified: false };
   const quotaCheck = await checkQuota(env.DB, auth.tenantId, batchSize ?? 1);
-  if (quotaCheck.allowed) return null;
+  if (quotaCheck.allowed) return { refusal: null, eidasQualified: Boolean(quotaCheck.eidasQualified) };
 
   const refusal = accountRefusalDetail(quotaCheck);
   const caller = {
@@ -93,7 +94,7 @@ async function mcpQuotaRefusal(env, ctx, auth, batchSize) {
   };
   if (refusal) {
     ctx.waitUntil(log(env, 4, 'security', { event: 'security.account_refused', ...caller, responseStatus: 403 }) ?? Promise.resolve());
-    return { isError: true, content: [{ type: 'text', text: refusal }] };
+    return { refusal: { isError: true, content: [{ type: 'text', text: refusal }] } };
   }
 
   ctx.waitUntil(log(env, 4, 'security', {
@@ -109,7 +110,7 @@ async function mcpQuotaRefusal(env, ctx, auth, batchSize) {
     ctx.waitUntil(dispatchNotification(env, auth.tenantId, 'limit_reached', limitEmail)
       .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: auth.tenantId })));
   }
-  return { isError: true, content: [{ type: 'text', text: quotaLimitDetail(quotaCheck, batchSize) }] };
+  return { refusal: { isError: true, content: [{ type: 'text', text: quotaLimitDetail(quotaCheck, batchSize) }] } };
 }
 
 // Web Risk screening, as on the REST capture endpoints: logs a block or an
@@ -226,8 +227,8 @@ function createMcpServer(env, ctx, auth, origin) {
         }
       }
       // Monthly quota and account state
-      const quotaRefusal = await mcpQuotaRefusal(env, ctx, auth);
-      if (quotaRefusal) return quotaRefusal;
+      const quota = await mcpQuotaCheck(env, ctx, auth);
+      if (quota.refusal) return quota.refusal;
       if (env.GLOBAL_CAPTURE_LIMITER) {
         const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
         if (!success) {
@@ -304,7 +305,7 @@ function createMcpServer(env, ctx, auth, origin) {
       try {
         await env.CAPTURE_QUEUE.send({
           captureId, url: result.url, ip: result.ip, tenantId: auth.tenantId, cip: 'mcp',
-          enqueuedAt: Date.now(),
+          enqueuedAt: Date.now(), qualifiedTimestamps: quota.eidasQualified,
         });
       } catch (err) {
         await failCapture(env.DB, captureId, 'Queue dispatch failed', true);
@@ -711,8 +712,8 @@ function createMcpServer(env, ctx, auth, origin) {
         }
       }
       // Monthly quota and account state, for the whole batch
-      const quotaRefusal = await mcpQuotaRefusal(env, ctx, auth, batchSize);
-      if (quotaRefusal) return quotaRefusal;
+      const quota = await mcpQuotaCheck(env, ctx, auth, batchSize);
+      if (quota.refusal) return quota.refusal;
       if (env.GLOBAL_CAPTURE_LIMITER) {
         const { success } = await env.GLOBAL_CAPTURE_LIMITER.limit({ key: 'global' });
         if (!success) {
@@ -792,6 +793,7 @@ function createMcpServer(env, ctx, auth, origin) {
           await env.CAPTURE_QUEUE.send({
             captureId, url: validation.url, ip: validation.ip,
             tenantId: auth.tenantId, cip: 'mcp', enqueuedAt: Date.now(),
+            qualifiedTimestamps: quota.eidasQualified,
           });
         } catch (err) {
           await failCapture(env.DB, captureId, 'Queue dispatch failed', true);

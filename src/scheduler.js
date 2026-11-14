@@ -193,6 +193,7 @@ export async function handleScheduledTick(controller, env, ctx) {
           cip: 'cron',
           scheduleId: schedule.id,
           enqueuedAt: Date.now(),
+          qualifiedTimestamps: quotaResult.eidasQualified ?? false,
         },
       });
 

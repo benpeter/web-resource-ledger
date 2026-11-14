@@ -1468,6 +1468,7 @@ async function handleBatchCapture(request, env, ctx) {
     queueMessages.push({
       body: {
         captureId, url: result.url, ip: result.ip, tenantId, cip, enqueuedAt: Date.now(),
+        qualifiedTimestamps: quotaCheck?.eidasQualified ?? false,
         source: authMethod === 'session' ? 'dashboard' : 'api',
         ua: request.headers.get('User-Agent')?.slice(0, 256) || undefined,
       },
