@@ -298,7 +298,7 @@ For request/response schemas, see `openapi.yaml`.
 | GET | `/health` | none | — | infra |
 | GET | `/ui` | none | — | ui |
 | GET | `/admin` | none | — | admin |
-| POST | `/mcp` | api-key (none for `initialize`, `ping`, `tools/list`) | verify (keyless only) | infra |
+| POST | `/mcp` | api-key (none for `initialize`, `ping`, `tools/list`, `server/discover`) | verify (keyless only) | infra |
 | POST | `/v1/captures/batch` | dual | capture | public-api |
 | POST | `/v1/sitemap` | dual | sitemap | public-api |
 | POST | `/v1/captures` | dual | capture | public-api |
