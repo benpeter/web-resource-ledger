@@ -46,6 +46,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The API reference didn't list `timestamps` (which timestamps a capture's bundle holds) on capture records and list items, or `render.stages.scrollMs`
 - The weekly digest's subject and heading showed the period as timestamps ("2026-11-02T09:00:19.051Z - 2026-11-09T09:00:19.051Z"); they show dates ("Nov 2 - Nov 9")
 - Captures whose queue message was lost stayed `pending` for good (8 in production since July); a capture still pending 24 hours after it was submitted is now marked failed with "WRL lost track of this capture before it finished." and `retryable: true`
 - MCP `capture_url` and the MCP guide said a capture still pending after 30 seconds may have failed; retries can keep it pending for a few minutes, and resubmitting creates a second capture

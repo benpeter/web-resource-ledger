@@ -506,6 +506,13 @@ components:
             - 'null'
           minimum: 0
           description: Time in ms for the post-navigation settle delay. Null on partial captures.
+        scrollMs:
+          type: integer
+          minimum: 0
+          description: >
+            Time in ms spent scrolling the page to load lazy content before the
+            screenshot. Absent on partial captures and on captures made before
+            lazy-load scrolling.
         consentMs:
           type:
             - integer
@@ -526,6 +533,22 @@ components:
             - 'null'
           minimum: 0
           description: Time in ms to extract rendered HTML via page.content().
+
+    CaptureTimestamps:
+      type: object
+      description: >
+        Which independent timestamps the capture's WACZ bundle holds. Present when
+        the capture has a WACZ bundle.
+      required: [standard, qualified]
+      properties:
+        standard:
+          type: boolean
+          description: An RFC 3161 timestamp was obtained for the bundle hash.
+        qualified:
+          type: boolean
+          description: >
+            An eIDAS qualified timestamp was obtained as well. Only for tenants with
+            qualified timestamps turned on.
 
     CaptureRecord:
       type: object
@@ -607,6 +630,8 @@ components:
             the capture has no WACZ bundle.
           examples:
             - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/certificate
+        timestamps:
+          $ref: '#/components/schemas/CaptureTimestamps'
         captureSettings:
           $ref: '#/components/schemas/CaptureSettings'
           description: >
@@ -730,6 +755,8 @@ components:
         scheduleId:
           type: ['string', 'null']
           description: ID of the schedule that triggered this capture, if any. Null for manually submitted captures.
+        timestamps:
+          $ref: '#/components/schemas/CaptureTimestamps'
 
     Pagination:
       type: object
@@ -3074,6 +3101,9 @@ paths:
                       size: 204800
                     verifyUrl: https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
                     certificateUrl: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/certificate
+                    timestamps:
+                      standard: true
+                      qualified: false
                 withoutWacz:
                   summary: Completed capture without WACZ bundle
                   value:
