@@ -22,6 +22,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The API reference documents `GET` and `PUT /v1/admin/tenants/{tenantId}/config`, which the limits page already described; the limits page said a single override could be set to `null` to remove it, which answers `400`
 - `POST /v1/schedules` over the schedule limit answers `429` with `limitType: "schedules"`, as the API reference and the schedules guide say; the field was missing
 - `PUT /v1/admin/tenants/{tenantId}/config` answers `400` for a `schedules.maxSchedules` below 1 or above 100; it answered 500
 - The schedules guide and the limits page state the limit of 10 schedules and how operators change it; the landing and compare pages said WRL has no scheduled monitoring, and the schedules guide was hidden from search engines
