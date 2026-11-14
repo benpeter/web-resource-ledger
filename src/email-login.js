@@ -127,13 +127,16 @@ export async function handleEmailLoginRequest(request, env, ctx) {
     ctx.waitUntil(log(env, 4, 'oauth', { event: 'oauth.email_link_rate_limited', cip, scope: 'address' }) ?? Promise.resolve());
     return problemResponse(429, 'Too many sign-in links sent to this address. Try again in an hour.');
   }
-  ctx.waitUntil(Promise.all([byIp.writePromise, byEmail.writePromise]).catch(() => {}));
+  // A failed write leaves the counters short, so the limits above stop working.
+  ctx.waitUntil(Promise.all([byIp.writePromise, byEmail.writePromise]).catch((err) =>
+    log(env, 5, 'oauth', { event: 'oauth.email_link_counter_write_fail', cip, errorMessage: String(err?.message ?? '').slice(0, 256) })));
 
   const token = toBase64url(crypto.getRandomValues(new Uint8Array(32)));
   const tokenHash = await hashApiKey(token);
   const expiresAt = new Date(Date.now() + LOGIN_TOKEN_TTL_SECONDS * 1000).toISOString();
   await createLoginToken(env.DB, { tokenHash, email, source, expiresAt });
-  ctx.waitUntil(deleteExpiredLoginTokens(env.DB).catch(() => {}));
+  ctx.waitUntil(deleteExpiredLoginTokens(env.DB).catch((err) =>
+    log(env, 4, 'oauth', { event: 'oauth.login_token_cleanup_fail', errorMessage: String(err?.message ?? '').slice(0, 256) })));
 
   const loginUrl = `${new URL(request.url).origin}/auth/email/verify?token=${token}`;
   const { subject, html, text } = loginLinkEmail({ loginUrl, expiresInMinutes: LOGIN_TOKEN_TTL_SECONDS / 60 });

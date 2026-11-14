@@ -64,8 +64,6 @@ software development.
 | [0054-webhooks-outbound-callbacks](0054-webhooks-outbound-callbacks/) | Outbound webhook notifications for capture lifecycle events (Issue #102) |
 | [0055-self-serve-signup-oauth](0055-self-serve-signup-oauth/) | GitHub OAuth self-serve signup with auto-tenant provisioning, session management, account settings UI (Issue #103) |
 | [0056-tenant-quotas](0056-tenant-quotas/) | Per-tenant usage quotas with tier-based limits, pre-capture enforcement, web UI usage dashboard (Issue #104) |
-| [0070-stripe-legal-pages](0070-stripe-legal-pages/) | Stripe-required legal pages: privacy, refund, terms, content policy (Issue #131) |
-| [0071-replace-worker-url-with-custom-domain](0071-replace-worker-url-with-custom-domain/) | Replace wrl.benpeter.workers.dev with api.webresourceledger.com across code, config, and docs (Issue #134) |
 | [0057-e2e-test-suite-playwright](0057-e2e-test-suite-playwright/) | Playwright e2e test suite: 10 tests across 6 specs, CI workflow, staging tenant provisioning (Issue #105) |
 | [0058-stripe-usage-billing](0058-stripe-usage-billing/) | Stripe usage-based billing: checkout, portal, webhook handlers, D1 billing columns, grace period logic (Issue #106) |
 | [0059-scheduled-captures-cron](0059-scheduled-captures-cron/) | Scheduled captures with Cron Triggers: CRUD API, fan-out handler, per-tenant limits, web UI panel (Issue #107) |
@@ -73,22 +71,23 @@ software development.
 | [0061-content-security-scanning](0061-content-security-scanning/) | Content security scanning: Google Web Risk pre-capture screening, daily rescan cron, quarantine enforcement (Issue #109) |
 | [0062-capture-auth-gate](0062-capture-auth-gate/) | Capture auth gate for multi-tenant: tenant auth on retrieval endpoints, share tokens for delegated access, CLI token propagation (Issue #110) |
 | [0063-eidas-qualified-timestamps](0063-eidas-qualified-timestamps/) | eIDAS qualified timestamps: account-level opt-in, dual-TSA WACZ assembly, verification, Stripe billing, settings UI (Issue #138) |
-| [0059b-capture-quality](0059b-capture-quality/) | Capture quality improvements: error page detection, subresource limit 200→500, autoconsent v14.63.0, lazy-load scrolling, test battery |
-| [0075-simplify-capture-access-model](0075-simplify-capture-access-model/) | Simplify capture access model: remove share tokens, make individual capture endpoints public, auth-gate list only (Issue #169) |
-| [0076-billing-ui-panel](0076-billing-ui-panel/) | Billing UI panel: usage dashboard with charges, pricing tiers, invoice threshold, payment status, Stripe portal link, eIDAS add-on (Issue #170) |
-| [0074-legal-evidence-positioning](0074-legal-evidence-positioning/) | Legal-evidence positioning: landing page FRE/eIDAS framing, Legal Evidence docs guide, verification comparison (Issue #142) |
-| [0073-fre-902-13-certificate](0073-fre-902-13-certificate/) | FRE 902(13) certification PDF: deterministic Ed25519-signed document, API endpoint, web UI download button, 42 tests (Issue #141) |
-| [0077-settings-schedules-ui-polish](0077-settings-schedules-ui-polish/) | Settings & schedules UI polish: 18+ missing CSS selectors, card padding, mobile breakpoints, billing DOM cleanup (Issue #161) |
-| [0072-email-notifications](0072-email-notifications/) | Email notifications: 6 transactional types, Resend delivery via queue, RFC 8058 unsubscribe, preferences API + UI, OAuth email auto-population (Issue #111) |
-| [0078-ui-fixes-batch](0078-ui-fixes-batch/) | UI fixes batch: URL auto-prepend in capture form, "Art." → "Article" on verify page, billing stat spacing (Issues #179, #180, #183) |
-| [0080-ui-ux-fixes-batch](0080-ui-ux-fixes-batch/) | UI/UX fixes batch: sign-in contrast, billing status dedup, docs nav link, key-creation alert (Issue #213) |
-| [0079-homepage-pricing-screenshot-quality](0079-homepage-pricing-screenshot-quality/) | Homepage pricing update and screenshot quality: real graduated tier pricing, deviceScaleFactor 2→4 (Issues #182, #184) |
 | [0065-api-versioning](0065-api-versioning/) | API versioning and stability commitment: v1.0.0, CHANGELOG.md, DEPRECATION-POLICY.md, CI enforcement, WRL-API-Version header (Issue #113) |
 | [0066-mcp-directory-listings](0066-mcp-directory-listings/) | MCP directory listings and ecosystem: server.json registry update, Glama/MCP.so/awesome-lists submissions, doc bug fixes, 6 client integration examples (Issue #114) |
 | [0067-change-detection-diffing](0067-change-detection-diffing/) | Change detection and diffing: diff API endpoint, HTML text diff (diff-match-patch-es), screenshot hash + client pixel diff, header diff, change badges, visual diff UI with 3 modes, webhook enrichment (Issue #115) |
 | [0068-cdn-verification-traffic](0068-cdn-verification-traffic/) | CDN for verification traffic: Workers Cache API per-colo caching, admin cache purge endpoint, verify subdomain routing, Server-Timing headers, operational docs (Issue #116) |
-| [0080-notification-email-change](0080-notification-email-change/) | Email verification flow: pending-email pattern, HMAC tokens with 24h expiry, GET+POST verification, resend with cooldown, cross-tab detection (Issue #195) |
 | [0069-compliance-documentation](0069-compliance-documentation/) | Enterprise compliance documentation: security whitepaper, DPA template, subprocessor list, incident response, data retention/deletion, privacy policy fixes (Issue #117) |
+| [0070-stripe-legal-pages](0070-stripe-legal-pages/) | Stripe-required legal pages: privacy, refund, terms, content policy (Issue #131) |
+| [0071-replace-worker-url-with-custom-domain](0071-replace-worker-url-with-custom-domain/) | Replace wrl.benpeter.workers.dev with api.webresourceledger.com across code, config, and docs (Issue #134) |
+| [0072-email-notifications](0072-email-notifications/) | Email notifications: 6 transactional types, Resend delivery via queue, RFC 8058 unsubscribe, preferences API + UI, OAuth email auto-population (Issue #111) |
+| [0073-fre-902-13-certificate](0073-fre-902-13-certificate/) | FRE 902(13) certification PDF: deterministic Ed25519-signed document, API endpoint, web UI download button, 42 tests (Issue #141) |
+| [0074-legal-evidence-positioning](0074-legal-evidence-positioning/) | Legal-evidence positioning: landing page FRE/eIDAS framing, Legal Evidence docs guide, verification comparison (Issue #142) |
+| [0075-simplify-capture-access-model](0075-simplify-capture-access-model/) | Simplify capture access model: remove share tokens, make individual capture endpoints public, auth-gate list only (Issue #169) |
+| [0076-billing-ui-panel](0076-billing-ui-panel/) | Billing UI panel: usage dashboard with charges, pricing tiers, invoice threshold, payment status, Stripe portal link, eIDAS add-on (Issue #170) |
+| [0077-settings-schedules-ui-polish](0077-settings-schedules-ui-polish/) | Settings & schedules UI polish: 18+ missing CSS selectors, card padding, mobile breakpoints, billing DOM cleanup (Issue #161) |
+| [0078-ui-fixes-batch](0078-ui-fixes-batch/) | UI fixes batch: URL auto-prepend in capture form, "Art." → "Article" on verify page, billing stat spacing (Issues #179, #180, #183) |
+| [0079-homepage-pricing-screenshot-quality](0079-homepage-pricing-screenshot-quality/) | Homepage pricing update and screenshot quality: real graduated tier pricing, deviceScaleFactor 2→4 (Issues #182, #184) |
+| [0080-ui-ux-fixes-batch](0080-ui-ux-fixes-batch/) | UI/UX fixes batch: sign-in contrast, billing status dedup, docs nav link, key-creation alert (Issue #213) |
+| [0080-notification-email-change](0080-notification-email-change/) | Email verification flow: pending-email pattern, HMAC tokens with 24h expiry, GET+POST verification, resend with cooldown, cross-tab detection (Issue #195) |
 | [0081-webhook-docs-payload-fixes](0081-webhook-docs-payload-fixes/) | Webhook docs & payload fixes: artifact URLs in capture.complete, signature echo in ping response, 9 docs corrections, OpenAPI updates (Issue #212) |
 | [0082-backend-fixes-batch](0082-backend-fixes-batch/) | Backend fixes batch: notification skip for approaching_limit, descriptive Content-Disposition filenames (Issues #187, #181, #214) |
 | [0083-merge-timestamp-checks](0083-merge-timestamp-checks/) | Merge timestamp checks: single "Time verification" row replacing separate Timestamp imprint and Qualified timestamp rows (Issue #167) |
@@ -155,3 +154,4 @@ software development.
 | [0146-alerts-sync](0146-alerts-sync/) | The incident-response page, whitepaper and ops guide name all eleven Coralogix alerts with their real thresholds, checked against `provision-alerts.sh` |
 | [0147-request-state-isolation](0147-request-state-isolation/) | A request without credentials no longer inherits the previous caller's tenant: public capture reads stop returning 404 after an authenticated request, and the diff route needs its own key again |
 | [0148-identity-docs](0148-identity-docs/) | The DPA, whitepaper and retention page cover email sign-in and the stored notification address; the legal-evidence page says what happens when the timestamp authority can't be reached |
+| [0149-email-login-logs](0149-email-login-logs/) | Failed writes of the sign-in link counters and failed cleanup of expired links are logged instead of discarded |
