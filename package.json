@@ -28,7 +28,7 @@
     "vendor:autoconsent": "node scripts/vendor-autoconsent.js"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@cloudflare/vitest-plugin": "1.8.2",
     "@playwright/test": "^1.65.1",
     "@redocly/cli": "^2.78.0",
     "fflate": "^0.8.3",
