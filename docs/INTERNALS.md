@@ -355,6 +355,8 @@ For request/response schemas, see `openapi.yaml`.
 
 **Auth values:** `api-key` = `Authorization: Bearer {key}`; `admin-key` = admin key from `ADMIN_KEY` secret; `session` = `__Host-wrl_session` cookie (HMAC-signed); `dual` = session cookie first, then API key fallback; `signature` = Stripe webhook signature verification; `none` = unauthenticated; `none (optional dual)` = public access unless credentials presented (bad credentials → 401).
 
+**Request auth context:** the fetch gates attach the verified caller for the handler: `env._session` on account and billing routes, `env._captureAuth` on capture GET routes (unset when no credentials were sent). Workers pass one `env` object to every request an isolate serves, so `fetch()` starts with `env = Object.create(env)`; the fields land on a per-request object that inherits the bindings. Store any new request state the same way, never on the shared `env`.
+
 ---
 
 ## KV Key Patterns

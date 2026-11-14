@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Security
+
+- A request without credentials no longer runs as the previous caller of the same Worker instance: keyless reads of public captures returned 404 after an authenticated request, and the diff endpoint accepted a keyless request as that caller
+
 ### Fixed
 
 - The authentication guide's scope table lists the sitemap, schedule, diff, certificate and usage endpoints, and says which scope each needs
