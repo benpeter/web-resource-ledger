@@ -1171,10 +1171,10 @@ async function handleReadSitemap(request, env, ctx) {
 
   const result = await readSitemap(body.url.trim());
   if (!result.ok) {
-    ctx.waitUntil(log(env, 6, 'sitemap', { event: 'sitemap.read_fail', tenantId: auth.tenantId, status: result.status, detail: result.detail }) ?? Promise.resolve());
+    ctx.waitUntil(log(env, 2, 'sitemap', { event: 'sitemap.read_fail', tenantId: auth.tenantId, status: result.status, detail: result.detail }) ?? Promise.resolve());
     return problemResponse(result.status, result.detail);
   }
-  ctx.waitUntil(log(env, 6, 'sitemap', {
+  ctx.waitUntil(log(env, 2, 'sitemap', {
     event: 'sitemap.read', tenantId: auth.tenantId, urls: result.urls.length, total: result.total, sitemapsRead: result.sitemapsRead,
   }) ?? Promise.resolve());
   return new Response(JSON.stringify({
@@ -1683,7 +1683,7 @@ async function handleListCaptures(request, env, ctx) {
 
   // Step 7: Log success
   const durationMs = Date.now() - start;
-  ctx.waitUntil(log(env, 6, 'capture', {
+  ctx.waitUntil(log(env, 2, 'capture', {
     event: 'capture.list',
     tenantId: auth.tenantId,
     keyName,
