@@ -333,6 +333,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     signature:          'Digital signature',
     timeVerification:   'Time verification',
     consentHandling:    'Cookie consent handled',
+    renderQuality:      'Page load',
   };
 
   var CHECK_DESCS = {
@@ -341,6 +342,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     signature:          'Confirms the bundle was signed by the capture service.',
     timeVerification:   'Verification of the time of capture by an independent authority.',
     consentHandling:    'The capture dismissed a cookie consent banner to reveal the page content.',
+    renderQuality:      'The page did not finish loading in time. It was captured once its HTML had loaded, so images or content that load later may be missing.',
   };
 
   // Canonical source: packages/verify/lib/format.js -- keep in sync
@@ -460,6 +462,11 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         status: 'skip',
         detail: 'A consent banner was detected but could not be dismissed.',
       }]);
+    }
+
+    // A partial render is signed like a full one; say so next to the checks
+    if (capture.renderQuality === 'partial') {
+      checks = checks.concat([{ name: 'renderQuality', status: 'skip' }]);
     }
 
     var completedAt = fmtDate(capture.completedAt);

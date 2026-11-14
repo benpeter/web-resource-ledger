@@ -504,6 +504,7 @@ function createMcpServer(env, ctx, auth, origin) {
         `Captured URL: ${record.url}`,
         `Captured: ${record.createdAt}`,
         `Completed: ${record.completedAt}`,
+        `Render quality: ${record.renderQuality ?? 'full'}`,
         '',
         'Checks:',
       ];
