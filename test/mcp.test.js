@@ -907,6 +907,7 @@ describe('tool: list_schedules -- empty', () => {
     expect(body.result.isError).toBeUndefined();
     const text = body.result.content[0].text;
     expect(text.toLowerCase()).toContain('no schedules');
+    expect(text).toContain('can have 10');
   });
 });
 
@@ -934,6 +935,7 @@ describe('tool: list_schedules -- with data', () => {
     expect(text).toContain(LIST_SCHEDULE_ID);
     expect(text).toContain('My Test Schedule');
     expect(text).toContain('Status:   active');
+    expect(text).toContain('1 of 10 schedules');
   });
 
   it('shows a paused schedule as paused, without a next run', async () => {
