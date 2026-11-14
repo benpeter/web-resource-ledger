@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Added
+
+- `/.well-known/security.txt` (RFC 9116) on webresourceledger.com names the reporting channel and points to `SECURITY.md`; `api.`, `verify.` and `docs.webresourceledger.com` redirect to it
+
 ### Fixed
 
 - The privacy policy said usage counters are kept for the current and previous billing periods; WRL keeps the current period and the 12 before it, as the Data Retention page says. It also said sign-in link hashes are deleted after use; they are deleted a day after the link expires

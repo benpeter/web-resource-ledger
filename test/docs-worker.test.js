@@ -1,5 +1,6 @@
 /**
- * Docs site Worker (site/src/index.js): a failed static asset fetch is logged.
+ * Docs site Worker (site/src/index.js): a failed static asset fetch is logged,
+ * and /.well-known/security.txt redirects to the landing site.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
@@ -30,5 +31,16 @@ describe('docs Worker -- static asset failure', () => {
     } finally {
       fetchSpy.mockRestore();
     }
+  });
+});
+
+describe('docs Worker -- security.txt', () => {
+  it('redirects /.well-known/security.txt to the landing site without reading the assets', async () => {
+    const env = { ASSETS: { fetch: async () => { throw new Error('assets must not be read'); } } };
+    const ctx = createExecutionContext();
+    const res = await docs.fetch(new Request('https://docs.webresourceledger.com/.well-known/security.txt'), env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(301);
+    expect(res.headers.get('Location')).toBe('https://webresourceledger.com/.well-known/security.txt');
   });
 });

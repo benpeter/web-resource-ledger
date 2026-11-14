@@ -1,7 +1,7 @@
 // tva
 // The docs diagrams never rendered: the pages loaded Mermaid from a CDN in an
-// inline script, and the docs Content-Security-Policy (script-src 'self', in
-// site/_headers) blocks both, so readers saw the diagram source as code.
+// inline script, and the docs Content-Security-Policy (script-src 'self', set
+// by site/src/index.js) blocks both, so readers saw the diagram source as code.
 // Diagrams are now SVG files rendered from site/diagrams/*.mmd and shown as
 // images. Reads the sources as text, like llms-sync.test.js.
 import { readFileSync, readdirSync, existsSync } from 'fs';
