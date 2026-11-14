@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: SWGDE Alignment
-description: How WRL's automated capture pipeline maps to SWGDE Best Practices for Acquiring Online Content (21-F-001, Version 1.1, March 2024) -- SHA-256 hashing, automated collection documentation, and RFC 3161 timestamps.
+description: How WRL's capture pipeline maps to SWGDE 21-F-001, Best Practices for Acquiring Online Content, with SHA-256 hashes, collection records and RFC 3161 timestamps.
 ---
 
 # SWGDE Best Practices: Mapping to WRL
