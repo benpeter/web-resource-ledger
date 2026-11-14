@@ -35,7 +35,7 @@ import { performVerification } from './verify.js';
 import { log } from './log.js';
 import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
 import { readSitemap } from './sitemap.js';
-import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage, formatStorage } from './quotas.js';
+import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage, formatStorage, computeQuotaReset } from './quotas.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
@@ -1129,6 +1129,7 @@ function createMcpServer(env, ctx, auth, origin) {
       const lines = [
         `Usage for: ${auth.tenantId}`,
         `Period: ${period}`,
+        `Resets: ${computeQuotaReset()}`,
         `Billing status: ${publicBillingStatus}`,
         `Payment method on file: ${hasPaymentMethod ? 'yes' : 'no'}`,
         '',
