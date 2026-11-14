@@ -385,11 +385,12 @@ Return current-period quota usage for this account, including capture count, sto
 ```
 Usage for: gh-12345
 Period: 2026-11
+Resets: 2026-12-01T00:00:00.000Z
 Billing status: free
 Payment method on file: no
 
 Captures used:   42 / 200
-Storage used:    51200 KB / 10240 MB
+Storage used:    0.1 GB / 10.0 GB
 ```
 
 With a payment method on file, both limits read `unlimited`. When the account is blocked or a deletion is pending, the output ends with a line saying so, and the capture tools refuse. The REST equivalent is `GET /v1/account/usage` with the same API key.
