@@ -158,3 +158,4 @@ software development.
 | [0149-email-login-logs](0149-email-login-logs/) | Failed writes of the sign-in link counters and failed cleanup of expired links are logged instead of discarded |
 | [0150-first-key-tos](0150-first-key-tos/) | The first API key can't be fetched before the terms of service are accepted |
 | [0151-vitest-4](0151-vitest-4/) | Tests run on vitest 4 and vitest-pool-workers 0.19; the request-state fix holds when env is a Proxy |
+| [0152-tenant-deletion](0152-tenant-deletion/) | Admin routes request, cancel and carry out the account deletion the data-retention page promises; blocked accounts get a 403 instead of a garbled 429 |

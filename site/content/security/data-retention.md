@@ -52,7 +52,7 @@ Deletion is a two-phase process with a 30-day window for you to export your data
 
 When you request deletion:
 
-1. Your account is immediately blocked. No new captures can be submitted and all scheduled captures are paused.
+1. Your account is immediately blocked. No new captures can be submitted (capture requests answer 403 with the deletion date) and all scheduled captures are paused.
 2. Existing capture data remains readable. You can still access your capture history and download artifacts during the grace period.
 3. You receive a confirmation with the exact date your data will be permanently deleted.
 
