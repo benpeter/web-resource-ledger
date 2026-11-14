@@ -36,8 +36,8 @@ Every API key is granted one or more scopes that control which endpoints it can 
 
 | Scope | What it allows |
 |-------|----------------|
-| `capture` | Submit new captures (`POST /v1/captures`, `POST /v1/captures/batch`). Implies `read`. |
-| `read` | List captures (`GET /v1/captures`), retrieve capture records and artifacts, and run verifications. |
+| `capture` | Submit new captures (`POST /v1/captures`, `POST /v1/captures/batch`), read sitemaps, and manage schedules and webhooks. Implies `read`. |
+| `read` | List captures (`GET /v1/captures`), compare two captures, read usage (`GET /v1/account/usage`), retrieve capture records and artifacts, and run verifications. |
 | `admin` | Reserved for future use. Has no runtime effect today -- admin endpoints use a separate credential. |
 
 Because `capture` implies `read`, a key with `capture` scope can do everything a `read`-only key can do plus submit new captures.
@@ -48,10 +48,13 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 |----------|----------------|
 | `POST /v1/captures` | `capture` |
 | `POST /v1/captures/batch` | `capture` |
+| `POST /v1/sitemap` | `capture` |
 | `GET /v1/captures` | `read` |
 | `GET /v1/captures/{id}` | None (public) |
 | `GET /v1/captures/{id}/status` | None (public) |
 | `GET /v1/captures/{id}/artifacts/*` | None (public) |
+| `GET /v1/captures/{id}/certificate` | None (public) |
+| `GET /v1/captures/{id}/diff/{baseId}` | `read` |
 | `GET /v1/verify/{id}` | None (public endpoint) |
 | `GET /.well-known/signing-key` | None (public endpoint) |
 | `GET /.well-known/signing-keys` | None (public endpoint) |
@@ -59,6 +62,12 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `GET /v1/webhooks` | `capture` |
 | `DELETE /v1/webhooks/{id}` | `capture` |
 | `POST /v1/webhooks/{id}/ping` | `capture` |
+| `POST /v1/schedules` | `capture` |
+| `GET /v1/schedules` | `capture` |
+| `GET /v1/schedules/{id}` | `capture` |
+| `PATCH /v1/schedules/{id}` | `capture` |
+| `DELETE /v1/schedules/{id}` | `capture` |
+| `GET /v1/account/usage` | `read` |
 | `POST /v1/admin/keys` | Admin credential |
 | `GET /v1/admin/keys` | Admin credential |
 | `DELETE /v1/admin/keys/{keyHash}` | Admin credential |

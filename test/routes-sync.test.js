@@ -4,7 +4,9 @@
 // missing) and got the diff route's auth wrong. openapi.yaml declared the
 // session-only notification routes as needing no auth. Every route in
 // src/index.js has a row, and each OpenAPI operation's `security` matches the
-// row's Auth column; reads the sources as text, like mcp-sync.test.js.
+// row's Auth column. The scope table in site/content/authentication.md had
+// none of the sitemap, schedule, diff and usage routes; it lists every operation
+// that takes a tenant key. Reads the sources as text, like mcp-sync.test.js.
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -72,5 +74,25 @@ describe('openapi.yaml security', () => {
       }
     }
     expect(mismatches).toEqual([]);
+  });
+});
+
+describe('authentication.md scope table', () => {
+  it('lists every operation that takes a tenant API key', () => {
+    const spec = parse(read('openapi.yaml'));
+    const docs = read('site/content/authentication.md');
+    const listed = new Set([...docs.matchAll(/^\| `(GET|POST|PUT|PATCH|DELETE) ([^`]+)` \|/gm)]
+      .map(([, method, path]) => `${method} ${path.replace(/\{[^}]+\}/g, '{}')}`));
+    const missing = [];
+    for (const [path, item] of Object.entries(spec.paths)) {
+      for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+        const security = item[method]?.security ?? [];
+        if (!security.some((requirement) => 'bearerAuth' in requirement)) continue;
+        const key = `${method.toUpperCase()} ${path.replace(/\{[^}]+\}/g, '{}')}`;
+        if (!listed.has(key)) missing.push(key);
+      }
+    }
+    expect(listed.size).toBeGreaterThan(10);
+    expect(missing).toEqual([]);
   });
 });
