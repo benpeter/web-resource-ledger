@@ -77,6 +77,25 @@ describe('openapi.yaml security', () => {
   });
 });
 
+describe('openapi.yaml coverage', () => {
+  it('documents every route that takes an API key or the admin key', () => {
+    const spec = parse(read('openapi.yaml'));
+    const documented = new Set();
+    for (const [path, item] of Object.entries(spec.paths)) {
+      for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+        if (item[method]) documented.add(`${method.toUpperCase()} ${path.replace(/\{[^}]+\}/g, '{}')}`);
+      }
+    }
+    // POST /mcp ("api-key (none for ...)") is JSON-RPC, documented in the MCP
+    // guide and checked by mcp-sync.test.js
+    const keyed = [...tableRows()]
+      .filter(([, auth]) => ['dual', 'api-key', 'admin-key', 'none (optional dual)'].includes(auth))
+      .map(([route]) => route);
+    expect(keyed.length).toBeGreaterThan(30);
+    expect(keyed.filter((route) => !documented.has(route))).toEqual([]);
+  });
+});
+
 describe('authentication.md scope table', () => {
   it('lists every operation that takes a tenant API key', () => {
     const spec = parse(read('openapi.yaml'));
