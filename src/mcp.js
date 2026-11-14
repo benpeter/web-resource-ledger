@@ -52,25 +52,36 @@ const MAX_REQUEST_BODY_BYTES = 256 * 1024;
 const KEYLESS_METHODS = new Set(['initialize', 'notifications/initialized', 'ping', 'tools/list']);
 
 /**
+ * The JSON-RPC method of each message in a request. Reads a copy of the body,
+ * capped like the transport; null when it is too large or not JSON.
+ *
+ * @param {Request} request
+ * @returns {Promise<Array<*>|null>}
+ */
+async function jsonRpcMethods(request) {
+  const { tooLarge, text } = await readRequestBody(request.clone(), MAX_REQUEST_BODY_BYTES);
+  if (tooLarge) return null;
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const messages = Array.isArray(body) ? body : [body];
+  return messages.map((message) => message?.method);
+}
+
+/**
  * True for a request without an Authorization header whose JSON-RPC messages
- * all use KEYLESS_METHODS. Reads a copy of the body, capped like the transport;
- * anything else goes through the key check.
+ * all use KEYLESS_METHODS; anything else goes through the key check.
  *
  * @param {Request} request
  * @returns {Promise<boolean>}
  */
 async function isKeylessDiscovery(request) {
   if (request.headers.has('Authorization')) return false;
-  const { tooLarge, text } = await readRequestBody(request.clone(), MAX_REQUEST_BODY_BYTES);
-  if (tooLarge) return false;
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return false;
-  }
-  const messages = Array.isArray(body) ? body : [body];
-  return messages.length > 0 && messages.every((message) => KEYLESS_METHODS.has(message?.method));
+  const methods = await jsonRpcMethods(request);
+  return methods !== null && methods.length > 0 && methods.every((method) => KEYLESS_METHODS.has(method));
 }
 
 // Monthly quota and account state, checked as on the REST capture endpoints.
@@ -1600,11 +1611,17 @@ export async function handleMcp(request, env, ctx) {
   // Auth check (minimum 'read' scope for any MCP access)
   const auth = await verifyApiKey(request, env, { requiredScope: 'read' });
   if (!auth.ok) {
+    // Which methods the client asked for, to tell directory crawlers from callers
+    const methods = (await jsonRpcMethods(request))?.slice(0, 5)
+      .map((method) => (typeof method === 'string' ? method.slice(0, 64) : null)) ?? null;
+    const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
     ctx.waitUntil(log(env, 5, 'security', {
       event: 'security.auth_fail',
       reason: auth.reason,
       keyHashPrefix: auth.keyHashPrefix || null,
       responseStatus: auth.response.status,
+      methods,
+      cip,
       via: 'mcp',
     }) ?? Promise.resolve());
     return auth.response;
