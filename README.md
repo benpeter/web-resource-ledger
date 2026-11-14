@@ -10,7 +10,7 @@ WRL was built almost entirely by an LLM (Claude) with a human directing the work
 
 For comprehensive guides on authentication, verification, batch captures, and MCP integration, see [docs.webresourceledger.com](https://docs.webresourceledger.com).
 
-> **Status:** Production service, single-operator deployment. All three roadmap acts are complete. The API is pre-1.0 but functional, deployed, and serving real traffic.
+> **Status:** Production service, single-operator deployment. All three roadmap acts are complete. The API follows semantic versioning since 1.0.0 (see [CHANGELOG.md](CHANGELOG.md)), and every response names its version in the `WRL-API-Version` header.
 
 ## What you get
 
