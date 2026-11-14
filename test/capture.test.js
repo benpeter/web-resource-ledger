@@ -2,7 +2,8 @@ import { env, fetchMock } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { performCapture, captureHeaders, categorizeError } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';
-import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer } from './fixtures.js';
+import { unzipSync } from 'fflate';
+import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer, consentNotDetectedRenderer } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -731,13 +732,21 @@ describe('performCapture -- partial capture (timeout with DOMContentLoaded)', ()
     expect(html).not.toBeNull();
   });
 
-  it('KV record has no wacz field', async () => {
+  it('builds a signed WACZ bundle that records the partial render', async () => {
     mockHeaderFetch();
     await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
 
     const record = await getCapture(env.DB, TEST_ID);
-    expect(record.wacz).toBeFalsy();
+    expect(record.wacz?.key).toBeTruthy();
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'partial',
+      waitUntilReached: 'domcontentloaded',
+      timedOut: true,
+    });
   });
 
   it('header fetch still runs (headers.json written when available)', async () => {
@@ -747,6 +756,24 @@ describe('performCapture -- partial capture (timeout with DOMContentLoaded)', ()
 
     const record = await getCapture(env.DB, TEST_ID);
     expect(record.artifacts.headers).toBe(`captures/${TEST_ID}/headers.json`);
+  });
+});
+
+describe('performCapture -- full capture quality in the WACZ', () => {
+  it('signs captureQuality full into datapackage.json', async () => {
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, consentNotDetectedRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'full',
+      waitUntilReached: 'load',
+      timedOut: false,
+    });
   });
 });
 

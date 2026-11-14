@@ -181,7 +181,7 @@ describe('GET /v1/verify/{id} -- tamper detection', () => {
 // Error cases
 // ---------------------------------------------------------------------------
 
-describe('GET /v1/verify/{id} -- partial capture (no WACZ)', () => {
+describe('GET /v1/verify/{id} -- capture without a WACZ (e.g. a partial capture made before phase 0138)', () => {
   it('verify endpoint returns 404 for captures without WACZ', async () => {
     const partialId = 'cap_' + 'a'.repeat(32);
     await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(partialId).run();
@@ -193,7 +193,7 @@ describe('GET /v1/verify/{id} -- partial capture (no WACZ)', () => {
         screenshot: `captures/${partialId}/screenshot.png`,
         html:       `captures/${partialId}/rendered.html`,
       },
-      null, // no wacz -- partial capture
+      null, // no wacz
       'partial',
       { waitUntilReached: 'domcontentloaded', timedOut: true, durationMs: 25000 },
     );
@@ -371,5 +371,29 @@ describe('GET /v1/captures/{id} -- verifyUrl', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.verifyUrl).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Partial capture (navigation timed out after DOMContentLoaded)
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/verify/{id} -- partial capture', () => {
+  it('verifies a partial capture and reports its render quality', async () => {
+    const partialRenderer = async () => ({
+      screenshot: PNG_BYTES,
+      html: TEST_HTML,
+      partial: true,
+      render: { waitUntilReached: 'domcontentloaded', timedOut: true, durationMs: 21000 },
+    });
+    await env.DB.prepare('DELETE FROM captures WHERE id = ?').bind(TEST_ID).run();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, partialRenderer);
+
+    const res = await SELF.fetch(`https://worker.test/v1/verify/${TEST_ID}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.verified).toBe(true);
+    expect(body.capture.renderQuality).toBe('partial');
   });
 });
