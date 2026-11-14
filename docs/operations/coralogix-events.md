@@ -8,7 +8,7 @@ Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=W
 
 | Sev | Event | Meaning |
 |-----|-------|---------|
-| 5 | `security.auth_fail` | Authentication rejected (bad/missing API key or session) |
+| 5 | `security.auth_fail` | Authentication rejected (bad/missing API key or session). From `/mcp` (`via: mcp`) it also has `methods`, the JSON-RPC methods the request asked for (up to 5), and `cip` |
 | 5 | `security.ssrf_block` | URL blocked by SSRF validation (private IP, bad scheme) |
 | 5 | `security.invalid_tenant_id` | API key maps to a non-existent tenant |
 | 5 | `security.kv_error` | Key-value store error during auth lookup |
