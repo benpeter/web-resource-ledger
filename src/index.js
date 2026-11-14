@@ -524,6 +524,11 @@ export default {
   },
 
   async fetch(request, env, ctx) {
+    // Workers pass the same env object to every request of an isolate. The auth
+    // gates below attach the caller (env._session, env._captureAuth); a
+    // per-request object that inherits the bindings keeps that from leaking
+    // into the next or a concurrent request.
+    env = Object.create(env);
     const url = new URL(request.url);
     // Normalize trailing slashes: /health/ matches /health
     const pathname = url.pathname.replace(/\/$/, '') || '/';
