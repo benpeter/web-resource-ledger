@@ -85,7 +85,7 @@ Returns the capture record: URLs for each artifact (screenshot, html, headers, w
 curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 ```
 
-Returns a JSON verification result with up to four checks: `artifactHashes`, `bundleHash`, `signature`, and (for new captures) `timestamp`. The timestamp check verifies an RFC 3161 independent timestamp obtained at capture time. Legacy captures return three checks. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
+Returns a JSON verification result with up to five checks: `artifactHashes`, `bundleHash`, `signature`, `timestamp` (the RFC 3161 timestamp obtained at capture time) and, for captures made with qualified timestamps turned on, `qualifiedTimestamp`. Legacy captures from before timestamps return three checks. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
 
 Capture URLs are directly shareable -- anyone with the capture ID can access the capture and its artifacts. No tokens needed.
 

@@ -549,7 +549,7 @@ Tool: verify_capture
 Input: { "capture_id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" }
 ```
 
-All four checks passing confirms: the screenshot, HTML, and HTTP headers match what was captured; the WACZ bundle has not been altered; the Ed25519 signature is valid; and an independent RFC 3161 timestamp authority recorded the capture time.
+All four checks passing confirms: the screenshot, HTML, and HTTP headers match what was captured; the WACZ bundle has not been altered; the Ed25519 signature is valid; and an independent RFC 3161 timestamp authority recorded the capture time. A capture made with qualified timestamps turned on has a fifth check, `qualifiedTimestamp`, for its eIDAS timestamp.
 
 ---
 
