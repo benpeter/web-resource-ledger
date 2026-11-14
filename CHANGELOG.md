@@ -21,6 +21,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The legal-evidence page and the verify README describe what the `--legal` report contains; they listed an operator identity, the timestamp token and the TSA certificate chain, which the report doesn't include, and said every capture has a timestamp
 - MCP `capture_url` and `batch_capture` check the monthly quota and the account state, like the REST capture endpoints; before, an MCP client could capture past the 200 free captures, and a blocked account could still capture through MCP
 - MCP `get_usage` shows the real numbers for an account that is blocked, has a pending deletion or is past a limit; it showed 0 captures, billing status `free` and an unknown period
 - The limits page quotes the actual quota and rate-limit 429 responses, and explains the 403 for accounts that can't capture

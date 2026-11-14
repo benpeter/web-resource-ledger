@@ -91,13 +91,13 @@ The report is formatted as WRL-LEGAL-1.0 and contains seven sections:
 
 | Section | Contents |
 |---------|----------|
-| Summary | Plain-language pass/fail result and the captured URL |
-| Subject | Captured URL, capture time, and operator identity |
+| Summary | Plain-language pass/fail result, how many checks ran, what was verified (the capture URL or WACZ file given to the tool) and when |
+| Subject | What a WACZ capture contains, when it was signed, and its bundle hash |
 | Check explanations | Each verification check described in non-technical terms |
 | Chain of custody | Narrative from capture request through signing and timestamping |
 | Legal standards | How the verification properties map to FRE 901(b)(9) and eIDAS Art. 41; does not claim admissibility |
 | Methodology | Description of the automated pipeline and the `@w-r-l/verify` tool |
-| Technical details | All cryptographic values untruncated: bundle hash, Ed25519 signature, RFC 3161 timestamp token, TSA certificate chain |
+| Technical details | All cryptographic values untruncated: bundle hash, Ed25519 signature, signing key and where it came from, and each timestamp's time and authority |
 
 No ANSI color codes are written -- the output is safe to save as a file or paste into a document. All cryptographic values appear in full; none are shortened.
 
