@@ -1,0 +1,31 @@
+flowchart LR
+    subgraph Entry["Entry Points"]
+        IP["Client IP<br/>(CF-Connecting-IP)"]
+        GH["GitHub Identity<br/>(OAuth)"]
+        EMAIL["Email address<br/>(sign-in link, notifications)"]
+    end
+
+    subgraph Transform["Transformations"]
+        HMAC["HMAC-SHA-256<br/>daily key rotation"]
+        DISCARD["Access token<br/>discarded after /user"]
+        SHA256["Session ID<br/>SHA-256 hashed"]
+        TOKEN["Sign-in link token<br/>SHA-256 hashed"]
+    end
+
+    subgraph Storage["Storage"]
+        LOGS["Coralogix EU2<br/>(cip pseudonym only)"]
+        D1_GH["D1: github_users<br/>(githubId, githubLogin, tenantId)"]
+        D1_SESS["D1: sessions<br/>(session ID as hash)"]
+        D1_EMAIL["D1: email_users<br/>(email, tenantId)"]
+        D1_TOKEN["D1: login_tokens<br/>(token hash, email)"]
+        D1_NOTIF["D1: notification_preferences<br/>(email for notifications)"]
+    end
+
+    IP --> HMAC --> LOGS
+    GH --> DISCARD
+    GH --> D1_GH
+    EMAIL --> D1_EMAIL
+    EMAIL --> TOKEN --> D1_TOKEN
+    EMAIL --> D1_NOTIF
+    GH --> SHA256 --> D1_SESS
+    EMAIL --> SHA256

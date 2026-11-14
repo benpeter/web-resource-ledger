@@ -267,6 +267,20 @@ body {
   box-sizing: border-box;
 }
 
+/* Diagrams are SVG files with their natural size. On wide screens they may use
+   the empty space right of the text column; the image links to the file for
+   the full-size view. */
+.docs-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (min-width: 768px) {
+  .docs-content img[src^="/assets/diagrams/"] {
+    max-width: calc(100vw - 240px - var(--space-12));
+  }
+}
+
 /* Wide content modifier — used by compare page to let the table breathe */
 .docs-content--wide {
   max-width: calc(100vw - 240px - var(--space-12));

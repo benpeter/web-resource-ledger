@@ -1,0 +1,40 @@
+flowchart LR
+    subgraph Callers["Callers (untrusted)"]
+        API_CONSUMER["API or MCP client (tenant)"]
+        EXT_USER["Dashboard user (browser)"]
+    end
+
+    subgraph WRL["WRL System (Cloudflare)"]
+        WORKER["Cloudflare Worker<br/>(src/index.js)"]
+        D1[("D1 (SQLite)<br/>Metadata")]
+        R2[("R2<br/>Artifact Storage")]
+        KV["Workers KV<br/>OAuth state, first key,<br/>rate limit counters"]
+        QUEUE["Capture Queue<br/>(wrl-captures)"]
+        BROWSER["Browser Rendering<br/>(headless Chromium)"]
+    end
+
+    subgraph External["External Services"]
+        GITHUB["GitHub<br/>(OAuth identity)"]
+        DIGICERT["DigiCert<br/>(RFC 3161 TSA)"]
+        SECTIGO["Sectigo<br/>(eIDAS qualified TSA)"]
+        WEBRISK["Google Web Risk<br/>(threat screening)"]
+        STRIPE["Stripe<br/>(payments)"]
+        CORALOGIX["Coralogix EU2<br/>(structured logs)"]
+        RESEND["Resend<br/>(transactional email)"]
+    end
+
+    API_CONSUMER -- "Bearer API key (HTTPS)" --> WORKER
+    EXT_USER -- "Session cookie (HTTPS)" --> WORKER
+    WORKER -- "enqueue" --> QUEUE
+    QUEUE -- "consume" --> WORKER
+    WORKER -- "render" --> BROWSER
+    WORKER --> D1
+    WORKER --> R2
+    WORKER --> KV
+    WORKER -- "OAuth PKCE" --> GITHUB
+    WORKER -- "TimeStampReq" --> DIGICERT
+    WORKER -- "TimeStampReq" --> SECTIGO
+    WORKER -- "URI lookup" --> WEBRISK
+    WORKER -- "billing events" --> STRIPE
+    WORKER -- "log entries" --> CORALOGIX
+    WORKER -- "email delivery" --> RESEND
