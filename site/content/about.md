@@ -1,7 +1,7 @@
 ---
 layout: layouts/doc.njk
 title: How WRL Was Built
-description: WRL was built almost entirely by an LLM. 60+ development phases documented with prompts, agent debates, decisions, and outcomes.
+description: WRL was built almost entirely by an LLM. More than 170 development phases documented with prompts, agent debates, decisions, and outcomes.
 ---
 
 # How WRL Was Built
@@ -30,6 +30,9 @@ WRL went from first commit to production service in 10 days (March 13-22,
   "independently verifiable."
 - **Act 3 (Infrastructure):** MCP server, web UI, batch captures, scheduled
   captures, docs site, landing page, usage metering via Stripe, webhooks.
+
+Work went on after launch the same way, one documented phase at a time. The
+evolution log now has more than 170 phases.
 
 ## The Documentation
 
