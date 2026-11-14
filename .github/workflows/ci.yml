@@ -56,11 +56,26 @@ jobs:
         timeout-minutes: 5
         run: npm test
       - if: steps.changes.outputs.code == 'true'
-        run: npm run test:sync
-      - if: steps.changes.outputs.code == 'true'
         run: npm run lint:api
       - if: steps.changes.outputs.code == 'false'
         run: echo "Docs-only change -- skipping tests and lint."
+
+  test-docs:
+    # Builds the docs site and runs the sync tests, which read the docs and
+    # landing pages as text. Runs on every change: the test job skips docs-only
+    # ones, and the docs deploy only builds after merge.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: cd site && npm ci
+      - run: npm run build:docs
+      - run: npm run test:sync
 
   test-verify:
     # The @w-r-l/verify package's own tests; nothing else runs them
