@@ -625,8 +625,21 @@ export default {
           }
         }
 
+        // GET /v1/account/usage also takes an API key with the read scope, like MCP get_usage
+        const isUsageKeyRequest = request.method === 'GET'
+          && pathname === '/v1/account/usage'
+          && request.headers.has('Authorization');
+        if (!response && isUsageKeyRequest) {
+          const auth = await verifyApiKey(request, env, { requiredScope: 'read' });
+          if (!auth.ok) {
+            response = auth.response;
+          } else {
+            env._session = { tenantId: auth.tenantId, authMethod: auth.authMethod };
+          }
+        }
+
         // Session auth
-        if (!response) {
+        if (!response && !isUsageKeyRequest) {
           const session = await verifySession(request, env);
           if (!session.ok) {
             response = session.response;

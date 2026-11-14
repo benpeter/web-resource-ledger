@@ -42,6 +42,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- `GET /v1/account/usage` answered 401 to API keys although the API reference documents bearer auth; it now takes an API key with the `read` scope, like the MCP tool `get_usage`. The API reference now lists the fields the endpoint returns (`billingStatus`, `hasPaymentMethod`, `gracePeriodEnd`, `billing`) instead of `tierDisplay`, which it never sent
 - A schedule's `lastCaptureStatus` stayed `pending`; it now becomes `complete` or `failed` with its capture
 - The dashboard's schedule badge showed "Active" after a failed capture; it shows Error, Skipped (quota) and Blocked (unsafe URL)
 - Change detection compared captures of different URLs after a schedule's URL changed; it compares captures of the same URL only

@@ -330,7 +330,7 @@ For request/response schemas, see `openapi.yaml`.
 | POST | `/v1/account/keys` | session | auth | account |
 | DELETE | `/v1/account/keys/{keyHash}` | session | auth | account |
 | POST | `/v1/account/tos` | session | auth | account |
-| GET | `/v1/account/usage` | session | auth | account |
+| GET | `/v1/account/usage` | dual | auth | account |
 | GET | `/v1/account/settings` | session | auth | account |
 | PATCH | `/v1/account/settings` | session | auth | account |
 | GET | `/v1/account/notifications` | session | auth | notification |

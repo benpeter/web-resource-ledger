@@ -39,11 +39,14 @@ Every successful capture response includes `X-Quota-*` headers so you can monito
 | `X-Quota-Used` | Captures consumed so far this period |
 | `X-Quota-Remaining` | Captures left before the quota is exhausted |
 
-To check usage programmatically without submitting a capture, use the account usage endpoint (requires session auth):
+To check usage without submitting a capture, call the account usage endpoint with an API key that has the `read` scope (a `capture` key includes it). The MCP tool `get_usage` returns the same numbers.
 
 ```bash
-GET /v1/account/usage
+curl https://api.webresourceledger.com/v1/account/usage \
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
+
+The response has `captures` and `storageBytes`, each with `used`, `limit` and `remaining` (`limit` and `remaining` are null when there is no limit), the billing status and `resetsAt`.
 
 ### Quota Exceeded Response
 

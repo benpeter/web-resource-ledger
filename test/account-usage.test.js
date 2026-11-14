@@ -5,7 +5,7 @@
 
 import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { cleanDb, createTestSession, seedUsageCounter } from './fixtures.js';
+import { cleanDb, createTestSession, seedApiKey, seedUsageCounter } from './fixtures.js';
 import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT } from '../src/quotas.js';
 import { computePeriod } from '../src/db.js';
 import { setPaymentMethodAdded, setStripeCustomerId } from '../src/db.js';
@@ -67,6 +67,59 @@ describe('GET /v1/account/usage -- auth', () => {
       },
     });
     expect(res.status).toBe(200);
+  });
+
+  it('returns 200 with an API key that has the read scope', async () => {
+    const rawKey = 'wrl_live_' + 'u'.repeat(43);
+    await seedApiKey(env.DB, rawKey, { tenantId: 'usage-key-tenant', scopes: ['read'] });
+    await seedUsageCounter(env.DB, { tenantId: 'usage-key-tenant', period: computePeriod(), captureCount: 7 });
+
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: {
+        Authorization: `Bearer ${rawKey}`,
+        'CF-Connecting-IP': ip,
+      },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tenantId).toBe('usage-key-tenant');
+    expect(body.captures.used).toBe(7);
+  });
+
+  it('returns 403 with an API key that lacks the read scope', async () => {
+    const rawKey = 'wrl_live_' + 'v'.repeat(43);
+    await seedApiKey(env.DB, rawKey, { tenantId: 'usage-key-tenant', scopes: ['admin'] });
+
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: {
+        Authorization: `Bearer ${rawKey}`,
+        'CF-Connecting-IP': ip,
+      },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 401 with an unknown API key', async () => {
+    const res = await SELF.fetch(USAGE_URL, {
+      headers: {
+        Authorization: `Bearer wrl_live_${'w'.repeat(43)}`,
+        'CF-Connecting-IP': ip,
+      },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('still refuses API keys on the other account routes', async () => {
+    const rawKey = 'wrl_live_' + 'x'.repeat(43);
+    await seedApiKey(env.DB, rawKey, { tenantId: 'usage-key-tenant', scopes: ['capture', 'read'] });
+
+    const res = await SELF.fetch('https://worker.test/v1/account/keys', {
+      headers: {
+        Authorization: `Bearer ${rawKey}`,
+        'CF-Connecting-IP': ip,
+      },
+    });
+    expect(res.status).toBe(401);
   });
 });
 
