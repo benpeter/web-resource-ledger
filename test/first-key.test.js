@@ -80,6 +80,16 @@ describe('first key retention', () => {
 });
 
 describe('GET /v1/account/first-key', () => {
+  it('answers 403 until the terms are accepted, and keeps the key', async () => {
+    const { cookie, tenantId } = await createTestSession(env.DB, env, { githubId: 88910 });
+    await env.DB.prepare('UPDATE github_users SET tos_accepted_at = NULL, tos_version = NULL WHERE github_id = ?').bind(88910).run();
+    await env.KV.put(`first_key:${tenantId}`, 'wrl_live_testkey');
+
+    const res = await getFirstKey(cookie);
+    expect(res.status).toBe(403);
+    expect(await env.KV.get(`first_key:${tenantId}`)).toBe('wrl_live_testkey');
+  });
+
   it('returns the key once, then 404', async () => {
     pirschEvents(2);
     const { cookie, tenantId } = await createTestSession(env.DB, env, { githubId: 88902 });
