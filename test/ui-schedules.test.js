@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { SCHEDULES_JS } from '../src/ui/ui-schedules.js';
 import { SUBMIT_VIEW_JS } from '../src/ui/ui-submit.js';
+import { DETAIL_VIEW_JS } from '../src/ui/ui-detail.js';
 
 function evalFromSource(source, functionName) {
   // eslint-disable-next-line no-new-func
@@ -135,5 +136,70 @@ describe('captures list texts when filtered to one schedule', () => {
   it('explains an empty filtered list instead of inviting a first capture', () => {
     expect(capturesEmptyText(true)).toBe('This schedule has not made any captures yet. Its first one runs at the next scheduled time.');
     expect(capturesEmptyText(false)).toMatch(/^Submit a URL above to create your first capture/);
+  });
+});
+
+describe('schedule nudge -- a link that opens the schedule form with the URL filled in', () => {
+  const scheduleNudgeHref = evalFromSource(SCHEDULES_JS, 'scheduleNudgeHref');
+  const schedulePrefillUrl = evalFromSource(SCHEDULES_JS, 'schedulePrefillUrl');
+  const URL_WITH_QUERY = 'https://example.com/a?b=1&c=2';
+
+  it('links to the schedules view with the URL encoded', () => {
+    expect(scheduleNudgeHref(URL_WITH_QUERY)).toBe('#/schedules?url=https%3A%2F%2Fexample.com%2Fa%3Fb%3D1%26c%3D2');
+  });
+
+  it('gives no link for a URL that is not http or https', () => {
+    expect(scheduleNudgeHref('javascript:alert(1)')).toBeNull();
+    expect(scheduleNudgeHref('')).toBeNull();
+  });
+
+  it('reads the URL back from the schedules query', () => {
+    expect(schedulePrefillUrl(scheduleNudgeHref(URL_WITH_QUERY).slice('#/schedules'.length))).toBe(URL_WITH_QUERY);
+  });
+
+  it('fills in nothing without a url parameter', () => {
+    expect(schedulePrefillUrl('')).toBe('');
+    expect(schedulePrefillUrl('?other=1')).toBe('');
+  });
+
+  it('fills in nothing for a URL that is not http or https', () => {
+    expect(schedulePrefillUrl('?url=' + encodeURIComponent('javascript:alert(1)'))).toBe('');
+  });
+
+  it('fills in nothing for broken percent-encoding', () => {
+    expect(schedulePrefillUrl('?url=%E0%A4%A')).toBe('');
+  });
+});
+
+describe('who sees the schedule nudge', () => {
+  const detail_showScheduleNudge = evalFromSource(DETAIL_VIEW_JS, 'detail_showScheduleNudge');
+  const submit_showScheduleNudge = evalFromSource(SUBMIT_VIEW_JS, 'submit_showScheduleNudge');
+
+  it('a capture page shows it to a signed-in user for a capture made by hand', () => {
+    expect(detail_showScheduleNudge('session', { url: SCHED.url, scheduleId: null })).toBe(true);
+  });
+
+  it('a capture page does not show it for a capture a schedule made', () => {
+    expect(detail_showScheduleNudge('session', { url: SCHED.url, scheduleId: SCHED.id })).toBe(false);
+  });
+
+  it('a capture page does not show it with an API key, which cannot open the schedules view', () => {
+    expect(detail_showScheduleNudge('apikey', { url: SCHED.url, scheduleId: null })).toBe(false);
+  });
+
+  it('the captures list shows it when the account has no schedules', () => {
+    expect(submit_showScheduleNudge('session', 0)).toBe(true);
+  });
+
+  it('the captures list does not show it when the account has a schedule', () => {
+    expect(submit_showScheduleNudge('session', 1)).toBe(false);
+  });
+
+  it('the captures list does not show it before the schedule count is known', () => {
+    expect(submit_showScheduleNudge('session', null)).toBe(false);
+  });
+
+  it('the captures list does not show it with an API key', () => {
+    expect(submit_showScheduleNudge('apikey', 0)).toBe(false);
   });
 });
