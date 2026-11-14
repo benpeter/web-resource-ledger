@@ -26,7 +26,7 @@ import {
   getQueueResult,
   createExecutionContext,
 } from 'cloudflare:test';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fetchMock, waitOnExecutionContext } from 'cloudflare:test';
 import worker from '../src/index.js';
 import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';
@@ -239,6 +239,49 @@ describe('queue consumer -- DLQ handler', () => {
     const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('failed');
     expect(record.error).toBeTruthy();
+  });
+
+  it('logs when it cannot mark the capture failed, instead of leaving it pending silently', async () => {
+    const captureId = makeId();
+    await createCapture(env.DB, captureId, 'https://example.com/', '93.184.216.34', 'default');
+    const failingDb = new Proxy(env.DB, {
+      get(target, prop) {
+        if (prop === 'prepare') {
+          return (sql) => {
+            if (/^\s*UPDATE captures/i.test(sql)) throw new Error('D1 unavailable');
+            return target.prepare(sql);
+          };
+        }
+        const value = target[prop];
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+    try {
+      const testEnv = {
+        ...env,
+        DB: failingDb,
+        CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
+        CORALOGIX_SEND_KEY: 'test-send-key',
+      };
+      const msg = makeMsg(captureId);
+      const batch = createMessageBatch('wrl-captures-dlq', [msg]);
+      const ctx = createExecutionContext();
+      await worker.queue(batch, testEnv, ctx);
+      const result = await getQueueResult(batch, ctx);
+      expect(result.explicitAcks).toContain(msg.id);
+
+      const events = fetchSpy.mock.calls
+        .filter(([url]) => String(url).includes('coralogix'))
+        .map(([, init]) => JSON.parse(JSON.parse(init.body)[0].text));
+      expect(events).toContainEqual(expect.objectContaining({
+        event: 'capture.fail_record_fail',
+        captureId,
+        errorMessage: 'D1 unavailable',
+      }));
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('acks DLQ message even when captureId is missing (graceful degradation)', async () => {

@@ -5,7 +5,7 @@
  * docs and the API did, and the www redirect kept the request's scheme, so
  * http://www.webresourceledger.com led to plain-HTTP http://webresourceledger.com.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import landing from '../landing/src/index.js';
 
@@ -99,5 +99,31 @@ describe('E2E webhook echo target (phase 0127)', () => {
   it('rejects GET on the echo path, so it is not a page', async () => {
     const { res } = await send('https://webresourceledger.com/__e2e/echo', { method: 'GET' });
     expect(res.status).toBe(405);
+  });
+});
+
+describe('landing Worker -- static asset failure', () => {
+  it('answers 500 and logs the error when the assets binding throws', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+    try {
+      const env = {
+        CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
+        CORALOGIX_SEND_KEY: 'test-send-key',
+        ASSETS: { fetch: async () => { throw new Error('assets unavailable'); } },
+      };
+      const res = await get('https://webresourceledger.com/pricing', env);
+      expect(res.status).toBe(500);
+      const logCall = fetchSpy.mock.calls.find(([url]) => String(url).includes('coralogix'));
+      expect(logCall, 'a Coralogix log request').toBeTruthy();
+      const [entry] = JSON.parse(logCall[1].body);
+      expect(entry.severity).toBe(5);
+      expect(JSON.parse(entry.text)).toMatchObject({
+        event: 'landing.assets_fail',
+        path: '/pricing',
+        errorMessage: 'assets unavailable',
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

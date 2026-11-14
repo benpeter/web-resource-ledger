@@ -20,7 +20,12 @@ export default {
     let response;
     try {
       response = await env.ASSETS.fetch(request);
-    } catch {
+    } catch (err) {
+      ctx.waitUntil(log(env, 5, 'pageview', {
+        event: 'docs.assets_fail',
+        path: new URL(request.url).pathname,
+        errorMessage: String(err?.message ?? '').slice(0, 256),
+      }) ?? Promise.resolve());
       return new Response('Internal Server Error', { status: 500 });
     }
 

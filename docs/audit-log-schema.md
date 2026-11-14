@@ -25,7 +25,7 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `capture.partial` | capture | 3 (info) | Capture completed with degraded artifacts |
 | `capture.fail` | capture | 5 (error) | Capture failed |
 | `capture.stage.fail` | capture | 5 (error) | Individual capture stage failed |
-| `capture.list` | capture | 6 (verbose) | List captures request completed |
+| `capture.list` | capture | 2 (verbose) | List captures request completed |
 | `capture.list_fail` | capture | 5 (error) | List captures KV error |
 | `capture.kv_create_fail` | capture | 5 (error) | Failed to create capture record |
 | `capture.kv_fail` | capture | 5 (error) | KV error during capture finalization |
@@ -34,6 +34,8 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `capture.key_archive_fail` | capture | 4 (warn) | Signing key archive failed |
 | `capture.consent_error` | capture | 4 (warn) | Cookie consent dismissal error |
 | `capture.tsa_fail` | capture | 4 (warn) | RFC 3161 timestamp request failed |
+| `capture.fail_record_fail` | capture | 5 (error) | Could not mark a capture failed after its last attempt or from the dead-letter queue; the capture stays `pending` |
+| `capture.attempt_error_record_fail` | capture | 4 (warn) | Could not store the reason of a failed attempt before a retry |
 | `capture.qtsa_fail` | capture | 4 (warn) | Qualified (eIDAS) RFC 3161 timestamp request failed; capture completes with `qualifiedTimestampStatus: 'error'` |
 | `tenant.settings_change` | admin | 3 (info) | Tenant settings updated (e.g., `eidas_qualified` toggled); `changedFields` lists modified keys |
 | `admin.key_create` | admin | 3 (info) | API key provisioned |
@@ -54,7 +56,7 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `threatcheck.rescan_tick` | security | 3 (info) | Daily re-scan batch completed; see `scannedCount`, `flaggedCount`, `skippedCount` |
 | `threatcheck.api_fail` | security | 5 (error) for `context:"pre_capture"`, 4 (warn) for `context:"rescan"` | Web Risk API error or timeout; `context` field distinguishes pre-capture (user-facing) from rescan (background) failures |
 | `webhook.create` | webhooks | 3 (info) | Webhook registered |
-| `webhook.list` | webhooks | 6 (verbose) | Webhooks list request |
+| `webhook.list` | webhooks | 3 (info) | Webhooks list request |
 | `webhook.delete` | webhooks | 3 (info) | Webhook deleted |
 | `webhook.ping` | webhooks | 3 (info) | Ping dispatched to endpoint |
 | `webhook.deliver` | webhooks | 3 (info) | Event successfully delivered to endpoint |
@@ -62,6 +64,8 @@ log entries with consistent tenant context. Use `applicationName:wrl`
 | `webhook.deliver_dlq` | webhooks | 5 (error) | All retries exhausted; event moved to dead-letter queue |
 | `webhook.deliver_ssrf_block` | webhooks | 5 (error) | Delivery blocked by SSRF prevention |
 | `webhook.dispatch_error` | webhooks | 5 (error) | Internal error dispatching event |
+| `landing.assets_fail` | pageview | 5 (error) | The landing Worker could not fetch a static asset and answered 500 |
+| `docs.assets_fail` | pageview | 5 (error) | The docs Worker could not fetch a static asset and answered 500 |
 
 ## Audit fields
 
@@ -104,10 +108,12 @@ fewer fields.
 
 | Severity | Level | WRL usage |
 |----------|-------|-----------|
+| 2 | Verbose | Operational telemetry (not part of audit trail), e.g. `capture.list` and sitemap reads |
 | 3 | Info | Successful operations, audit trail events |
 | 4 | Warning | Rate limits, degraded paths, non-critical failures |
 | 5 | Error | Auth failures, SSRF blocks, KV errors |
-| 6 | Verbose | Operational telemetry (not part of audit trail) |
+
+Coralogix shows 6 as Critical; WRL doesn't use it.
 
 ## Example Coralogix queries
 
