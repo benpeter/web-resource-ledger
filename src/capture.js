@@ -480,6 +480,14 @@ function waitForSettle(page, maxMs = SETTLE_MAX_MS, pending = []) {
  */
 async function defaultRenderer(env, url, captureId) {
   const renderStart = Date.now();
+  // A log line is a request to the log endpoint, about 200 ms. Waiting for
+  // each one cost a capture two seconds with the browser session held, and
+  // page events that arrived during such a wait were easy to miss. The lines
+  // are sent as they happen and waited for once, after the browser is released.
+  const logLines = [];
+  const logLine = (severity, data) => {
+    logLines.push(log(env, severity, 'capture', data));
+  };
   const browser = await getOrCreateSession(env.BROWSER);
   const tSession = Date.now();
 
@@ -489,7 +497,7 @@ async function defaultRenderer(env, url, captureId) {
     await ctx.close();
     orphanContextsClosed++;
   }
-  await log(env, 3, 'capture', { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed, browserVersion: browser.version() });
+  logLine(3, { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed, browserVersion: browser.version() });
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -536,7 +544,7 @@ async function defaultRenderer(env, url, captureId) {
           }
         }
         if (isMainFrame) {
-          log(env, 3, 'capture', { event: 'render.default.cross_domain_blocked', url, captureId, blockedUrl: route.request().url() });
+          logLine(3, { event: 'render.default.cross_domain_blocked', url, captureId, blockedUrl: route.request().url() });
           await route.abort('blockedbyclient');
           return;
         }
@@ -551,7 +559,7 @@ async function defaultRenderer(env, url, captureId) {
       if (subresourceCount >= MAX_SUBRESOURCES) {
         subresourceLimitReached = true;
         blockedRequests++;
-        log(env, 3, 'capture', { event: 'render.default.subresource_limit', url, captureId, subresourceCount, totalBytes });
+        logLine(3, { event: 'render.default.subresource_limit', url, captureId, subresourceCount, totalBytes });
         await route.abort('blockedbyclient');
         return;
       }
@@ -562,7 +570,7 @@ async function defaultRenderer(env, url, captureId) {
 
     page = await context.newPage();
     const tContext = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.context_ready', url, captureId, contextSetupMs: tContext - tSession });
+    logLine(3, { event: 'render.default.context_ready', url, captureId, contextSetupMs: tContext - tSession });
 
     // What the page is still waiting on, for the nav_timeout log
     const openRequests = new Set();
@@ -593,26 +601,26 @@ async function defaultRenderer(env, url, captureId) {
     // steps as a loaded page and ends as a partial capture.
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
-      await log(env, 3, 'capture', { event: 'render.default.nav_success', url, captureId, navigationMs: Date.now() - tContext, httpStatus, subresourceCount, totalBytes });
+      logLine(3, { event: 'render.default.nav_success', url, captureId, navigationMs: Date.now() - tContext, httpStatus, subresourceCount, totalBytes });
     } catch (navError) {
       if (navError.name !== 'TimeoutError') throw navError;
       // Check if DOM has at least loaded before attempting partial capture
       readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
-      await log(env, 3, 'capture', { event: 'render.default.nav_timeout', url, captureId, navigationMs: Date.now() - tContext, readyState, totalBytes, subresourceCount, openRequestCount: openRequests.size, openRequests: summarizeOpenRequests(openRequests) });
+      logLine(3, { event: 'render.default.nav_timeout', url, captureId, navigationMs: Date.now() - tContext, readyState, totalBytes, subresourceCount, openRequestCount: openRequests.size, openRequests: summarizeOpenRequests(openRequests) });
       if (readyState !== 'interactive' && readyState !== 'complete') {
         // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
         if (totalBytes === 0) {
-          await log(env, 3, 'capture', { event: 'render.default.nav_no_response', url, captureId, navigationMs: Date.now() - tContext, totalBytes });
+          logLine(3, { event: 'render.default.nav_no_response', url, captureId, navigationMs: Date.now() - tContext, totalBytes });
           throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
         }
         throw navError;
       }
       timedOut = true;
-      await log(env, 3, 'capture', { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
+      logLine(3, { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
     }
 
     if (limitExceeded) {
-      await log(env, 3, 'capture', { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
+      logLine(3, { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
       throw new Error(limitExceeded);
     }
     const tNav = Date.now();
@@ -627,16 +635,16 @@ async function defaultRenderer(env, url, captureId) {
     // SECURITY: async response events can push totalBytes past MAX_PAGE_BYTES
     // during the settle delay. Re-check after settling.
     if (limitExceeded) {
-      await log(env, 3, 'capture', { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
+      logLine(3, { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
       throw new Error(limitExceeded);
     }
     const tSettle = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.settle_complete', url, captureId, settleMs: settle.settleMs, settleReason: settle.settleReason, pendingAtCap: settle.pendingAtCap });
+    logLine(3, { event: 'render.default.settle_complete', url, captureId, settleMs: settle.settleMs, settleReason: settle.settleReason, pendingAtCap: settle.pendingAtCap });
 
     // Validate rendered page is actual content (not Chromium error / blank)
     const renderCheck = await detectRenderFailure(page);
     if (renderCheck.failed) {
-      await log(env, 3, 'capture', { event: 'render.default.render_check_fail', url, captureId, reason: renderCheck.reason, httpStatus });
+      logLine(3, { event: 'render.default.render_check_fail', url, captureId, reason: renderCheck.reason, httpStatus });
       const answeredError = renderCheck.reason === 'blank-page' && httpStatus >= 400;
       throw new Error(`Captured page is not target content (${renderCheck.reason}${answeredError ? `, http ${httpStatus}` : ''})`);
     }
@@ -646,7 +654,7 @@ async function defaultRenderer(env, url, captureId) {
     // fail the capture if it is still there. Never interact with the check.
     let botCheck = classifyBotCheck(await readBotCheckSignals(page));
     if (botCheck.detected) {
-      await log(env, 3, 'capture', { event: 'render.default.bot_check_wait', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
+      logLine(3, { event: 'render.default.bot_check_wait', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
       await page.waitForFunction(
         () => !/^just a moment/i.test(document.title) && !/attention required/i.test(document.title),
         null,
@@ -656,23 +664,23 @@ async function defaultRenderer(env, url, captureId) {
       botCheck = classifyBotCheck(await readBotCheckSignals(page));
     }
     if (botCheck.detected) {
-      await log(env, 4, 'capture', { event: 'render.default.bot_check', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
+      logLine(4, { event: 'render.default.bot_check', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
       throw new Error(`Bot check: Cloudflare challenge (${botCheck.signals.join(', ')})`);
     }
 
     // Trigger lazy-loaded images by scrolling the viewport
     const { scrollMs, steps: scrollSteps, budgetUsedUp: scrollCutShort } = await triggerLazyLoading(page);
     const tScroll = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.lazy_load_complete', url, captureId, scrollMs, scrollSteps, scrollCutShort });
+    logLine(3, { event: 'render.default.lazy_load_complete', url, captureId, scrollMs, scrollSteps, scrollCutShort });
 
     // Before-screenshot MUST be taken before injecting autoconsent
     const shotBefore = await takeCappedScreenshot(page);
     const screenshotBefore = shotBefore.screenshot;
     if (shotBefore.capped) {
-      await log(env, 3, 'capture', { event: 'render.default.screenshot_capped', url, captureId, originalHeight: shotBefore.pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
+      logLine(3, { event: 'render.default.screenshot_capped', url, captureId, originalHeight: shotBefore.pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
     }
     const tPreConsent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
+    logLine(3, { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
 
     // A site may reload itself once the visitor has chosen
     let mainFrameNavigations = 0;
@@ -707,7 +715,7 @@ async function defaultRenderer(env, url, captureId) {
       };
     }
     const tConsent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
+    logLine(3, { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
 
     // A page that is still loading can hold page.content() back, so the
     // timed-out path gives it one second.
@@ -742,16 +750,16 @@ async function defaultRenderer(env, url, captureId) {
       const tPass = Date.now();
       // Navigations from here on are the ones the screenshot and the HTML
       // read have to be done over for. The count is taken as soon as the wait
-      // is over: writing the log line is a request, and a reload that commits
-      // while it is under way would otherwise belong to neither.
+      // is over, before anything else is awaited: a reload that commits
+      // between the wait and the count would belong to neither.
       let navigationsBefore = mainFrameNavigations;
       try {
         const reloaded = await settleAfterConsent(page, () => pass > 1 || mainFrameNavigations > 0, openRequests);
         navigationsBefore = mainFrameNavigations;
-        await log(env, 3, 'capture', { event: 'render.default.post_consent', url, captureId, postConsentMs: Date.now() - tPass, reloaded, pass });
+        logLine(3, { event: 'render.default.post_consent', url, captureId, postConsentMs: Date.now() - tPass, reloaded, pass });
       } catch (err) {
         // Not worth losing the capture over: the screenshot below still shows the page
-        await log(env, 4, 'capture', { event: 'render.default.post_consent_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+        logLine(4, { event: 'render.default.post_consent_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
       }
       const tSettled = Date.now();
       postConsentMs += tSettled - tPass;
@@ -776,11 +784,11 @@ async function defaultRenderer(env, url, captureId) {
       break;
     }
     page.off('framenavigated', countNavigation);
-    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: afterScreenshotMs, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
+    logLine(3, { event: 'render.default.screenshot_after', url, captureId, screenshotMs: afterScreenshotMs, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
     const tContent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs, htmlLength: html.length });
+    logLine(3, { event: 'render.default.content_extracted', url, captureId, contentMs, htmlLength: html.length });
 
-    await log(env, 3, 'capture', { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
+    logLine(3, { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
     return {
       screenshot,
       html,
@@ -811,7 +819,7 @@ async function defaultRenderer(env, url, captureId) {
     };
   } catch (err) {
     if (timedOut) {
-      await log(env, 3, 'capture', { event: 'render.default.partial_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      logLine(3, { event: 'render.default.partial_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     }
     throw err;
   } finally {
@@ -822,8 +830,9 @@ async function defaultRenderer(env, url, captureId) {
       context.close().then(() => browser.close()),
       new Promise((r) => setTimeout(r, 3000)),
     ]).catch((err) => {
-      return log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      logLine(4, { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
+    await Promise.all(logLines);
   }
 }
 
