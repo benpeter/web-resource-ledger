@@ -107,11 +107,16 @@ export const CAPTURE_MAX_ATTEMPTS = 4;
 // How long a detected bot check gets to finish by itself before the capture fails.
 const BOT_CHECK_WAIT_MS = 8000;
 
-// How long one small call to the page may take: the ready state read after a
-// navigation timeout, the two checks before the scroll (browser error page,
-// bot check), the two calls after it and the height read before a screenshot.
-// Each is answered in milliseconds unless the page keeps the browser busy.
+// How long one small call to the loaded page may take: the two checks before
+// the scroll (browser error page, bot check) and the two calls after it. Each
+// is answered in milliseconds unless the page keeps the browser busy.
 const PAGE_CHECK_MAX_MS = 15000;
+// How long the two small reads may take that a capture cannot go on without:
+// the ready state after a navigation timeout and the page's height before a
+// screenshot. On dictionary.com the ready state was answered after up to 15
+// seconds, so these get twice that. An idle browser session is closed after
+// KEEP_ALIVE_MS, which is what a read without a limit ran into.
+const PAGE_READ_MAX_MS = 30000;
 
 /**
  * Waits for a call to the browser, for a limited time. A page that keeps the
@@ -932,13 +937,13 @@ function screenshotCoverage({ pageHeight, capped }) {
  * @param {import('@cloudflare/playwright').Page} page
  * @param {number} [timeout] - screenshot timeout in ms
  * @returns {Promise<{ screenshot: Uint8Array, pageHeight: number, capped: boolean }>}
- * @throws {Error} When the page does not answer the height measurement within PAGE_CHECK_MAX_MS
+ * @throws {Error} When the page does not answer the height measurement within PAGE_READ_MAX_MS
  */
 export async function takeCappedScreenshot(page, timeout = 90000) {
   const pageHeight = await answerWithin(page.evaluate(() => Math.max(
     document.body?.scrollHeight ?? 0,
     document.documentElement?.scrollHeight ?? 0,
-  )), PAGE_CHECK_MAX_MS, 'The page stopped answering before the screenshot');
+  )), PAGE_READ_MAX_MS, 'The page stopped answering before the screenshot');
   const capped = pageHeight > MAX_PAGE_HEIGHT;
   const options = { fullPage: true, type: 'png', timeout };
   if (capped) {
@@ -951,7 +956,7 @@ export async function takeCappedScreenshot(page, timeout = 90000) {
 /**
  * Reads document.readyState after a navigation timeout, to decide whether
  * there is a page to capture. 'unknown' when the read fails or the page does
- * not answer within PAGE_CHECK_MAX_MS.
+ * not answer within PAGE_READ_MAX_MS.
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @returns {Promise<string>}
@@ -959,7 +964,7 @@ export async function takeCappedScreenshot(page, timeout = 90000) {
 export async function readReadyState(page) {
   return answerWithin(
     page.evaluate(() => document.readyState),
-    PAGE_CHECK_MAX_MS,
+    PAGE_READ_MAX_MS,
     'The page stopped answering while it was checked',
   ).catch(() => 'unknown');
 }
