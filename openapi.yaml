@@ -6520,3 +6520,73 @@ paths:
           $ref: '#/components/responses/Problem404'
         '429':
           $ref: '#/components/responses/Problem429'
+
+webhooks:
+  captureEvent:
+    post:
+      operationId: deliverWebhookEvent
+      tags: [webhooks]
+      # WRL calls your endpoint without an auth scheme; it signs the body instead.
+      security: []
+      summary: Event delivery to your endpoint
+      description: >
+        WRL sends this request to each active webhook of the account that
+        subscribed to the event type, when a capture completes, fails or is
+        quarantined. Verify the signature in X-WRL-Signature-256 before you
+        process the body; the webhooks guide has code for it. Answer with any
+        2xx within 10 seconds. A timeout, a connection error, a 5xx, 408 or 429
+        is retried after 1, 5 and 15 minutes (4 attempts in all) with the same
+        event id, so skip ids you have already handled. Other 4xx answers are
+        not retried. POST /v1/webhooks/{webhookId}/ping sends a ping event the
+        same way, once, with a 5-second timeout and no retry.
+      parameters:
+        - name: X-WRL-Signature-256
+          in: header
+          required: true
+          description: >
+            HMAC-SHA256 signature in the format t={timestamp},v1={hex_signature},
+            computed over "{timestamp}.{raw body}" with the hex-decoded webhook
+            secret.
+          schema:
+            type: string
+          example: t=1774181100,v1=5d41402abc4b2a76b9719d911017c592ae2f3e3f1a9c0f2d8e7b6a5c4d3e2f1a
+        - name: X-WRL-Timestamp
+          in: header
+          required: true
+          description: Unix timestamp (seconds) when the event was dispatched.
+          schema:
+            type: string
+          example: '1774181100'
+        - name: X-WRL-Event
+          in: header
+          required: true
+          description: The event type, the same as `type` in the body.
+          schema:
+            type: string
+            enum: [capture.complete, capture.failed, capture.quarantined, ping]
+        - name: X-WRL-Delivery
+          in: header
+          required: true
+          description: >
+            The event id (evt_...), the same as `id` in the body and the same on
+            every retry. A ping always sends evt_00000000000000000000000000000000.
+          schema:
+            type: string
+            pattern: '^evt_[a-f0-9]{32}$'
+        - name: User-Agent
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [WRL-Webhook/1.0]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookEventPayload'
+      responses:
+        '2XX':
+          description: >
+            Received. Return it as soon as the event is stored or queued; WRL
+            does not read the response body.

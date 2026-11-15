@@ -192,18 +192,32 @@ export default async function () {
 
   const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "options", "head"];
 
+  const addToTags = (op) => {
+    for (const tag of op.tags) {
+      if (!tagMap[tag]) {
+        tagMap[tag] = { name: tag, description: "", operations: [] };
+      }
+      tagMap[tag].operations.push(op);
+    }
+  };
+
   for (const [pathStr, pathItem] of Object.entries(api.paths || {})) {
     for (const method of HTTP_METHODS) {
       const operation = pathItem[method];
       if (!operation) continue;
 
-      const op = buildOperation(method, pathStr, operation);
-      for (const tag of op.tags) {
-        if (!tagMap[tag]) {
-          tagMap[tag] = { name: tag, description: "", operations: [] };
-        }
-        tagMap[tag].operations.push(op);
-      }
+      addToTags(buildOperation(method, pathStr, operation));
+    }
+  }
+
+  // Webhooks are requests WRL sends to your endpoint: the card shows your URL
+  // as the path and no auth badge, since WRL signs the body instead.
+  for (const pathItem of Object.values(api.webhooks || {})) {
+    for (const method of HTTP_METHODS) {
+      const operation = pathItem[method];
+      if (!operation) continue;
+
+      addToTags({ ...buildOperation(method, "{your webhook URL}", operation), authRequired: null });
     }
   }
 
