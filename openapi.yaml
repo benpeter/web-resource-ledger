@@ -654,9 +654,11 @@ components:
             Time in ms WRL waited after a cookie banner was dismissed and
             before the second screenshot: for a reload to start, for the
             page's requests to finish and, after a reload, for the scroll
-            that loads lazy images. Present only when a banner was dismissed
-            (`captureSettings.consent.result` is `success`); absent on
-            captures made until 15 November 2026.
+            that loads lazy images. When the site reloaded later, while the
+            second screenshot was taken, this includes the wait before the
+            screenshot that replaced it. Present only when a banner was
+            dismissed (`captureSettings.consent.result` is `success`); absent
+            on captures made until 15 November 2026.
         screenshotMs:
           type:
             - integer
