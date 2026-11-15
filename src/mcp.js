@@ -52,7 +52,12 @@ const MAX_REQUEST_BODY_BYTES = 256 * 1024;
 // key, so they answer without one; tools/call still needs a key. server/discover
 // isn't in the SDK, which answers it with method not found; directories that
 // try it first then fall back to initialize instead of stopping at a 401.
-const KEYLESS_METHODS = new Set(['initialize', 'notifications/initialized', 'ping', 'tools/list', 'server/discover']);
+// WRL has no resources and no prompts, so their list methods get the same
+// answer: "method not found" tells a directory there are none, a 401 doesn't.
+const KEYLESS_METHODS = new Set([
+  'initialize', 'notifications/initialized', 'ping', 'tools/list', 'server/discover',
+  'resources/list', 'resources/templates/list', 'prompts/list',
+]);
 
 /**
  * The JSON-RPC method of each message in a request. Reads a copy of the body,
