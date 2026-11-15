@@ -151,40 +151,6 @@ describe('performCapture -- renderer failure: timeout', () => {
   });
 });
 
-describe('performCapture -- renderer failure: subresource limit', () => {
-  const subresourceLimitRenderer = async () => {
-    throw new Error('Page exceeded 500 subresource limit');
-  };
-
-  it('transitions KV to failed with retryable=false', async () => {
-    mockHeaderFetch();
-    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, subresourceLimitRenderer);
-
-    const record = await getCapture(env.DB, TEST_ID);
-    expect(record.status).toBe('failed');
-    expect(record.retryable).toBe(false);
-  });
-
-  it('returns { ok: false, retryable: false }', async () => {
-    mockHeaderFetch();
-    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
-    const result = await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, subresourceLimitRenderer);
-    expect(result.ok).toBe(false);
-    expect(result.retryable).toBe(false);
-  });
-
-  it('error message is user-safe', async () => {
-    mockHeaderFetch();
-    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
-    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, subresourceLimitRenderer);
-
-    const record = await getCapture(env.DB, TEST_ID);
-    expect(record.error).toBe('Page exceeded 500 subresource limit');
-    expect(record.error).not.toContain('at ');
-  });
-});
-
 describe('performCapture -- renderer failure: page size limit', () => {
   const sizeLimitRenderer = async () => {
     throw new Error('Page exceeded 50MB size limit');
@@ -802,6 +768,29 @@ describe('performCapture -- full capture quality in the WACZ', () => {
       screenshotClipped: true,
     });
   });
+
+  it('records a page that hit the subresource cap as partial (backlog #98)', async () => {
+    const overCapRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, partial: true, render: { ...result.render, subresourceLimitReached: true } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, overCapRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.renderQuality).toBe('partial');
+    expect(record.render.subresourceLimitReached).toBe(true);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'partial',
+      waitUntilReached: 'load',
+      timedOut: false,
+      subresourceLimitReached: true,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1043,7 +1032,7 @@ describe('categorizeError -- is a named export from capture.js', () => {
   });
 
   it('returns retryable: false for non-retryable errors', () => {
-    const result = categorizeError(new Error('Page exceeded 500 subresource limit'));
+    const result = categorizeError(new Error('Page exceeded 50MB size limit'));
     expect(result.retryable).toBe(false);
     expect(typeof result.message).toBe('string');
   });

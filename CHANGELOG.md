@@ -18,6 +18,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Changed
 
+- A page can make 2000 requests instead of 500 while WRL loads it, so front pages of large news sites (around 1000 requests) are captured whole. A page past the cap is captured as `partial` with what loaded before it, and `render.subresourceLimitReached` says so (also signed into the WACZ `captureQuality`, shown on the verification page and in MCP `get_capture`). Before, such a page failed with "Page exceeded 500 subresource limit" when it finished loading within 20 seconds and was captured as partial when it didn't, so pages like nytimes.com failed on some runs and not on others. A page over 50 MB now fails either way; before, it was captured as partial when it also timed out
 - Captures use `@cloudflare/playwright` 1.4.0 (Playwright 1.62), which talks plain CDP to Cloudflare Browser Run instead of its own chunked protocol. The Worker loads it only when a capture opens a browser, so requests that never capture (the API, verify pages, `/health`) start faster than before
 
 ### Fixed

@@ -178,6 +178,14 @@ Pages render in a window 1,280 CSS pixels wide, and screenshots cover the top 8,
 
 The capture record says when that happened: `render.screenshotClipped` is `true`, `render.pageHeight` is the page's height and `render.screenshotHeight` how much of it the screenshot shows. The same three fields are signed into the WACZ bundle's `captureQuality`, the verification page notes it under the screenshot, and MCP `get_capture` mentions it.
 
+## Requests and Page Size
+
+A page can make 2000 requests while WRL loads it: the page itself, its scripts, styles, images and API calls. WRL blocks any request after that and captures the page with what has loaded. Such a capture is `"renderQuality": "partial"` and its `render.subresourceLimitReached` is `true`; the field is signed into the WACZ bundle's `captureQuality`, the verification page says so in its "Page load" row, and MCP `get_capture` mentions it. Few pages get that far: front pages of large news sites make around 1000 requests. See [Partial captures](/verification/#partial-captures).
+
+Before 15 November 2026 the cap was 500 requests, and a page past it failed with "Page exceeded 500 subresource limit" when it finished loading within 20 seconds, and was captured as partial when it didn't.
+
+A page whose responses announce more than 50 MB in total fails with "Page exceeded 50MB size limit".
+
 ## Why Captures Fail
 
 A failed capture has an `error` that says why, in the API status response, the capture record, the `capture.failed` webhook, the failure email and the dashboard. WRL tries a capture up to 4 times when the failure may pass on another try, waiting 10, 20 and then 40 seconds after a failed attempt, and reports the reason of the last attempt.
@@ -193,14 +201,14 @@ A failed capture has an `error` that says why, in the API status response, the c
 | The page loaded but showed nothing (blank page) | The browser loaded the page but nothing appeared. | No |
 | The browser showed an error page instead of the site | The browser couldn't open the page and showed its own error page. | No |
 | The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it. This happens on some pages with heavy animation. | Yes |
-| Page exceeded 500 subresource limit / 50MB size limit | The page loads more than WRL captures. | No |
+| Page exceeded 50MB size limit | The page's responses add up to more than 50 MB. | No |
 | Could not navigate to the target URL, or a message about the browser session | A problem on WRL's side or the network. | Yes |
 | WRL lost track of this capture before it finished | A problem on WRL's side: the capture was still pending 24 hours after it was submitted. When an attempt had already failed, the message is that attempt's reason followed by "WRL then lost track of the capture." Submit it again. | No |
 | Queue dispatch failed | A problem on WRL's side: WRL accepted the capture but couldn't put it in its capture queue. The request that submitted it got a 500 (MCP: "Could not dispatch capture"). Submit it again. | No |
 
 After repeated attempts the message ends with "WRL tried 4 times." Failed captures don't count against your monthly quota.
 
-A page that times out after its HTML has loaded doesn't fail. WRL captures it as it stands and marks it `"renderQuality": "partial"`; it is signed, timestamped and counted like any other capture. See [Partial captures](/verification/#partial-captures).
+A page that times out after its HTML has loaded doesn't fail, and neither does a page that makes more than 2000 requests. WRL captures it as it stands and marks it `"renderQuality": "partial"`; it is signed, timestamped and counted like any other capture. See [Partial captures](/verification/#partial-captures).
 
 ## Custom Quotas (Operators)
 

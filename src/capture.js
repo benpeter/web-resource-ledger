@@ -84,7 +84,10 @@ import { softwareId } from './build-info.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_SUBRESOURCES = 500;
+// 500 until phase 0178 (2026-11-15). Measured on staging with the cap out of
+// the way: Guardian 865 requests, Yahoo Finance 1193, NYT 1208,
+// Merriam-Webster 1739 (docs/evolution/0178-subresource-cap-partial/outcome.md).
+const MAX_SUBRESOURCES = 2000;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 export const MAX_PAGE_HEIGHT = 8000;
 // Screenshot resolution relative to CSS pixels. 4 until phase 0118 (2026-10-23);
@@ -196,6 +199,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       renderQuality,
       ...(render?.waitUntilReached !== undefined ? { waitUntilReached: render.waitUntilReached } : {}),
       ...(render?.timedOut !== undefined ? { timedOut: render.timedOut } : {}),
+      ...(render?.subresourceLimitReached !== undefined ? { subresourceLimitReached: render.subresourceLimitReached } : {}),
       ...(render?.screenshotClipped !== undefined ? {
         pageHeight: render.pageHeight,
         screenshotHeight: render.screenshotHeight,
@@ -477,7 +481,7 @@ async function defaultRenderer(env, url, captureId) {
     await ctx.close();
     orphanContextsClosed++;
   }
-  await log(env, 3, 'capture', { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed });
+  await log(env, 3, 'capture', { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed, browserVersion: browser.version() });
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -490,6 +494,11 @@ async function defaultRenderer(env, url, captureId) {
     const targetOrigin = new URL(url).origin;
     let subresourceCount = 0;
     let totalBytes = 0;
+    // The two caps end differently (backlog #98). Past the subresource cap the
+    // page stops loading more and is captured as partial. Past the size cap
+    // the capture fails, because the rendered HTML is held in Worker memory.
+    let subresourceLimitReached = false;
+    let blockedRequests = 0;
     let limitExceeded = null;
     let page = null;
 
@@ -519,17 +528,20 @@ async function defaultRenderer(env, url, captureId) {
         }
       }
 
-      if (limitExceeded) {
+      if (limitExceeded || subresourceLimitReached) {
+        blockedRequests++;
         await route.abort('blockedbyclient');
         return;
       }
 
-      subresourceCount++;
-      if (subresourceCount > MAX_SUBRESOURCES) {
-        limitExceeded = `Page exceeded ${MAX_SUBRESOURCES} subresource limit`;
+      if (subresourceCount >= MAX_SUBRESOURCES) {
+        subresourceLimitReached = true;
+        blockedRequests++;
+        log(env, 3, 'capture', { event: 'render.default.subresource_limit', url, captureId, subresourceCount, totalBytes });
         await route.abort('blockedbyclient');
         return;
       }
+      subresourceCount++;
 
       await route.continue();
     });
@@ -566,6 +578,10 @@ async function defaultRenderer(env, url, captureId) {
           }
           throw navError;
         }
+        if (limitExceeded) {
+          await log(env, 3, 'capture', { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
+          throw new Error(limitExceeded);
+        }
 
         // 120s budget for partial capture (screenshot up to 90s + HTML extraction).
         // The 10-min RENDER_DEADLINE_MS leaves plenty of headroom.
@@ -588,7 +604,7 @@ async function defaultRenderer(env, url, captureId) {
           ]);
           const tContent = Date.now();
 
-          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart });
+          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart, subresourceCount, blockedRequests, totalBytes });
           return {
             screenshot,
             html,
@@ -596,6 +612,7 @@ async function defaultRenderer(env, url, captureId) {
             render: {
               waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
               timedOut: true,
+              subresourceLimitReached,
               durationMs: tContent - renderStart,
               ...screenshotCoverage(shot),
               stages: {
@@ -725,14 +742,15 @@ async function defaultRenderer(env, url, captureId) {
     const tContent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs: tContent - tScreenshot, htmlLength: html.length });
 
-    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: false });
+    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: subresourceLimitReached, subresourceCount, blockedRequests, totalBytes });
     return {
       screenshot,
       html,
-      partial: false,
+      partial: subresourceLimitReached,
       render: {
         waitUntilReached: 'load',
         timedOut: false,
+        subresourceLimitReached,
         durationMs: tContent - renderStart,
         ...screenshotCoverage(shot),
         settleMs: settle.settleMs,
@@ -981,9 +999,6 @@ export function categorizeError(error) {
   // Playwright throws TimeoutError (by name) for navigation and wait timeouts
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
-  }
-  if (msg.includes(`${MAX_SUBRESOURCES} subresource limit`)) {
-    return { message: `Page exceeded ${MAX_SUBRESOURCES} subresource limit`, retryable: false };
   }
   if (msg.includes('50MB size limit')) {
     return { message: 'Page exceeded 50MB size limit', retryable: false };

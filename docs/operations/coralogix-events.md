@@ -66,16 +66,17 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 
 | Sev | Event | Meaning |
 |-----|-------|---------|
-| 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed) |
+| 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed, browserVersion) |
 | 3 | `render.default.context_ready` | Browser context + page created (contextSetupMs) |
 | 3 | `render.default.cross_domain_blocked` | Main-frame cross-domain navigation blocked (blockedUrl) |
 | 3 | `render.default.nav_success` | Navigation completed within timeout (navigationMs, subresourceCount, totalBytes) |
 | 3 | `render.default.nav_timeout` | Navigation timed out, evaluating DOM state (navigationMs, readyState, totalBytes) |
 | 3 | `render.default.nav_no_response` | Zero bytes received, non-retryable (navigationMs) |
 | 3 | `render.default.partial_start` | Entering partial capture budget (readyState, budgetMs) |
-| 3 | `render.default.partial_complete` | Partial capture succeeded (screenshotMs, contentMs, durationMs) |
+| 3 | `render.default.partial_complete` | Partial capture succeeded (screenshotMs, contentMs, durationMs, subresourceCount, blockedRequests, totalBytes) |
 | 3 | `render.default.partial_fail` | Partial capture inner error (errorMessage) |
-| 3 | `render.default.limit_exceeded` | Subresource or size limit hit (limit, subresourceCount, totalBytes) |
+| 3 | `render.default.subresource_limit` | First request past the cap blocked; the capture goes on and ends as partial (subresourceCount, totalBytes) |
+| 3 | `render.default.limit_exceeded` | Size limit hit, the capture fails (limit, subresourceCount, totalBytes) |
 | 3 | `render.default.settle_complete` | Network settlement finished (settleMs, settleReason, pendingAtCap) |
 | 3 | `render.default.render_check_fail` | Rendered page is not target content (reason) |
 | 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs) |
@@ -84,7 +85,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, consentMs, errorName) |
 | 3 | `render.default.screenshot_after` | Post-consent screenshot taken or reused (screenshotMs, tookAfterScreenshot, screenshotBytes) |
 | 3 | `render.default.content_extracted` | HTML content extracted (contentMs, htmlLength) |
-| 3 | `render.default.complete` | Full render pipeline finished (durationMs) |
+| 3 | `render.default.complete` | Full render pipeline finished (durationMs, partial, subresourceCount, blockedRequests, totalBytes). blockedRequests counts requests refused past the 2000-request cap |
 | 4 | `render.default.cleanup_fail` | Browser context/session cleanup failed (errorMessage) |
 
 ## Signing (`signing`)

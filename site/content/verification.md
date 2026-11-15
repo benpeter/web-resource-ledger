@@ -125,7 +125,12 @@ For how these technical properties map to legal authentication standards (FRE 90
 
 ### Partial captures
 
-When a page has not finished loading after 20 seconds but its HTML has (the browser fired `DOMContentLoaded`), WRL captures the page as it stands instead of failing. The capture has `"renderQuality": "partial"`. Images, fonts or content that would have loaded later may be missing from the screenshot and the HTML.
+WRL captures a page as it stands, instead of failing, in two cases:
+
+- The page has not finished loading after 20 seconds but its HTML has (the browser fired `DOMContentLoaded`).
+- The page made more than 2000 requests. WRL lets the first 2000 through and blocks the rest (see [Requests and Page Size](/limits/#requests-and-page-size)).
+
+Either way the capture has `"renderQuality": "partial"`. Images, fonts or content that would have loaded later may be missing from the screenshot and the HTML.
 
 A partial capture is signed and timestamped like a full one, and every check above runs the same way. The bundle's `datapackage.json` records how far the page got, so that record is covered by the signature too:
 
@@ -136,6 +141,8 @@ A partial capture is signed and timestamped like a full one, and every check abo
   "timedOut": true
 }
 ```
+
+A page that hit the request cap records `"subresourceLimitReached": true`; when it finished loading otherwise, `"waitUntilReached"` is `"load"` and `"timedOut"` is `false`. Captures made before 15 November 2026 don't have that field.
 
 A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` and `"timedOut": false`. Captures made since November 2026 also record `pageHeight`, `screenshotHeight` and `screenshotClipped`, which say whether the screenshot shows the whole page or only its top 8,000 pixels (see [Screenshot Size](/limits/#screenshot-size)). `GET /v1/verify/{id}` returns `capture.renderQuality`, and the verification page shows a partial capture with a "Page load" row under the checks.
 

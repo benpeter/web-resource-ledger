@@ -500,6 +500,13 @@ components:
             True when the navigation did not reach the target milestone
             (load) within the timeout window. When true, renderQuality
             is "partial".
+        subresourceLimitReached:
+          type: boolean
+          description: >
+            True when the page made more requests than WRL allows for one
+            capture (2000). WRL blocked the ones past the cap, so content that
+            loads late may be missing, and renderQuality is "partial". Absent
+            on captures made before 15 November 2026.
         durationMs:
           type: integer
           minimum: 0
@@ -684,7 +691,9 @@ components:
             Render quality of the capture. 'full' when the page reached the load
             milestone before capture (followed by an adaptive settle phase, up to
             3s). 'partial' when the capture was taken after a navigation timeout
-            but DOMContentLoaded had fired. Partial captures get a signed,
+            but DOMContentLoaded had fired, or when the page made more than 500
+            requests and WRL blocked the rest (`render.subresourceLimitReached`).
+            Partial captures get a signed,
             timestamped WACZ bundle like full ones, and the bundle's
             datapackage.json records the render quality in `captureQuality`.
             Defaults to 'full' for captures created before this feature.
@@ -828,7 +837,8 @@ components:
           enum: [full, partial]
           description: >
             Present when status is "complete". Indicates whether the page fully rendered
-            or was captured after a navigation timeout.
+            or was captured after a navigation timeout or with its requests past
+            the 2000-request cap blocked.
         failedAt:
           type: string
           format: date-time
@@ -1763,8 +1773,8 @@ components:
           enum: [full, partial]
           description: >
             Render quality of the verified capture. 'partial' means the page did not
-            finish loading before it was captured; the bundle is signed and verified
-            all the same.
+            finish loading before it was captured, or made more requests than WRL
+            lets through; the bundle is signed and verified all the same.
 
     VerificationResult:
       type: object
@@ -3861,7 +3871,8 @@ paths:
         **A 200 status does NOT mean the capture is verified; check the `verified` field.**
         The endpoint returns 200 for all reachable captures, even when verification fails.
 
-        Partial captures (navigation timed out after DOMContentLoaded) are signed
+        Partial captures (navigation timed out after DOMContentLoaded, or the
+        page hit the 2000-request cap) are signed
         and verify like full captures; `capture.renderQuality` is `partial` for
         them. Captures without a WACZ bundle return 404 from this endpoint; that
         includes partial captures made before November 2026, which were not signed.
