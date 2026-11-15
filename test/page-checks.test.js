@@ -52,3 +52,42 @@ describe('the checks of the loaded page', () => {
     expect(await capture.detectRenderFailure(page)).toEqual({ failed: true, reason: 'blank-page' });
   });
 });
+
+// After a navigation timeout the renderer reads document.readyState to decide
+// whether there is a page to capture. That call had no limit either.
+describe('the ready state read after a navigation timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('is unknown when the page does not answer within 15 seconds', async () => {
+    vi.useFakeTimers();
+
+    const result = capture.readReadyState(silentPage());
+    await vi.advanceTimersByTimeAsync(15000);
+
+    expect(await result).toBe('unknown');
+  });
+
+  it('is still waiting after 14 seconds', async () => {
+    vi.useFakeTimers();
+    let settled = false;
+
+    capture.readReadyState(silentPage()).then(() => { settled = true; }, () => { settled = true; });
+    await vi.advanceTimersByTimeAsync(14000);
+
+    expect(settled).toBe(false);
+  });
+
+  it('is unknown when the read fails', async () => {
+    const page = { evaluate: async () => { throw new Error('Execution context was destroyed'); } };
+
+    expect(await capture.readReadyState(page)).toBe('unknown');
+  });
+
+  it('returns what the page answered', async () => {
+    const page = { evaluate: async () => 'interactive' };
+
+    expect(await capture.readReadyState(page)).toBe('interactive');
+  });
+});
