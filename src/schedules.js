@@ -368,7 +368,9 @@ export async function handleUpdateSchedule(request, env, ctx, match) {
     event: 'schedule.updated',
     scheduleId,
     tenantId: auth.tenantId,
-    changed: Object.keys(fields),
+    // Not `changed`: the compare events log that name as true or false, and a
+    // field with two types is dropped by the log store.
+    fields: Object.keys(fields),
     paused: record.paused,
     keyHashPrefix: auth.keyHashPrefix,
     authMethod: auth.authMethod,

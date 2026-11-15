@@ -2,6 +2,8 @@
 
 Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=WARNING, 5=ERROR, 6=CRITICAL. WRL doesn't log at 6; telemetry sent as 6 used to show up as Critical (fixed in phase 0136).
 
+A field name has one type across all events. Coralogix fixes the type of a field the first time it sees it and stores an event with another type under that name as one unparsed `text` string, so a query on `$d.event` no longer finds it. `schedule.updated` logged the edited fields as a list named `changed` while the compare events log `changed` as true or false (fixed in phase 0193). To find such events: `source logs | filter $d.text != null`.
+
 ---
 
 ## Security (`security`)
@@ -227,6 +229,7 @@ The renderer sends these lines as the events happen and does not wait for each t
 |-----|-------|---------|
 | 3 | `schedule.created` | Scheduled capture created |
 | 3 | `schedule.deleted` | Scheduled capture deleted |
+| 3 | `schedule.updated` | Schedule edited, paused or resumed; `fields` lists the edited fields (`name`, `url`, `cron`, `paused`), `via: "mcp"` when the MCP tool did it |
 | 3 | `schedule.list` | Schedules listed |
 | 3 | `schedule.get` | Single schedule fetched |
 | 3 | `schedule.tick_start` | Cron tick started (evaluating due schedules) |
