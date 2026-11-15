@@ -87,6 +87,15 @@ export async function setup({ provide }) {
       return;
     }
 
+    // Content of /consent-reload.html, which asks for it on every load
+    if (url.pathname === '/slow-fragment') {
+      setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end('<p id="fragment-marker">Content that came with the request</p>');
+      }, 2000);
+      return;
+    }
+
     // An error page with content, and an error answer with an empty page (backlog #101)
     if (url.pathname === '/gone.html') {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -103,6 +112,7 @@ export async function setup({ provide }) {
       '/fast.html': 'fast.html',
       '/never-settle.html': 'never-settle.html',
       '/cookie-banner.html': 'cookie-banner.html',
+      '/consent-reload.html': 'consent-reload.html',
       '/with-iframe.html': 'with-iframe.html',
       '/error-page.html': 'error-page.html',
       '/lazy-images.html': 'lazy-images.html',

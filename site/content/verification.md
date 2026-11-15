@@ -148,6 +148,22 @@ A page that hit the request cap records `"subresourceLimitReached": true`; when 
 
 A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` and `"timedOut": false`. Captures made since November 2026 also record `pageHeight`, `screenshotHeight` and `screenshotClipped`, which say whether the screenshot shows the whole page or only its top 8,000 pixels (see [Screenshot Size](/limits/#screenshot-size)). `GET /v1/verify/{id}` returns `capture.renderQuality`, and the verification page shows a partial capture with a "Page load" row under the checks.
 
+### Cookie banners
+
+WRL acts on the page in one way: it declines cookies. It never accepts them and never clicks anything else.
+
+After the page has loaded and been scrolled, WRL takes a screenshot. Then it runs [@duckduckgo/autoconsent](https://github.com/duckduckgo/autoconsent), which looks for a cookie banner it knows and chooses the opt-out. When that worked, WRL takes a second screenshot. The capture's `captureSettings.consent` says what happened:
+
+| `result` | What it means | Screenshots |
+|---|---|---|
+| `notDetected` | No banner that autoconsent knows. | One. A banner autoconsent does not know is still in it. |
+| `success` | A banner was found and declined; `cmpDetected` names it. | Two: `artifacts.screenshot` is the page without the banner, `artifacts.screenshotBefore` is the page with it. |
+| `failed` | A banner was found but could not be declined, for example one that only offers "Accept". | One, with the banner. |
+
+Some sites reload themselves once a choice is made (theguardian.com does), and many change the page. Before the second screenshot WRL waits for that: up to 2 seconds for a reload to start, then for the page's requests to finish, and after a reload it scrolls the page again so lazy images load. The HTML artifact is read after the second screenshot, so it matches it.
+
+Both screenshots and `captureSettings`, with the autoconsent version, are in the WACZ bundle and covered by its signature. Captures made until 15 November 2026 took the second screenshot the moment the banner was gone; on a site that reloads, that screenshot can show the page halfway through loading, with images missing, while `screenshotBefore` shows it whole.
+
 ### Captures of an error answer
 
 WRL captures what the site answers, also when that is an error. A page that answers `404` or `410` is often exactly what you want on record, and a site that blocks automated visitors may answer `403` with a block page ("Access Denied"). Such a capture completes and is signed like any other, so check `render.httpStatus` on the capture: it is the status of the page's own response as WRL's browser received it, after redirects. With a 4xx or 5xx status the verification page shows a "Site answer" row under the checks ("The site answered with HTTP 403"), the dashboard shows the status in the capture's details, and MCP `get_capture` and `verify_capture` say so. The status is signed into the bundle as `captureQuality.httpStatus`. Captures made before 15 November 2026 don't have it.

@@ -104,6 +104,9 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 export const CAPTURE_MAX_ATTEMPTS = 4;
 // How long a detected bot check gets to finish by itself before the capture fails.
 const BOT_CHECK_WAIT_MS = 8000;
+// How long to watch for a reload after a cookie banner was dismissed. Sites
+// that reload themselves on the choice (theguardian.com) start within this.
+const POST_CONSENT_NAV_WAIT_MS = 2000;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -401,11 +404,13 @@ async function getOrCreateSession(browserBinding) {
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @param {number} [maxMs] Hard cap in ms (defaults to SETTLE_MAX_MS)
+ * @param {Iterable<object>} [pending] Requests already under way that count
+ *   as in-flight too. Without it only requests that start from now on count.
  * @returns {Promise<{ settleMs: number, settleReason: 'idle'|'cap', pendingAtCap: number }>}
  */
-function waitForSettle(page, maxMs = SETTLE_MAX_MS) {
+function waitForSettle(page, maxMs = SETTLE_MAX_MS, pending = []) {
   const IGNORED_TYPES = new Set(['websocket', 'eventsource']);
-  let inFlight = 0;
+  let inFlight = [...pending].filter((req) => !IGNORED_TYPES.has(req.resourceType())).length;
   let quiescenceTimer = null;
   let resolved = false;
 
@@ -667,6 +672,13 @@ async function defaultRenderer(env, url, captureId) {
     const tPreConsent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
 
+    // A site may reload itself once the visitor has chosen
+    let mainFrameNavigations = 0;
+    const countNavigation = (frame) => {
+      if (frame === page.mainFrame()) mainFrameNavigations++;
+    };
+    page.on('framenavigated', countNavigation);
+
     let consent;
     try {
       consent = await dismissCookieConsent(page);
@@ -698,14 +710,27 @@ async function defaultRenderer(env, url, captureId) {
     let screenshot;
     let shot = shotBefore;
     const tookAfterScreenshot = consent.status === 'dismissed';
+    let tPostConsent = tConsent;
     if (tookAfterScreenshot) {
+      // The page changes once the banner is gone, and some sites reload. Let it
+      // come to rest first, so the screenshot doesn't show it halfway there.
+      try {
+        const reloaded = await settleAfterConsent(page, () => mainFrameNavigations > 0, openRequests);
+        tPostConsent = Date.now();
+        await log(env, 3, 'capture', { event: 'render.default.post_consent', url, captureId, postConsentMs: tPostConsent - tConsent, reloaded });
+      } catch (err) {
+        // Not worth losing the capture over: the screenshot below still shows the page
+        tPostConsent = Date.now();
+        await log(env, 4, 'capture', { event: 'render.default.post_consent_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      }
       shot = await takeCappedScreenshot(page);
       ({ screenshot } = shot);
     } else {
       screenshot = screenshotBefore;
     }
+    page.off('framenavigated', countNavigation);
     const tScreenshot = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: tScreenshot - tConsent, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
+    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: tScreenshot - tPostConsent, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
 
     // A page that is still loading can hold page.content() back, so the
     // timed-out path gives it one second.
@@ -744,7 +769,8 @@ async function defaultRenderer(env, url, captureId) {
           settleMs: tSettle - tNav,
           scrollMs: tScroll - tSettle,
           consentMs: tConsent - tPreConsent,
-          screenshotMs: (tPreConsent - tScroll) + (tScreenshot - tConsent),
+          ...(tookAfterScreenshot ? { postConsentMs: tPostConsent - tConsent } : {}),
+          screenshotMs: (tPreConsent - tScroll) + (tScreenshot - tPostConsent),
           contentMs: tContent - tScreenshot,
         },
       },
@@ -767,6 +793,34 @@ async function defaultRenderer(env, url, captureId) {
       return log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
+}
+
+/**
+ * Lets a page come to rest after its cookie banner was dismissed, before the
+ * second screenshot. A site that reloads itself on the choice gets the steps of
+ * a fresh load again: wait for the load event, for its requests, and scroll
+ * for lazy images. Any other page gets the short wait for new requests.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @param {() => boolean} navigated Whether the main frame has navigated since
+ *   the consent step began
+ * @param {Iterable<object>} openRequests Requests of the page still under way
+ * @returns {Promise<boolean>} true when the page reloaded
+ */
+async function settleAfterConsent(page, navigated, openRequests) {
+  const deadline = Date.now() + POST_CONSENT_NAV_WAIT_MS;
+  while (!navigated() && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!navigated()) {
+    await waitForSettle(page);
+    return false;
+  }
+  // A reloaded page that doesn't reach its load event is captured as it stands
+  await page.waitForLoadState('load', { timeout: NAV_TIMEOUT_MS }).catch(() => {});
+  await waitForSettle(page, SETTLE_MAX_MS, openRequests);
+  await triggerLazyLoading(page);
+  return true;
 }
 
 /**
