@@ -421,6 +421,9 @@ function createMcpServer(env, ctx, auth, origin) {
         `Created: ${record.createdAt}`,
         `Completed: ${record.completedAt}`,
         `Render quality: ${record.renderQuality ?? 'full'}`,
+        ...(record.render?.subresourceLimitReached
+          ? ['The page made more than 500 requests; WRL blocked the ones after the first 500.']
+          : []),
         ...(record.render?.screenshotClipped
           ? [`Screenshot covers the top ${record.render.screenshotHeight} px of a ${record.render.pageHeight} px page; the HTML has the whole page.`]
           : []),

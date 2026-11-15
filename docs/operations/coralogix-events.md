@@ -75,7 +75,8 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.partial_start` | Entering partial capture budget (readyState, budgetMs) |
 | 3 | `render.default.partial_complete` | Partial capture succeeded (screenshotMs, contentMs, durationMs) |
 | 3 | `render.default.partial_fail` | Partial capture inner error (errorMessage) |
-| 3 | `render.default.limit_exceeded` | Subresource or size limit hit (limit, subresourceCount, totalBytes) |
+| 3 | `render.default.subresource_limit` | Request 501 blocked; the capture goes on and ends as partial (subresourceCount, totalBytes) |
+| 3 | `render.default.limit_exceeded` | Size limit hit, the capture fails (limit, subresourceCount, totalBytes) |
 | 3 | `render.default.settle_complete` | Network settlement finished (settleMs, settleReason, pendingAtCap) |
 | 3 | `render.default.render_check_fail` | Rendered page is not target content (reason) |
 | 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs) |
