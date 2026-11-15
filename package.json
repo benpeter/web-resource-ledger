@@ -37,7 +37,7 @@
     "yaml": "^2.8.2"
   },
   "dependencies": {
-    "@cloudflare/playwright": "^1.1.2",
+    "@cloudflare/playwright": "^1.4.0",
     "@duckduckgo/autoconsent": "^18.1.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "croner": "^10.0.1",

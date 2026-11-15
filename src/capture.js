@@ -30,6 +30,9 @@
  *   contention across concurrent workers. If all sessions are in use and the
  *   pool limit is reached, the capture fails immediately -- no wait loop, to
  *   preserve the 15-minute queue consumer wall clock.
+ *   The library is loaded with a dynamic import on the first session request,
+ *   so cold starts that never capture (API, verify, /health) skip evaluating
+ *   it (test/browser-import-sync.test.js).
  *
  * BrowserContext isolation guarantees:
  *   Each capture creates a fresh BrowserContext and closes it in try/finally.
@@ -71,7 +74,6 @@
  * Tests: test/capture.test.js
  */ // tva
 
-import { connect, acquire, sessions, limits } from '@cloudflare/playwright';
 import { completeCapture, failCapture, recordAttemptError, archiveSigningKey } from './db.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
@@ -360,6 +362,7 @@ export async function captureHeaders(url) {
  * @returns {Promise<import('@cloudflare/playwright').Browser>}
  */
 async function getOrCreateSession(browserBinding) {
+  const { connect, acquire, sessions, limits } = await import('@cloudflare/playwright');
   // Try to reuse a free existing session
   const activeSessions = await sessions(browserBinding);
   const freeSessions = activeSessions.filter((s) => !s.connectionId);

@@ -180,3 +180,4 @@ software development.
 | [0171-docs-diagrams](0171-docs-diagrams/) | The docs diagrams, blocked by the CSP since March, are SVG images rendered from Mermaid sources, with their content corrected |
 | [0172-capture-event-ip](0172-capture-event-ip/) | Capture events sent to Pirsch no longer give the captured site's address as the visitor's ip |
 | [0173-security-txt](0173-security-txt/) | webresourceledger.com serves a security.txt that names the reporting channel, and the API, verify and docs hosts redirect to it |
+| [0174-cloudflare-playwright-1-4](0174-cloudflare-playwright-1-4/) | Captures use `@cloudflare/playwright` 1.4.0, loaded only when a capture runs, so cold starts without a capture got faster instead of slower |
