@@ -190,6 +190,39 @@ describe('formatLegal -- captured page', () => {
   });
 });
 
+describe('formatLegal -- capture quality', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  function makeQualityResult(quality) {
+    return makeBaseResult({ capture: { ...makePageResult().capture, quality } });
+  }
+
+  it('Section 2 says what the capture service recorded about the capture', () => {
+    formatLegal(makeQualityResult({ renderQuality: 'partial', timedOut: true, httpStatus: 403 }));
+    const subject = stdoutOutput.split('2. SUBJECT OF VERIFICATION')[1].split('3. VERIFICATION CHECKS PERFORMED')[0];
+    assert.match(subject, /Recorded by the capture service and covered by the signature:/);
+    assert.match(subject, /- Partial capture: the page had not finished loading/);
+    assert.match(subject, /- The site answered with HTTP 403/);
+  });
+
+  it('leaves that paragraph out for a full capture of a page that answered 200', () => {
+    formatLegal(makeQualityResult({ renderQuality: 'full', timedOut: false, httpStatus: 200 }));
+    assert.doesNotMatch(stdoutOutput, /Recorded by the capture service/);
+  });
+
+  it('JSON report carries capture.quality', () => {
+    formatLegalJson(makeQualityResult({ renderQuality: 'partial', timedOut: true }));
+    const out = JSON.parse(stdoutOutput);
+    assert.deepStrictEqual(out.capture.quality, { renderQuality: 'partial', timedOut: true });
+  });
+
+  it('JSON report has capture.quality null when the archive records none', () => {
+    formatLegalJson(makePageResult());
+    assert.strictEqual(JSON.parse(stdoutOutput).capture.quality, null);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // formatLegal -- Section structure
 // ---------------------------------------------------------------------------

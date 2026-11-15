@@ -126,6 +126,52 @@ describe('verifyWacz -- captured page', () => {
   });
 });
 
+describe('verifyWacz -- capture quality', () => {
+  it('returns the signed captureQuality as capture.quality', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA, {
+      captureQuality: {
+        renderQuality: 'partial',
+        waitUntilReached: 'load',
+        timedOut: false,
+        subresourceLimitReached: true,
+        httpStatus: 403,
+        pageHeight: 21860,
+        screenshotHeight: 8000,
+        screenshotClipped: true,
+      },
+    });
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.verified, true);
+    assert.deepStrictEqual(result.capture.quality, {
+      renderQuality: 'partial',
+      waitUntilReached: 'load',
+      timedOut: false,
+      subresourceLimitReached: true,
+      screenshotClipped: true,
+      pageHeight: 21860,
+      screenshotHeight: 8000,
+      httpStatus: 403,
+    });
+  });
+
+  it('capture.quality is null when the archive records none', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA);
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.capture.quality, null);
+  });
+
+  it('drops fields it does not know or that have the wrong type', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA, {
+      captureQuality: { renderQuality: 'excellent', timedOut: 'no', httpStatus: '403', note: 'x', screenshotClipped: false },
+    });
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.deepStrictEqual(result.capture.quality, { screenshotClipped: false });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Happy path: v0.2.0 with valid timestamp
 // ---------------------------------------------------------------------------

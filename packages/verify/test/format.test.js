@@ -315,6 +315,46 @@ describe('formatHuman -- captured page', () => {
   });
 });
 
+describe('formatHuman -- capture quality', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  it('says when the page had not finished loading', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'partial', timedOut: true };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Note      Partial capture: the page had not finished loading, so content that loads late may be missing\n/);
+  });
+
+  it('says when the page made more requests than the capture service allows', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'partial', timedOut: false, subresourceLimitReached: true };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Note      Partial capture: the page made more requests than the capture service allows, so content that loads late may be missing\n/);
+  });
+
+  it('says when the screenshot shows only the top of the page', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'full', screenshotClipped: true, pageHeight: 21860, screenshotHeight: 8000 };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Note      The screenshot shows the top 8000 px of a 21860 px page; the HTML has the whole page\n/);
+  });
+
+  it('says when the site answered with an error status', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'full', httpStatus: 403 };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Note      The site answered with HTTP 403; the capture shows that answer, which can be an error page or a block page\n/);
+  });
+
+  it('adds no note for a full capture of a page that answered 200', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'full', timedOut: false, screenshotClipped: false, httpStatus: 200 };
+    formatHuman(result, { noColor: true });
+    assert.doesNotMatch(stdoutOutput, /  Note  /);
+  });
+});
+
 describe('formatJson -- structure', () => {
   beforeEach(captureStdout);
   afterEach(restoreStdout);
