@@ -398,7 +398,7 @@ components:
         Named artifact URLs for a complete capture. All fields present for a
         complete capture except headers, which is absent if the HTTP header
         fetch failed or timed out. The html artifact is served as text/plain
-        with Content-Disposition: attachment to prevent XSS -- do not embed
+        with Content-Disposition: attachment to prevent XSS; do not embed
         in iframes or inject as HTML.
 
         The `screenshot` field always points to the best-available screenshot
@@ -429,7 +429,7 @@ components:
           format: uri
           description: >
             Rendered HTML after JavaScript execution. Served as text/plain
-            with Content-Disposition: attachment -- NOT as text/html -- to
+            with Content-Disposition: attachment (NOT as text/html) to
             prevent stored XSS.
           examples:
             - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
@@ -447,7 +447,7 @@ components:
       type: object
       description: >
         WACZ bundle metadata. Present only when a signing key was configured and
-        WACZ bundling succeeded. Absence does not indicate a capture failure --
+        WACZ bundling succeeded. Absence does not indicate a capture failure;
         screenshot and html are always present for a complete capture.
       required: [url, bundleHash, size]
       properties:
@@ -491,7 +491,7 @@ components:
             Highest browser readiness milestone confirmed before the page was
             captured. "load" means the load event fired (default for new captures).
             "networkidle" means fewer than two open network connections for 500ms
-            (used by older captures -- retained in enum for backward compatibility).
+            (used by older captures; retained in enum for backward compatibility).
             "domcontentloaded" means the DOM was parsed but some resources may
             still be loading.
         timedOut:
@@ -658,7 +658,7 @@ components:
         status:
           type: string
           const: complete
-          description: Always "complete" -- this endpoint only returns completed captures.
+          description: Always "complete"; this endpoint only returns completed captures.
         url:
           type: string
           format: uri
@@ -699,7 +699,7 @@ components:
           $ref: '#/components/schemas/WaczInfo'
           description: >
             WACZ bundle metadata. Present when status is "complete" AND a signing
-            key was configured. Absent otherwise -- not an error condition.
+            key was configured. Absent otherwise, which is not an error condition.
         verifyUrl:
           type: string
           format: uri
@@ -924,7 +924,7 @@ components:
             'capture' implies 'read'. 'admin' does NOT imply 'capture' or 'read'.
             Note: the 'admin' scope is reserved for a future migration from the
             ADMIN_KEY env var to per-tenant admin keys. It currently has
-            no runtime effect on access control -- admin endpoints use ADMIN_KEY only.
+            no runtime effect on access control; admin endpoints use ADMIN_KEY only.
           items:
             type: string
             enum: [capture, read, admin]
@@ -953,7 +953,7 @@ components:
         key:
           type: string
           description: >
-            Raw API key prefixed with "wrl_live_". Store this value now --
+            Raw API key prefixed with "wrl_live_". Store this value now;
             it cannot be retrieved after this response.
           examples:
             - 'wrl_live_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij'
@@ -1085,7 +1085,7 @@ components:
       type: object
       description: >
         Response when a webhook is successfully registered. The secret is
-        returned exactly once -- store it immediately, it cannot be retrieved.
+        returned exactly once. Store it immediately; it cannot be retrieved.
       required: [id, url, events, name, secret, createdAt, warning]
       properties:
         id:
@@ -1114,7 +1114,7 @@ components:
             Webhook signing secret. Prefixed with "wrlsec_" followed by 64
             hex characters (32 bytes, hex-encoded). Use this to verify the
             HMAC-SHA256 signature on incoming webhook requests. Store this
-            value now -- it cannot be retrieved after this response.
+            value now; it cannot be retrieved after this response.
           pattern: '^wrlsec_[a-f0-9]{64}$'
           examples:
             - 'wrlsec_0000000000000000000000000000000000000000000000000000000000000000'
@@ -1329,7 +1329,7 @@ components:
 
     AdminKeyRevoked:
       type: object
-      description: Response body when a key is revoked (or was already revoked -- idempotent).
+      description: Response body when a key is revoked (or was already revoked; idempotent).
       required: [keyHash, tenantId, scopes, name, createdAt, revoked, revokedAt]
       properties:
         keyHash:
@@ -1689,7 +1689,7 @@ components:
       type: object
       description: >
         Cryptographic metadata extracted from the WACZ datapackage-digest.json.
-        All fields are nullable -- they are absent when the digest document is
+        All fields are nullable: they are absent when the digest document is
         missing or malformed. This object is informational only; the server's
         own public key is used for the verification decision, not the embedded publicKey.
       required: [bundleHash, signature, publicKey, signedAt]
@@ -1704,7 +1704,7 @@ components:
           type: ["string", "null"]
           description: >
             Base64-encoded Ed25519 public key embedded in the WACZ. Informational
-            only -- the server's key is used for actual verification.
+            only; the server's key is used for actual verification.
         signedAt:
           type: ["string", "null"]
           description: ISO 8601 timestamp when the bundle was signed, from signedData.created.
@@ -1770,7 +1770,7 @@ components:
       type: object
       description: >
         Full verification result for a capture's WACZ bundle. A 200 status does NOT
-        mean the capture is verified -- check the `verified` field.
+        mean the capture is verified; check the `verified` field.
       required: [verified, capture, signing, checks]
       properties:
         verified:
@@ -2121,7 +2121,7 @@ components:
                   resetsAt: "2026-04-01T00:00:00.000Z"
 
     Problem503:
-      description: Service Unavailable -- required configuration is missing or service is at capacity.
+      description: Service Unavailable — required configuration is missing or service is at capacity.
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
@@ -2793,7 +2793,7 @@ paths:
                       resource: captures
                       resetsAt: "2026-04-01T00:00:00.000Z"
         '503':
-          description: Service Unavailable -- service is at capacity.
+          description: Service Unavailable — service is at capacity.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -3523,11 +3523,11 @@ paths:
           description: >
             Certification PDF. Response headers include:
 
-            - `Content-Disposition: attachment; filename="certificate-{captureId}.pdf"` -- triggers download.
-            - `Cache-Control: public, max-age=31536000, immutable` -- deterministic output; cached aggressively.
-            - `X-Signature-Ed25519` -- base64-encoded Ed25519 signature over the PDF bytes, using the operator signing key.
-            - `X-Signature-Key-Id` -- 8-character key fingerprint identifying which signing key produced the signature.
-            - `Access-Control-Expose-Headers: X-Signature-Ed25519, X-Signature-Key-Id` -- exposes signature headers to browser clients.
+            - `Content-Disposition: attachment; filename="certificate-{captureId}.pdf"`: triggers download.
+            - `Cache-Control: public, max-age=31536000, immutable`: deterministic output; cached aggressively.
+            - `X-Signature-Ed25519`: base64-encoded Ed25519 signature over the PDF bytes, using the operator signing key.
+            - `X-Signature-Key-Id`: 8-character key fingerprint identifying which signing key produced the signature.
+            - `Access-Control-Expose-Headers: X-Signature-Ed25519, X-Signature-Key-Id`: exposes signature headers to browser clients.
           headers:
             Strict-Transport-Security:
               $ref: '#/components/headers/StrictTransportSecurity'
@@ -3581,7 +3581,7 @@ paths:
           $ref: '#/components/responses/Problem429'
         '451':
           description: >
-            Unavailable For Legal Reasons -- this capture has been quarantined due to
+            Unavailable For Legal Reasons — this capture has been quarantined due to
             content security screening. Certification is not available for quarantined captures.
           content:
             application/problem+json:
@@ -3827,7 +3827,7 @@ paths:
           $ref: '#/components/responses/Problem429'
         '451':
           description: >
-            Unavailable For Legal Reasons -- one of the two captures has been
+            Unavailable For Legal Reasons — one of the two captures has been
             quarantined, so WRL doesn't compare it.
           content:
             application/problem+json:
@@ -3854,7 +3854,7 @@ paths:
         HTML verification page that fetches the JSON result client-side. API clients
         receive JSON directly.
 
-        **A 200 status does NOT mean the capture is verified -- check the `verified` field.**
+        **A 200 status does NOT mean the capture is verified; check the `verified` field.**
         The endpoint returns 200 for all reachable captures, even when verification fails.
 
         Partial captures (navigation timed out after DOMContentLoaded) are signed
@@ -3873,7 +3873,7 @@ paths:
       responses:
         '200':
           description: >
-            Verification result. Check the `verified` boolean field -- a 200 status
+            Verification result. Check the `verified` boolean field; a 200 status
             does not mean the capture passed verification.
           headers:
             Referrer-Policy:
@@ -4024,7 +4024,7 @@ paths:
           $ref: '#/components/responses/Problem429'
         '451':
           description: >
-            Unavailable For Legal Reasons -- the nightly re-scan quarantined this
+            Unavailable For Legal Reasons — the nightly re-scan quarantined this
             capture, so WRL doesn't verify or serve it. The capture record
             (GET /v1/captures/{captureId}) still says why.
           content:
@@ -4100,7 +4100,7 @@ paths:
                     type: string
                     pattern: '^[0-9a-f]{8}$'
                     description: >
-                      Key fingerprint -- first 8 hex chars of SHA-256(raw public key bytes).
+                      Key fingerprint: first 8 hex chars of SHA-256(raw public key bytes).
                       Used to identify which historical key signed a given WACZ bundle.
                     examples:
                       - 'a1b2c3d4'
@@ -4195,7 +4195,7 @@ paths:
       summary: Create a new API key
       description: >
         Creates a new per-tenant API key and returns the raw key exactly once.
-        Store the returned key immediately -- it cannot be retrieved after this response.
+        Store the returned key immediately; it cannot be retrieved after this response.
 
         Rate limited to 30 requests per 60 seconds per IP. Auth check happens after rate limit.
 
@@ -4274,7 +4274,7 @@ paths:
                     warning: 'Store this key now. It cannot be retrieved after this response.'
         '400':
           description: >
-            Bad request -- missing or invalid fields. Field validation messages
+            Bad request — missing or invalid fields. Field validation messages
             identify the specific problem.
           headers:
             Referrer-Policy:
@@ -4303,7 +4303,7 @@ paths:
                 missingName:
                   value: {type: about:blank, status: 400, title: Bad Request, detail: "Field 'name' is required"}
         '401':
-          description: Unauthorized -- missing or invalid admin key.
+          description: Unauthorized — missing or invalid admin key.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4330,7 +4330,7 @@ paths:
                 invalid:
                   value: {type: about:blank, status: 401, title: Unauthorized, detail: Invalid admin key}
         '415':
-          description: Unsupported Media Type -- Content-Type is not application/json.
+          description: Unsupported Media Type — Content-Type is not application/json.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4354,7 +4354,7 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
         '503':
-          description: Service Unavailable -- ADMIN_KEY is not configured.
+          description: Service Unavailable — ADMIN_KEY is not configured.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4486,7 +4486,7 @@ paths:
                   value:
                     data: []
         '401':
-          description: Unauthorized -- missing or invalid admin key.
+          description: Unauthorized — missing or invalid admin key.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4515,7 +4515,7 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
         '503':
-          description: Service Unavailable -- ADMIN_KEY is not configured.
+          description: Service Unavailable — ADMIN_KEY is not configured.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4545,7 +4545,7 @@ paths:
         Marks an API key as revoked. The key is immediately recorded as revoked in D1.
         Revocation takes effect within 60 seconds due to distributed edge caching.
 
-        This operation is idempotent -- revoking an already-revoked key returns 200
+        This operation is idempotent: revoking an already-revoked key returns 200
         with the existing revocation record.
 
         Rate limited to 30 requests per 60 seconds per IP.
@@ -4570,7 +4570,7 @@ paths:
               value: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'
       responses:
         '200':
-          description: Key revoked (or was already revoked -- operation is idempotent).
+          description: Key revoked (or was already revoked; operation is idempotent).
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4607,7 +4607,7 @@ paths:
                     revoked: true
                     revokedAt: '2026-03-17T15:00:00.000Z'
         '401':
-          description: Unauthorized -- missing or invalid admin key.
+          description: Unauthorized — missing or invalid admin key.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4663,7 +4663,7 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
         '503':
-          description: Service Unavailable -- ADMIN_KEY is not configured.
+          description: Service Unavailable — ADMIN_KEY is not configured.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4691,7 +4691,7 @@ paths:
       summary: Register a webhook
       description: >
         Registers an HTTPS endpoint to receive outbound event notifications.
-        A signing secret is returned exactly once -- store it immediately.
+        A signing secret is returned exactly once; store it immediately.
         Tenants are limited to 5 active webhooks. All registered webhooks
         are active immediately upon creation.
       tags: [webhooks]
@@ -4718,7 +4718,7 @@ paths:
                   name: archive-sync
       responses:
         '201':
-          description: Webhook registered. Store the secret -- it is shown only once.
+          description: Webhook registered. Store the secret; it is shown only once.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4752,7 +4752,7 @@ paths:
         '401':
           $ref: '#/components/responses/Problem401'
         '409':
-          description: Conflict -- tenant has reached the 5-webhook limit.
+          description: Conflict — tenant has reached the 5-webhook limit.
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
@@ -4900,7 +4900,7 @@ paths:
         verify the signature even for ping events.
 
         A non-2xx response from your endpoint does not prevent future event
-        delivery -- ping results do not affect webhook active status.
+        delivery; ping results do not affect webhook active status.
       tags: [webhooks]
       security:
         - bearerAuth: []
@@ -5744,7 +5744,7 @@ paths:
         '401':
           $ref: '#/components/responses/Problem401'
         '415':
-          description: Unsupported Media Type -- Content-Type is not application/json.
+          description: Unsupported Media Type — Content-Type is not application/json.
           content:
             application/problem+json:
               schema:
@@ -6025,7 +6025,7 @@ paths:
       description: >
         Partially updates the authenticated tenant's notification preferences.
         Both `email` and `notifications` are optional. The `notifications` object
-        uses merge semantics -- only keys present in the request are changed.
+        uses merge semantics: only keys present in the request are changed.
 
         Changing `email` automatically resets `emailVerified` to false and sets
         `emailSource` to 'manual'. Setting `email` to null clears the address.
