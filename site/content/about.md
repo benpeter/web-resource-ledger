@@ -47,7 +47,7 @@ Browse the evolution log: [`docs/evolution/`](https://github.com/benpeter/web-re
 
 Most AI-assisted development happens behind closed doors. WRL's evolution
 log is an attempt to show what LLM-driven development actually looks like
-at production scale -- the parts that work, the parts that don't, and the
+at production scale: the parts that work, the parts that don't, and the
 human judgment calls that bridge the gap.
 
 The product stands on its own merits regardless of how it was built. But if

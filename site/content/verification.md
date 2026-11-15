@@ -26,7 +26,7 @@ Or download the WACZ file first and verify it locally:
 npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
 ```
 
-Requires Node.js 20 or later. No installation needed -- `npx` fetches the package on demand.
+Requires Node.js 20 or later. No installation needed: `npx` fetches the package on demand.
 
 **Example output (all checks passing):**
 
@@ -64,7 +64,7 @@ The report contains seven sections: a plain-language summary, a subject descript
 
 Add `--json` alongside `--legal` for a machine-readable JSON version with the same seven sections as structured fields.
 
-For the legal context behind the report -- including how WRL captures map to FRE 901(b)(9) and eIDAS Art. 41 -- see [Legal Evidence](/legal-evidence/).
+For the legal context behind the report, including how WRL captures map to FRE 901(b)(9) and eIDAS Art. 41, see [Legal Evidence](/legal-evidence/).
 
 ### REST API (server-side)
 
@@ -103,7 +103,7 @@ curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b
 
 > **Note:** A `200` response does not mean the capture is verified. Always check the `verified` field. A `200` with `"verified": false` means the endpoint ran successfully but one or more checks failed.
 
-The `verifyUrl` included in every capture record also renders as a human-readable browser page. Share it freely -- no account is needed to view it.
+The `verifyUrl` included in every capture record also renders as a human-readable browser page. Share it freely; no account is needed to view it.
 
 ### What each check confirms
 
@@ -117,9 +117,9 @@ The `verifyUrl` included in every capture record also renders as a human-readabl
 
 The browser page and the CLI's readable output show time verification as one row. In the JSON of `GET /v1/verify/{id}` and of the CLI's `--json` it is two checks: `timestamp` for the RFC 3161 timestamp, and `qualifiedTimestamp` for captures that also have an eIDAS-qualified one.
 
-When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture -- meaning the capture cannot have been backdated. WRL's SHA-256 hashing and documentation practices align with SWGDE Best Practices for Acquiring Online Content sections 7.3 and 7.5; see [SWGDE Alignment](/security/swgde-compliance/) for the full mapping.
+When all checks pass, you know: every byte matches what was captured; the WACZ was assembled by the operator who holds the signing key; and an independent authority recorded the time at capture, so the capture cannot have been backdated. WRL's SHA-256 hashing and documentation practices align with SWGDE Best Practices for Acquiring Online Content sections 7.3 and 7.5; see [SWGDE Alignment](/security/swgde-compliance/) for the full mapping.
 
-For how these technical properties map to legal authentication standards (FRE 901/902, eIDAS), see [Legal Evidence](/legal-evidence/). To obtain a certification document designed to support a Rule 902(13) self-authentication foundation, use `GET /v1/captures/{captureId}/certificate` or the "Download Certificate" button in the web UI -- see [Certified records](/legal-evidence/#rule-902-13-certified-records).
+For how these technical properties map to legal authentication standards (FRE 901/902, eIDAS), see [Legal Evidence](/legal-evidence/). To obtain a certification document designed to support a Rule 902(13) self-authentication foundation, use `GET /v1/captures/{captureId}/certificate` or the "Download Certificate" button in the web UI; see [Certified records](/legal-evidence/#rule-902-13-certified-records).
 
 ### Partial captures
 
@@ -156,11 +156,11 @@ The operator's current public key is available at `GET /.well-known/signing-key`
 
 ### RFC 3161 timestamps
 
-After signing the bundle, WRL submits the bundle hash to a third-party Timestamp Authority (TSA) -- currently DigiCert -- using the RFC 3161 protocol. The TSA records the hash along with the current time and signs the result with its own certificate.
+After signing the bundle, WRL submits the bundle hash to a third-party Timestamp Authority (TSA), currently DigiCert, using the RFC 3161 protocol. The TSA records the hash along with the current time and signs the result with its own certificate.
 
 What this timestamp proves: DigiCert observed this exact bundle hash at this specific time. Because the timestamp is bound to the hash, it cannot be transferred to a different bundle. Because DigiCert signed the timestamp, it cannot be forged without DigiCert's private key.
 
-Why this matters: a capture signed only by the operator could theoretically be backdated -- the operator controls the clock. An RFC 3161 timestamp from an independent TSA removes that possibility. A third party (DigiCert) independently confirms when the bundle hash existed.
+Why this matters: a capture signed only by the operator could theoretically be backdated, because the operator controls the clock. An RFC 3161 timestamp from an independent TSA removes that possibility. A third party (DigiCert) independently confirms when the bundle hash existed.
 
 The TSA identity and the raw timestamp are embedded in the WACZ bundle's `datapackage-digest.json`. The CLI performs full CMS/PKCS#7 certificate chain validation to confirm the TSA certificate is legitimate.
 
@@ -179,7 +179,7 @@ The hash chain works bottom-up: each artifact file is hashed individually and re
 
 ### Key rotation
 
-Old captures continue to verify after the operator rotates signing keys. Each capture records which key signed it. The key archive at `GET /.well-known/signing-keys` lists all historical public keys. During verification, the correct historical key is looked up automatically -- you do not need to manage this yourself.
+Old captures continue to verify after the operator rotates signing keys. Each capture records which key signed it. The key archive at `GET /.well-known/signing-keys` lists all historical public keys. During verification, the correct historical key is looked up automatically; you do not need to manage this yourself.
 
 Rotating the signing key does not break existing captures or existing verification links.
 

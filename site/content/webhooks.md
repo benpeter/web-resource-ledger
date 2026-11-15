@@ -6,7 +6,7 @@ description: Receive real-time notifications when captures complete or fail. Reg
 
 # Webhooks
 
-WRL can push event notifications to your HTTPS endpoint whenever a capture completes or fails. This eliminates the need to poll `/v1/captures` -- instead, your server receives a signed POST request the moment the state changes.
+WRL can push event notifications to your HTTPS endpoint whenever a capture completes or fails. This eliminates the need to poll `/v1/captures`. Instead, your server receives a signed POST request the moment the state changes.
 
 ## Prerequisites
 
@@ -42,7 +42,7 @@ curl -X POST https://api.webresourceledger.com/v1/webhooks \
 }
 ```
 
-**The `secret` is shown exactly once.** Store it in a secrets manager immediately -- it cannot be retrieved later. You will use it to verify the signature on every incoming event.
+**The `secret` is shown exactly once.** Store it in a secrets manager immediately, because it cannot be retrieved later. You will use it to verify the signature on every incoming event.
 
 Constraints:
 - URL must use `https`. HTTP endpoints are rejected.
@@ -289,7 +289,7 @@ A retry sends the same event again, with the same `id` and `X-WRL-Delivery`. You
 
 WRL waits 10 seconds for your endpoint to answer. A delivery that takes longer counts as failed and is retried, like a 5xx response or a connection error.
 
-**Non-retryable responses:** 4xx responses other than 408 (Request Timeout) and 429 (Too Many Requests) are treated as permanent failures and are not retried. Your endpoint should return 200 immediately after receiving and queuing the payload -- do not block on processing.
+**Non-retryable responses:** 4xx responses other than 408 (Request Timeout) and 429 (Too Many Requests) are treated as permanent failures and are not retried. Your endpoint should return 200 immediately after receiving and queuing the payload; do not block on processing.
 
 ---
 
@@ -313,7 +313,7 @@ curl -X POST https://api.webresourceledger.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c
 }
 ```
 
-The ping sends a synthetic event with `type: "ping"` signed with your webhook secret. The response includes `signatureHeader`, `timestampHeader`, and `sentPayload` so you can verify your signature verification logic end-to-end: take `sentPayload` and `timestampHeader`, combine as `{timestampHeader}.{sentPayload}`, HMAC-SHA256 with your hex-decoded secret, and compare to the `v1=` value in `signatureHeader`. A ping failure (non-2xx response from your endpoint) does not affect webhook active status -- it is informational only.
+The ping sends a synthetic event with `type: "ping"` signed with your webhook secret. The response includes `signatureHeader`, `timestampHeader`, and `sentPayload` so you can verify your signature verification logic end-to-end: take `sentPayload` and `timestampHeader`, combine as `{timestampHeader}.{sentPayload}`, HMAC-SHA256 with your hex-decoded secret, and compare to the `v1=` value in `signatureHeader`. A ping failure (non-2xx response from your endpoint) does not affect webhook active status; it is informational only.
 
 ---
 
@@ -373,7 +373,7 @@ There is no in-place rotation. To change your webhook secret:
 2. Update your endpoint to accept signatures from both the old and new secrets during the transition window.
 3. Delete the old webhook.
 
-The brief gap between creating the new webhook and deleting the old one is safe -- both are active simultaneously. If you cannot tolerate any gap, use the [captures list endpoint](/api-reference/#listCaptures) to detect missed completions by polling while you rotate.
+The brief gap between creating the new webhook and deleting the old one is safe: both are active simultaneously. If you cannot tolerate any gap, use the [captures list endpoint](/api-reference/#listCaptures) to detect missed completions by polling while you rotate.
 
 ---
 
@@ -387,7 +387,7 @@ Also confirm you are hex-decoding the secret. The `wrlsec_` prefix encodes 32 by
 
 **Events stopped arriving after a few failed attempts.**
 
-After 4 total attempts (initial + 3 retries), delivery stops. Your endpoint must return a 2xx status to be considered successful. Check your server logs for the failed requests. Once you fix the endpoint, any new captures will trigger fresh deliveries -- past failed events are not replayed.
+After 4 total attempts (initial + 3 retries), delivery stops. Your endpoint must return a 2xx status to be considered successful. Check your server logs for the failed requests. Once you fix the endpoint, any new captures will trigger fresh deliveries; past failed events are not replayed.
 
 **I'm getting 409 when trying to register a webhook.**
 

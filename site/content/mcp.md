@@ -147,7 +147,7 @@ Without a key, `initialize`, `ping` and `tools/list` still answer, so MCP direct
 
 #### `capture_url`
 
-Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle. Returns a capture ID -- use `get_capture` to check progress.
+Capture a web page as tamper-evident evidence. Takes a screenshot, saves rendered HTML and HTTP headers, and creates a cryptographically signed WACZ bundle. Returns a capture ID; use `get_capture` to check progress.
 
 **Requires:** `capture` scope
 
@@ -257,8 +257,8 @@ List recent captures with optional filters. Returns summaries in reverse chronol
 | `limit` | integer | no | Number of results (1-100, default 20) |
 | `offset` | integer | no | Number of captures to skip for pagination (default 0) |
 | `url` | string | no | Filter by URL prefix (min 4 characters) |
-| `created_after` | string | no | ISO 8601 datetime -- only captures after this time |
-| `created_before` | string | no | ISO 8601 datetime -- only captures before this time |
+| `created_after` | string | no | ISO 8601 datetime; only captures after this time |
+| `created_before` | string | no | ISO 8601 datetime; only captures before this time |
 | `sort` | string | no | Sort order: `-created_at` (default, newest first) or `created_at` |
 | `schedule_id` | string | no | Only captures made by this schedule (`sch_` followed by 32 hex characters); `list_schedules` shows the IDs |
 
@@ -535,12 +535,12 @@ Schedule deleted: sch_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
 
 Not every WRL API endpoint is exposed as an MCP tool. The following are deliberately excluded:
 
-- **Admin endpoints** -- Require `ADMIN_KEY` authentication, not a tenant API key. Operators access these directly, not through agent workflows.
-- **Webhook endpoints** -- Require infrastructure callback URLs that agents do not have. Deferred.
-- **Binary artifact downloads** -- `get_capture` returns artifact URLs. MCP is text-based; binary transfer belongs in the HTTP layer. Agents receive URLs and can fetch them as needed.
-- **Health, CORS, and signing-key endpoints** -- Infrastructure, not agent tasks.
-- **Notification and unsubscribe UI endpoints** -- Browser-rendered HTML flows, not API operations.
-- **Status endpoint** -- Redundant with `get_capture`, which returns the same information in a richer format.
+- **Admin endpoints**: Require `ADMIN_KEY` authentication, not a tenant API key. Operators access these directly, not through agent workflows.
+- **Webhook endpoints**: Require infrastructure callback URLs that agents do not have. Deferred.
+- **Binary artifact downloads**: `get_capture` returns artifact URLs. MCP is text-based; binary transfer belongs in the HTTP layer. Agents receive URLs and can fetch them as needed.
+- **Health, CORS, and signing-key endpoints**: Infrastructure, not agent tasks.
+- **Notification and unsubscribe UI endpoints**: Browser-rendered HTML flows, not API operations.
+- **Status endpoint**: Redundant with `get_capture`, which returns the same information in a richer format.
 
 ---
 
@@ -575,7 +575,7 @@ Tool: get_capture
 Input: { "capture_id": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" }
 ```
 
-If still processing, you will see `is pending` -- call `get_capture` again in a few seconds. When the capture completes, the response includes all artifact URLs and a verification link.
+If still processing, you will see `is pending`; call `get_capture` again in a few seconds. When the capture completes, the response includes all artifact URLs and a verification link.
 
 WRL retries failed attempts, so a capture can stay pending for a few minutes. Once it fails, `get_capture` shows the reason; resubmit with a new `capture_url` call if the error is retryable.
 
