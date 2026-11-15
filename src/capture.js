@@ -709,47 +709,71 @@ async function defaultRenderer(env, url, captureId) {
     const tConsent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
 
-    // After-screenshot only when consent was successfully dismissed
-    let screenshot;
-    let shot = shotBefore;
-    const tookAfterScreenshot = consent.status === 'dismissed';
-    let tPostConsent = tConsent;
-    if (tookAfterScreenshot) {
-      // The page changes once the banner is gone, and some sites reload. Let it
-      // come to rest first, so the screenshot doesn't show it halfway there.
-      try {
-        const reloaded = await settleAfterConsent(page, () => mainFrameNavigations > 0, openRequests);
-        tPostConsent = Date.now();
-        await log(env, 3, 'capture', { event: 'render.default.post_consent', url, captureId, postConsentMs: tPostConsent - tConsent, reloaded });
-      } catch (err) {
-        // Not worth losing the capture over: the screenshot below still shows the page
-        tPostConsent = Date.now();
-        await log(env, 4, 'capture', { event: 'render.default.post_consent_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
-      }
-      shot = await takeCappedScreenshot(page);
-      ({ screenshot } = shot);
-    } else {
-      screenshot = screenshotBefore;
-    }
-    page.off('framenavigated', countNavigation);
-    const tScreenshot = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: tScreenshot - tPostConsent, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
-
     // A page that is still loading can hold page.content() back, so the
     // timed-out path gives it one second.
-    let html;
-    if (timedOut) {
+    const readHtml = () => {
+      if (!timedOut) return page.content();
       const remainingMs = partialDeadline - Date.now();
       if (remainingMs < 200) throw new Error('Deadline exceeded before partial capture could complete');
-      html = await Promise.race([
+      return Promise.race([
         page.content(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Content extraction timeout')), Math.min(PARTIAL_CONTENT_TIMEOUT_MS, remainingMs))),
       ]);
-    } else {
-      html = await page.content();
+    };
+
+    // After-screenshot only when consent was successfully dismissed
+    let screenshot = screenshotBefore;
+    let shot = shotBefore;
+    let html;
+    const tookAfterScreenshot = consent.status === 'dismissed';
+    let postConsentMs = 0;
+    let afterScreenshotMs = 0;
+    let contentMs = 0;
+    if (!tookAfterScreenshot) {
+      const tRead = Date.now();
+      html = await readHtml();
+      contentMs = Date.now() - tRead;
     }
+    // The page changes once the banner is gone, and some sites reload. Let it
+    // come to rest first, so the screenshot doesn't show it halfway there. A
+    // reload that starts later, while the screenshot is taken or the HTML is
+    // read, gets a second pass on the new document.
+    for (let pass = 1; tookAfterScreenshot; pass++) {
+      const tPass = Date.now();
+      try {
+        const reloaded = await settleAfterConsent(page, () => pass > 1 || mainFrameNavigations > 0, openRequests);
+        await log(env, 3, 'capture', { event: 'render.default.post_consent', url, captureId, postConsentMs: Date.now() - tPass, reloaded, pass });
+      } catch (err) {
+        // Not worth losing the capture over: the screenshot below still shows the page
+        await log(env, 4, 'capture', { event: 'render.default.post_consent_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      }
+      const tSettled = Date.now();
+      postConsentMs += tSettled - tPass;
+
+      const navigationsBefore = mainFrameNavigations;
+      let tShot = tSettled;
+      let failure = null;
+      try {
+        shot = await takeCappedScreenshot(page);
+        ({ screenshot } = shot);
+        tShot = Date.now();
+        html = await readHtml();
+      } catch (err) {
+        failure = err;
+      }
+      afterScreenshotMs += tShot - tSettled;
+      contentMs += Date.now() - tShot;
+
+      const navigated = mainFrameNavigations > navigationsBefore
+        || String(failure?.message ?? '').includes('page is navigating');
+      if (pass === 1 && navigated) continue;
+      if (failure) throw failure;
+      break;
+    }
+    page.off('framenavigated', countNavigation);
+    await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: afterScreenshotMs, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
     const tContent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs: tContent - tScreenshot, htmlLength: html.length });
+    await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs, htmlLength: html.length });
 
     await log(env, 3, 'capture', { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
     return {
@@ -772,9 +796,9 @@ async function defaultRenderer(env, url, captureId) {
           settleMs: tSettle - tNav,
           scrollMs: tScroll - tSettle,
           consentMs: tConsent - tPreConsent,
-          ...(tookAfterScreenshot ? { postConsentMs: tPostConsent - tConsent } : {}),
-          screenshotMs: (tPreConsent - tScroll) + (tScreenshot - tPostConsent),
-          contentMs: tContent - tScreenshot,
+          ...(tookAfterScreenshot ? { postConsentMs } : {}),
+          screenshotMs: (tPreConsent - tScroll) + afterScreenshotMs,
+          contentMs,
         },
       },
       consent,
