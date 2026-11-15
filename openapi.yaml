@@ -208,6 +208,57 @@ components:
           type: string
           description: Human-readable explanation of this specific occurrence.
 
+    ProblemLimit:
+      description: >
+        A 429 problem response. A per-tenant rate limit, a quota or the schedule
+        limit adds `limitType`; a refused quota also adds `quota`.
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetail'
+        - type: object
+          properties:
+            limitType:
+              type: string
+              enum: [tenant, quota, schedules]
+              description: >
+                Which limit refused the request: `tenant` (the per-tenant rate
+                limit), `quota` (the monthly capture or storage quota) or
+                `schedules` (the number of schedules). Absent when the per-IP
+                rate limit refused it.
+            quota:
+              $ref: '#/components/schemas/QuotaDetail'
+              description: Present when `limitType` is `quota`.
+
+    ProblemThreat:
+      description: >
+        A 422 problem response. When threat screening flagged the URL, it adds
+        `threatTypes`.
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetail'
+        - type: object
+          properties:
+            threatTypes:
+              type: array
+              items:
+                type: string
+                enum: [MALWARE, SOCIAL_ENGINEERING, UNWANTED_SOFTWARE]
+              description: The Google Web Risk threat lists the URL is on.
+
+    ProblemQuarantined:
+      description: A 451 problem response for a capture the nightly re-scan quarantined.
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetail'
+        - type: object
+          properties:
+            quarantineReason:
+              type: ['string', 'null']
+              description: >
+                The Google Web Risk threat lists the re-scan found the URL on,
+                comma-separated: MALWARE, SOCIAL_ENGINEERING or UNWANTED_SOFTWARE.
+            quarantinedAt:
+              type: ['string', 'null']
+              format: date-time
+              description: When the capture was quarantined.
+
     CaptureAccepted:
       type: object
       description: Acknowledged capture request. The capture is queued; poll the status URL.
@@ -2050,7 +2101,7 @@ components:
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemDetail'
+            $ref: '#/components/schemas/ProblemLimit'
           examples:
             rateLimited:
               summary: IP-based rate limit exceeded
@@ -2678,7 +2729,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemThreat'
               examples:
                 privateIp:
                   summary: URL resolves to a private address
@@ -2723,7 +2774,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemLimit'
               examples:
                 rateLimited:
                   summary: IP-based rate limit exceeded
@@ -3018,7 +3069,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemLimit'
               examples:
                 rateLimited:
                   summary: IP-based rate limit exceeded before processing
@@ -3154,7 +3205,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemLimit'
         '502':
           description: The sitemap could not be fetched, answered with an error, or redirected too often.
           content:
@@ -3432,11 +3483,17 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemQuarantined'
               examples:
                 quarantined:
                   summary: Capture quarantined by content security screening
-                  value: {type: about:blank, status: 451, title: Unavailable For Legal Reasons, detail: This capture has been quarantined and its artifacts are restricted.}
+                  value:
+                    type: about:blank
+                    status: 451
+                    title: Unavailable For Legal Reasons
+                    detail: Capture artifacts restricted due to content security policy
+                    quarantineReason: SOCIAL_ENGINEERING
+                    quarantinedAt: '2026-11-02T03:00:41.000Z'
 
   /v1/captures/{captureId}/certificate:
     get:
@@ -3529,11 +3586,17 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemQuarantined'
               examples:
                 quarantined:
                   summary: Capture quarantined by content security screening
-                  value: {type: about:blank, status: 451, title: Unavailable For Legal Reasons, detail: This capture has been quarantined and certification is not available.}
+                  value:
+                    type: about:blank
+                    status: 451
+                    title: Unavailable For Legal Reasons
+                    detail: Capture artifacts restricted due to content security policy
+                    quarantineReason: SOCIAL_ENGINEERING
+                    quarantinedAt: '2026-11-02T03:00:41.000Z'
         '503':
           $ref: '#/components/responses/Problem503'
 
@@ -3762,6 +3825,15 @@ paths:
                   value: {type: about:blank, status: 404, title: Not Found, detail: One or both captures not found.}
         '429':
           $ref: '#/components/responses/Problem429'
+        '451':
+          description: >
+            Unavailable For Legal Reasons -- one of the two captures has been
+            quarantined, so WRL doesn't compare it.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example: {type: about:blank, status: 451, title: Unavailable For Legal Reasons, detail: Capture artifacts restricted due to content security policy}
         '503':
           $ref: '#/components/responses/Problem503'
 
@@ -3950,6 +4022,22 @@ paths:
                   value: {type: about:blank, status: 422, title: Unprocessable Content, detail: WACZ bundle exceeds maximum verifiable size}
         '429':
           $ref: '#/components/responses/Problem429'
+        '451':
+          description: >
+            Unavailable For Legal Reasons -- the nightly re-scan quarantined this
+            capture, so WRL doesn't verify or serve it. The capture record
+            (GET /v1/captures/{captureId}) still says why.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemQuarantined'
+              example:
+                type: about:blank
+                status: 451
+                title: Unavailable For Legal Reasons
+                detail: Capture artifacts restricted due to content security policy
+                quarantineReason: SOCIAL_ENGINEERING
+                quarantinedAt: '2026-11-02T03:00:41.000Z'
         '503':
           $ref: '#/components/responses/Problem503'
 
@@ -6166,7 +6254,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetail'
+                $ref: '#/components/schemas/ProblemLimit'
               examples:
                 scheduleLimitReached:
                   summary: Maximum schedule count reached for this tenant
