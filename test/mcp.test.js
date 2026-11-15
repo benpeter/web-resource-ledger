@@ -1297,6 +1297,37 @@ describe('tool: update_schedule', () => {
     expect(row.paused).toBe(1);
   });
 
+  it('logs the update under the same event name as the REST API', async () => {
+    const logged = [];
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+    fetchMock.get('https://ingress.test.coralogix.com')
+      .intercept({ path: '/logs/v1/singles', method: 'POST' })
+      .reply(200, ({ body }) => {
+        logged.push(JSON.parse(JSON.parse(body)[0].text));
+        return '';
+      })
+      .persist();
+    try {
+      const ctx = createExecutionContext();
+      const res = await handleMcp(new Request('http://localhost/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'Authorization': AUTH },
+        body: JSON.stringify(toolCall('update_schedule', { schedule_id: SCHED, name: 'After' })),
+      }), {
+        ...env,
+        CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
+        CORALOGIX_SEND_KEY: 'test-send-key',
+      }, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      const event = logged.find((e) => e.event === 'schedule.updated');
+      expect(event).toMatchObject({ scheduleId: SCHED, fields: ['name'], via: 'mcp' });
+    } finally {
+      fetchMock.deactivate();
+    }
+  });
+
   it('renames a schedule and changes its frequency', async () => {
     const result = await call({ schedule_id: SCHED, name: 'After', cron: '0 0 * * *' });
     expect(result.isError).toBeUndefined();

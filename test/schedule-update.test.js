@@ -3,7 +3,7 @@
 // capture status current, and compare a schedule's captures only with captures
 // of the same URL.
 
-import { env, SELF } from 'cloudflare:test';
+import { env, SELF, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   TEST_TENANT_KEY,
@@ -20,6 +20,8 @@ import {
   failCaptureAfterRetries,
   getPreviousCaptureId,
 } from '../src/db.js';
+import { handleUpdateSchedule } from '../src/schedules.js';
+import { fetchMock } from './fetch-mock.js';
 
 // IP-literal URLs pass SSRF validation without a DNS lookup.
 const URL_A = 'https://93.184.216.34/page';
@@ -264,5 +266,50 @@ describe('getPreviousCaptureId -- same URL only', () => {
     await seedCapture(env.DB, FIRST, { url: URL_A, status: 'complete', createdAt: t1, scheduleId: TEST_SCHEDULE_ID });
     await seedCapture(env.DB, SECOND, { url: URL_B, status: 'complete', createdAt: t2, scheduleId: TEST_SCHEDULE_ID });
     expect(await getPreviousCaptureId(env.DB, TEST_SCHEDULE_ID, SECOND)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The log line of an update
+// ---------------------------------------------------------------------------
+
+// The compare events log `changed` as true or false. A list under the same name
+// made the log store reject the fields of this event, so no query found it.
+describe('PATCH /v1/schedules/:id -- log line', () => {
+  it('names the edited fields under `fields`, like the MCP tool', async () => {
+    await seedSchedule(env.DB, TEST_SCHEDULE_ID, { url: URL_A, name: 'Old name' });
+    const logged = [];
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+    fetchMock.get('https://ingress.test.coralogix.com')
+      .intercept({ path: '/logs/v1/singles', method: 'POST' })
+      .reply(200, ({ body }) => {
+        logged.push(JSON.parse(JSON.parse(body)[0].text));
+        return '';
+      })
+      .persist();
+    try {
+      const ctx = createExecutionContext();
+      const res = await handleUpdateSchedule(new Request(`https://worker.test/v1/schedules/${TEST_SCHEDULE_ID}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${TEST_TENANT_KEY}`,
+          'CF-Connecting-IP': nextIp(),
+        },
+        body: JSON.stringify({ name: 'New name', cron: '0 */6 * * *' }),
+      }), {
+        ...env,
+        CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
+        CORALOGIX_SEND_KEY: 'test-send-key',
+      }, ctx, [null, TEST_SCHEDULE_ID]);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      const event = logged.find((e) => e.event === 'schedule.updated');
+      expect(event).toMatchObject({ scheduleId: TEST_SCHEDULE_ID, fields: ['name', 'cron'] });
+      expect(event).not.toHaveProperty('changed');
+    } finally {
+      fetchMock.deactivate();
+    }
   });
 });
