@@ -54,27 +54,28 @@ describe('the checks of the loaded page', () => {
 });
 
 // After a navigation timeout the renderer reads document.readyState to decide
-// whether there is a page to capture. That call had no limit either.
+// whether there is a page to capture. That call had no limit either. It gets
+// 30 seconds: on dictionary.com it was answered after up to 15.
 describe('the ready state read after a navigation timeout', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('is unknown when the page does not answer within 15 seconds', async () => {
+  it('is unknown when the page does not answer within 30 seconds', async () => {
     vi.useFakeTimers();
 
     const result = capture.readReadyState(silentPage());
-    await vi.advanceTimersByTimeAsync(15000);
+    await vi.advanceTimersByTimeAsync(30000);
 
     expect(await result).toBe('unknown');
   });
 
-  it('is still waiting after 14 seconds', async () => {
+  it('is still waiting after 29 seconds', async () => {
     vi.useFakeTimers();
     let settled = false;
 
     capture.readReadyState(silentPage()).then(() => { settled = true; }, () => { settled = true; });
-    await vi.advanceTimersByTimeAsync(14000);
+    await vi.advanceTimersByTimeAsync(29000);
 
     expect(settled).toBe(false);
   });

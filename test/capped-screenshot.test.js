@@ -82,23 +82,23 @@ describe('takeCappedScreenshot', () => {
 
   // On a page that keeps the browser busy the height measurement, one small
   // call before the screenshot, had no limit of its own (backlog #105).
-  it('fails when the page does not answer the height measurement within 15 seconds', async () => {
+  it('fails when the page does not answer the height measurement within 30 seconds', async () => {
     vi.useFakeTimers();
     const page = { ...fakePage({ bodyHeight: 100 }), evaluate: () => new Promise(() => {}) };
 
     const result = takeCappedScreenshot(page).then(() => 'answered', (err) => err.message);
-    await vi.advanceTimersByTimeAsync(15000);
+    await vi.advanceTimersByTimeAsync(30000);
 
     expect(await result).toBe('The page stopped answering before the screenshot');
   });
 
-  it('is still waiting for the height after 14 seconds', async () => {
+  it('is still waiting for the height after 29 seconds', async () => {
     vi.useFakeTimers();
     const page = { ...fakePage({ bodyHeight: 100 }), evaluate: () => new Promise(() => {}) };
     let settled = false;
 
     takeCappedScreenshot(page).then(() => { settled = true; }, () => { settled = true; });
-    await vi.advanceTimersByTimeAsync(14000);
+    await vi.advanceTimersByTimeAsync(29000);
 
     expect(settled).toBe(false);
   });
