@@ -109,7 +109,8 @@ if [ "$SMOKE_SKIP_CAPTURE" = "1" ]; then
 else
   echo "Check 4: Capture round-trip"
 
-  CREATE=$(curl -sf -A "$SMOKE_UA" -w '\n%{http_code}' \
+  # No -f here: a refusal's body says why (out of quota, rate limit, bad key)
+  CREATE=$(curl -s -A "$SMOKE_UA" -w '\n%{http_code}' \
     -X POST "${SMOKE_URL}/v1/captures" \
     -H "Authorization: Bearer ${SMOKE_API_KEY}" \
     -H "Content-Type: application/json" \
@@ -120,7 +121,8 @@ else
   CAPTURE_ID=$(echo "$CREATE_BODY" | jq -r '.id // empty' 2>/dev/null)
 
   if [ "$CREATE_CODE" != "202" ] || [ -z "$CAPTURE_ID" ]; then
-    fail "POST /v1/captures returned $CREATE_CODE (expected 202 with capture ID)"
+    CREATE_DETAIL=$(echo "$CREATE_BODY" | jq -r '.detail // empty' 2>/dev/null)
+    fail "POST /v1/captures returned $CREATE_CODE (expected 202 with capture ID)${CREATE_DETAIL:+: $CREATE_DETAIL}"
   else
     # Poll for completion
     ELAPSED=0
