@@ -112,6 +112,13 @@ describe('categorizeError -- messages users can act on', () => {
     });
   });
 
+  it('a page that stops answering during the checks before the scroll is named', () => {
+    expect(categorizeError(new Error('The page stopped answering while it was checked'))).toEqual({
+      message: 'The page stopped answering while WRL checked it',
+      retryable: true,
+    });
+  });
+
   it('other navigation errors keep the general message', () => {
     expect(categorizeError(new Error('page.goto: net::ERR_ABORTED at https://x.example/'))).toEqual({
       message: 'Could not navigate to the target URL',
