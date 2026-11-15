@@ -644,7 +644,7 @@ The MCP endpoint accepts request bodies up to 256 KiB and tool arguments with up
 
 Captures normally complete in 20-60 seconds. WRL makes up to four attempts, so a capture can stay pending for a few minutes before it completes or fails. Keep calling `get_capture` every few seconds until it does; submitting the URL again meanwhile creates a second capture.
 
-A capture still pending 24 hours after it was submitted is marked failed with "WRL lost track of this capture before it finished." Submit it again with `capture_url`.
+A capture still pending 24 hours after it was submitted is marked failed with "WRL lost track of this capture before it finished." (or the last attempt's reason followed by "WRL then lost track of the capture."). Submit it again with `capture_url`.
 
 ### "Capture not found or not yet complete"
 
