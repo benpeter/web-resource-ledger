@@ -318,7 +318,7 @@ async function _dismissWithBinding(page, start) {
     });
 
     const outcome = await Promise.race([resultPromise, timeoutPromise]);
-    return { ...outcome, popupFound, durationMs: Date.now() - start };
+    return { ...outcome, popupFound, durationMs: Date.now() - start, setupMs: began - start };
   } finally {
     clearTimeout(timer);
     page.off('framenavigated', injectIntoFrame);

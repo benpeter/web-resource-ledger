@@ -516,57 +516,14 @@ async function defaultRenderer(env, url, captureId) {
     let httpStatus = null;
     let page = null;
 
-    await context.route('**/*', async (route) => {
-      // SECURITY: Block cross-domain main-frame navigation (closes TOCTOU gap).
-      // Iframe navigations allowed -- needed for CMP consent iframes and bounded
-      // by same-origin policy + subresource limits (MAX_SUBRESOURCES).
-      if (
-        route.request().isNavigationRequest() &&
-        new URL(route.request().url()).origin !== targetOrigin
-      ) {
-        // Only block main-frame navigations. page is null before newPage()
-        // resolves; Playwright cannot fire navigation requests on a context
-        // with no pages, so the null window is provably safe.
-        let isMainFrame = false;
-        if (page) {
-          try {
-            isMainFrame = route.request().frame() === page.mainFrame();
-          } catch (err) {
-            // frame() throws for detached frames during lifecycle transitions
-          }
-        }
-        if (isMainFrame) {
-          log(env, 3, 'capture', { event: 'render.default.cross_domain_blocked', url, captureId, blockedUrl: route.request().url() });
-          await route.abort('blockedbyclient');
-          return;
-        }
-      }
-
-      if (limitExceeded || subresourceLimitReached) {
-        blockedRequests++;
-        await route.abort('blockedbyclient');
-        return;
-      }
-
-      if (subresourceCount >= MAX_SUBRESOURCES) {
-        subresourceLimitReached = true;
-        blockedRequests++;
-        log(env, 3, 'capture', { event: 'render.default.subresource_limit', url, captureId, subresourceCount, totalBytes });
-        await route.abort('blockedbyclient');
-        return;
-      }
-      subresourceCount++;
-
-      await route.continue();
-    });
-
+    // EXPERIMENT (staging only, not for merge): no request interception
     page = await context.newPage();
     const tContext = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.context_ready', url, captureId, contextSetupMs: tContext - tSession });
 
     // What the page is still waiting on, for the nav_timeout log
     const openRequests = new Set();
-    page.on('request', (req) => openRequests.add(req));
+    page.on('request', (req) => { openRequests.add(req); subresourceCount++; });
     page.on('requestfinished', (req) => openRequests.delete(req));
     page.on('requestfailed', (req) => openRequests.delete(req));
 
@@ -707,7 +664,7 @@ async function defaultRenderer(env, url, captureId) {
       };
     }
     const tConsent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
+    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, setupMs: consent.setupMs ?? null, frames: page.frames().length, errorName: consent._error?.name || null });
 
     // A page that is still loading can hold page.content() back, so the
     // timed-out path gives it one second.
