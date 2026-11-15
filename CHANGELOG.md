@@ -20,6 +20,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- webresourceledger.com printed typed double hyphens in every page title ("Privacy Policy -- Web Resource Ledger"), in the homepage text, in the FAQ structured data that search engines show, and in `llms.txt`. Titles now use " — Web Resource Ledger", like the docs titles; the homepage sentences use a comma, colon, semicolon, parentheses or a new sentence
 - The API reference printed 45 typed double hyphens from `openapi.yaml` descriptions, such as "Store this value now -- it cannot be retrieved after this response". Response descriptions now use the "Service Unavailable — service is at capacity" form the rest of the spec uses, and other descriptions a comma, colon, semicolon or parentheses
 - Docs pages printed a typed double hyphen wherever a dash was meant, on 123 lines such as "the brief window where both keys are valid is safe -- old captures remain accessible"; they now use a comma, colon, semicolon, parentheses or a new sentence. Limits & Quotas also says plainly that each URL of a batch counts against the rate limit
 - The webhooks guide linked the captures list endpoint with an anchor (`#tag/captures/GET/v1/captures`) that the API reference page doesn't have, so the link opened the top of the page instead of `GET /v1/captures`

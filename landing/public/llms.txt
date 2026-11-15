@@ -4,7 +4,7 @@
 
 ## Product
 
-Web Resource Ledger is a web capture API that produces cryptographically signed evidence bundles. Each capture includes a rendered screenshot, HTML snapshot, HTTP headers, and resource manifest -- all bundled into a signed WACZ archive.
+Web Resource Ledger is a web capture API that produces cryptographically signed evidence bundles. Each capture includes a rendered screenshot, HTML snapshot, HTTP headers, and resource manifest, all bundled into a signed WACZ archive.
 
 - Ed25519 digital signatures on every capture
 - RFC 3161 independent timestamps (default)
