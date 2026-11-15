@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WRL Integration Test - Banner that reloads the page</title>
+  <script>
+    // Stand-in for a Cookiebot banner on a site that reloads itself once the
+    // visitor has chosen, as theguardian.com does after its Sourcepoint banner.
+    var declined = sessionStorage.getItem('declined') === '1';
+    window.Cookiebot = {
+      hasResponse: declined,
+      declined: declined,
+      dialog: { visible: !declined },
+      withdraw: function () {},
+      hide: function () {},
+    };
+  </script>
+</head>
+<body>
+  <h1>Banner that reloads the page</h1>
+  <div id="content"></div>
+  <div id="CybotCookiebotDialog" style="position:fixed;left:0;right:0;bottom:0;padding:40px;background:#036;color:#fff">
+    We use cookies.
+    <button id="CybotCookiebotDialogBodyLevelButtonLevelOptinDeclineAll">Decline all</button>
+  </div>
+  <script>
+    var dialog = document.getElementById('CybotCookiebotDialog');
+    if (declined) {
+      dialog.remove();
+    } else {
+      document.getElementById('CybotCookiebotDialogBodyLevelButtonLevelOptinDeclineAll').addEventListener('click', function () {
+        sessionStorage.setItem('declined', '1');
+        dialog.remove();
+        setTimeout(function () { location.reload(); }, 300);
+      });
+    }
+    // The page's content comes from a request that takes two seconds, on every load
+    fetch('/slow-fragment').then(function (r) { return r.text(); }).then(function (t) {
+      document.getElementById('content').innerHTML = t;
+    });
+  </script>
+</body>
+</html>
