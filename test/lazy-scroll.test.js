@@ -30,6 +30,17 @@ function createPage() {
   return { page, scrolledTo, evaluateCalls: () => evaluateCalls };
 }
 
+// The same page, but its call number `silentCall` to the browser is never
+// answered. The scroll is call 1, making lazy images eager is call 2, the
+// scroll back to the top is call 3.
+function createPageSilentAt(silentCall) {
+  const { page } = createPage();
+  const answer = page.evaluate;
+  let calls = 0;
+  page.evaluate = (fn, arg) => (++calls === silentCall ? new Promise(() => {}) : answer(fn, arg));
+  return page;
+}
+
 describe('triggerLazyLoading', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -63,6 +74,28 @@ describe('triggerLazyLoading', () => {
     await vi.advanceTimersByTimeAsync(30000);
 
     expect(await result).toBe('The page stopped answering while it was scrolled');
+  });
+
+  // Seen on dictionary.com after the scroll itself had a limit: nothing for
+  // 143 seconds, then the browser session was gone (backlog #105).
+  it('fails when the page does not answer the call that makes lazy images eager within 15 seconds', async () => {
+    vi.useFakeTimers();
+    const page = createPageSilentAt(2);
+
+    const result = capture.triggerLazyLoading(page).then(() => 'answered', (err) => err.message);
+    await vi.advanceTimersByTimeAsync(60000);
+
+    expect(await Promise.race([result, 'still waiting'])).toBe('The page stopped answering while it was scrolled');
+  });
+
+  it('fails when the page does not answer the scroll back to the top within 15 seconds', async () => {
+    vi.useFakeTimers();
+    const page = createPageSilentAt(3);
+
+    const result = capture.triggerLazyLoading(page).then(() => 'answered', (err) => err.message);
+    await vi.advanceTimersByTimeAsync(60000);
+
+    expect(await Promise.race([result, 'still waiting'])).toBe('The page stopped answering while it was scrolled');
   });
 });
 
