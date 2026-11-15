@@ -20,6 +20,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The API reference printed 45 typed double hyphens from `openapi.yaml` descriptions, such as "Store this value now -- it cannot be retrieved after this response". Response descriptions now use the "Service Unavailable — service is at capacity" form the rest of the spec uses, and other descriptions a comma, colon, semicolon or parentheses
 - Docs pages printed a typed double hyphen wherever a dash was meant, on 123 lines such as "the brief window where both keys are valid is safe -- old captures remain accessible"; they now use a comma, colon, semicolon, parentheses or a new sentence. Limits & Quotas also says plainly that each URL of a batch counts against the rate limit
 - The webhooks guide linked the captures list endpoint with an anchor (`#tag/captures/GET/v1/captures`) that the API reference page doesn't have, so the link opened the top of the page instead of `GET /v1/captures`
 - The API reference didn't describe the extra fields of problem responses (`limitType` and `quota` on a 429, `threatTypes` on a 422 from threat screening, `quarantineReason` and `quarantinedAt` on a 451), so clients generated from `openapi.yaml` dropped them. It also left out the 451 that `GET /v1/verify/{captureId}` and the diff route answer for a quarantined capture, and its 451 examples gave a `detail` WRL doesn't send
