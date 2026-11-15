@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Changed
 
+- Captures are about 2 seconds faster. WRL writes ten log lines while it renders a page and waited about 200 ms for each to be delivered, with the browser held. It now sends them as before and waits for all of them once, after the browser is released. The times in `render.stages` no longer include those waits
 - WRL declines many more cookie banners. It used to know only the 11 consent tools that autoconsent detects in code (OneTrust, Cookiebot, Sourcepoint, TrustArc and others), so in production since September one of 76 captured sites had its banner declined. It now also uses autoconsent's hand-written rules, about 1,000 of them, for further consent tools (CookieHub, CookieYes, Axeptio, Cookie-Script, Didomi) and for single sites. `captureSettings.consent.cmpDetected` names the rule that matched. The rules autoconsent generates from a crawl (`auto_*`) and its rules that only hide a banner stay off
 - A page that has not finished loading after 20 seconds gets the same steps as one that has, before WRL captures it as `partial`: the wait for open requests, the scroll that loads lazy images, and the cookie banner step, so `captureSettings.consent` is there and `render.stages` has `settleMs`, `scrollMs` and `consentMs`. Before, WRL took one screenshot the moment the 20 seconds were up, so such captures could show a cookie banner and unloaded images
 

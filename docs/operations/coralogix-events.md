@@ -64,6 +64,8 @@ Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=W
 
 Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 
+The renderer sends these lines as the events happen and does not wait for each to be delivered; it waits for all of them once the browser is released. A line's timestamp is the time of its event. Lines written in the same millisecond, such as `screenshot_after`, `content_extracted` and `complete` at the end of a capture, can show in any order.
+
 | Sev | Event | Meaning |
 |-----|-------|---------|
 | 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed, browserVersion) |

@@ -73,6 +73,9 @@ Key principles that apply to all work here:
   production unless someone runs `wrangler tail` at the exact right moment.
   Internal helpers without `env` (e.g., `capture.js` browser session helpers) also
   get an exception, but prefer threading `env` through when practical.
+  In `defaultRenderer()` (`src/capture.js`) use its `logLine(severity, data)`: a log line
+  is a request of about 200 ms, and the renderer does not wait for each one while
+  it holds the browser. Never read page state after an awaited log call.
 - **Fail loudly, degrade intentionally** -- silent `catch {}` blocks are forbidden.
   Every catch must either log the error or handle a specific, named error type.
   When a feature degrades (e.g., timestamp unavailable), the system must distinguish
