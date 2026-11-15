@@ -172,10 +172,20 @@ components:
         result:
           type: string
           enum: [success, notDetected, failed]
-          description: Outcome of the consent action.
+          description: >
+            Outcome of the consent action. `success`: a banner was found and
+            declined. `notDetected`: no banner that autoconsent knows was
+            showing; with `cmpDetected` set, that consent tool is on the page
+            but showed no banner. `failed`: a banner was found but not
+            declined, because it offers no way to, or declining took longer
+            than 10 seconds. Until 15 November 2026 a consent tool that
+            showed no banner was reported as `failed`.
         cmpDetected:
           type: ["string", "null"]
-          description: Name of the CMP detected, if any. Null when no CMP was found.
+          description: >
+            Name of the autoconsent rule that matched, if any: a consent tool
+            (`Onetrust`, `Sourcepoint-frame`, `cookiehub`) or a rule for one
+            site. Null when none matched.
 
     CaptureSettings:
       type: object

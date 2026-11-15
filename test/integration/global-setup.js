@@ -113,6 +113,7 @@ export async function setup({ provide }) {
       '/never-settle.html': 'never-settle.html',
       '/cookie-banner.html': 'cookie-banner.html',
       '/consent-reload.html': 'consent-reload.html',
+      '/consent-cookiehub.html': 'consent-cookiehub.html',
       '/with-iframe.html': 'with-iframe.html',
       '/error-page.html': 'error-page.html',
       '/lazy-images.html': 'lazy-images.html',
