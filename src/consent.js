@@ -8,7 +8,7 @@
  * autoconsentSendMessage / autoconsentReceiveMessage channel.
  *
  * The vendored script only carries autoconsent's detectors written in code
- * (Cookiebot, OneTrust, Sourcepoint and a few more). Every other banner it
+ * (Cookiebot, OneTrust, Sourcepoint and eight more). Every other banner it
  * knows from JSON rules, which come from the same package and are sent to
  * each frame with the 'initResp' message, filtered for that frame's URL.
  * The rules (570 KB) and the function that filters them are loaded on the
