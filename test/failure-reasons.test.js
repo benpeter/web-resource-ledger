@@ -78,6 +78,12 @@ describe('categorizeError -- messages users can act on', () => {
     ).toEqual({ message: 'The browser could not take a screenshot of this page', retryable: true });
   });
 
+  it('a screenshot that takes longer than its time limit is a screenshot failure, not a page that did not load', () => {
+    const err = new Error('page.screenshot: Timeout 90000ms exceeded.\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n');
+    err.name = 'TimeoutError';
+    expect(categorizeError(err)).toEqual({ message: 'The browser could not take a screenshot of this page', retryable: true });
+  });
+
   it('an address that does not resolve is named', () => {
     expect(categorizeError(new Error('page.goto: net::ERR_NAME_NOT_RESOLVED at https://nope.invalid/'))).toEqual({
       message: "The site's address could not be found (DNS)",
