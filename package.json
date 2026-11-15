@@ -1,5 +1,5 @@
 {
-  "name": "wrl",
+  "name": "web-resource-ledger",
   "version": "1.4.1",
   "private": true,
   "description": "Tamper-evident archival of web resources with cryptographic signing",
