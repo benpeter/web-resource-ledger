@@ -51,6 +51,10 @@ const CONSENT_POPUP_MS = 5000;
 const CONSENT_OPTOUT_MS = 10000;
 // How often the step looks again once a limit has passed and a longer one applies
 const CONSENT_RECHECK_MS = 250;
+// How long the step may take to get going: the binding for autoconsent's
+// messages and the script in the main frame. Both are calls to the browser,
+// and on a page with hundreds of ad frames one of them can stay unanswered.
+const CONSENT_SETUP_MAX_MS = 15000;
 const MAX_INJECTED_FRAMES = 50;
 
 const ALLOWED_MSG_TYPES = new Set([
@@ -191,6 +195,26 @@ export async function dismissCookieConsent(page) {
 // Implementation: exposeBinding path
 // ---------------------------------------------------------------------------
 
+/**
+ * Settles like `call`, or rejects once CONSENT_SETUP_MAX_MS have passed since
+ * the step began.
+ *
+ * @param {Promise<T>} call
+ * @param {number} start When the consent step began, in ms
+ * @returns {Promise<T>}
+ * @template T
+ */
+function withinSetupLimit(call, start) {
+  let timer;
+  return Promise.race([
+    call,
+    new Promise((_, reject) => {
+      const remainingMs = Math.max(0, start + CONSENT_SETUP_MAX_MS - Date.now());
+      timer = setTimeout(() => reject(new Error(`The consent step could not be set up within ${CONSENT_SETUP_MAX_MS / 1000} seconds`)), remainingMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function _dismissWithBinding(page, start) {
   const rules = await loadRules();
   let resolveConsent;
@@ -202,7 +226,7 @@ async function _dismissWithBinding(page, start) {
   let popupFound = false;
   let roundDone = false;
 
-  await page.exposeBinding('autoconsentSendMessage', (source, msg) => {
+  await withinSetupLimit(page.exposeBinding('autoconsentSendMessage', (source, msg) => {
     if (!msg || !ALLOWED_MSG_TYPES.has(msg.type)) {
       return;
     }
@@ -274,7 +298,7 @@ async function _dismissWithBinding(page, start) {
       case 'selfTestResult':
         break;
     }
-  });
+  }), start);
 
   // Inject autoconsent into main frame and all child frames (CMP iframes).
   // Late-loading iframes (e.g. OneTrust) are caught by the framenavigated listener.
@@ -297,7 +321,7 @@ async function _dismissWithBinding(page, start) {
 
   let timer;
   try {
-    await page.evaluate(inject, [autoconsentScript]);
+    await withinSetupLimit(page.evaluate(inject, [autoconsentScript]), start);
     for (const frame of page.frames()) {
       injectIntoFrame(frame);
     }

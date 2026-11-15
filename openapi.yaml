@@ -178,7 +178,8 @@ components:
             showing; with `cmpDetected` set, that consent tool is on the page
             but showed no banner. `failed`: a banner was found but not
             declined, because it offers no way to, or declining took longer
-            than 10 seconds. Until 15 November 2026 a consent tool that
+            than 10 seconds; or WRL could not start looking for a banner
+            within 15 seconds. Until 15 November 2026 a consent tool that
             showed no banner was reported as `failed`.
         cmpDetected:
           type: ["string", "null"]
@@ -635,10 +636,11 @@ components:
           type: integer
           minimum: 0
           description: >
-            Time in ms spent scrolling the page to load lazy content before the
-            screenshot: the scroll down, which stops after 12,000 px or 10
-            seconds, up to 3 seconds for the images it set loading, and the
-            scroll back to the top. Absent on captures that hit the navigation timeout
+            Time in ms between the settle and the first screenshot: the
+            checks for a browser error page and a bot check, then the scroll
+            that loads lazy content (down, which stops after 12,000 px or 10
+            seconds, up to 3 seconds for the images it set loading, and back
+            to the top). Absent on captures that hit the navigation timeout
             until 15 November 2026 and on captures made before lazy-load
             scrolling.
         consentMs:
