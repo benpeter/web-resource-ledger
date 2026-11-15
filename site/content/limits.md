@@ -201,7 +201,7 @@ A failed capture has an `error` that says why, in the API status response, the c
 | The page loaded but showed nothing (blank page) | The browser loaded the page but nothing appeared. | No |
 | The site answered HTTP 403 and the page showed nothing (blank page) | The site answered with an error status (the number varies) and an empty page. Sites that block automated visitors do this. | No |
 | The browser showed an error page instead of the site | The browser couldn't open the page and showed its own error page. | No |
-| The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it, or the screenshot wasn't done after 90 seconds. This happens on some pages with heavy animation or many ads. | Yes |
+| The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it, the screenshot wasn't done after 90 seconds, or the page didn't answer for 30 seconds when WRL measured its height for the screenshot. This happens on some pages with heavy animation or many ads. | Yes |
 | The page stopped answering while WRL checked it | The page loaded, but it didn't answer the browser for 15 seconds when WRL checked that it is the site's page and not an error page or a bot check. Pages with very many ads do this. | Yes |
 | The page stopped answering while WRL scrolled it | The page loaded, but it didn't answer the browser while WRL scrolled it: for 30 seconds during the scroll, or for 15 seconds when WRL made lazy images load or scrolled back to the top. | Yes |
 | Page exceeded 50MB size limit | The page's responses add up to more than 50 MB. | No |

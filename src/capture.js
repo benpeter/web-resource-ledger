@@ -111,6 +111,12 @@ const BOT_CHECK_WAIT_MS = 8000;
 // the scroll (browser error page, bot check) and the two calls after it. Each
 // is answered in milliseconds unless the page keeps the browser busy.
 const PAGE_CHECK_MAX_MS = 15000;
+// How long the two small reads may take that a capture cannot go on without:
+// the ready state after a navigation timeout and the page's height before a
+// screenshot. On dictionary.com the ready state was answered after up to 15
+// seconds, so these get twice that. An idle browser session is closed after
+// KEEP_ALIVE_MS, which is what a read without a limit ran into.
+const PAGE_READ_MAX_MS = 30000;
 
 /**
  * Waits for a call to the browser, for a limited time. A page that keeps the
@@ -630,7 +636,7 @@ async function defaultRenderer(env, url, captureId) {
     } catch (navError) {
       if (navError.name !== 'TimeoutError') throw navError;
       // Check if DOM has at least loaded before attempting partial capture
-      readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
+      readyState = await readReadyState(page);
       logLine(3, { event: 'render.default.nav_timeout', url, captureId, navigationMs: Date.now() - tContext, readyState, totalBytes, subresourceCount, openRequestCount: openRequests.size, openRequests: summarizeOpenRequests(openRequests) });
       if (readyState !== 'interactive' && readyState !== 'complete') {
         // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
@@ -931,12 +937,13 @@ function screenshotCoverage({ pageHeight, capped }) {
  * @param {import('@cloudflare/playwright').Page} page
  * @param {number} [timeout] - screenshot timeout in ms
  * @returns {Promise<{ screenshot: Uint8Array, pageHeight: number, capped: boolean }>}
+ * @throws {Error} When the page does not answer the height measurement within PAGE_READ_MAX_MS
  */
 export async function takeCappedScreenshot(page, timeout = 90000) {
-  const pageHeight = await page.evaluate(() => Math.max(
+  const pageHeight = await answerWithin(page.evaluate(() => Math.max(
     document.body?.scrollHeight ?? 0,
     document.documentElement?.scrollHeight ?? 0,
-  ));
+  )), PAGE_READ_MAX_MS, 'The page stopped answering before the screenshot');
   const capped = pageHeight > MAX_PAGE_HEIGHT;
   const options = { fullPage: true, type: 'png', timeout };
   if (capped) {
@@ -944,6 +951,22 @@ export async function takeCappedScreenshot(page, timeout = 90000) {
   }
   const screenshot = await page.screenshot(options);
   return { screenshot, pageHeight, capped };
+}
+
+/**
+ * Reads document.readyState after a navigation timeout, to decide whether
+ * there is a page to capture. 'unknown' when the read fails or the page does
+ * not answer within PAGE_READ_MAX_MS.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<string>}
+ */
+export async function readReadyState(page) {
+  return answerWithin(
+    page.evaluate(() => document.readyState),
+    PAGE_READ_MAX_MS,
+    'The page stopped answering while it was checked',
+  ).catch(() => 'unknown');
 }
 
 /**
@@ -1137,7 +1160,11 @@ export function categorizeError(error) {
       retryable: false,
     };
   }
-  if (msg.includes('Unable to capture screenshot') || msg.startsWith('page.screenshot: Timeout')) {
+  if (
+    msg.includes('Unable to capture screenshot') ||
+    msg.startsWith('page.screenshot: Timeout') ||
+    msg.includes('stopped answering before the screenshot')
+  ) {
     return { message: 'The browser could not take a screenshot of this page', retryable: true };
   }
   if (msg.includes('net::ERR_NAME_NOT_RESOLVED')) {

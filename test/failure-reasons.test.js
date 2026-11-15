@@ -84,6 +84,13 @@ describe('categorizeError -- messages users can act on', () => {
     expect(categorizeError(err)).toEqual({ message: 'The browser could not take a screenshot of this page', retryable: true });
   });
 
+  it('a page that stops answering before the screenshot is a screenshot failure', () => {
+    expect(categorizeError(new Error('The page stopped answering before the screenshot'))).toEqual({
+      message: 'The browser could not take a screenshot of this page',
+      retryable: true,
+    });
+  });
+
   it('an address that does not resolve is named', () => {
     expect(categorizeError(new Error('page.goto: net::ERR_NAME_NOT_RESOLVED at https://nope.invalid/'))).toEqual({
       message: "The site's address could not be found (DNS)",
