@@ -740,8 +740,14 @@ async function defaultRenderer(env, url, captureId) {
     // read, gets a second pass on the new document.
     for (let pass = 1; tookAfterScreenshot; pass++) {
       const tPass = Date.now();
+      // Navigations from here on are the ones the screenshot and the HTML
+      // read have to be done over for. The count is taken as soon as the wait
+      // is over: writing the log line is a request, and a reload that commits
+      // while it is under way would otherwise belong to neither.
+      let navigationsBefore = mainFrameNavigations;
       try {
         const reloaded = await settleAfterConsent(page, () => pass > 1 || mainFrameNavigations > 0, openRequests);
+        navigationsBefore = mainFrameNavigations;
         await log(env, 3, 'capture', { event: 'render.default.post_consent', url, captureId, postConsentMs: Date.now() - tPass, reloaded, pass });
       } catch (err) {
         // Not worth losing the capture over: the screenshot below still shows the page
@@ -750,7 +756,6 @@ async function defaultRenderer(env, url, captureId) {
       const tSettled = Date.now();
       postConsentMs += tSettled - tPass;
 
-      const navigationsBefore = mainFrameNavigations;
       let tShot = tSettled;
       let failure = null;
       try {
@@ -841,7 +846,8 @@ async function settleAfterConsent(page, navigated, openRequests) {
   }
   if (!navigated()) {
     await waitForSettle(page);
-    return false;
+    // The reload can start during this wait as well (theguardian.com)
+    if (!navigated()) return false;
   }
   // A reloaded page that doesn't reach its load event is captured as it stands
   await page.waitForLoadState('load', { timeout: NAV_TIMEOUT_MS }).catch(() => {});

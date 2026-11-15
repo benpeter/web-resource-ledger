@@ -38,6 +38,15 @@ On 8bd75a5, against main (dedf42c) an hour before:
   screenshot shows the page to its end with the images at the bottom, both
   as on main.
 
+## Production
+
+On 3ba7d30, one capture of merriam-webster.com/dictionary/ledger
+(`cap_3b39b779e4ab46a690c1035e03eaa5f1`): the page made 1,809 requests,
+`scrollMs` 24.2 seconds, the capture 115 seconds. The consent step took 28.9
+seconds and the screenshot 47.5: every step that talks to the browser is
+slow on that page, not only the scroll. The numbers from staging above are
+the better case. Added to #105.
+
 ## Backlog changes
 
 - #102 closed: the scroll no longer takes a minute.

@@ -88,6 +88,20 @@ export async function setup({ provide }) {
     }
 
     // Content of /consent-reload.html, which asks for it on every load
+    // Stands in for the log endpoint. In production a log call is a request
+    // that takes a while; this one takes 1.5 seconds for the event WRL logs
+    // between the wait after a declined banner and the second screenshot.
+    if (url.pathname === '/log-sink') {
+      let body = '';
+      req.on('data', (chunk) => { body += chunk; });
+      req.on('end', () => {
+        setTimeout(() => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end('{}');
+        }, body.includes('render.default.post_consent') ? 1500 : 0);
+      });
+      return;
+    }
     if (url.pathname === '/slow-fragment') {
       setTimeout(() => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
