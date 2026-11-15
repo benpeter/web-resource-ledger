@@ -3,7 +3,7 @@ import { env, SELF, createExecutionContext, waitOnExecutionContext } from 'cloud
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { hashApiKey } from '../src/auth.js';
-import { seedApiKey, seedSchedule, seedUsageCounter, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer } from './fixtures.js';
+import { seedApiKey, seedSchedule, seedUsageCounter, cleanDb, TEST_SCHEDULE_ID, TEST_URL, TEST_IP, partialRenderer, consentNotDetectedRenderer } from './fixtures.js';
 import { createCapture, computePeriod } from '../src/db.js';
 import { performCapture } from '../src/capture.js';
 import { handleMcp } from '../src/mcp.js';
@@ -645,6 +645,46 @@ describe('tool: get_capture -- clipped screenshot', () => {
   });
 });
 
+describe('tool: get_capture -- site answered with an error status', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000, httpStatus: 403 });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('gives the status and says what the capture shows', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('HTTP status: 403');
+    expect(text).toContain('The site answered with an error status; the capture shows that answer, which can be an error page or a block page.');
+  });
+});
+
+describe('tool: get_capture -- site answered 200', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000, httpStatus: 200 });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('gives the status without a warning', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('HTTP status: 200');
+    expect(text).not.toContain('error status');
+  });
+});
+
 describe('tool: get_capture -- page over the subresource cap', () => {
   beforeEach(async () => {
     const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
@@ -800,6 +840,37 @@ describe('tool: verify_capture -- partial capture', () => {
     const text = body.result.content[0].text;
     expect(text).toContain(`Verification PASSED for capture ${PARTIAL_ID}.`);
     expect(text).toContain('Render quality: partial');
+  });
+});
+
+describe('tool: verify_capture -- site answered with an error status', () => {
+  const BLOCKED_ID = 'cap_' + 'e'.repeat(32);
+  const blockedRenderer = async (...args) => {
+    const result = await consentNotDetectedRenderer(...args);
+    return { ...result, render: { ...result.render, httpStatus: 403 } };
+  };
+
+  beforeEach(async () => {
+    await cleanupCaptures();
+    fetchMock.activate();
+    fetchMock.disableNetConnect();
+    // Header fetch runs alongside rendering; answer it so it never hits the network.
+    fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '').persist();
+    await createCapture(env.DB, BLOCKED_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, BLOCKED_ID, 'default', undefined, blockedRenderer);
+  });
+
+  afterEach(async () => {
+    fetchMock.deactivate();
+    await cleanupCaptures();
+  });
+
+  it('passes and says what the capture shows', async () => {
+    const res = await mcpPost(toolCall('verify_capture', { capture_id: BLOCKED_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain(`Verification PASSED for capture ${BLOCKED_ID}.`);
+    expect(text).toContain('HTTP status: 403');
+    expect(text).toContain('The site answered with an error status; the capture shows that answer, which can be an error page or a block page.');
   });
 });
 

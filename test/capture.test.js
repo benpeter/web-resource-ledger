@@ -793,6 +793,32 @@ describe('performCapture -- full capture quality in the WACZ', () => {
   });
 });
 
+describe('performCapture -- the status the site answered the browser with (backlog #101)', () => {
+  it('records it on the capture and signs it into the WACZ', async () => {
+    const blockedRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, render: { ...result.render, httpStatus: 403 } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, blockedRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('full');
+    expect(record.render.httpStatus).toBe(403);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'full',
+      waitUntilReached: 'load',
+      timedOut: false,
+      httpStatus: 403,
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // performCapture -- partial capture with load event
 // ---------------------------------------------------------------------------

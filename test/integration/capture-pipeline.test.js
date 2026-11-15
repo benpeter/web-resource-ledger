@@ -286,6 +286,56 @@ describe('integration: error page detection', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The status the site answered the browser with (backlog #101)
+// ---------------------------------------------------------------------------
+
+describe('integration: status of the page response', () => {
+  const captureId = 'cap_0000000000000000000000000000e5ab';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('records 200 for a page that loaded normally', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/fast.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.render?.httpStatus).toBe(200);
+  });
+
+  it('captures an error page with content and records its status', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/gone.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('full');
+    expect(record.render?.httpStatus).toBe(404);
+  });
+
+  it('names the status when the site answered with an error and an empty page', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/blocked-blank.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(false);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('failed');
+    expect(record.error).toBe('The site answered HTTP 403 and the page showed nothing (blank page)');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Lazy-load triggering: below-fold images
 // ---------------------------------------------------------------------------
 
