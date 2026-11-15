@@ -83,7 +83,7 @@ The pipeline uses headless Chromium with no extensions installed. There is no tr
 
 WRL does act on the page in three ways, and each one shows in the capture:
 
-- **It scrolls.** Once from top to bottom, 12,000 px at most, and back to the top, so that content which loads when it comes into view is there. `render.stages.scrollMs` has the time it took.
+- **It scrolls.** Once from top to bottom, 12,000 px and 10 seconds at most, and back to the top, so that content which loads when it comes into view is there. `render.stages.scrollMs` has the time it took.
 - **It loads lazy images.** Images marked `loading="lazy"` are told to load at once. In the stored HTML those images read `loading="eager"`, and a lazy image that kept its address in `data-src` has it in `src`. WRL changes nothing else in the page's markup.
 - **It declines cookies.** After the first screenshot, WRL runs the open-source `@duckduckgo/autoconsent` library, which looks for a cookie consent banner and declines it, by the banner's "Reject" button or, where there is none, by opening its settings, unticking what is ticked and saving. When a banner was dismissed, WRL waits for the page to come to rest (a site that reloads itself on the choice is scrolled again) and takes a second screenshot, so the capture shows the page both with and without the banner, and `captureSettings` in `datapackage.json` records the outcome. Both screenshots and the settings are covered by the signature. See [Cookie banners](/verification/#cookie-banners).
 

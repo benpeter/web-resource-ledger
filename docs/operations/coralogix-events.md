@@ -79,7 +79,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.limit_exceeded` | Size limit hit, the capture fails (limit, subresourceCount, totalBytes) |
 | 3 | `render.default.settle_complete` | Network settlement finished (settleMs, settleReason, pendingAtCap) |
 | 3 | `render.default.render_check_fail` | Rendered page is not target content (reason, httpStatus) |
-| 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs) |
+| 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs, scrollSteps, scrollCutShort). scrollCutShort is true when the 10 seconds for the scroll down ran out before the bottom or 12,000 px |
 | 3 | `render.default.screenshot_capped` | Page taller than 8000 px; the screenshot covers the top 8000 px (originalHeight, cappedHeight). Logged after the screenshot succeeds. Called `viewport_capped` before phase 0117 |
 | 3 | `render.default.screenshot_before` | Pre-consent screenshot taken (screenshotMs, screenshotBytes) |
 | 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, popupFound, consentMs, errorName). `status: timeout` with `popupFound: false` means a consent tool was detected but showed no banner within 5 s (the capture says `notDetected`); with `popupFound: true` the banner showed and declining it took longer than 10 s (`failed`) |
