@@ -661,9 +661,9 @@ async function defaultRenderer(env, url, captureId) {
     }
 
     // Trigger lazy-loaded images by scrolling the viewport
-    const scrollMs = await triggerLazyLoading(page);
+    const { scrollMs, steps: scrollSteps, budgetUsedUp: scrollCutShort } = await triggerLazyLoading(page);
     const tScroll = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.lazy_load_complete', url, captureId, scrollMs });
+    await log(env, 3, 'capture', { event: 'render.default.lazy_load_complete', url, captureId, scrollMs, scrollSteps, scrollCutShort });
 
     // Before-screenshot MUST be taken before injecting autoconsent
     const shotBefore = await takeCappedScreenshot(page);
@@ -980,37 +980,78 @@ export function classifyBotCheck(s) {
   return { detected: signals.length >= 2, vendor: 'cloudflare', signals };
 }
 
+// The scroll that loads lazy content: one viewport height per step, a short
+// pause for the page's observers, down to MAX_SCROLL_HEIGHT at most and for
+// SCROLL_BUDGET_MS at most. SCROLL_ANSWER_TIMEOUT_MS is how long WRL waits for
+// the page to say that it is done.
+const SCROLL_STEP_PX = 720;
+const SCROLL_STEP_PAUSE_MS = 150;
+const MAX_SCROLL_HEIGHT = 12000;
+const SCROLL_BUDGET_MS = 10000;
+const SCROLL_ANSWER_TIMEOUT_MS = 30000;
+
+/**
+ * Scrolls the document down step by step. Runs inside the page, through
+ * page.evaluate(), so it can use nothing but its argument and the page's
+ * globals.
+ *
+ * It is one call to the browser for the whole scroll. Two calls per step, as
+ * it was, each waited behind the page's own traffic: on a page that makes
+ * 1,400 ad requests while it is scrolled the step took a minute (backlog #102).
+ *
+ * @param {{ stepPx: number, pauseMs: number, maxHeight: number, budgetMs: number }} options
+ * @returns {Promise<{ initialHeight: number, steps: number, budgetUsedUp: boolean }>}
+ *   budgetUsedUp is true when the time ran out before the bottom was reached
+ */
+export async function scrollStepwise({ stepPx, pauseMs, maxHeight, budgetMs }) {
+  const start = Date.now();
+  const initialHeight = document.body.scrollHeight;
+  // A page that fits the viewport has nothing to scroll
+  if (initialHeight <= stepPx) return { initialHeight, steps: 0, budgetUsedUp: false };
+
+  const scrollLimit = Math.min(initialHeight, maxHeight);
+  let scrollY = 0;
+  let steps = 0;
+  while (scrollY < scrollLimit) {
+    if (Date.now() - start >= budgetMs) return { initialHeight, steps, budgetUsedUp: true };
+    scrollY += stepPx;
+    window.scrollTo(0, scrollY);
+    steps++;
+    await new Promise((r) => setTimeout(r, pauseMs));
+
+    // Infinite scroll protection: if document grew beyond threshold, stop
+    if (document.body.scrollHeight - initialHeight > maxHeight) break;
+  }
+  return { initialHeight, steps, budgetUsedUp: false };
+}
+
 /**
  * Scrolls the page in viewport-height increments to trigger lazy-loaded images
  * (loading="lazy" and IntersectionObserver-based). Called after settle + error
  * detection, before the before-screenshot.
  *
  * @param {import('@cloudflare/playwright').Page} page
- * @returns {Promise<number>} scrollMs — time spent scrolling
+ * @returns {Promise<{ scrollMs: number, steps: number, budgetUsedUp: boolean }>}
+ *   scrollMs is the time the whole step took
+ * @throws {Error} When the page does not answer the scroll call in time
  */
 export async function triggerLazyLoading(page) {
-  const STEP_PX = 720;
-  const STEP_PAUSE_MS = 150;
-  const MAX_SCROLL_HEIGHT = 12000;
-
   const start = Date.now();
-  const initialHeight = await page.evaluate(() => document.body.scrollHeight);
+  let timer;
+  const { steps, budgetUsedUp } = await Promise.race([
+    page.evaluate(scrollStepwise, {
+      stepPx: SCROLL_STEP_PX,
+      pauseMs: SCROLL_STEP_PAUSE_MS,
+      maxHeight: MAX_SCROLL_HEIGHT,
+      budgetMs: SCROLL_BUDGET_MS,
+    }),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('The page stopped answering while it was scrolled')), SCROLL_ANSWER_TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
 
   // Skip if page is already short enough to fit in viewport
-  if (initialHeight <= STEP_PX) return Date.now() - start;
-
-  let scrollY = 0;
-  const scrollLimit = Math.min(initialHeight, MAX_SCROLL_HEIGHT);
-
-  while (scrollY < scrollLimit) {
-    scrollY += STEP_PX;
-    await page.evaluate((y) => window.scrollTo(0, y), scrollY);
-    await new Promise((r) => setTimeout(r, STEP_PAUSE_MS));
-
-    // Infinite scroll protection: if document grew beyond threshold, stop
-    const currentHeight = await page.evaluate(() => document.body.scrollHeight);
-    if (currentHeight - initialHeight > MAX_SCROLL_HEIGHT) break;
-  }
+  if (steps === 0) return { scrollMs: Date.now() - start, steps, budgetUsedUp };
 
   // Force-load all lazy images: switch loading="lazy" to "eager" so the
   // browser fetches them immediately regardless of viewport position.
@@ -1034,7 +1075,7 @@ export async function triggerLazyLoading(page) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await new Promise((r) => setTimeout(r, 500));
 
-  return Date.now() - start;
+  return { scrollMs: Date.now() - start, steps, budgetUsedUp };
 }
 
 /**
