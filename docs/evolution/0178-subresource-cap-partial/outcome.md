@@ -25,7 +25,7 @@
 | main 8e95571 | 17 | 4 | Merriam-Webster and Yahoo Finance failed on the cap; NYT and Etsy blank pages |
 | a0e730f (deployed as 423f1dd before the rebase), cap 500 | 19 | 2 | Guardian, TradingView and Yahoo Finance partial (blocked at request 501); NYT and Etsy blank pages |
 | scratch d0b5770, cap 5000, 14 heavy sites | 14 | 0 | Yahoo Finance partial (20 s navigation timeout), all others full |
-| MERGE_BUILD, cap 2000 | MERGE_RESULT | | |
+| 73c8681, cap 2000, 12 sites | 11 | 1 | Guardian (833 requests), TradingView (612) and Merriam-Webster (1668, 119 s) full, none reached the cap; Yahoo Finance partial on the 20 s navigation timeout; NYT blank page |
 
 Requests the heavy pages made with the cap out of the way:
 
@@ -48,3 +48,6 @@ scrolled the page.
 - #99 opened: the size cap counts announced response sizes and is only
   checked until the page has loaded.
 - #100 opened: nytimes.com and etsy.com often come back as a blank page.
+- #101 opened: in the cap-2000 run samsung.com served an "Access Denied" page
+  that was stored as a complete, full capture, and the browser's response
+  status is recorded nowhere.
