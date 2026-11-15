@@ -1,6 +1,6 @@
 # @w-r-l/verify
 
-Verify the cryptographic integrity of [WRL](https://github.com/benpeter/web-resource-ledger) WACZ capture bundles -- offline, zero-install.
+Verify the cryptographic integrity of [WRL](https://github.com/benpeter/web-resource-ledger) WACZ capture bundles: offline, zero-install.
 
 ```bash
 npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
@@ -26,7 +26,7 @@ Exit code `0` means all applicable checks passed. Exit code `1` means one or mor
 npx @w-r-l/verify "https://api.webresourceledger.com/v1/captures/cap_abc123def456..."
 ```
 
-The signing key is fetched from the server automatically. Individual captures are publicly accessible -- no authentication or tokens are needed.
+The signing key is fetched from the server automatically. Individual captures are publicly accessible; no authentication or tokens are needed.
 
 ### Remote capture via server-side verify endpoint
 
@@ -37,8 +37,8 @@ npx @w-r-l/verify https://api.webresourceledger.com/v1/verify/cap_abc123def456..
 ```
 
 The distinction:
-- `/v1/captures/cap_<id>` -- CLI downloads the WACZ and verifies it locally (cryptographic proof)
-- `/v1/verify/cap_<id>` -- server returns its own verification result (JSON or HTML)
+- `/v1/captures/cap_<id>`: CLI downloads the WACZ and verifies it locally (cryptographic proof)
+- `/v1/verify/cap_<id>`: server returns its own verification result (JSON or HTML)
 
 ### Local file
 
@@ -53,7 +53,7 @@ npx @w-r-l/verify capture.wacz --key <base64-encoded-public-key>
 npx @w-r-l/verify capture.wacz --key-file signing-key.pub
 ```
 
-Local files require an explicit key source. The WACZ embeds a public key, but using it would be insecure -- an attacker who modifies the capture can also replace the embedded key.
+Local files require an explicit key source. The WACZ embeds a public key, but using it would be insecure: an attacker who modifies the capture can also replace the embedded key.
 
 ### Self-consistency check
 
@@ -69,7 +69,7 @@ Uses the key embedded in the WACZ. This proves the archive is internally consist
 npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --legal
 ```
 
-Produces a structured plain-text report designed for use in legal proceedings or formal documentation. No ANSI color codes are written -- the output is safe to redirect to a file or attach as a document.
+Produces a structured plain-text report designed for use in legal proceedings or formal documentation. No ANSI color codes are written, so the output is safe to redirect to a file or attach as a document.
 
 The report is organized into seven sections: a plain-language summary, a description of the subject (the captured page, when it was captured and signed, its bundle hash), per-check explanations in non-technical terms, a chain of custody narrative, applicable legal standards (FRE 901(b)(9) and eIDAS Art. 41), a methodology description, and full technical details with untruncated cryptographic values. The format version is WRL-LEGAL-1.0, which appears in the report header.
 
@@ -153,7 +153,7 @@ The tool bundles the DigiCert Trusted Root G4 certificate. Use `--trust-root` to
 
 `--origin`, `--key`, `--key-file`, and `--trust-embedded` are mutually exclusive.
 
-`--legal` can be combined with `--json` for a machine-readable version of the same report. `--legal` implies `--no-color` -- ANSI codes are never written in legal mode.
+`--legal` can be combined with `--json` for a machine-readable version of the same report. `--legal` implies `--no-color`; ANSI codes are never written in legal mode.
 
 ## Requirements
 

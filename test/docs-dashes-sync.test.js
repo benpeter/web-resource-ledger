@@ -7,7 +7,8 @@
 // may hold command-line flags, so they're left out. The descriptions and
 // summaries in openapi.yaml render on /api-reference/ the same way, and the
 // landing pages are plain HTML: their text, titles and FAQ JSON-LD (shown in
-// search results) printed "--" as typed too.
+// search results) printed "--" as typed too. GitHub and npm render the READMEs
+// without a typographer as well.
 import { readFileSync, readdirSync } from 'fs';
 import { join, relative } from 'path';
 import { describe, it, expect } from 'vitest';
@@ -77,5 +78,11 @@ describe('docs prose', () => {
     pages.push({ page: 'landing/public/llms.txt', text: readFileSync(join(landingDir, 'llms.txt'), 'utf8') });
     expect(pages.length).toBeGreaterThan(5);
     expect(pages.filter(({ text }) => / -- |\d--\d/.test(text)).map(({ page }) => page)).toEqual([]);
+  });
+
+  it('the READMEs and the repo guides have no double hyphens', () => {
+    const files = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'packages/verify/README.md'];
+    const lines = files.flatMap((file) => proseLines(join(root, file)));
+    expect(lines.filter(({ text }) => / -- |\d--\d/.test(text)).map(({ page }) => page)).toEqual([]);
   });
 });
