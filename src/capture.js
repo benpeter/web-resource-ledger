@@ -664,7 +664,7 @@ async function defaultRenderer(env, url, captureId) {
       };
     }
     const tConsent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, setupMs: consent.setupMs ?? null, frames: page.frames().length, errorName: consent._error?.name || null });
+    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, setupMs: consent.setupMs ?? null, rulesMs: consent.rulesMs ?? null, bindingMs: consent.bindingMs ?? null, mainInjectMs: consent.mainInjectMs ?? null, injected: consent.injected ?? null, frames: page.frames().length, errorName: consent._error?.name || null });
 
     // A page that is still loading can hold page.content() back, so the
     // timed-out path gives it one second.

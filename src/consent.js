@@ -202,6 +202,7 @@ async function _dismissWithBinding(page, start) {
   let popupFound = false;
   let roundDone = false;
 
+  const tRules = Date.now();
   await page.exposeBinding('autoconsentSendMessage', (source, msg) => {
     if (!msg || !ALLOWED_MSG_TYPES.has(msg.type)) {
       return;
@@ -276,6 +277,7 @@ async function _dismissWithBinding(page, start) {
     }
   });
 
+  const tBinding = Date.now();
   // Inject autoconsent into main frame and all child frames (CMP iframes).
   // Late-loading iframes (e.g. OneTrust) are caught by the framenavigated listener.
   const inject = ([script]) => { const fn = new Function(script); fn(); };
@@ -298,6 +300,7 @@ async function _dismissWithBinding(page, start) {
   let timer;
   try {
     await page.evaluate(inject, [autoconsentScript]);
+    const tMainInject = Date.now();
     for (const frame of page.frames()) {
       injectIntoFrame(frame);
     }
@@ -318,7 +321,7 @@ async function _dismissWithBinding(page, start) {
     });
 
     const outcome = await Promise.race([resultPromise, timeoutPromise]);
-    return { ...outcome, popupFound, durationMs: Date.now() - start, setupMs: began - start };
+    return { ...outcome, popupFound, durationMs: Date.now() - start, setupMs: began - start, rulesMs: tRules - start, bindingMs: tBinding - tRules, mainInjectMs: tMainInject - tBinding, injected: injectedFrames.size };
   } finally {
     clearTimeout(timer);
     page.off('framenavigated', injectIntoFrame);
