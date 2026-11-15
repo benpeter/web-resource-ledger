@@ -1079,18 +1079,16 @@ export async function scrollStepwise({ stepPx, pauseMs, maxHeight, budgetMs }) {
  */
 export async function triggerLazyLoading(page) {
   const start = Date.now();
-  let timer;
-  const { steps, budgetUsedUp } = await Promise.race([
+  const { steps, budgetUsedUp } = await answerWithin(
     page.evaluate(scrollStepwise, {
       stepPx: SCROLL_STEP_PX,
       pauseMs: SCROLL_STEP_PAUSE_MS,
       maxHeight: MAX_SCROLL_HEIGHT,
       budgetMs: SCROLL_BUDGET_MS,
     }),
-    new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error('The page stopped answering while it was scrolled')), SCROLL_ANSWER_TIMEOUT_MS);
-    }),
-  ]).finally(() => clearTimeout(timer));
+    SCROLL_ANSWER_TIMEOUT_MS,
+    'The page stopped answering while it was scrolled',
+  );
 
   // Skip if page is already short enough to fit in viewport
   if (steps === 0) return { scrollMs: Date.now() - start, steps, budgetUsedUp };
