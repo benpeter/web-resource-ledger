@@ -17,6 +17,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 ### Fixed
 
 - On a site that reloads itself once its cookie banner is declined (theguardian.com), the capture's screenshot and HTML showed the page halfway through reloading, with most images missing, while the screenshot from before the banner had them all. WRL now waits for the page to come to rest after a banner is dismissed, and after a reload scrolls it again, before the second screenshot. `render.stages.postConsentMs` has the time that took
+- The SWGDE alignment page said partial captures skip the cookie banner step, which is no longer so, and named that step as the only thing WRL does to a page. It now lists all three (the scroll, loading lazy images at once, which shows as `loading="eager"` in the stored HTML, and declining cookies) and what WRL blocks (service workers, navigation to another site, requests past 2000)
 - A page that timed out and was blank, or showed a Cloudflare bot check, was stored as a partial capture and counted. It now fails with the same reason as a page that finished loading ("The page loaded but showed nothing (blank page)")
 
 ## [1.5.0] - 2026-11-15
