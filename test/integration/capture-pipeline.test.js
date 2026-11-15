@@ -323,3 +323,66 @@ describe('integration: lazy-load triggering', () => {
     expect(html).toContain('below-fold-marker');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Caps: subresource count and page size (backlog #98)
+// ---------------------------------------------------------------------------
+
+describe('integration: page over the subresource cap', () => {
+  const captureId = 'cap_0000000000000000000000000000e5a9';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('captures the page as partial instead of failing', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/many-resources.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('partial');
+    expect(record.render?.subresourceLimitReached).toBe(true);
+    expect(record.render?.timedOut).toBe(false);
+    expect(record.render?.waitUntilReached).toBe('load');
+  });
+
+  it('records that a fast page stayed under the cap', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/fast.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.renderQuality).toBe('full');
+    expect(record.render?.subresourceLimitReached).toBe(false);
+  });
+});
+
+describe('integration: page over the size cap', () => {
+  const captureId = 'cap_0000000000000000000000000000e5aa';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('fails the capture when the page also never finishes loading', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/huge-and-pending.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(false);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('failed');
+    expect(record.error).toBe('Page exceeded 50MB size limit');
+  });
+});

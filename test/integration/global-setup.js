@@ -39,6 +39,33 @@ export async function setup({ provide }) {
       return;
     }
 
+    // More requests than the 500-subresource cap (backlog #98)
+    if (url.pathname === '/many-resources.html') {
+      const imgs = Array.from({ length: 520 }, (_, i) => `<img src="/lazy-pixel.png?n=${i}" width="1" height="1" alt="">`).join('\n');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html><html><head><title>Many Resources Test</title></head><body><h1 id="many-resources-marker">Many resources</h1>\n${imgs}\n</body></html>`);
+      return;
+    }
+
+    // A page over the 50 MB cap whose load event never fires: one async
+    // script delivers 60 MB, another never answers past its headers
+    if (url.pathname === '/huge-and-pending.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><head><title>Huge Test</title></head><body><h1>Huge</h1><script async src="/huge.js"></script><script async src="/stalled.js"></script></body></html>');
+      return;
+    }
+    if (url.pathname === '/huge.js') {
+      const body = Buffer.alloc(60 * 1024 * 1024, ' ');
+      res.writeHead(200, { 'Content-Type': 'text/javascript', 'Content-Length': body.length });
+      res.end(body);
+      return;
+    }
+    if (url.pathname === '/stalled.js') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript', 'Content-Length': 1024 });
+      res.flushHeaders();
+      return;
+    }
+
     const fixtureMap = {
       '/fast.html': 'fast.html',
       '/never-settle.html': 'never-settle.html',

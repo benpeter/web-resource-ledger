@@ -645,6 +645,26 @@ describe('tool: get_capture -- clipped screenshot', () => {
   });
 });
 
+describe('tool: get_capture -- page over the subresource cap', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'partial', { waitUntilReached: 'load', timedOut: false, durationMs: 4000, subresourceLimitReached: true });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('says the page made more requests than WRL lets through', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('Render quality: partial');
+    expect(text).toContain('The page made more than 500 requests; WRL blocked the ones after the first 500.');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Tool: list_captures
 // ---------------------------------------------------------------------------

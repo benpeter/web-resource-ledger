@@ -802,6 +802,29 @@ describe('performCapture -- full capture quality in the WACZ', () => {
       screenshotClipped: true,
     });
   });
+
+  it('records a page that hit the subresource cap as partial (backlog #98)', async () => {
+    const overCapRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, partial: true, render: { ...result.render, subresourceLimitReached: true } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, overCapRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.renderQuality).toBe('partial');
+    expect(record.render.subresourceLimitReached).toBe(true);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'partial',
+      waitUntilReached: 'load',
+      timedOut: false,
+      subresourceLimitReached: true,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

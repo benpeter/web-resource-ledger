@@ -434,6 +434,20 @@ describe('verify page script -- render quality', () => {
     expect(out).toContain('did not finish loading');
   });
 
+  it('says so when the page hit the subresource cap', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-14T10:00:00.000Z', renderQuality: 'partial' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      render: { waitUntilReached: 'load', timedOut: false, subresourceLimitReached: true },
+    });
+    expect(out).toContain('data-check-label="renderQuality">Page load</div>');
+    expect(out).toContain('The page made more than 500 requests. WRL let the first 500 through and blocked the rest, so images or content that load later may be missing.');
+    expect(out).not.toContain('did not finish loading');
+  });
+
   it('adds no page load row for a full render', async () => {
     const out = await renderVerifyPage({
       verified: true,
