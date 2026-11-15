@@ -39,7 +39,7 @@ Events by subsystem. Severities are Coralogix's: 1=DEBUG, 2=VERBOSE, 3=INFO, 4=W
 | 3 | `capture.batch` | Batch capture request accepted |
 | 2 | `capture.list` | Captures list query (telemetry) |
 | 4 | `capture.retry` | Capture being retried after failure |
-| 4 | `capture.consent_error` | Cookie consent dismissal threw an error |
+| 4 | `capture.consent_error` | Cookie consent dismissal threw an error, or its setup (the message binding and the script in the main frame) was not done within 15 seconds (errorClass, errorMessage). The capture goes on with `consent.result: failed` |
 | 4 | `capture.header_fail` | HTTP header fetch failed (parallel fetch) |
 | 4 | `capture.wacz_fail` | WACZ bundle creation failed |
 | 4 | `capture.key_archive_fail` | Public key archival to R2 failed |
