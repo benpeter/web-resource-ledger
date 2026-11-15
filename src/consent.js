@@ -7,6 +7,11 @@
  * run detection inside cross-origin iframes. Communicates via the
  * autoconsentSendMessage / autoconsentReceiveMessage channel.
  *
+ * The vendored script only carries autoconsent's detectors written in code
+ * (Cookiebot, OneTrust, Sourcepoint and a few more). Every other banner it
+ * knows from JSON rules, which come from the same package and are sent to
+ * each frame with the 'initResp' message, filtered for that frame's URL.
+ *
  * Returns a consistent result shape regardless of outcome:
  *   { status, cmp, durationMs }
  *
@@ -26,6 +31,8 @@
  */ // tva
 
 import autoconsentScript from './vendor/autoconsent-script.js';
+import { filterCompactRules } from '@duckduckgo/autoconsent';
+import compactRules from '@duckduckgo/autoconsent/rules/compact-rules.json';
 
 export const AUTOCONSENT_VERSION = '18.5.0';
 
@@ -52,6 +59,23 @@ const AUTOCONSENT_CONFIG = {
   detectRetries: 5,
   enableCosmeticRules: false,
 };
+
+/**
+ * The 'initResp' message for one frame: the config and the JSON rules that
+ * can apply to the frame's URL. About 240 KB for a main frame, 9 KB for a
+ * child frame.
+ *
+ * @param {string} url
+ * @param {boolean} mainFrame
+ * @returns {{ type: 'initResp', config: object, rules: object }}
+ */
+export function autoconsentInitMessage(url, mainFrame) {
+  return {
+    type: 'initResp',
+    config: AUTOCONSENT_CONFIG,
+    rules: { autoconsent: [], compact: filterCompactRules(compactRules, { url, mainFrame }) },
+  };
+}
 
 /**
  * Attempts to dismiss cookie consent on the given Playwright page.
@@ -105,11 +129,11 @@ async function _dismissWithBinding(page, start) {
     switch (msg.type) {
       case 'init':
         // Cross-origin or detached frames may reject evaluate -- non-fatal
-        frame.evaluate((cfg) => {
+        frame.evaluate((initResp) => {
           if (window.autoconsentReceiveMessage) {
-            window.autoconsentReceiveMessage({ type: 'initResp', config: cfg });
+            window.autoconsentReceiveMessage(initResp);
           }
-        }, AUTOCONSENT_CONFIG).catch(() => {});
+        }, autoconsentInitMessage(frame.url(), frame === page.mainFrame())).catch(() => {});
         break;
 
       case 'cmpDetected':
@@ -204,7 +228,7 @@ async function _dismissWithBinding(page, start) {
 // ---------------------------------------------------------------------------
 
 async function _dismissWithPolling(page, start) {
-  const wrappedScript = `
+  const wrappedScript = (frame) => `
 (function() {
   ${autoconsentScript}
   // Override autoconsentSendMessage to write results to window.__autoconsentResult
@@ -223,7 +247,7 @@ async function _dismissWithPolling(page, start) {
     }
     if (msg.type === 'init') {
       if (window.autoconsentReceiveMessage) {
-        window.autoconsentReceiveMessage({ type: 'initResp', config: ${JSON.stringify(AUTOCONSENT_CONFIG)} });
+        window.autoconsentReceiveMessage(${JSON.stringify(autoconsentInitMessage(frame.url(), frame === page.mainFrame()))});
       }
     }
     if (msg.type === 'eval') {
@@ -251,13 +275,13 @@ async function _dismissWithPolling(page, start) {
     if (!url || url === 'about:blank' || url.startsWith('javascript:')) return;
     injectedFrames.add(frame);
     // Cross-origin or detached frames may reject evaluate -- non-fatal
-    frame.evaluate(wrappedScript).catch(() => {});
+    frame.evaluate(wrappedScript(frame)).catch(() => {});
   }
 
   page.on('framenavigated', injectIntoFrame);
 
   try {
-    await page.evaluate(wrappedScript);
+    await page.evaluate(wrappedScript(page.mainFrame()));
     for (const frame of page.frames()) {
       injectIntoFrame(frame);
     }
