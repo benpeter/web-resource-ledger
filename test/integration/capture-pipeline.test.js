@@ -84,6 +84,26 @@ describe('integration: fast page -- baseline sanity', () => {
     expect(record.renderQuality).toBe('full');
   });
 
+  // A log line is a request to the log endpoint, about 200 ms in production.
+  // The renderer writes ten of them per capture.
+  it('does not hold the browser while its log lines are delivered', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/fast.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+    const withoutLogs = (await getCapture(env.DB, captureId)).render.durationMs;
+    await cleanupCapture(captureId);
+
+    const slowLogEnv = { ...env, CORALOGIX_ENDPOINT: `http://127.0.0.1:${port}/log-sink?each=400`, CORALOGIX_SEND_KEY: 'test' };
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(slowLogEnv, url, '127.0.0.1', captureId, 'default');
+    const record = await getCapture(env.DB, captureId);
+
+    expect(record.status).toBe('complete');
+    // Ten lines waited for one after the other would add 4 seconds
+    expect(record.render.durationMs - withoutLogs).toBeLessThan(1500);
+  });
+
   it('writes screenshot and html artifacts to R2', async () => {
     const port = inject('testServerPort');
     await createCapture(env.DB, captureId, `http://127.0.0.1:${port}/fast.html`, '127.0.0.1', 'default');
