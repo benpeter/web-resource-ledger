@@ -26,7 +26,9 @@
   differ), SWGDE page (declining can take several clicks inside the banner),
   `openapi.yaml` (`result`, `cmpDetected`), `coralogix-events.md`,
   `STACK.md`, changelog.
-- Worker bundle: 1,876 KiB gzipped, 46 KiB more than without the rules.
+- Worker bundle: 1,877 KiB gzipped, 178 KiB more than main (the rules, and
+  autoconsent's library, which has the function that filters them). The
+  limit is 10 MB.
 
 ## Staging
 
