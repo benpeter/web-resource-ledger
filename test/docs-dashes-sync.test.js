@@ -5,7 +5,9 @@
 // site/content uses a comma, colon, semicolon, parentheses or a new sentence
 // instead, and a single hyphen for number ranges. Code blocks and inline code
 // may hold command-line flags, so they're left out. The descriptions and
-// summaries in openapi.yaml render on /api-reference/ the same way.
+// summaries in openapi.yaml render on /api-reference/ the same way, and the
+// landing pages are plain HTML: their text, titles and FAQ JSON-LD (shown in
+// search results) printed "--" as typed too.
 import { readFileSync, readdirSync } from 'fs';
 import { join, relative } from 'path';
 import { describe, it, expect } from 'vitest';
@@ -13,6 +15,7 @@ import { parse } from 'yaml';
 
 const root = join(import.meta.dirname, '..');
 const contentDir = join(root, 'site', 'content');
+const landingDir = join(root, 'landing', 'public');
 
 function pageFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -45,6 +48,17 @@ function specTexts(node, path = []) {
   });
 }
 
+// What a visitor or a search engine reads on a landing page: the text, the
+// title and meta content, and the JSON-LD. Comments, scripts and styles aren't.
+function landingText(path) {
+  const html = readFileSync(path, 'utf8')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<script(?![^>]*application\/ld\+json)[^>]*>[\s\S]*?<\/script>/g, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/g, '')
+    .replace(/<(pre|code)[^>]*>[\s\S]*?<\/\1>/g, '');
+  return { page: relative(root, path), text: html.replace(/\s+/g, ' ') };
+}
+
 describe('docs prose', () => {
   it('has no double hyphens, which the site prints as typed', () => {
     const lines = pageFiles(contentDir).flatMap(proseLines);
@@ -56,5 +70,12 @@ describe('docs prose', () => {
     const texts = specTexts(parse(readFileSync(join(root, 'openapi.yaml'), 'utf8')));
     expect(texts.length).toBeGreaterThan(500);
     expect(texts.filter(({ text }) => / -- |\d--\d/.test(text)).map(({ path }) => path)).toEqual([]);
+  });
+
+  it('landing pages and llms.txt have no double hyphens', () => {
+    const pages = readdirSync(landingDir).filter((name) => name.endsWith('.html')).map((name) => landingText(join(landingDir, name)));
+    pages.push({ page: 'landing/public/llms.txt', text: readFileSync(join(landingDir, 'llms.txt'), 'utf8') });
+    expect(pages.length).toBeGreaterThan(5);
+    expect(pages.filter(({ text }) => / -- |\d--\d/.test(text)).map(({ page }) => page)).toEqual([]);
   });
 });
