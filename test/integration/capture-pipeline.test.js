@@ -267,6 +267,21 @@ describe('integration: page that reloads once its cookie banner is dismissed', (
     expect(html).not.toContain('We use cookies.');
     expect(record.render?.stages?.postConsentMs).toEqual(expect.any(Number));
   });
+
+  it('captures the reloaded page when the reload starts while the second screenshot is taken', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-reload.html?late`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent?.result).toBe('success');
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('fragment-marker');
+    expect(html).not.toContain('We use cookies.');
+  });
 });
 
 // ---------------------------------------------------------------------------
