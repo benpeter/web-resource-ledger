@@ -34,17 +34,17 @@ From `package.json` (root):
 | Library | Version | Purpose |
 | --- | --- | --- |
 | `wrangler` | `4.162.0` (devDep) | Cloudflare Workers CLI: `dev`, `deploy`, secret management |
-| `@cloudflare/playwright` | `^1.1.2` | Headless Chromium for capture pipeline (Cloudflare Browser Rendering binding); used in `src/capture.js` via `connect`, `acquire`, `sessions`, `limits` |
+| `@cloudflare/playwright` | `^1.4.0` | Headless Chromium for capture pipeline (Cloudflare Browser Rendering binding); used in `src/capture.js` via `connect`, `acquire`, `sessions`, `limits`, loaded with a dynamic import on the first session request so cold starts without a capture skip it (phase 0174). Since 1.3.0 it talks plain CDP over text WebSocket frames, so it works with compatibility dates before and after 2026-03-17 (1.1.x hung after that date, cloudflare/browser-run#193) |
 | `@cloudflare/vitest-plugin` | `1.8.2` (devDep; replaced `@cloudflare/vitest-pool-workers`) | Runs Vitest tests inside Miniflare with Workers runtime semantics |
 | `vitest` | `4.1.12` (devDep) | Unit + integration test runner |
-| `@playwright/test` | `^1.58.2` (devDep) | E2E tests against staging (`test/e2e/`) |
-| `@duckduckgo/autoconsent` | `^14.75.0` (origin/main; local working tree was `^14.66.0` at mapping time) | Cookie banner dismissal during capture; bundled in `src/vendor/autoconsent-script.js` and `src/vendor/autoconsent.playwright.js` (vendored via `scripts/vendor-autoconsent.js`); auto-bumped by the autoconsent CI pipeline (Phase 0088, PR #229). **Note:** the codebase mapper read this from the local working tree rather than `origin/main` and was 1 commit behind (PR #276 / d042b44). Treat any version-sensitive claim in this doc as a snapshot of local working tree, not necessarily current `origin/main`. |
-| `@modelcontextprotocol/sdk` | `^1.27.1` | Exposes the API as an MCP server (`src/mcp.js` — `McpServer`, `WebStandardStreamableHTTPServerTransport`) |
+| `@playwright/test` | `^1.65.1` (devDep) | E2E tests against staging (`test/e2e/`) |
+| `@duckduckgo/autoconsent` | `^18.1.0` | Cookie banner dismissal during capture; bundled in `src/vendor/autoconsent-script.js` and `src/vendor/autoconsent.playwright.js` (vendored via `scripts/vendor-autoconsent.js`); auto-bumped by the autoconsent CI pipeline (Phase 0088, PR #229). |
+| `@modelcontextprotocol/sdk` | `^1.32.2` | Exposes the API as an MCP server (`src/mcp.js` — `McpServer`, `WebStandardStreamableHTTPServerTransport`) |
 | `croner` | `^10.0.1` | Cron expression validation and next-run calculation for tenant schedules (`src/cron.js`) |
 | `diff-match-patch-es` | `1.0.1` | Character-level HTML diffing (`src/diff.js`) |
 | `pdf-lib` | `1.17.1` | Generates signed PDF certificates of authenticity (`src/certificate.js`) |
 | `fflate` | `^0.8.3` (runtime dependency — used by `src/wacz.js` and `src/verify.js`) | ZIP creation for WACZ bundles (`zipSync`) |
-| `zod` | `^4.3.6` | Schema validation in MCP tool definitions (`src/mcp.js`) |
+| `zod` | `^4.6.7` | Schema validation in MCP tool definitions (`src/mcp.js`) |
 | `@redocly/cli` | `^2.78.0` (devDep) | Lints `openapi.yaml` (`npm run lint:api`) |
 | `yaml` | `^2.8.2` (devDep) | YAML parsing in scripts |
 
