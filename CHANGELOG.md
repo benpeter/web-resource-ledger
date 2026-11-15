@@ -20,6 +20,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The Security and Compliance overview left the emailed sign-in link out of the authentication methods the whitepaper covers, and referred to "Section on Operational Model" of the incident response policy without a link
+- The subprocessors page put Coralogix's EU2 region in Frankfurt; it is AWS eu-north-1 in Stockholm, also in the EU
 - Why Captures Fail left out "Queue dispatch failed", the error of a capture WRL accepted but couldn't put in its capture queue, and the form "<last attempt's reason>. WRL then lost track of the capture." of a capture still pending after 24 hours; the API reference and the MCP guide quoted only the shorter form
 - The privacy policy said usage counters are kept for the current and previous billing periods; WRL keeps the current period and the 12 before it, as the Data Retention page says. It also said sign-in link hashes are deleted after use; they are deleted a day after the link expires
 - The security whitepaper left out Pirsch, which receives the raw IP of page views and sign-ups and doesn't store it, and said IPs are pseudonymized before they reach any analytics system. It also said `VERIFY_RATE_LIMITER` is per tenant (it is per IP, except for MCP `verify_capture`) and `AUTH_RATE_LIMITER` counts failed sign-ins (it counts every request), that quarantined artifacts stay intact (they answer 451 and are purged 90 days after quarantine), that email addresses are stored only for notification opt-ins, and that there are 9 alert rules (there are 11); the dashboard sign-in heading named a browser extension that doesn't exist

@@ -679,9 +679,9 @@ function createMcpServer(env, ctx, auth, origin) {
 
       const batchSize = urls.length;
 
-      // Step 2: Tenant rate limit -- charge N slots for N URLs (not 1 slot for the batch)
+      // Step 2: Tenant rate limit, as in the HTTP batch handler: the CF rate
+      // limiter once for the batch, then the KV counter charged one slot per URL
       if (env.CAPTURE_RATE_LIMITER) {
-        // CF rate limiter is called once per URL (per the HTTP batch handler pattern)
         const { success } = await env.CAPTURE_RATE_LIMITER.limit({ key: auth.tenantId });
         if (!success) {
           ctx.waitUntil(log(env, 4, 'security', {
