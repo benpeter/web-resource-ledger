@@ -26,11 +26,18 @@ import {
   getQueueResult,
   createExecutionContext,
 } from 'cloudflare:test';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { waitOnExecutionContext } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import worker from '../src/index.js';
 import { createCapture, getCapture, completeCapture, failCapture } from '../src/db.js';
+
+// src/capture.js imports @cloudflare/playwright on the first browser session
+// request. Under Vitest that first import transforms the library (2-3 s), so
+// load it before the tests instead of inside a 5 s test timeout.
+beforeAll(async () => {
+  await import('@cloudflare/playwright');
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
