@@ -160,7 +160,7 @@ After the page has loaded and been scrolled, WRL takes a screenshot. Then it run
 | `success` | A banner was found and declined; `cmpDetected` names the rule that matched, for example `Onetrust` or `cookiehub`. | Two: `artifacts.screenshot` is the page without the banner, `artifacts.screenshotBefore` is the page with it. |
 | `failed` | A banner was found but could not be declined, for example one that only offers "Accept", or declining it took longer than 10 seconds. | One, with the banner. |
 
-The step takes 2 seconds on a page without a consent tool. When autoconsent detects one, its banner has until 5 seconds after the step began to show, and until 10 seconds to be declined, because some banners need their settings opened first.
+The step takes 2 seconds on a page without a consent tool, and up to 6 on a page that keeps the browser so busy that autoconsent has not been through its rules once by then. When autoconsent detects a consent tool, its banner has until 5 seconds after the step began to show, and until 10 seconds to be declined, because some banners need their settings opened first.
 
 Some sites reload themselves once a choice is made (theguardian.com does), and many change the page. Before the second screenshot WRL waits for that: up to 2 seconds for a reload to start, then for the page's requests to finish, and after a reload it scrolls the page again so lazy images load. The HTML artifact is read after the second screenshot, so it matches it.
 

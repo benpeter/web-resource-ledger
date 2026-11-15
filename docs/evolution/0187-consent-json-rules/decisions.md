@@ -43,8 +43,16 @@
 - Such a page takes 5 seconds on the step, 3 more than before. autoconsent
   looks for a popup for 2.5 seconds after it detected the tool, which can
   itself take 2.5, so a shorter limit would cut off banners that show late.
+- The 2 seconds for detection only hold once autoconsent has been through
+  its rules in the main frame once. ikea.com keeps the browser busy: in four
+  captures on staging its OneTrust banner was declined after 1.0, 1.7 and
+  2.1 seconds and missed once, with the banner in the screenshot. autoconsent
+  reports the detection rounds it starts (`findCmpAttempts`), so the step
+  waits until the second one has started, 6 seconds at most. An ordinary
+  page reports that after half a second and costs what it did.
 - Not done: ending the step early when autoconsent reports that it found
-  nothing. Its last detection attempt ends after the 2 seconds anyway.
+  nothing. On a page whose DOM doesn't change it waits up to a minute for a
+  mutation before it says so.
 - Not done: a browser in the EU. WRL's browser runs where Cloudflare puts
   it; on staging the CookieHub banner of semrush.com carried
   `data-region="us-ca"`, so the site took it for a visitor from California.

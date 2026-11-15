@@ -12,7 +12,8 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. The consent step takes 2s when no consent tool
- *   is detected and at most 10s when one is (see consent.js), within the
+ *   is detected (up to 6s on a page that keeps the browser busy) and at most
+ *   10s when one is (see consent.js), within the
  *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle + 2.5s scroll + 2-10s consent + 2s post ≈ 38s worst-case; in practice load fires in 2-5s).
  *   A page that hit the navigation timeout gets the same steps.
  *
