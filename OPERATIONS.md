@@ -37,6 +37,17 @@ Every push to `main` automatically runs three jobs in sequence in `deploy-stagin
 
 After a successful staging deploy, the production pipeline triggers automatically via `workflow_run`. See [Deploy to Production](#deploy-to-production).
 
+The smoke job makes one capture on staging as tenant `smoke-test` (the key in `WRL_STAGING_CAPTURE_API_KEY`). The weekly autoconsent update's battery uses the same key and makes 42 captures per run. The tenant has an override of 2000 captures a month; on the free default of 200 it ran out on 2026-11-15, the smoke job failed with 429 and production was skipped for two merges. Nothing alerts on a failed staging deploy, so after a merge look at `gh run list --branch main --limit 4`, not only at `/health`. When the smoke job fails with "returned 429" and a quota message, raise the tenant's limit and re-run the failed job:
+
+```bash
+curl -X PUT https://staging.webresourceledger.com/v1/admin/tenants/smoke-test/config \
+  -H "Authorization: Bearer $WRL_STAGING_ADMIN_KEY" -H "Content-Type: application/json" \
+  -d '{"quotas": {"capturesPerMonth": 2000}}'
+gh run rerun <run-id> --failed
+```
+
+The `PUT` replaces the tenant's whole configuration, so send every override it should keep.
+
 Staging deploys run one at a time (`concurrency: deploy-staging`), and so do production deploys (`concurrency: deploy-production`). A push that lands while a deploy is running waits for it; if several pushes wait, only the newest runs and the others show as cancelled.
 
 **Manual trigger (GitHub UI):**
