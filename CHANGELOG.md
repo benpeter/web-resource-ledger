@@ -10,6 +10,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-16
+
 ### Changed
 
 - Captures are about 2 seconds faster. WRL writes ten log lines while it renders a page and waited about 200 ms for each to be delivered, with the browser held. It now sends them as before and waits for all of them once, after the browser is released. The times in `render.stages` no longer include those waits
@@ -366,7 +368,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ---
 
-[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.3.0...v1.4.0

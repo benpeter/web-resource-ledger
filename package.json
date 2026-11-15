@@ -1,6 +1,6 @@
 {
   "name": "web-resource-ledger",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "Tamper-evident archival of web resources with cryptographic signing",
   "license": "SEE LICENSE IN LICENSE",
