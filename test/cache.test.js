@@ -19,6 +19,14 @@ describe('buildCacheKey', () => {
     expect(key.url).toBe('https://example.com/v1/verify/cap_abc123?_fmt=html');
   });
 
+  it('appends _fmt=html for a link-preview client that accepts anything (backlog #94)', () => {
+    const req = new Request('https://example.com/v1/verify/cap_abc123', {
+      headers: { Accept: '*/*', 'User-Agent': 'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)' },
+    });
+    const key = buildCacheKey(req);
+    expect(key.url).toBe('https://example.com/v1/verify/cap_abc123?_fmt=html');
+  });
+
   it('defaults to _fmt=json when no Accept header', () => {
     const req = new Request('https://example.com/v1/verify/cap_abc123');
     const key = buildCacheKey(req);
