@@ -11,7 +11,10 @@
  *   consent  both complete, baseline dismissed the banner ('success'), candidate did not
  *
  * Sites that fail on both runs are the site's problem, not the update's, and
- * sites skipped by robots.txt on either run are not compared.
+ * sites skipped by robots.txt on either run are not compared. Neither are
+ * sites that answered WRL's browser with an error status on either run (a
+ * block page, or an empty 403 that fails the capture): the consent step never
+ * saw the page, so the result says nothing about the update.
  *
  * Pure module (no Node or Workers APIs): used by scripts/battery-compare.js
  * and tested in test/battery-compare.test.js.
@@ -25,9 +28,20 @@ function byLabel(results) {
   return map;
 }
 
+// The status the site answered with when it was an error, else null. A failed
+// capture has it only in its failure text.
+function errorStatus(r) {
+  if (!r) return null;
+  if (r.httpStatus >= 400) return r.httpStatus;
+  const answered = /The site answered HTTP (\d{3})/.exec(r.error || '');
+  return answered ? Number(answered[1]) : null;
+}
+
 function describeSide(r) {
   if (!r) return 'missing';
-  if (r.status !== 'complete') return r.status;
+  const refused = errorStatus(r);
+  if (r.status !== 'complete') return refused ? `${r.status}, HTTP ${refused}` : r.status;
+  if (refused) return `complete, HTTP ${refused}`;
   return `complete, ${r.renderQuality || 'full'}, consent ${r.consentResult || 'n/a'}`;
 }
 
@@ -56,6 +70,12 @@ export function compareBattery(baseline, candidate) {
 
     if (b.status === 'skipped' || c?.status === 'skipped') {
       row.verdict = 'skipped';
+      rows.push(row);
+      continue;
+    }
+
+    if (errorStatus(b) || errorStatus(c)) {
+      row.verdict = 'blocked';
       rows.push(row);
       continue;
     }
@@ -118,7 +138,7 @@ function plural(n, word) {
  * @param {{ rows: Array<object> }} result  return value of compareBattery
  */
 export function formatReport(result) {
-  const order = { regression: 0, improvement: 1, same: 2, skipped: 3 };
+  const order = { regression: 0, improvement: 1, same: 2, skipped: 3, blocked: 4 };
   const rows = [...result.rows].sort((a, b) => order[a.verdict] - order[b.verdict]);
   const lines = [
     '| Site | Verdict | Baseline | Candidate |',
@@ -130,6 +150,6 @@ export function formatReport(result) {
   ];
   const count = (v) => result.rows.filter((r) => r.verdict === v).length;
   lines.push('');
-  lines.push(`${plural(count('regression'), 'regression')}, ${plural(count('improvement'), 'improvement')}, ${count('same')} unchanged, ${count('skipped')} skipped`);
+  lines.push(`${plural(count('regression'), 'regression')}, ${plural(count('improvement'), 'improvement')}, ${count('same')} unchanged, ${count('skipped')} skipped, ${count('blocked')} blocked`);
   return lines.join('\n');
 }
