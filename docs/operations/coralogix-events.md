@@ -70,7 +70,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.context_ready` | Browser context + page created (contextSetupMs) |
 | 3 | `render.default.cross_domain_blocked` | Main-frame cross-domain navigation blocked (blockedUrl) |
 | 3 | `render.default.nav_success` | Navigation completed within timeout (navigationMs, httpStatus, subresourceCount, totalBytes). httpStatus is the status of the page's own response as the browser got it, null when the browser reported none |
-| 3 | `render.default.nav_timeout` | Navigation timed out, evaluating DOM state (navigationMs, readyState, totalBytes) |
+| 3 | `render.default.nav_timeout` | Navigation timed out, evaluating DOM state (navigationMs, readyState, totalBytes, subresourceCount, openRequestCount, openRequests). openRequests lists up to eight "resource type host" pairs the page was still waiting on, e.g. `script cdn.example.com` |
 | 3 | `render.default.nav_no_response` | Zero bytes received, non-retryable (navigationMs) |
 | 3 | `render.default.partial_start` | Navigation timed out with the HTML loaded; the page goes on through settle, scroll and consent like a loaded page (readyState, budgetMs) |
 | 3 | `render.default.partial_complete` | A page that timed out was captured, in place of `render.default.complete` (durationMs, partial, httpStatus, subresourceCount, blockedRequests, totalBytes) |

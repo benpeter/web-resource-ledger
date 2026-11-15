@@ -557,6 +557,12 @@ async function defaultRenderer(env, url, captureId) {
     const tContext = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.context_ready', url, captureId, contextSetupMs: tContext - tSession });
 
+    // What the page is still waiting on, for the nav_timeout log
+    const openRequests = new Set();
+    page.on('request', (req) => openRequests.add(req));
+    page.on('requestfinished', (req) => openRequests.delete(req));
+    page.on('requestfailed', (req) => openRequests.delete(req));
+
     // Response monitoring for total page size
     page.on('response', (resp) => {
       const cl = resp.headers()['content-length'];
@@ -585,7 +591,7 @@ async function defaultRenderer(env, url, captureId) {
       if (navError.name !== 'TimeoutError') throw navError;
       // Check if DOM has at least loaded before attempting partial capture
       readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
-      await log(env, 3, 'capture', { event: 'render.default.nav_timeout', url, captureId, navigationMs: Date.now() - tContext, readyState, totalBytes, subresourceCount });
+      await log(env, 3, 'capture', { event: 'render.default.nav_timeout', url, captureId, navigationMs: Date.now() - tContext, readyState, totalBytes, subresourceCount, openRequestCount: openRequests.size, openRequests: summarizeOpenRequests(openRequests) });
       if (readyState !== 'interactive' && readyState !== 'complete') {
         // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
         if (totalBytes === 0) {
@@ -761,6 +767,25 @@ async function defaultRenderer(env, url, captureId) {
       return log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
+}
+
+/**
+ * Names the requests a page is still waiting on as "resource type host", each
+ * pair once and at most `max` of them. Logged when the load event doesn't come
+ * within the navigation timeout, to show which host kept the page from
+ * finishing.
+ *
+ * @param {Iterable<{ url: () => string, resourceType: () => string }>} requests
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function summarizeOpenRequests(requests, max = 8) {
+  const seen = new Set();
+  for (const req of requests) {
+    seen.add(`${req.resourceType()} ${new URL(req.url()).host}`);
+    if (seen.size >= max) break;
+  }
+  return [...seen];
 }
 
 /**
