@@ -11,6 +11,8 @@
  * (Cookiebot, OneTrust, Sourcepoint and a few more). Every other banner it
  * knows from JSON rules, which come from the same package and are sent to
  * each frame with the 'initResp' message, filtered for that frame's URL.
+ * The rules (570 KB) and the function that filters them are loaded on the
+ * first capture, not when the Worker starts.
  *
  * Returns a consistent result shape regardless of outcome:
  *   { status, cmp, durationMs }
@@ -31,8 +33,6 @@
  */ // tva
 
 import autoconsentScript from './vendor/autoconsent-script.js';
-import { filterCompactRules } from '@duckduckgo/autoconsent';
-import compactRules from '@duckduckgo/autoconsent/rules/compact-rules.json';
 
 export const AUTOCONSENT_VERSION = '18.5.0';
 
@@ -60,16 +60,32 @@ const AUTOCONSENT_CONFIG = {
   enableCosmeticRules: false,
 };
 
+let rulesModules = null;
+
+/**
+ * Loads autoconsent's JSON rules and its filter function, once per isolate.
+ *
+ * @returns {Promise<{ compactRules: object, filterCompactRules: Function }>}
+ */
+async function loadRules() {
+  rulesModules ??= Promise.all([
+    import('@duckduckgo/autoconsent'),
+    import('@duckduckgo/autoconsent/rules/compact-rules.json'),
+  ]).then(([lib, rules]) => ({ compactRules: rules.default, filterCompactRules: lib.filterCompactRules }));
+  return rulesModules;
+}
+
 /**
  * The 'initResp' message for one frame: the config and the JSON rules that
  * can apply to the frame's URL. About 240 KB for a main frame, 9 KB for a
  * child frame.
  *
+ * @param {{ compactRules: object, filterCompactRules: Function }} rules From loadRules()
  * @param {string} url
  * @param {boolean} mainFrame
  * @returns {{ type: 'initResp', config: object, rules: object }}
  */
-export function autoconsentInitMessage(url, mainFrame) {
+function autoconsentInitMessage({ compactRules, filterCompactRules }, url, mainFrame) {
   return {
     type: 'initResp',
     config: AUTOCONSENT_CONFIG,
@@ -110,6 +126,7 @@ export async function dismissCookieConsent(page) {
 // ---------------------------------------------------------------------------
 
 async function _dismissWithBinding(page, start) {
+  const rules = await loadRules();
   let resolveConsent;
   const resultPromise = new Promise((resolve) => {
     resolveConsent = resolve;
@@ -133,7 +150,7 @@ async function _dismissWithBinding(page, start) {
           if (window.autoconsentReceiveMessage) {
             window.autoconsentReceiveMessage(initResp);
           }
-        }, autoconsentInitMessage(frame.url(), frame === page.mainFrame())).catch(() => {});
+        }, autoconsentInitMessage(rules, frame.url(), frame === page.mainFrame())).catch(() => {});
         break;
 
       case 'cmpDetected':
@@ -228,6 +245,7 @@ async function _dismissWithBinding(page, start) {
 // ---------------------------------------------------------------------------
 
 async function _dismissWithPolling(page, start) {
+  const rules = await loadRules();
   const wrappedScript = (frame) => `
 (function() {
   ${autoconsentScript}
@@ -247,7 +265,7 @@ async function _dismissWithPolling(page, start) {
     }
     if (msg.type === 'init') {
       if (window.autoconsentReceiveMessage) {
-        window.autoconsentReceiveMessage(${JSON.stringify(autoconsentInitMessage(frame.url(), frame === page.mainFrame()))});
+        window.autoconsentReceiveMessage(${JSON.stringify(autoconsentInitMessage(rules, frame.url(), frame === page.mainFrame()))});
       }
     }
     if (msg.type === 'eval') {
