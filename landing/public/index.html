@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Resource Ledger -- Cryptographic Evidence of Web Content</title>
+  <title>Web Resource Ledger — Cryptographic Evidence of Web Content</title>
   <meta name="description" content="Forensic web capture with Ed25519 signatures and RFC 3161 timestamps. Defensible evidence bundles with chain of custody anyone can verify.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://webresourceledger.com/">
@@ -11,7 +11,7 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://webresourceledger.com/">
-  <meta property="og:title" content="Web Resource Ledger -- Cryptographic Evidence of Web Content">
+  <meta property="og:title" content="Web Resource Ledger — Cryptographic Evidence of Web Content">
   <meta property="og:description" content="Capture web pages with Ed25519 signatures, RFC 3161 timestamps, and optional eIDAS-qualified timestamps. Signed WACZ bundles anyone can independently verify.">
   <meta property="og:site_name" content="Web Resource Ledger">
   <meta property="og:image" content="https://webresourceledger.com/assets/og-image.png">
@@ -21,7 +21,7 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Web Resource Ledger -- Cryptographic Evidence of Web Content">
+  <meta name="twitter:title" content="Web Resource Ledger — Cryptographic Evidence of Web Content">
   <meta name="twitter:description" content="Capture web pages with Ed25519 signatures and RFC 3161 timestamps. Proof anyone can verify.">
   <meta name="twitter:image" content="https://webresourceledger.com/assets/og-image.png">
 
@@ -140,7 +140,7 @@
         "@type": "HowToStep",
         "position": 1,
         "name": "Capture",
-        "text": "Submit a URL. WRL renders the page in a headless browser, captures a screenshot, the rendered HTML, and HTTP headers -- recording what the page looked like at that moment."
+        "text": "Submit a URL. WRL renders the page in a headless browser, captures a screenshot, the rendered HTML, and HTTP headers, recording what the page looked like at that moment."
       },
       {
         "@type": "HowToStep",
@@ -152,7 +152,7 @@
         "@type": "HowToStep",
         "position": 3,
         "name": "Verify",
-        "text": "Share the verification link with anyone. They can confirm the content has not been altered and the timestamp is authentic -- no account needed, the cryptography proves it."
+        "text": "Share the verification link with anyone. They can confirm the content has not been altered and the timestamp is authentic. No account is needed; the cryptography proves it."
       }
     ]
   }
@@ -169,7 +169,7 @@
         "name": "Why is a screenshot not enough for digital evidence?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Screenshots carry no proof of integrity -- pixels are editable and file timestamps are adjustable. A WRL capture is an Ed25519-signed WACZ bundle with SHA-256 hashes and an independent RFC 3161 timestamp. It includes all page resources, not just a rendered image. Anyone can verify the signatures and timestamps independently -- no account required."
+          "text": "Screenshots carry no proof of integrity: pixels are editable and file timestamps are adjustable. A WRL capture is an Ed25519-signed WACZ bundle with SHA-256 hashes and an independent RFC 3161 timestamp. It includes all page resources, not just a rendered image. Anyone can verify the signatures and timestamps independently, without an account."
         }
       },
       {
@@ -177,7 +177,7 @@
         "name": "Is web capture evidence admissible in court?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "WRL captures provide the technical foundation for authentication under FRE 901(b)(9) and support self-authentication under FRE 902(14). With the eIDAS qualified timestamp option, captures carry an EU-recognized qualified electronic timestamp under Article 41(2). Admissibility depends on jurisdiction and the specific proceeding. WRL provides the technical evidence foundation -- consult qualified legal counsel for your matter."
+          "text": "WRL captures provide the technical foundation for authentication under FRE 901(b)(9) and support self-authentication under FRE 902(14). With the eIDAS qualified timestamp option, captures carry an EU-recognized qualified electronic timestamp under Article 41(2). Admissibility depends on jurisdiction and the specific proceeding. WRL provides the technical evidence foundation; consult qualified legal counsel for your matter."
         }
       },
       {
@@ -193,7 +193,7 @@
         "name": "What is forensic web capture?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Forensic web capture preserves web content in a way that maintains evidentiary value -- integrity through cryptographic hashing, a documented methodology, and a verified point in time. WRL's automated pipeline aligns with SWGDE best practices: every capture runs in a fresh, isolated browser, each artifact is hashed with SHA-256, and the signed bundle receives an independent RFC 3161 timestamp."
+          "text": "Forensic web capture preserves web content in a way that maintains evidentiary value: integrity through cryptographic hashing, a documented methodology, and a verified point in time. WRL's automated pipeline aligns with SWGDE best practices: every capture runs in a fresh, isolated browser, each artifact is hashed with SHA-256, and the signed bundle receives an independent RFC 3161 timestamp."
         }
       },
       {
@@ -201,7 +201,7 @@
         "name": "What is chain of custody for digital evidence?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Chain of custody tracks who handled evidence, when, and what they did with it. For digital evidence, it means proving data has not been altered between collection and presentation. WRL establishes a cryptographic chain of custody from capture through signing: the pipeline hashes every artifact, signs the bundle with Ed25519, and obtains an independent RFC 3161 timestamp -- all in a single automated process with no human handling."
+          "text": "Chain of custody tracks who handled evidence, when, and what they did with it. For digital evidence, it means proving data has not been altered between collection and presentation. WRL establishes a cryptographic chain of custody from capture through signing: the pipeline hashes every artifact, signs the bundle with Ed25519, and obtains an independent RFC 3161 timestamp, all in a single automated process with no human handling."
         }
       },
       {
@@ -209,7 +209,7 @@
         "name": "What is defensible web collection?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Defensible collection means the method used to gather electronically stored information can withstand legal scrutiny. It requires a documented, repeatable process with a verifiable chain of custody. WRL's automated pipeline produces a signed, timestamped evidence bundle for every URL -- the process is deterministic, the output is independently verifiable, and the full methodology is documented."
+          "text": "Defensible collection means the method used to gather electronically stored information can withstand legal scrutiny. It requires a documented, repeatable process with a verifiable chain of custody. WRL's automated pipeline produces a signed, timestamped evidence bundle for every URL. The process is deterministic, the output is independently verifiable, and the full methodology is documented."
         }
       },
       {
@@ -225,7 +225,7 @@
         "name": "How do OSINT investigators preserve web evidence?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "OSINT investigators need to capture web content before it disappears -- social media posts, forum threads, product listings -- while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The batch API handles up to 20 URLs per request, and scheduled captures monitor volatile pages automatically."
+          "text": "OSINT investigators need to capture web content before it disappears (social media posts, forum threads, product listings) while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The batch API handles up to 20 URLs per request, and scheduled captures monitor volatile pages automatically."
         }
       },
       {
@@ -233,7 +233,7 @@
         "name": "How do I archive web pages for regulatory compliance?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Regulatory audits require proof that public-facing content met requirements on specific dates. WRL creates a tamper-evident, independently timestamped record of any web page on demand -- your auditor can verify integrity without trusting your internal systems. For recurring obligations, scheduled captures automate regular snapshots. With the eIDAS qualified timestamp option, EU-regulated organizations get timestamps with a legal presumption of accuracy under Article 41(2)."
+          "text": "Regulatory audits require proof that public-facing content met requirements on specific dates. WRL creates a tamper-evident, independently timestamped record of any web page on demand, so your auditor can verify integrity without trusting your internal systems. For recurring obligations, scheduled captures automate regular snapshots. With the eIDAS qualified timestamp option, EU-regulated organizations get timestamps with a legal presumption of accuracy under Article 41(2)."
         }
       },
       {
@@ -241,7 +241,7 @@
         "name": "How do I document online trademark infringement?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Trademark enforcement requires evidence that infringing content existed at a specific time on a specific page. Screenshots are easily challenged -- they carry no proof of integrity or timing. WRL produces a signed, timestamped evidence bundle with cryptographic proof of what the page contained and when, verifiable by opposing counsel or the tribunal without special tools. Scheduled captures can document duration and evolution of infringement."
+          "text": "Trademark enforcement requires evidence that infringing content existed at a specific time on a specific page. Screenshots are easily challenged because they carry no proof of integrity or timing. WRL produces a signed, timestamped evidence bundle with cryptographic proof of what the page contained and when, verifiable by opposing counsel or the tribunal without special tools. Scheduled captures can document duration and evolution of infringement."
         }
       },
       {
@@ -249,7 +249,7 @@
         "name": "What is an audit trail for web content?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "An audit trail for web content is a verifiable record of what a page contained at specific points in time. Built on WRL captures, each record is cryptographically signed, independently timestamped, and stored in WACZ -- an open format not locked to any vendor. Auditors can confirm integrity using the public verification endpoint or the open-source CLI tool, with no account or platform access needed."
+          "text": "An audit trail for web content is a verifiable record of what a page contained at specific points in time. Built on WRL captures, each record is cryptographically signed, independently timestamped, and stored in WACZ, an open format not locked to any vendor. Auditors can confirm integrity using the public verification endpoint or the open-source CLI tool, with no account or platform access needed."
         }
       },
       {
@@ -292,7 +292,7 @@
       <div class="container">
         <div class="hero__inner">
           <h1 id="hero-heading">Web evidence you can prove.</h1>
-          <p class="hero__tagline">Capture any web page and get a signed, timestamped evidence bundle. Anyone can verify the proof independently -- no account, no trust in us required.</p>
+          <p class="hero__tagline">Capture any web page and get a signed, timestamped evidence bundle. Anyone can verify the proof independently. No account, no trust in us required.</p>
           <div class="hero__ctas">
             <a href="https://api.webresourceledger.com/ui?from=landing" class="btn btn--primary btn--lg">Get started free</a>
             <a href="https://docs.webresourceledger.com" class="btn btn--lg btn--inverse">Read the docs</a>
@@ -315,16 +315,16 @@
             <h3 id="use-case-legal">Legal Evidence</h3>
             <p>Screenshots get challenged. WRL captures produce signed, timestamped evidence bundles designed to support authentication under federal and EU evidence standards:</p>
             <ul class="use-case-details">
-              <li><strong>FRE 901(b)(9)</strong> -- automated process producing verifiable results, no human in the chain of custody</li>
-              <li><strong>FRE 902(14)</strong> -- SHA-256 hash integrity as the digital identification process</li>
-              <li><strong>eIDAS Art. 41(2)</strong> -- optional qualified timestamps with legal presumption of accuracy across all EU member states</li>
+              <li><strong>FRE 901(b)(9)</strong>: automated process producing verifiable results, no human in the chain of custody</li>
+              <li><strong>FRE 902(14)</strong>: SHA-256 hash integrity as the digital identification process</li>
+              <li><strong>eIDAS Art. 41(2)</strong>: optional qualified timestamps with legal presumption of accuracy across all EU member states</li>
             </ul>
             <p class="use-case-cta"><a href="https://docs.webresourceledger.com/legal-evidence/">How WRL supports evidence authentication &rarr;</a></p>
           </article>
 
           <article class="card use-case-card" aria-labelledby="use-case-compliance">
             <h3 id="use-case-compliance">Compliance Archiving</h3>
-            <p>Regulatory audits require evidence that your web-facing content met requirements on specific dates. WRL provides timestamped, tamper-evident records of any public web page. Each capture is independently verifiable -- your auditor can check it without trusting your internal systems.</p>
+            <p>Regulatory audits require evidence that your web-facing content met requirements on specific dates. WRL provides timestamped, tamper-evident records of any public web page. Each capture is independently verifiable, so your auditor can check it without trusting your internal systems.</p>
             <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">How verification works &rarr;</a></p>
           </article>
 
@@ -336,7 +336,7 @@
 
           <article class="card use-case-card" aria-labelledby="use-case-journalism">
             <h3 id="use-case-journalism">Journalism and Research</h3>
-            <p>Sources go offline. Pages get edited. WRL preserves the original with cryptographic proof of when it was captured. Share the verification link with editors, fact-checkers, or readers -- the evidence speaks for itself.</p>
+            <p>Sources go offline. Pages get edited. WRL preserves the original with cryptographic proof of when it was captured. Share the verification link with editors, fact-checkers, or readers; the evidence speaks for itself.</p>
             <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">How verification works &rarr;</a></p>
           </article>
 
@@ -361,12 +361,12 @@
 
           <div class="feature-item">
             <h3>Independent Timestamps</h3>
-            <p>A third-party authority records when the capture happened. No one -- not even WRL -- can backdate it.</p>
+            <p>A third-party authority records when the capture happened. No one, not even WRL, can backdate it.</p>
           </div>
 
           <div class="feature-item">
             <h3>Public Verification</h3>
-            <p>Share a link. Anyone can confirm authenticity -- no account, no special tools required.</p>
+            <p>Share a link. Anyone can confirm authenticity. No account or special tools required.</p>
             <p class="use-case-cta"><a href="https://docs.webresourceledger.com/verification/">How verification works &rarr;</a></p>
           </div>
 
@@ -428,7 +428,7 @@
             <div class="step__number" aria-hidden="true">1</div>
             <div class="step__body">
               <h3>Capture</h3>
-              <p>Submit a URL. WRL renders the page in a headless browser, captures a screenshot, the rendered HTML, and HTTP headers -- recording what the page looked like at that moment.</p>
+              <p>Submit a URL. WRL renders the page in a headless browser, captures a screenshot, the rendered HTML, and HTTP headers, recording what the page looked like at that moment.</p>
             </div>
           </li>
           <li class="step">
@@ -442,7 +442,7 @@
             <div class="step__number" aria-hidden="true">3</div>
             <div class="step__body">
               <h3>Verify</h3>
-              <p>Share the verification link with anyone. They can confirm the content has not been altered and the timestamp is authentic -- no account needed, the cryptography proves it.</p>
+              <p>Share the verification link with anyone. They can confirm the content has not been altered and the timestamp is authentic. No account is needed; the cryptography proves it.</p>
             </div>
           </li>
         </ol>
@@ -528,7 +528,7 @@
             </tbody>
           </table>
         </div>
-        <p class="compare-more"><a href="https://docs.webresourceledger.com/compare/">Full comparison across 10 tools and approaches -- including where WRL is not the right choice &rarr;</a></p>
+        <p class="compare-more"><a href="https://docs.webresourceledger.com/compare/">Full comparison across 10 tools and approaches, including where WRL is not the right choice &rarr;</a></p>
       </div>
     </section>
 
@@ -650,11 +650,11 @@
         <div class="faq__list">
           <details class="faq__item">
             <summary class="faq__question">Why is a screenshot not enough for digital evidence?</summary>
-            <p class="faq__answer">Screenshots carry no proof of integrity -- pixels are editable and file timestamps are adjustable. A WRL capture is an Ed25519-signed WACZ bundle with SHA-256 hashes and an independent RFC 3161 timestamp. It includes all page resources, not just a rendered image. Anyone can <a href="https://docs.webresourceledger.com/verification/">verify the signatures and timestamps independently</a> -- no account required.</p>
+            <p class="faq__answer">Screenshots carry no proof of integrity: pixels are editable and file timestamps are adjustable. A WRL capture is an Ed25519-signed WACZ bundle with SHA-256 hashes and an independent RFC 3161 timestamp. It includes all page resources, not just a rendered image. Anyone can <a href="https://docs.webresourceledger.com/verification/">verify the signatures and timestamps independently</a>, without an account.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">Is web capture evidence admissible in court?</summary>
-            <p class="faq__answer">WRL captures provide the technical foundation for authentication under FRE 901(b)(9) and support self-authentication under FRE 902(14). With the eIDAS qualified timestamp option, captures carry an EU-recognized qualified electronic timestamp under Article 41(2). Admissibility depends on jurisdiction and the specific proceeding -- WRL provides the technical evidence foundation. <a href="https://docs.webresourceledger.com/legal-evidence/">Learn more about the legal framework</a>, and consult qualified legal counsel for your matter.</p>
+            <p class="faq__answer">WRL captures provide the technical foundation for authentication under FRE 901(b)(9) and support self-authentication under FRE 902(14). With the eIDAS qualified timestamp option, captures carry an EU-recognized qualified electronic timestamp under Article 41(2). Admissibility depends on jurisdiction and the specific proceeding. WRL provides the technical evidence foundation. <a href="https://docs.webresourceledger.com/legal-evidence/">Learn more about the legal framework</a>, and consult qualified legal counsel for your matter.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">Can I verify a capture without an account?</summary>
@@ -662,15 +662,15 @@
           </details>
           <details class="faq__item">
             <summary class="faq__question">What is forensic web capture?</summary>
-            <p class="faq__answer">Forensic web capture preserves web content in a way that maintains evidentiary value -- integrity through cryptographic hashing, a documented methodology, and a verified point in time. WRL's automated pipeline aligns with <a href="https://docs.webresourceledger.com/security/swgde-compliance/">SWGDE best practices</a>: every capture runs in a fresh, isolated browser, each artifact is hashed with SHA-256, and the signed bundle receives an independent RFC 3161 timestamp.</p>
+            <p class="faq__answer">Forensic web capture preserves web content in a way that maintains evidentiary value: integrity through cryptographic hashing, a documented methodology, and a verified point in time. WRL's automated pipeline aligns with <a href="https://docs.webresourceledger.com/security/swgde-compliance/">SWGDE best practices</a>: every capture runs in a fresh, isolated browser, each artifact is hashed with SHA-256, and the signed bundle receives an independent RFC 3161 timestamp.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">What is chain of custody for digital evidence?</summary>
-            <p class="faq__answer">Chain of custody tracks who handled evidence, when, and what they did with it. For digital evidence, it means proving data has not been altered between collection and presentation. WRL establishes a cryptographic chain of custody from capture through signing: the pipeline hashes every artifact, signs the bundle with Ed25519, and obtains an independent RFC 3161 timestamp -- all in a single automated process with no human handling. <a href="https://docs.webresourceledger.com/legal-evidence/">Learn how WRL documents the evidence chain</a>.</p>
+            <p class="faq__answer">Chain of custody tracks who handled evidence, when, and what they did with it. For digital evidence, it means proving data has not been altered between collection and presentation. WRL establishes a cryptographic chain of custody from capture through signing: the pipeline hashes every artifact, signs the bundle with Ed25519, and obtains an independent RFC 3161 timestamp, all in a single automated process with no human handling. <a href="https://docs.webresourceledger.com/legal-evidence/">Learn how WRL documents the evidence chain</a>.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">What is defensible web collection?</summary>
-            <p class="faq__answer">Defensible collection means the method used to gather electronically stored information can withstand legal scrutiny. It requires a documented, repeatable process with a verifiable chain of custody. WRL's automated pipeline produces a signed, timestamped evidence bundle for every URL -- the process is deterministic, the output is independently verifiable, and the full methodology is documented. <a href="https://docs.webresourceledger.com/legal-evidence/">See how WRL supports defensible collection</a>.</p>
+            <p class="faq__answer">Defensible collection means the method used to gather electronically stored information can withstand legal scrutiny. It requires a documented, repeatable process with a verifiable chain of custody. WRL's automated pipeline produces a signed, timestamped evidence bundle for every URL. The process is deterministic, the output is independently verifiable, and the full methodology is documented. <a href="https://docs.webresourceledger.com/legal-evidence/">See how WRL supports defensible collection</a>.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do I preserve website evidence for litigation?</summary>
@@ -678,19 +678,19 @@
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do OSINT investigators preserve web evidence?</summary>
-            <p class="faq__answer">OSINT investigators need to capture web content before it disappears -- social media posts, forum threads, product listings -- while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The <a href="https://docs.webresourceledger.com/batch/">batch API</a> handles up to 20 URLs per request, and scheduled captures monitor volatile pages automatically.</p>
+            <p class="faq__answer">OSINT investigators need to capture web content before it disappears (social media posts, forum threads, product listings) while maintaining a provenance record others can verify. WRL provides an API-driven approach: submit a URL, receive a signed WACZ bundle with proof of when the content existed and that nothing was altered after capture. The <a href="https://docs.webresourceledger.com/batch/">batch API</a> handles up to 20 URLs per request, and scheduled captures monitor volatile pages automatically.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do I archive web pages for regulatory compliance?</summary>
-            <p class="faq__answer">Regulatory audits require proof that public-facing content met requirements on specific dates. WRL creates a tamper-evident, independently timestamped record of any web page on demand -- your auditor can verify integrity without trusting your internal systems. For recurring obligations, <a href="https://docs.webresourceledger.com/schedules/">scheduled captures</a> automate regular snapshots. With the eIDAS qualified timestamp option, EU-regulated organizations get timestamps with a legal presumption of accuracy under Article 41(2).</p>
+            <p class="faq__answer">Regulatory audits require proof that public-facing content met requirements on specific dates. WRL creates a tamper-evident, independently timestamped record of any web page on demand, so your auditor can verify integrity without trusting your internal systems. For recurring obligations, <a href="https://docs.webresourceledger.com/schedules/">scheduled captures</a> automate regular snapshots. With the eIDAS qualified timestamp option, EU-regulated organizations get timestamps with a legal presumption of accuracy under Article 41(2).</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">How do I document online trademark infringement?</summary>
-            <p class="faq__answer">Trademark enforcement requires evidence that infringing content existed at a specific time on a specific page. Screenshots are easily challenged -- they carry no proof of integrity or timing. WRL produces a signed, timestamped evidence bundle with cryptographic proof of what the page contained and when, <a href="https://docs.webresourceledger.com/legal-evidence/">verifiable by opposing counsel or the tribunal</a> without special tools. Scheduled captures can document duration and evolution of infringement.</p>
+            <p class="faq__answer">Trademark enforcement requires evidence that infringing content existed at a specific time on a specific page. Screenshots are easily challenged because they carry no proof of integrity or timing. WRL produces a signed, timestamped evidence bundle with cryptographic proof of what the page contained and when, <a href="https://docs.webresourceledger.com/legal-evidence/">verifiable by opposing counsel or the tribunal</a> without special tools. Scheduled captures can document duration and evolution of infringement.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">What is an audit trail for web content?</summary>
-            <p class="faq__answer">An audit trail for web content is a verifiable record of what a page contained at specific points in time. Built on WRL captures, each record is cryptographically signed, independently timestamped, and stored in WACZ -- an open format not locked to any vendor. Auditors can <a href="https://docs.webresourceledger.com/verification/">confirm integrity</a> using the public verification endpoint or the open-source CLI tool, with no account or platform access needed.</p>
+            <p class="faq__answer">An audit trail for web content is a verifiable record of what a page contained at specific points in time. Built on WRL captures, each record is cryptographically signed, independently timestamped, and stored in WACZ, an open format not locked to any vendor. Auditors can <a href="https://docs.webresourceledger.com/verification/">confirm integrity</a> using the public verification endpoint or the open-source CLI tool, with no account or platform access needed.</p>
           </details>
           <details class="faq__item">
             <summary class="faq__question">Can I self-host WRL?</summary>
