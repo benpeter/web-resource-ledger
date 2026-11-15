@@ -141,6 +141,13 @@ function buildMetadataSection(data) {
     addDataRow(grid, 'Render Quality', data.renderQuality);
   }
 
+  // Status of the page's own response as the browser got it (backlog #101)
+  if (data.render && data.render.httpStatus) {
+    addDataRow(grid, 'HTTP Status', data.render.httpStatus >= 400
+      ? data.render.httpStatus + ' (the capture shows an error page or a block page)'
+      : String(data.render.httpStatus));
+  }
+
   // Timestamp status (only when WACZ is present and timestamps field exists)
   if (data.wacz && data.timestamps) {
     var tsSpan = document.createElement('span');
