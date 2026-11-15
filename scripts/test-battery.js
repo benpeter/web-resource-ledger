@@ -233,6 +233,7 @@ for (const { label, result } of pollResults) {
     captureId: result.captureId,
     status: result.status,
     renderQuality: result.renderQuality,
+    httpStatus: render?.httpStatus ?? null,
     consentResult: consent?.result || 'n/a',
     cmp: consent?.cmpDetected || 'none',
     durationMs: render?.durationMs || 'n/a',
@@ -242,18 +243,19 @@ for (const { label, result } of pollResults) {
 }
 
 // Print summary table
-console.log(`\n${'='.repeat(90)}`);
+console.log(`\n${'='.repeat(96)}`);
 console.log('Summary\n');
 console.log(
   'Site'.padEnd(18) +
   'Status'.padEnd(10) +
   'Quality'.padEnd(10) +
+  'HTTP'.padEnd(6) +
   'Consent'.padEnd(14) +
   'CMP'.padEnd(18) +
   'Scroll'.padEnd(8) +
   'Duration',
 );
-console.log('-'.repeat(90));
+console.log('-'.repeat(96));
 
 for (const r of results) {
   if (r.status === 'skipped' || r.status === 'error') {
@@ -264,6 +266,7 @@ for (const r of results) {
       `${r.label.padEnd(18)}` +
       `${r.status.padEnd(10)}` +
       `${(r.renderQuality || 'n/a').padEnd(10)}` +
+      `${String(r.httpStatus ?? 'n/a').padEnd(6)}` +
       `${(r.consentResult || 'n/a').padEnd(14)}` +
       `${(r.cmp || 'none').padEnd(18)}` +
       `${scrollStr.padEnd(8)}` +

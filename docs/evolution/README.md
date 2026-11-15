@@ -188,3 +188,4 @@ software development.
 | [0178-subresource-cap-partial](0178-subresource-cap-partial/) | A page can make 2000 requests instead of 500, and a page past the cap is captured as partial instead of failing on some runs; the capture says the cap was reached |
 | [0180-render-http-status](0180-render-http-status/) | A capture records the HTTP status the site answered the browser with, and says so where people look when it was an error, so a block page no longer passes as the page |
 | [0181-mcp-keyless-lists](0181-mcp-keyless-lists/) | MCP directories that ask for resources and prompts without a key get "there are none" instead of a 401 |
+| [0182-battery-blocked-sites](0182-battery-blocked-sites/) | The battery gate of the weekly autoconsent update leaves out sites that refused the browser instead of blaming the update for them |

@@ -63,6 +63,45 @@ describe('compareBattery: capture status', () => {
   });
 });
 
+// A site that answers WRL's browser with an error status (a block page or an
+// empty 403) says nothing about the update: the consent step never saw the page.
+describe('compareBattery: sites that refused the browser', () => {
+  it('a block page on the candidate is not a consent regression', () => {
+    const result = compareBattery(
+      [site('Ok'), site('A', { httpStatus: 200 })],
+      [site('Ok'), site('A', { httpStatus: 403, consentResult: 'notDetected', cmp: 'none' })],
+    );
+    expect(result.regressions).toEqual([]);
+    expect(verdictOf(result, 'A')).toBe('blocked');
+  });
+
+  it('a capture that failed because the site answered an error is not a capture regression', () => {
+    const result = compareBattery(
+      [site('Ok'), site('A', { httpStatus: 200 })],
+      [site('Ok'), site('A', { status: 'failed', error: 'The site answered HTTP 403 and the page showed nothing (blank page)' })],
+    );
+    expect(result.regressions).toEqual([]);
+    expect(verdictOf(result, 'A')).toBe('blocked');
+  });
+
+  it('a site blocked on the baseline and captured on the candidate is not an improvement', () => {
+    const result = compareBattery(
+      [site('Ok'), site('A', { httpStatus: 403, consentResult: 'notDetected', cmp: 'none' })],
+      [site('Ok'), site('A', { httpStatus: 200 })],
+    );
+    expect(result.improvements).toEqual([]);
+    expect(verdictOf(result, 'A')).toBe('blocked');
+  });
+
+  it('a 200 on both runs is compared as before', () => {
+    const result = compareBattery(
+      [site('A', { httpStatus: 200 })],
+      [site('A', { httpStatus: 200, consentResult: 'notDetected' })],
+    );
+    expect(result.regressions).toEqual(['A']);
+  });
+});
+
 describe('compareBattery: render quality and consent', () => {
   it('full -> partial render is a regression', () => {
     const result = compareBattery([site('A')], [site('A', { renderQuality: 'partial' })]);
@@ -139,5 +178,14 @@ describe('formatReport', () => {
   it('names the reasons of a regression', () => {
     const report = formatReport(compareBattery([site('A')], [site('A', { consentResult: 'notDetected' })]));
     expect(report).toMatch(/A.*regression.*consent/);
+  });
+
+  it('shows the status of a blocked site and counts it', () => {
+    const report = formatReport(compareBattery(
+      [site('Ok'), site('A', { httpStatus: 200 })],
+      [site('Ok'), site('A', { httpStatus: 403, consentResult: 'notDetected' })],
+    ));
+    expect(report).toMatch(/A \| blocked \|.*HTTP 403/);
+    expect(report).toMatch(/0 regressions, 0 improvements, 1 unchanged, 0 skipped, 1 blocked/);
   });
 });
