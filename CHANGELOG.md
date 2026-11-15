@@ -10,6 +10,14 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Changed
+
+- A page that has not finished loading after 20 seconds gets the same steps as one that has, before WRL captures it as `partial`: the wait for open requests, the scroll that loads lazy images, and the cookie banner step, so `captureSettings.consent` is there and `render.stages` has `settleMs`, `scrollMs` and `consentMs`. Before, WRL took one screenshot the moment the 20 seconds were up, so such captures could show a cookie banner and unloaded images
+
+### Fixed
+
+- A page that timed out and was blank, or showed a Cloudflare bot check, was stored as a partial capture and counted. It now fails with the same reason as a page that finished loading ("The page loaded but showed nothing (blank page)")
+
 ## [1.5.0] - 2026-11-15
 
 ### Added

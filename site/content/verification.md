@@ -132,6 +132,8 @@ WRL captures a page as it stands, instead of failing, in two cases:
 
 Either way the capture has `"renderQuality": "partial"`. Images, fonts or content that would have loaded later may be missing from the screenshot and the HTML.
 
+A page that ran into the 20 seconds still gets every step a loaded page gets: WRL waits up to 3 seconds for open requests, scrolls the page so lazy images load, and handles the cookie banner, so the capture has `captureSettings.consent` and, when a banner was dismissed, the screenshot from before it. It also fails for the same reasons: a blank page or a Cloudflare bot check is not stored as a capture. Until 15 November 2026 WRL took one screenshot the moment the 20 seconds were up, without those steps, so older partial captures can show a cookie banner or unloaded images, and their `render.stages.settleMs` and `consentMs` are `null`.
+
 A partial capture is signed and timestamped like a full one, and every check above runs the same way. The bundle's `datapackage.json` records how far the page got, so that record is covered by the signature too:
 
 ```json
