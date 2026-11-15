@@ -127,5 +127,5 @@ Capture records and artifact URLs are in the response from `GET /v1/captures`. S
 ## Related pages
 
 - [Privacy Policy](https://webresourceledger.com/privacy) -- full data inventory, legal bases, and your GDPR rights
-- [Authentication](../authentication/) -- API key lifecycle and revocation
-- [Security](../security/) -- how WRL protects data in transit and at rest
+- [Authentication](/authentication/) -- API key lifecycle and revocation
+- [Security Whitepaper: Encryption](/security/whitepaper/#5-encryption) -- how WRL protects data in transit and at rest
