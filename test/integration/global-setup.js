@@ -39,9 +39,10 @@ export async function setup({ provide }) {
       return;
     }
 
-    // More requests than the 500-subresource cap (backlog #98)
+    // A page with ?n= images, for either side of the 2000-request cap (backlog #98)
     if (url.pathname === '/many-resources.html') {
-      const imgs = Array.from({ length: 520 }, (_, i) => `<img src="/lazy-pixel.png?n=${i}" width="1" height="1" alt="">`).join('\n');
+      const count = Number(url.searchParams.get('n'));
+      const imgs = Array.from({ length: count }, (_, i) => `<img src="/lazy-pixel.png?n=${i}" width="1" height="1" alt="">`).join('\n');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(`<!DOCTYPE html><html><head><title>Many Resources Test</title></head><body><h1 id="many-resources-marker">Many resources</h1>\n${imgs}\n</body></html>`);
       return;

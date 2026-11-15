@@ -661,7 +661,8 @@ describe('tool: get_capture -- page over the subresource cap', () => {
     const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
     const text = (await res.json()).result.content[0].text;
     expect(text).toContain('Render quality: partial');
-    expect(text).toContain('The page made more than 500 requests; WRL blocked the ones after the first 500.');
+    expect(text).toContain('The page made more requests than WRL allows for one capture; WRL blocked the rest.');
+    expect(text).not.toMatch(/more than \d+ requests/);
   });
 });
 

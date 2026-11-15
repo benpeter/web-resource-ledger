@@ -444,7 +444,9 @@ describe('verify page script -- render quality', () => {
       render: { waitUntilReached: 'load', timedOut: false, subresourceLimitReached: true },
     });
     expect(out).toContain('data-check-label="renderQuality">Page load</div>');
-    expect(out).toContain('The page made more than 500 requests. WRL let the first 500 through and blocked the rest, so images or content that load later may be missing.');
+    expect(out).toContain('The page made more requests than WRL allows for one capture. WRL blocked the rest, so images or content that load later may be missing.');
+    // The cap can change; a number here would become false for older captures
+    expect(out).not.toMatch(/more than \d+ requests/);
     expect(out).not.toContain('did not finish loading');
   });
 

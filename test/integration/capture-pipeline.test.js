@@ -339,7 +339,7 @@ describe('integration: page over the subresource cap', () => {
 
   it('captures the page as partial instead of failing', async () => {
     const port = inject('testServerPort');
-    const url = `http://127.0.0.1:${port}/many-resources.html`;
+    const url = `http://127.0.0.1:${port}/many-resources.html?n=2020`;
     await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
     const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
 
@@ -350,6 +350,18 @@ describe('integration: page over the subresource cap', () => {
     expect(record.render?.subresourceLimitReached).toBe(true);
     expect(record.render?.timedOut).toBe(false);
     expect(record.render?.waitUntilReached).toBe('load');
+  });
+
+  it('captures a page with 1200 requests whole', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/many-resources.html?n=1200`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('full');
+    expect(record.render?.subresourceLimitReached).toBe(false);
   });
 
   it('records that a fast page stayed under the cap', async () => {
