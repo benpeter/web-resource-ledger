@@ -183,3 +183,4 @@ software development.
 | [0174-cloudflare-playwright-1-4](0174-cloudflare-playwright-1-4/) | Captures use `@cloudflare/playwright` 1.4.0, loaded only when a capture runs, so cold starts without a capture got faster instead of slower |
 | [0175-site-deps-security](0175-site-deps-security/) | The docs site build dependencies have no open Dependabot or npm audit findings; the built pages are unchanged |
 | [0176-problem-fields](0176-problem-fields/) | The API reference describes the extra fields of 429, 422 and 451 problem responses and the 451s of verify and diff |
+| [0177-openapi-webhooks](0177-openapi-webhooks/) | `openapi.yaml` describes the webhook delivery request, so the API reference and client generators show its headers and body |

@@ -171,6 +171,8 @@ Every webhook request includes these headers:
 | `User-Agent` | `WRL-Webhook/1.0` |
 | `Content-Type` | `application/json` |
 
+The API reference describes the same request, headers and body under [Event delivery to your endpoint](/api-reference/#deliverWebhookEvent), from the `webhooks` section of `openapi.yaml`, so client generators can produce a type for it.
+
 ### Signing scheme
 
 WRL constructs the signed payload as:

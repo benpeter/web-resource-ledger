@@ -41,7 +41,7 @@ function sitePathExists(target) {
 // The ids site/content/api-reference.njk and partials/endpoint.njk put on the page.
 function apiReferenceIds() {
   const spec = parse(readFileSync(join(root, 'openapi.yaml'), 'utf8'));
-  const operations = Object.values(spec.paths).flatMap((item) => Object.values(item));
+  const operations = [spec.paths, spec.webhooks ?? {}].flatMap((items) => Object.values(items).flatMap((item) => Object.values(item)));
   const tags = [...(spec.tags || []).map((tag) => tag.name), ...operations.flatMap((op) => op.tags || [])];
   return new Set([...operations.map((op) => op.operationId), ...tags.map((tag) => `tag-${tag}`)]);
 }

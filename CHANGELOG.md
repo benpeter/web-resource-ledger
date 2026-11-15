@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- `openapi.yaml` describes webhook deliveries in an OpenAPI 3.1 `webhooks` section: the request WRL sends to your endpoint, its five headers and the `WebhookEventPayload` body, and what WRL does with your answer. The API reference shows it as "Event delivery to your endpoint" under Webhooks
 - `/.well-known/security.txt` (RFC 9116) on webresourceledger.com names the reporting channel and points to `SECURITY.md`; `api.`, `verify.` and `docs.webresourceledger.com` redirect to it
 
 ### Changed
