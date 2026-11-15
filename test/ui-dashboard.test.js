@@ -161,6 +161,12 @@ describe('htmlDashboard -- view function markers', () => {
     const html = await htmlDashboard().text();
     expect(html).toContain('function mountDetail');
   });
+
+  it('shows the status the site answered with in the capture details', async () => {
+    const html = await htmlDashboard().text();
+    expect(html).toContain("addDataRow(grid, 'HTTP Status'");
+    expect(html).toContain('the capture shows an error page or a block page');
+  });
 });
 
 // ---------------------------------------------------------------------------
