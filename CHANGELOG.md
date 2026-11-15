@@ -10,6 +10,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-15
+
 ### Added
 
 - A capture records the HTTP status the site answered WRL's browser with, as `render.httpStatus` (signed into the WACZ `captureQuality`). When it is 400 or higher, the verification page, the dashboard and MCP `get_capture` and `verify_capture` say that the capture shows an error answer, which can be an error page or a block page. Before, a block page such as "Access Denied" was stored as a full capture with nothing to tell it from the real page. A blank page that came with an error status fails with "The site answered HTTP 403 and the page showed nothing (blank page)"
@@ -343,7 +345,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ---
 
-[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/benpeter/web-resource-ledger/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/benpeter/web-resource-ledger/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/benpeter/web-resource-ledger/compare/v1.2.0...v1.3.0
