@@ -1094,7 +1094,7 @@ export function categorizeError(error) {
       retryable: false,
     };
   }
-  if (msg.includes('Unable to capture screenshot')) {
+  if (msg.includes('Unable to capture screenshot') || msg.startsWith('page.screenshot: Timeout')) {
     return { message: 'The browser could not take a screenshot of this page', retryable: true };
   }
   if (msg.includes('net::ERR_NAME_NOT_RESOLVED')) {
