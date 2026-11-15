@@ -28,7 +28,7 @@ curl https://api.webresourceledger.com/v1/captures \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-Replace `YOUR_API_KEY` with your actual key. Every WRL API key starts with `wrl_live_`, whether it was shown at your first sign-in, created in Settings or issued by the admin API. Keep your key secret -- anyone who has it can submit captures and read your capture history.
+Replace `YOUR_API_KEY` with your actual key. Every WRL API key starts with `wrl_live_`, whether it was shown at your first sign-in, created in Settings or issued by the admin API. Keep your key secret: anyone who has it can submit captures and read your capture history.
 
 ### Scopes
 
@@ -38,7 +38,7 @@ Every API key is granted one or more scopes that control which endpoints it can 
 |-------|----------------|
 | `capture` | Submit new captures (`POST /v1/captures`, `POST /v1/captures/batch`), read sitemaps, and manage schedules and webhooks. Implies `read`. |
 | `read` | List captures (`GET /v1/captures`), compare two captures, read usage (`GET /v1/account/usage`), retrieve capture records and artifacts, and run verifications. |
-| `admin` | Reserved for future use. Has no runtime effect today -- admin endpoints use a separate credential. |
+| `admin` | Reserved for future use. Has no runtime effect today; admin endpoints use a separate credential. |
 
 Because `capture` implies `read`, a key with `capture` scope can do everything a `read`-only key can do plus submit new captures.
 
@@ -72,13 +72,13 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `GET /v1/admin/keys` | Admin credential |
 | `DELETE /v1/admin/keys/{keyHash}` | Admin credential |
 
-> **Note:** The verification endpoint and individual capture endpoints are public by design -- anyone with the capture ID can access the capture and its artifacts. The list endpoint (`GET /v1/captures`) requires your API key.
+> **Note:** The verification endpoint and individual capture endpoints are public by design: anyone with the capture ID can access the capture and its artifacts. The list endpoint (`GET /v1/captures`) requires your API key.
 
 ---
 
 ## Managing API Keys (Operators)
 
-If you operate a WRL deployment, you manage API keys through the admin API. Admin endpoints require a separate admin credential -- a secret key set by the operator during deployment. This credential is distinct from tenant API keys and does not grant capture or read access.
+If you operate a WRL deployment, you manage API keys through the admin API. Admin endpoints require a separate admin credential, a secret key set by the operator during deployment. This credential is distinct from tenant API keys and does not grant capture or read access.
 
 ### Create a key
 
@@ -105,7 +105,7 @@ curl -X POST https://api.webresourceledger.com/v1/admin/keys \
 }
 ```
 
-**The raw key is shown exactly once.** Store it immediately -- it cannot be retrieved later. The `keyHash` is the opaque identifier returned at creation time; you will use it if you need to revoke this key.
+**The raw key is shown exactly once.** Store it immediately, because it cannot be retrieved later. The `keyHash` is the opaque identifier returned at creation time; you will use it if you need to revoke this key.
 
 Request fields:
 
@@ -160,7 +160,7 @@ To rotate a key without downtime:
 3. **Verify** the new key is working in production.
 4. **Revoke the old key** using its `keyHash`.
 
-This order ensures access is never interrupted. The brief window where both keys are valid is safe -- old captures remain accessible regardless of which key created them.
+This order ensures access is never interrupted. The brief window where both keys are valid is safe: old captures remain accessible regardless of which key created them.
 
 ---
 
@@ -178,7 +178,7 @@ curl -X POST https://api.webresourceledger.com/v1/captures \
 
 When per-tenant key management is enabled (the admin API is configured), the legacy key is disabled. Requests authenticated with the old static key will be rejected.
 
-We recommend migrating to per-tenant keys. Create a key via `POST /v1/admin/keys` and replace the static value in your integrations. Per-tenant keys support scope restrictions, named labels, and individual revocation -- none of which are possible with the legacy single-key mode.
+We recommend migrating to per-tenant keys. Create a key via `POST /v1/admin/keys` and replace the static value in your integrations. Per-tenant keys support scope restrictions, named labels, and individual revocation, none of which are possible with the legacy single-key mode.
 
 </details>
 

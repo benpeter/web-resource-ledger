@@ -6,7 +6,7 @@ description: Capture a web page with cryptographic proof in three steps. Ed25519
 
 # Getting Started
 
-WRL captures web pages with cryptographic proof of authenticity -- Ed25519 signatures and RFC 3161 timestamps that anyone can independently verify.
+WRL captures web pages with cryptographic proof of authenticity: Ed25519 signatures and RFC 3161 timestamps that anyone can independently verify.
 
 This guide walks you from your first API call to a verified capture in under five minutes.
 
@@ -88,7 +88,7 @@ The record lists all artifact links and a verification URL. Until the capture is
 }
 ```
 
-> **Note:** Share the `verifyUrl` freely -- it renders as a human-readable verification page in any browser and requires no authentication. Capture URLs are directly shareable -- anyone with the capture ID can access the capture and its artifacts.
+> **Note:** Share the `verifyUrl` freely: it renders as a human-readable verification page in any browser and requires no authentication. Capture URLs are directly shareable: anyone with the capture ID can access the capture and its artifacts.
 
 For full polling details and status values, see the [API Reference](/api-reference/).
 
@@ -98,7 +98,7 @@ For full polling details and status values, see the [API Reference](/api-referen
 
 The `@w-r-l/verify` CLI performs offline cryptographic verification against the operator's published signing key. It confirms the capture has not been tampered with since it was created.
 
-Pass the capture URL directly -- the CLI fetches the WACZ bundle and resolves the signing key automatically.
+Pass the capture URL directly; the CLI fetches the WACZ bundle and resolves the signing key automatically.
 
 ```bash
 npx @w-r-l/verify https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
@@ -124,7 +124,7 @@ Verified  https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0
 Verdict: All 5 cryptographic checks passed. This capture has not been modified since it was signed by the capture service.
 ```
 
-You just captured a web page with cryptographic proof. The Ed25519 signature and RFC 3161 timestamp prove this content existed at this moment -- and anyone can verify it.
+You just captured a web page with cryptographic proof. The Ed25519 signature and RFC 3161 timestamp prove this content existed at this moment, and anyone can verify it.
 
 ## What's next
 

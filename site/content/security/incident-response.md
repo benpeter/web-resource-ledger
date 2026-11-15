@@ -8,7 +8,7 @@ description: WRL incident response policy — how security incidents are detecte
 
 <div class="callout callout--info">
 
-**Summary:** WRL uses automated monitoring via Coralogix to detect service and security incidents. WRL is operated by a sole proprietor -- there is no 24/7 SOC. Response timelines are best-effort. Affected tenants are notified by email. GDPR breach notifications go to the supervisory authority within 72 hours and to affected customers within 48 hours of a confirmed breach.
+**Summary:** WRL uses automated monitoring via Coralogix to detect service and security incidents. WRL is operated by a sole proprietor; there is no 24/7 SOC. Response timelines are best-effort. Affected tenants are notified by email. GDPR breach notifications go to the supervisory authority within 72 hours and to affected customers within 48 hours of a confirmed breach.
 
 </div>
 
@@ -22,7 +22,7 @@ These alerts indicate the service is unavailable or captures are failing.
 
 | Alert | Priority | What it means |
 |-------|----------|---------------|
-| `[WRL] Worker Errors (5xx)` | P1 | The Cloudflare Worker is returning HTTP 5xx responses -- the API itself is broken |
+| `[WRL] Worker Errors (5xx)` | P1 | The Cloudflare Worker is returning HTTP 5xx responses: the API itself is broken |
 | `[WRL] Capture Failures` | P1 | Captures are failing after all retry attempts, indicating a systemic processing issue |
 | `[WRL] Captures Dead-Lettered` | P2 | A capture failed all four attempts; each one is a user who didn't get a capture |
 
@@ -32,9 +32,9 @@ These alerts indicate authentication anomalies or threat screening problems.
 
 | Alert | Priority | What it means |
 |-------|----------|---------------|
-| `[WRL] Auth Failure Spike` | P1 | More than 10 rejected API keys in 15 minutes (requests without a key aren't counted) -- consistent with API key scanning or a misconfigured integration |
+| `[WRL] Auth Failure Spike` | P1 | More than 10 rejected API keys in 15 minutes (requests without a key aren't counted), consistent with API key scanning or a misconfigured integration |
 | `[WRL] Threat Check API Failures` | P2 | Google Web Risk URL screening is unavailable; captures are proceeding unscreened |
-| `[WRL] Threat Check Quarantines` | P3 | More than 5 previously accepted captures quarantined in 24 hours -- may indicate a tenant capturing from a known-bad domain |
+| `[WRL] Threat Check Quarantines` | P3 | More than 5 previously accepted captures quarantined in 24 hours, which may indicate a tenant capturing from a known-bad domain |
 | `[WRL] New API Key Created` | P4 | An operator issued a key through the admin API; a key nobody expected is a sign the admin credential leaked |
 
 ### Degraded Service
@@ -52,7 +52,7 @@ These alerts indicate a non-core feature is impaired. Captures continue to succe
 
 There is no dedicated alert for data exfiltration or unauthorized data access. WRL's serverless architecture limits traditional breach vectors: there are no SSH-accessible servers, no persistent file system, and all secrets are stored as Cloudflare Worker secrets (not in code or config files). The most likely unauthorized access path is a compromised API key or admin credential.
 
-The operator monitors for anomalous admin API activity in Coralogix logs. Unusual patterns -- unexpected key creation, bulk reads outside normal business hours -- will prompt investigation.
+The operator monitors for anomalous admin API activity in Coralogix logs. Unusual patterns (unexpected key creation, bulk reads outside normal business hours) will prompt investigation.
 
 ---
 
@@ -73,13 +73,13 @@ The operator monitors for anomalous admin API activity in Coralogix logs. Unusua
 
 Depending on the nature of the incident, the operator can take the following actions:
 
-- **Rollback deployment** -- revert to the previous Worker version if a bad release caused 5xx errors
-- **Revoke API keys** -- immediately invalidate a compromised or abused tenant key via the admin API
-- **Rotate the signing key** -- generate a new Ed25519 keypair and redeploy; existing signatures remain verifiable via the published key history
-- **Block IPs via WAF** -- add Cloudflare WAF rules to block abusive source addresses
-- **Disable a tenant** -- prevent a specific tenant from submitting new captures while preserving their existing data
-- **Purge caches** -- force Cloudflare to re-fetch assets if stale content is part of the incident
-- **Quarantine captures** -- mark specific captures as quarantined, preventing access while investigation is underway
+- **Rollback deployment**: revert to the previous Worker version if a bad release caused 5xx errors
+- **Revoke API keys**: immediately invalidate a compromised or abused tenant key via the admin API
+- **Rotate the signing key**: generate a new Ed25519 keypair and redeploy; existing signatures remain verifiable via the published key history
+- **Block IPs via WAF**: add Cloudflare WAF rules to block abusive source addresses
+- **Disable a tenant**: prevent a specific tenant from submitting new captures while preserving their existing data
+- **Purge caches**: force Cloudflare to re-fetch assets if stale content is part of the incident
+- **Quarantine captures**: mark specific captures as quarantined, preventing access while investigation is underway
 
 ---
 
@@ -147,7 +147,7 @@ WRL is operated by a sole proprietor (Gerhard Benjamin Peter, Marburg, Germany).
 - Cloudflare's platform provides the first line of defense: Workers restart automatically on crash, queue retries handle transient failures, and Cloudflare's WAF provides baseline DDoS and abuse protection.
 - The service is designed for resilience without human intervention in routine failure scenarios.
 
-Response time commitments are targets, not guarantees. For a service at this scale and price point, automated resilience is the primary mechanism -- human intervention handles the cases automation cannot resolve.
+Response time commitments are targets, not guarantees. For a service at this scale and price point, automated resilience is the primary mechanism; human intervention handles the cases automation cannot resolve.
 
 ---
 
@@ -173,10 +173,10 @@ If you believe your account has been compromised and have not received a notific
 
 After a SEV-1 or SEV-2 incident, the operator will produce a post-incident report covering:
 
-- **Timeline** -- when the incident started, when it was detected, when it was contained, when it was resolved
-- **Root cause** -- what caused the incident
-- **Impact** -- which tenants were affected and what data or functionality was impaired
-- **Remediation** -- what was done to resolve the incident
-- **Preventive measures** -- what changes will reduce the likelihood or severity of recurrence
+- **Timeline**: when the incident started, when it was detected, when it was contained, when it was resolved
+- **Root cause**: what caused the incident
+- **Impact**: which tenants were affected and what data or functionality was impaired
+- **Remediation**: what was done to resolve the incident
+- **Preventive measures**: what changes will reduce the likelihood or severity of recurrence
 
 For incidents involving personal data, this report is sent to affected tenants within 30 days. For operational incidents with no data impact, it is published in the service changelog.

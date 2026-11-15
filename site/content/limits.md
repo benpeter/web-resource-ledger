@@ -85,11 +85,11 @@ Key differences from rate-limit `429` responses:
 
 - `limitType` is `'quota'`, not `'tenant'` or absent
 - `quota.resource` indicates which limit was hit: `'captures'` or `'storage'`
-- `Retry-After` is an HTTP-date string (not a seconds integer) -- it points to the first second of the next billing period
+- `Retry-After` is an HTTP-date string (not a seconds integer); it points to the first second of the next billing period
 
 ### Batch Captures and Quotas
 
-Batch requests check quota upfront for the entire batch before any capture is queued. If the batch would exceed the remaining quota, the **entire batch is rejected** with a single `429` response -- no items are accepted.
+Batch requests check quota upfront for the entire batch before any capture is queued. If the batch would exceed the remaining quota, the **entire batch is rejected** with a single `429` response, and no items are accepted.
 
 For example, if you have 5 captures remaining and submit a batch of 8 URLs, all 8 are rejected. Resubmit a smaller batch that fits within the remaining quota, or wait until the quota resets.
 
@@ -122,7 +122,7 @@ There is no `Retry-After` header because waiting doesn't free a slot; deleting a
 
 ## Rate Limits
 
-Rate limits protect against short bursts of traffic. They apply independently of quotas -- you can hit a rate limit even when quota is plentiful, and you can exhaust quota without ever hitting a rate limit.
+Rate limits protect against short bursts of traffic. They apply independently of quotas: you can hit a rate limit even when quota is plentiful, and you can exhaust quota without ever hitting a rate limit.
 
 ### Per-IP Limits
 
@@ -168,7 +168,7 @@ Content-Type: application/json
 - `limitType` is `'tenant'` for per-tenant limits, or absent for per-IP limits
 - `Retry-After` is an integer number of seconds until the window resets
 
-When you receive a rate-limit `429`, wait the number of seconds in `Retry-After` before retrying. For batch requests, rate limits apply per URL -- see [Batch Captures](/batch/) for details.
+When you receive a rate-limit `429`, wait the number of seconds in `Retry-After` before retrying. For batch requests, each URL counts against the rate limit; see [Batch Captures](/batch/) for details.
 
 ---
 

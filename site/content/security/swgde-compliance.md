@@ -14,17 +14,17 @@ SWGDE (Scientific Working Group on Digital Evidence) is a professional body that
 
 ## How to read this mapping
 
-SWGDE 21-F-001 was written for a human examiner manually operating tools on a forensic workstation. The document's recurring subject is "the examiner" -- a qualified individual making real-time judgments about configuration, scope, documentation, and preservation. WRL is a fully automated, API-driven capture service. No human examiner operates the capture pipeline; a tenant submits a URL via API and receives a signed, timestamped WACZ bundle in return.
+SWGDE 21-F-001 was written for a human examiner manually operating tools on a forensic workstation. The document's recurring subject is "the examiner", a qualified individual making real-time judgments about configuration, scope, documentation, and preservation. WRL is a fully automated, API-driven capture service. No human examiner operates the capture pipeline; a tenant submits a URL via API and receives a signed, timestamped WACZ bundle in return.
 
-This architectural difference matters for how the mapping works. Where the document says "the examiner should configure the device," the equivalent in WRL is the automated pipeline design itself -- a fixed, documented, deterministic configuration applied to every capture. Where SWGDE describes examiner judgment (legal authority, investigation scope, supplemental preservation decisions), no automated tool can substitute for that judgment, and WRL makes no claim to do so.
+This architectural difference matters for how the mapping works. Where the document says "the examiner should configure the device," the equivalent in WRL is the automated pipeline design itself: a fixed, documented, deterministic configuration applied to every capture. Where SWGDE describes examiner judgment (legal authority, investigation scope, supplemental preservation decisions), no automated tool can substitute for that judgment, and WRL makes no claim to do so.
 
-Section 8.1.1 of SWGDE 21-F-001 is worth reading carefully in this context. It explicitly identifies API-based acquisition as the most inclusive acquisition method -- preferred over web browser capture or screenshots -- and notes that API calls can capture both visible content and critical metadata unavailable through page-level access. WRL is an API-based acquisition service; this section is where the alignment is strongest.
+Section 8.1.1 of SWGDE 21-F-001 is worth reading carefully in this context. It explicitly identifies API-based acquisition as the most inclusive acquisition method (preferred over web browser capture or screenshots) and notes that API calls can capture both visible content and critical metadata unavailable through page-level access. WRL is an API-based acquisition service; this section is where the alignment is strongest.
 
 Three compliance postures appear throughout the mapping below:
 
-- **Fully addressed** -- WRL's automated pipeline directly satisfies the requirement as stated.
-- **Addressed differently** -- WRL achieves the same evidentiary goal through a different mechanism than a manual examiner would use; the underlying intent is met.
-- **Tenant/examiner responsibility** -- the requirement involves judgment, legal authority, or scope decisions that fall outside an automated capture tool's proper role.
+- **Fully addressed**: WRL's automated pipeline directly satisfies the requirement as stated.
+- **Addressed differently**: WRL achieves the same evidentiary goal through a different mechanism than a manual examiner would use; the underlying intent is met.
+- **Tenant/examiner responsibility**: the requirement involves judgment, legal authority, or scope decisions that fall outside an automated capture tool's proper role.
 
 ---
 
@@ -45,21 +45,21 @@ Three compliance postures appear throughout the mapping below:
 
 **Sections not mapped.** The following sections address requirements outside an automated web capture tool's scope:
 
-- **3.2 Accessibility** -- restricted sites, hidden URLs, and credential-gated content require investigator judgment; WRL captures publicly accessible URLs.
-- **3.3 Supplemental Preservation** -- relates to legal process against Electronic Service Providers; a parallel investigative track, not a capture tool function.
-- **3.5 Legal Authority** -- the examiner retains responsibility for establishing appropriate legal authority before initiating a capture. WRL does not assess or enforce legal authority.
-- **5 Goals of Acquisition** -- investigative scoping (what to capture and why) is a human judgment preceding tool use.
-- **6 Categories** -- static, dynamic, and ephemeral content classification is an investigator determination; WRL captures any publicly accessible URL.
-- **7.1 Screen Captures** -- WRL produces WARC-format captures, not screen recordings; screenshots are taken for display but WACZ is the evidentiary artifact.
-- **7.4 Network Documentation** -- packet capture and network traffic logging are examiner-side controls; WRL logs metadata about the capture request but does not instrument the network path.
-- **8.1.2 Web Browser / Plug-ins / Extensions** -- browser extension-based acquisition is a different methodology; WRL is an API-driven service.
-- **8.1.3 Screenshots** -- SWGDE positions screenshots as the least forensically sound method; WRL produces WACZ bundles instead.
+- **3.2 Accessibility**: restricted sites, hidden URLs, and credential-gated content require investigator judgment; WRL captures publicly accessible URLs.
+- **3.3 Supplemental Preservation**: relates to legal process against Electronic Service Providers; a parallel investigative track, not a capture tool function.
+- **3.5 Legal Authority**: the examiner retains responsibility for establishing appropriate legal authority before initiating a capture. WRL does not assess or enforce legal authority.
+- **5 Goals of Acquisition**: investigative scoping (what to capture and why) is a human judgment preceding tool use.
+- **6 Categories**: static, dynamic, and ephemeral content classification is an investigator determination; WRL captures any publicly accessible URL.
+- **7.1 Screen Captures**: WRL produces WARC-format captures, not screen recordings; screenshots are taken for display but WACZ is the evidentiary artifact.
+- **7.4 Network Documentation**: packet capture and network traffic logging are examiner-side controls; WRL logs metadata about the capture request but does not instrument the network path.
+- **8.1.2 Web Browser / Plug-ins / Extensions**: browser extension-based acquisition is a different methodology; WRL is an API-driven service.
+- **8.1.3 Screenshots**: SWGDE positions screenshots as the least forensically sound method; WRL produces WACZ bundles instead.
 
 ---
 
-## Section 3.1 -- Principles of Digital Evidence
+## Section 3.1: Principles of Digital Evidence
 
-SWGDE 21-F-001 Section 3.1 states that digital evidence is governed by three basic principles: relevance, reliability, and sufficiency. It requires that all acquisition processes be auditable and repeatable -- that applying the same method to the same content should produce reproducible results.
+SWGDE 21-F-001 Section 3.1 states that digital evidence is governed by three basic principles: relevance, reliability, and sufficiency. It requires that all acquisition processes be auditable and repeatable, meaning that applying the same method to the same content should produce reproducible results.
 
 **Relevance and sufficiency** are investigator judgments that precede tool use. The examiner decides which URLs to capture and whether the captured content is sufficient for the investigation. WRL does not assess relevance or sufficiency; those determinations belong to the tenant or examiner submitting the capture request.
 
@@ -67,15 +67,15 @@ SWGDE 21-F-001 Section 3.1 states that digital evidence is governed by three bas
 
 The pipeline is **auditable** in two senses. First, the source code is publicly available and the capture process is described in [Architecture](/architecture/) and the [Security Whitepaper](/security/whitepaper/). Second, the output of every capture is independently verifiable: any party can run `npx @w-r-l/verify` against the capture bundle and confirm all integrity checks without contacting WRL. The verification decision is made by the verifier, not by WRL's infrastructure.
 
-The pipeline produces **repeatable** results in the sense that the same URL captured at the same time through the same process produces the same deterministic output structure, with all artifacts hashed and the bundle signed and timestamped. Independent re-capture of a live URL at a later time will produce a different result if the content has changed -- which is the point: captures are point-in-time records. The process that produced them is verifiably consistent.
+The pipeline produces **repeatable** results in the sense that the same URL captured at the same time through the same process produces the same deterministic output structure, with all artifacts hashed and the bundle signed and timestamped. Independent re-capture of a live URL at a later time will produce a different result if the content has changed, which is the point: captures are point-in-time records. The process that produced them is verifiably consistent.
 
 For how these reliability properties map to legal authentication standards, see [Legal Evidence](/legal-evidence/).
 
 ---
 
-## Section 3.4 -- Evidence Contamination
+## Section 3.4: Evidence Contamination
 
-SWGDE 21-F-001 Section 3.4 requires examiners to understand how their collection tools affect the integrity of the target site -- specifically, that browser plugins, cached data, stored credentials, MAC addresses, and browser fingerprints may alter what content is displayed or may alert the target site to the investigation.
+SWGDE 21-F-001 Section 3.4 requires examiners to understand how their collection tools affect the integrity of the target site, specifically that browser plugins, cached data, stored credentials, MAC addresses, and browser fingerprints may alter what content is displayed or may alert the target site to the investigation.
 
 WRL's capture pipeline addresses this through its isolated browser architecture. Each capture runs in a fresh browser context with no plugins, no cache, no cookies, and no browsing history. The headless Chromium process itself keeps running between captures so it doesn't have to start for each one, but browser contexts share no state: the `BrowserContext` is opened per capture and closed in a `try/finally` block that discards its cookies, cache, local storage, and session storage when the capture completes. No state carries over between captures.
 
@@ -89,9 +89,9 @@ WRL does not support configuring the browser to present specific geolocation sig
 
 ---
 
-## Section 4.1 -- Configuration
+## Section 4.1: Configuration
 
-SWGDE 21-F-001 Section 4.1 requires that the capture device be equipped with appropriate tools and free of extraneous applications that could interfere with acquisition or alter displayed content. It also recommends configuring the device to mimic the target audience -- using regional settings, browser agent strings, and IP addresses consistent with investigation goals -- and using sanitized environments to avoid cross-contamination.
+SWGDE 21-F-001 Section 4.1 requires that the capture device be equipped with appropriate tools and free of extraneous applications that could interfere with acquisition or alter displayed content. It also recommends configuring the device to mimic the target audience (through regional settings, browser agent strings, and IP addresses consistent with investigation goals) and using sanitized environments to avoid cross-contamination.
 
 WRL's pipeline provides a standardized, fixed configuration for every capture:
 
@@ -103,7 +103,7 @@ WRL's pipeline provides a standardized, fixed configuration for every capture:
 
 This configuration satisfies the "sanitized environment" requirement: there is no pre-existing data, extraneous software, or cross-capture contamination. The `BrowserContext` isolation described in Section 3.4 above applies here as well.
 
-The SWGDE document's recommendation to mimic the target audience -- presenting a specific location, user agent, or IP profile -- is a configurable behavior in manual forensic workflows. WRL currently does not support configurable geolocation, custom user agent overrides, or proxy routing to present a specific geographic origin. Captures present Cloudflare egress IPs with a standard Chromium user agent.
+The SWGDE document's recommendation to mimic the target audience (presenting a specific location, user agent, or IP profile) is a configurable behavior in manual forensic workflows. WRL currently does not support configurable geolocation, custom user agent overrides, or proxy routing to present a specific geographic origin. Captures present Cloudflare egress IPs with a standard Chromium user agent.
 
 For investigations where the target content is gated behind geographic or identity signals, this limitation is material and the examiner should assess whether alternative acquisition methods are appropriate.
 
@@ -111,11 +111,11 @@ For the complete capture pipeline configuration, see [Architecture](/architectur
 
 ---
 
-## Section 4.2 -- Content Volatility
+## Section 4.2: Content Volatility
 
 SWGDE 21-F-001 Section 4.2 notes that content volatility or tampering may require multiple acquisitions to document content changes.
 
-WRL supports this directly. Scheduled captures ([Schedules](/schedules/)) allow tenants to configure recurring captures of a URL on defined intervals -- hourly, daily, or custom cadences. The batch API ([Batch](/batch/)) allows submitting large sets of URLs for capture in a single request, supporting efficient acquisition of many URLs at once.
+WRL supports this directly. Scheduled captures ([Schedules](/schedules/)) allow tenants to configure recurring captures of a URL on defined intervals: hourly, daily, or custom cadences. The batch API ([Batch](/batch/)) allows submitting large sets of URLs for capture in a single request, supporting efficient acquisition of many URLs at once.
 
 Each individual capture is a discrete signed, timestamped record. Comparing two captures of the same URL at different times produces two independently verifiable records that can demonstrate content change between those points in time. The SHA-256 bundle hash changes if any content changes; two captures with identical hashes confirm the content was identical at both capture times.
 
@@ -123,7 +123,7 @@ For volatile or ephemeral content, the schedules feature is the primary mechanis
 
 ---
 
-## Section 4.3 -- Tool Validation
+## Section 4.3: Tool Validation
 
 SWGDE 21-F-001 Section 4.3 refers to the companion document *SWGDE Minimum Requirements for Testing Tools used in Digital and Multimedia Forensics* for tool validation guidance. That document establishes that forensic tools should be tested, and results should be repeatable and reproducible.
 
@@ -139,7 +139,7 @@ WRL does not hold a third-party forensic tool certification. Examiners whose age
 
 ---
 
-## Section 7.2 -- Format
+## Section 7.2: Format
 
 SWGDE 21-F-001 Section 7.2 requires that online content be acquired in its native form, file formats, and language. Documentary evidence generated during acquisition should be preserved in standard formats.
 
@@ -151,7 +151,7 @@ WRL captures produce WACZ (Web Archive Collection Zipped) bundles. WACZ is an op
 - `datapackage.json` manifest with SHA-256 hashes for every artifact
 - `datapackage-digest.json` with the Ed25519 signature, RFC 3161 timestamp, and signing metadata
 
-Content is captured as the browser receives it from the server -- in the native encoding, language, and format served. The bundle preserves both the rendered HTML and the underlying HTTP response data.
+Content is captured as the browser receives it from the server, in the native encoding, language, and format served. The bundle preserves both the rendered HTML and the underlying HTTP response data.
 
 SWGDE Section 9 explicitly identifies zip and gzip as acceptable archive formats for preservation. WACZ is a ZIP-based format and satisfies this requirement directly.
 
@@ -159,7 +159,7 @@ For the full WACZ structure and integrity chain, see [Architecture](/architectur
 
 ---
 
-## Section 7.3 -- Hashing
+## Section 7.3: Hashing
 
 SWGDE 21-F-001 Section 7.3 requires using NIST-approved secure hash algorithms to calculate digests that validate and uniquely identify the entire collection data set and individual content files.
 
@@ -174,7 +174,7 @@ For the complete verification protocol and what each check confirms, see [Verifi
 
 ---
 
-## Section 7.5 -- Collection Documentation
+## Section 7.5: Collection Documentation
 
 SWGDE 21-F-001 Section 7.5 identifies the components that should be documented during the acquisition process:
 
@@ -199,7 +199,7 @@ WRL generates a certification PDF for every signed capture (`GET /v1/captures/{c
 
 ---
 
-## Section 8.1.1 -- Utilities / API
+## Section 8.1.1: Utilities / API
 
 SWGDE 21-F-001 Section 8.1.1 identifies API-based acquisition as the most inclusive acquisition method, preferred over web browser capture or screenshots. The document states:
 
@@ -207,7 +207,7 @@ SWGDE 21-F-001 Section 8.1.1 identifies API-based acquisition as the most inclus
 
 > "As this methodology can frequently discover the most amount of evidence needed, as well as provide a reasonable amount of guarantee on reliability of evidence, this methodology is preferred over the 'Web Browser Capture' or 'Screenshot' methods."
 
-WRL is an API-first web capture service. Captures are submitted via `POST /v1/captures`, status is polled via `GET /v1/captures/{id}/status`, and completed capture records -- including artifact URLs, bundle hash, signature, and timestamp -- are retrieved via `GET /v1/captures/{id}`. Verification runs independently via `GET /v1/verify/{id}` or the `@w-r-l/verify` CLI.
+WRL is an API-first web capture service. Captures are submitted via `POST /v1/captures`, status is polled via `GET /v1/captures/{id}/status`, and completed capture records (including artifact URLs, bundle hash, signature, and timestamp) are retrieved via `GET /v1/captures/{id}`. Verification runs independently via `GET /v1/verify/{id}` or the `@w-r-l/verify` CLI.
 
 The API captures both visible page content (rendered HTML, screenshots) and underlying metadata (HTTP headers, resource structure, WACZ manifest with per-artifact hashes). This aligns directly with SWGDE's characterization of API-based acquisition as more complete than browser capture or screenshots.
 
@@ -215,7 +215,7 @@ For the full API reference, see [API Reference](/api-reference/).
 
 ---
 
-## Section 9 -- Preservation
+## Section 9: Preservation
 
 SWGDE 21-F-001 Section 9 requires that all online content acquired be preserved, together with the documentary evidence generated during the process, to "a forensically sound image (e.g., .Lx01, .ad1) or other archive (e.g., zip, gzip) using industry standard procedures." The preservation artifact should include the examiner name, acquisition date and time, and evidence descriptions. For cases where the target site is still active, the document recommends preserving a working copy with live links disabled.
 
@@ -229,7 +229,7 @@ The operator identity is in the certification PDF (`GET /v1/captures/{captureId}
 
 The WACZ bundle is stored in R2 object storage. Anyone with the capture ID can download it without an API key, unless the capture was quarantined (its artifacts then answer `451`). Tenants can download the bundle to long-term storage under their own custody. For preservation beyond WRL's infrastructure, tenants are responsible for downloading and archiving the bundle according to their evidence management procedures. See [Data Retention](/security/data-retention/) for WRL's retention policies.
 
-**What WRL does not produce.** SWGDE references forensic disk images (`.Lx01`, `.ad1`) as one acceptable preservation format. WRL is a web capture service, not a disk imaging tool. The WACZ bundle is the output artifact; no forensic disk image is produced. Examiners whose agency requires a forensic disk image format should account for this in their evidence handling procedures -- for example, by writing the downloaded WACZ bundle into a forensic container using their agency's standard imaging tools.
+**What WRL does not produce.** SWGDE references forensic disk images (`.Lx01`, `.ad1`) as one acceptable preservation format. WRL is a web capture service, not a disk imaging tool. The WACZ bundle is the output artifact; no forensic disk image is produced. Examiners whose agency requires a forensic disk image format should account for this in their evidence handling procedures, for example by writing the downloaded WACZ bundle into a forensic container using their agency's standard imaging tools.
 
 SWGDE also recommends preserving working copies with live links disabled. WACZ bundles in this context are self-contained archives: the WARC files contain the HTTP responses captured at the time of collection, not live links that will re-fetch from the live site. Replay tools (such as the WACZ replay viewer) serve content from the archive, not the live URL.
 

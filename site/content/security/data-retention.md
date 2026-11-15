@@ -6,7 +6,7 @@ description: WRL data retention periods — how long capture data, ephemeral dat
 
 # Data Retention and Deletion
 
-> **Summary:** WRL retains capture data indefinitely while your account is active -- that is the product's purpose. Ephemeral data (sessions, rate limit counters) expires automatically within minutes to days. When you close your account, a 30-day grace period lets you export your data before everything is permanently deleted. **Deletion is currently operator-initiated via a support request. Automated self-service deletion is planned.** See the [Privacy Policy](https://webresourceledger.com/privacy) for the full data retention table and your GDPR rights.
+> **Summary:** WRL retains capture data indefinitely while your account is active; that is the product's purpose. Ephemeral data (sessions, rate limit counters) expires automatically within minutes to days. When you close your account, a 30-day grace period lets you export your data before everything is permanently deleted. **Deletion is currently operator-initiated via a support request. Automated self-service deletion is planned.** See the [Privacy Policy](https://webresourceledger.com/privacy) for the full data retention table and your GDPR rights.
 
 ---
 
@@ -30,7 +30,7 @@ description: WRL data retention periods — how long capture data, ephemeral dat
 | Quarantined captures | R2 + D1 database | 90 days from quarantine date, then purged automatically |
 | Rate limit counters | KV store | 2 minutes after the last counted request (auto-expire); sign-in link counters, keyed by hashes of the IP and address, 2 hours after the last link |
 | OAuth state tokens | KV store | 600 seconds (auto-expire) |
-| Operational logs | Coralogix (EU2 region) | 90 days; pseudonymized -- no raw IP addresses or personal identifiers |
+| Operational logs | Coralogix (EU2 region) | 90 days; pseudonymized, with no raw IP addresses or personal identifiers |
 
 ### Notes on specific categories
 
@@ -64,7 +64,7 @@ After the 30-day grace period ends:
 2. All capture metadata records are removed from the database.
 3. All sessions and API keys are invalidated.
 4. Your tenant record, GitHub or email sign-in identity, usage counters, schedules, webhooks, and notification preferences are permanently removed.
-5. Your Stripe subscription is cancelled. Any unused prepaid captures are non-refundable after the grace period ends -- see the [Refund Policy](https://webresourceledger.com/refund-policy).
+5. Your Stripe subscription is cancelled. Any unused prepaid captures are non-refundable after the grace period ends; see the [Refund Policy](https://webresourceledger.com/refund-policy).
 6. Coralogix operational logs expire naturally within 90 days. Because they are pseudonymized, they cannot be attributed to your account after deletion.
 
 **Deletion is irreversible once the grace period ends.** There is no recovery path after day 30.
@@ -126,6 +126,6 @@ Capture records and artifact URLs are in the response from `GET /v1/captures`. S
 
 ## Related pages
 
-- [Privacy Policy](https://webresourceledger.com/privacy) -- full data inventory, legal bases, and your GDPR rights
-- [Authentication](/authentication/) -- API key lifecycle and revocation
-- [Security Whitepaper: Encryption](/security/whitepaper/#5-encryption) -- how WRL protects data in transit and at rest
+- [Privacy Policy](https://webresourceledger.com/privacy): full data inventory, legal bases, and your GDPR rights
+- [Authentication](/authentication/): API key lifecycle and revocation
+- [Security Whitepaper: Encryption](/security/whitepaper/#5-encryption): how WRL protects data in transit and at rest
