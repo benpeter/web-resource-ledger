@@ -199,6 +199,7 @@ A failed capture has an `error` that says why, in the API status response, the c
 | The site refused the connection | Nothing accepts connections at that address. | Yes |
 | The site's TLS certificate is not valid | The certificate is expired, self-signed or for another name. | No |
 | The page loaded but showed nothing (blank page) | The browser loaded the page but nothing appeared. | No |
+| The site answered HTTP 403 and the page showed nothing (blank page) | The site answered with an error status (the number varies) and an empty page. Sites that block automated visitors do this. | No |
 | The browser showed an error page instead of the site | The browser couldn't open the page and showed its own error page. | No |
 | The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it. This happens on some pages with heavy animation. | Yes |
 | Page exceeded 50MB size limit | The page's responses add up to more than 50 MB. | No |
@@ -208,7 +209,7 @@ A failed capture has an `error` that says why, in the API status response, the c
 
 After repeated attempts the message ends with "WRL tried 4 times." Failed captures don't count against your monthly quota.
 
-A page that times out after its HTML has loaded doesn't fail, and neither does a page that makes more than 2000 requests. WRL captures it as it stands and marks it `"renderQuality": "partial"`; it is signed, timestamped and counted like any other capture. See [Partial captures](/verification/#partial-captures).
+A page that times out after its HTML has loaded doesn't fail, and neither does a page that makes more than 2000 requests. WRL captures it as it stands and marks it `"renderQuality": "partial"`; it is signed, timestamped and counted like any other capture. A page that answers with an error status and has content (a 404 page, a block page) doesn't fail either: the capture shows that answer and `render.httpStatus` has the status (see [Captures of an error answer](/verification/#captures-of-an-error-answer)). See [Partial captures](/verification/#partial-captures).
 
 ## Custom Quotas (Operators)
 

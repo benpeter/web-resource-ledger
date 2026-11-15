@@ -186,3 +186,4 @@ software development.
 | [0177-openapi-webhooks](0177-openapi-webhooks/) | `openapi.yaml` describes the webhook delivery request, so the API reference and client generators show its headers and body |
 | [0179-verify-preview-card](0179-verify-preview-card/) | A verification link pasted into a chat or a post shows a card with the captured page and the capture time |
 | [0178-subresource-cap-partial](0178-subresource-cap-partial/) | A page can make 2000 requests instead of 500, and a page past the cap is captured as partial instead of failing on some runs; the capture says the cap was reached |
+| [0180-render-http-status](0180-render-http-status/) | A capture records the HTTP status the site answered the browser with, and says so where people look when it was an error, so a block page no longer passes as the page |

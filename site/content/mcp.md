@@ -216,7 +216,7 @@ https://example.com/contact
 
 #### `get_capture`
 
-Get the status and details of a capture by ID. Returns `pending`, `complete`, or `failed`. When complete, includes artifact URLs for screenshot, HTML, headers, WACZ bundle, and a verification link. When the page was taller than the screenshot, it adds a line such as `Screenshot covers the top 8000 px of a 21860 px page; the HTML has the whole page.` When the page made more than 2000 requests, `Render quality` is `partial` and it adds `The page made more requests than WRL allows for one capture; WRL blocked the rest.`
+Get the status and details of a capture by ID. Returns `pending`, `complete`, or `failed`. When complete, includes artifact URLs for screenshot, HTML, headers, WACZ bundle, and a verification link. When the page was taller than the screenshot, it adds a line such as `Screenshot covers the top 8000 px of a 21860 px page; the HTML has the whole page.` When the page made more than 2000 requests, `Render quality` is `partial` and it adds `The page made more requests than WRL allows for one capture; WRL blocked the rest.` `HTTP status` is the status of the page's own response as WRL's browser received it; when it is 400 or higher, the next line says `The site answered with an error status; the capture shows that answer, which can be an error page or a block page.`
 
 **Requires:** `read` scope
 
@@ -232,6 +232,7 @@ URL: https://example.com
 Created: 2026-03-22T10:30:00.000Z
 Completed: 2026-03-22T10:30:12.481Z
 Render quality: full
+HTTP status: 200
 
 Artifacts:
   Screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
@@ -292,7 +293,7 @@ A failed capture shows `Failed:` and `Error:` instead of `Completed:` and `Rende
 
 #### `verify_capture`
 
-Verify the cryptographic integrity of a capture. Checks artifact hashes, WACZ bundle hash, Ed25519 signature, and RFC 3161 timestamp, plus the eIDAS-qualified timestamp when the capture has one. Confirms the evidence has not been tampered with since capture.
+Verify the cryptographic integrity of a capture. Checks artifact hashes, WACZ bundle hash, Ed25519 signature, and RFC 3161 timestamp, plus the eIDAS-qualified timestamp when the capture has one. Confirms the evidence has not been tampered with since capture. Like `get_capture`, it gives the `HTTP status` of the page's response and says so when the site answered with an error status.
 
 **Requires:** `read` scope
 
@@ -308,6 +309,7 @@ Captured URL: https://example.com
 Captured: 2026-03-22T10:30:00.000Z
 Completed: 2026-03-22T10:30:12.481Z
 Render quality: full
+HTTP status: 200
 
 Checks:
   artifactHashes: PASS
