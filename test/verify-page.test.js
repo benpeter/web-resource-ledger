@@ -53,6 +53,59 @@ describe('htmlVerifyResponse -- response headers', () => {
 });
 
 // ---------------------------------------------------------------------------
+// htmlVerifyResponse -- preview card (backlog #94)
+// ---------------------------------------------------------------------------
+
+describe('htmlVerifyResponse -- preview card', () => {
+  const CARD = { url: 'https://example.com/pricing?plan=pro', completedAt: '2026-11-14T10:00:05.123Z', verified: true };
+
+  it('names the captured page and the capture time', async () => {
+    const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC, CARD).text();
+    const description = 'Captured 2026-11-14 10:00 UTC and signed by Web Resource Ledger. Open the link to see the checks and the screenshot.';
+    expect(html).toContain('<meta property="og:title" content="Verified capture of example.com/pricing?plan=pro">');
+    expect(html).toContain(`<meta property="og:description" content="${description}">`);
+    expect(html).toContain(`<meta name="description" content="${description}">`);
+    expect(html).toContain('<meta name="twitter:title" content="Verified capture of example.com/pricing?plan=pro">');
+    expect(html).toContain(`<meta name="twitter:description" content="${description}">`);
+  });
+
+  it('links itself and shows the Web Resource Ledger card image, not the screenshot', async () => {
+    const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC, CARD).text();
+    expect(html).toContain('<meta property="og:type" content="website">');
+    expect(html).toContain('<meta property="og:site_name" content="Web Resource Ledger">');
+    expect(html).toContain(`<meta property="og:url" content="${TEST_ORIGIN}/v1/verify/${TEST_ID}">`);
+    expect(html).toContain('<meta property="og:image" content="https://webresourceledger.com/assets/og-image.png">');
+    expect(html).toContain('<meta property="og:image:width" content="1200">');
+    expect(html).toContain('<meta property="og:image:height" content="630">');
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(html).not.toContain('/artifacts/screenshot">');
+  });
+
+  it('says so when the capture did not pass verification', async () => {
+    const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC, { ...CARD, verified: false }).text();
+    expect(html).toContain('<meta property="og:title" content="Capture of example.com/pricing?plan=pro did not pass verification">');
+    expect(html).toContain('<meta property="og:description" content="Web Resource Ledger could not verify this capture. Open the link to see which checks failed.">');
+    expect(html).not.toContain('Verified capture');
+  });
+
+  it('cannot be broken out of by the captured URL', async () => {
+    const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC, { ...CARD, url: 'https://example.com/"><script>alert(1)</script>?q=\'&x="y"' }).text();
+    expect(html).not.toContain('<script>alert(1)');
+    expect(html).toContain('<meta property="og:title" content="Verified capture of example.com/%22%3E%3Cscript%3Ealert(1)%3C/script%3E?q=%27&amp;x=%22y%22">');
+  });
+
+  it('shortens a long URL', async () => {
+    const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC, { ...CARD, url: 'https://example.com/' + 'a'.repeat(200) }).text();
+    expect(html).toContain(`<meta property="og:title" content="Verified capture of example.com/${'a'.repeat(67)}…">`);
+  });
+
+  it('has no card without capture details', async () => {
+    const html = await htmlVerifyResponse(TEST_ID, TEST_ORIGIN, TEST_CC).text();
+    expect(html).not.toContain('og:title');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // htmlVerifyResponse -- HTML content
 // ---------------------------------------------------------------------------
 

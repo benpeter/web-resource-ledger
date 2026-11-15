@@ -292,6 +292,8 @@ Special-case routes handled before the regex router: `POST /mcp`, `OPTIONS /mcp`
 
 `HEAD` runs as `GET` and drops the body on the paths in `HEAD_PATHS` (`src/index.js`): `/health`, `/favicon.ico`, `/ui`, `/v1/verify/{id}`, `/v1/captures/{id}` with its status, certificate and artifacts, `/.well-known/signing-key(s)` and `/.well-known/security.txt`. Link checkers and uptime monitors send `HEAD`. Other paths answer `HEAD` with 404, so GET routes with side effects (the one-time first key, the emailed links) never run on it.
 
+`GET /v1/verify/{id}` serves the HTML page when `wantsHtml()` (`src/cache.js`) says so: the request accepts `text/html`, or it accepts anything and its user agent is a link-preview client (`LINK_PREVIEW_AGENTS`: Slack, X, Facebook, LinkedIn, Discord, WhatsApp, Telegram, Teams, Mastodon, Bluesky). The same function picks the cache key's `_fmt`, so a cached JSON answer never goes to a preview client. The page's Open Graph tags (`previewCardTags` in `src/verify-page.js`) name the captured URL and time and use the landing site's card image.
+
 For request/response schemas, see `openapi.yaml`.
 
 | Method | Path | Auth | Rate Limit | Surface |

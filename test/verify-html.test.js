@@ -104,6 +104,57 @@ describe('GET /v1/verify/{id} -- content negotiation', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Preview cards for shared verification links (backlog #94)
+// ---------------------------------------------------------------------------
+
+describe('GET /v1/verify/{id} -- link previews', () => {
+  const PREVIEW_AGENTS = [
+    'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
+    'Twitterbot/1.0',
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+    'LinkedInBot/1.0 (compatible; Mozilla/5.0; Apache-HttpClient +http://www.linkedin.com)',
+    'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
+    'WhatsApp/2.23.20.0',
+    'TelegramBot (like TwitterBot)',
+    'Mozilla/5.0 (Windows NT 6.1; WOW64) SkypeUriPreview Preview/0.5 skype-url-preview@microsoft.com',
+    'Mastodon/4.3.0 (http.rb/5.2.0; +https://mastodon.example/)',
+    'Mozilla/5.0 (compatible; Bluesky Cardyb/1.1; +mailto:support@bsky.app)',
+  ];
+
+  it.each(PREVIEW_AGENTS)('serves the page with a card to %s, which accepts anything', async (userAgent) => {
+    const res = await SELF.fetch(
+      new Request(`https://worker.test/v1/verify/${TEST_ID}`, { headers: { Accept: '*/*', 'User-Agent': userAgent } }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toContain('text/html');
+    const html = await res.text();
+    expect(html).toContain('<meta property="og:title" content="Verified capture of example.com">');
+    expect(html).toContain(`<meta property="og:url" content="https://worker.test/v1/verify/${TEST_ID}">`);
+  });
+
+  it('gives a browser the same card', async () => {
+    const res = await SELF.fetch(
+      new Request(`https://worker.test/v1/verify/${TEST_ID}`, { headers: { Accept: 'text/html' } }),
+    );
+    expect(await res.text()).toContain('<meta property="og:title" content="Verified capture of example.com">');
+  });
+
+  it('keeps JSON for other clients that accept anything', async () => {
+    const res = await SELF.fetch(
+      new Request(`https://worker.test/v1/verify/${TEST_ID}`, { headers: { Accept: '*/*', 'User-Agent': 'curl/8.7.1' } }),
+    );
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+  });
+
+  it('keeps JSON for a preview client that asks for JSON', async () => {
+    const res = await SELF.fetch(
+      new Request(`https://worker.test/v1/verify/${TEST_ID}`, { headers: { Accept: 'application/json', 'User-Agent': 'Twitterbot/1.0' } }),
+    );
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // HTML response correctness
 // ---------------------------------------------------------------------------
 

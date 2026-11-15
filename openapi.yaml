@@ -3852,7 +3852,11 @@ paths:
 
         Content negotiation: browsers (Accept: text/html) receive a self-contained
         HTML verification page that fetches the JSON result client-side. API clients
-        receive JSON directly.
+        receive JSON directly. Link-preview clients (Slack, Teams, LinkedIn, X,
+        Facebook, WhatsApp, Discord, Telegram, Mastodon, Bluesky) receive the page
+        too when they send `Accept: */*` or no Accept header, so a shared link
+        shows a card; the page's Open Graph tags name the captured URL and the
+        capture time.
 
         **A 200 status does NOT mean the capture is verified; check the `verified` field.**
         The endpoint returns 200 for all reachable captures, even when verification fails.

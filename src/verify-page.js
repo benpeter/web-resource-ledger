@@ -12,7 +12,51 @@ export function escapeHtml(str) {
     .replace(/'/g, '&#x27;');
 }
 
-export function htmlVerifyResponse(captureId, origin, cacheControl) {
+const CARD_IMAGE = 'https://webresourceledger.com/assets/og-image.png';
+const CARD_URL_MAX = 80;
+
+/**
+ * Open Graph and Twitter tags, so a verification link pasted into a chat or a
+ * post shows what it verifies. The image is the Web Resource Ledger card, not
+ * the capture's screenshot: that is someone else's page.
+ *
+ * @param {string} safeId
+ * @param {string} safeOrigin
+ * @param {{ url: string, completedAt: string, verified: boolean }} card
+ */
+function previewCardTags(safeId, safeOrigin, card) {
+  const u = new URL(card.url);
+  let shown = u.host + (u.pathname === '/' ? '' : u.pathname) + u.search;
+  if (shown.length > CARD_URL_MAX) shown = shown.slice(0, CARD_URL_MAX - 1) + '…';
+  const when = `${String(card.completedAt).slice(0, 10)} ${String(card.completedAt).slice(11, 16)} UTC`;
+  const title = escapeHtml(card.verified ? `Verified capture of ${shown}` : `Capture of ${shown} did not pass verification`);
+  const description = escapeHtml(card.verified
+    ? `Captured ${when} and signed by Web Resource Ledger. Open the link to see the checks and the screenshot.`
+    : 'Web Resource Ledger could not verify this capture. Open the link to see which checks failed.');
+  return `<meta name="description" content="${description}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Web Resource Ledger">
+<meta property="og:url" content="${safeOrigin}/v1/verify/${safeId}">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:image" content="${CARD_IMAGE}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Web Resource Ledger: Web evidence you can prove.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}">
+<meta name="twitter:image" content="${CARD_IMAGE}">
+`;
+}
+
+/**
+ * @param {string} captureId
+ * @param {string} origin
+ * @param {string} cacheControl
+ * @param {{ url: string, completedAt: string, verified: boolean }} [card] capture details for the preview card
+ */
+export function htmlVerifyResponse(captureId, origin, cacheControl, card) {
   const safeId = escapeHtml(captureId);
   const safeOrigin = escapeHtml(origin);
 
@@ -22,7 +66,7 @@ export function htmlVerifyResponse(captureId, origin, cacheControl) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Verification: ${safeId} - Web Resource Ledger</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}">
+${card ? previewCardTags(safeId, safeOrigin, card) : ''}<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}">
 <style>
 ${DESIGN_SYSTEM_CSS}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
