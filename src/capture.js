@@ -495,6 +495,7 @@ async function defaultRenderer(env, url, captureId) {
     // page stops loading more and is captured as partial. Past the size cap
     // the capture fails, because the rendered HTML is held in Worker memory.
     let subresourceLimitReached = false;
+    let blockedRequests = 0;
     let limitExceeded = null;
     let page = null;
 
@@ -525,17 +526,19 @@ async function defaultRenderer(env, url, captureId) {
       }
 
       if (limitExceeded || subresourceLimitReached) {
+        blockedRequests++;
         await route.abort('blockedbyclient');
         return;
       }
 
-      subresourceCount++;
-      if (subresourceCount > MAX_SUBRESOURCES) {
+      if (subresourceCount >= MAX_SUBRESOURCES) {
         subresourceLimitReached = true;
+        blockedRequests++;
         log(env, 3, 'capture', { event: 'render.default.subresource_limit', url, captureId, subresourceCount, totalBytes });
         await route.abort('blockedbyclient');
         return;
       }
+      subresourceCount++;
 
       await route.continue();
     });
@@ -598,7 +601,7 @@ async function defaultRenderer(env, url, captureId) {
           ]);
           const tContent = Date.now();
 
-          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart });
+          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart, subresourceCount, blockedRequests, totalBytes });
           return {
             screenshot,
             html,
@@ -736,7 +739,7 @@ async function defaultRenderer(env, url, captureId) {
     const tContent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs: tContent - tScreenshot, htmlLength: html.length });
 
-    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: subresourceLimitReached });
+    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: subresourceLimitReached, subresourceCount, blockedRequests, totalBytes });
     return {
       screenshot,
       html,
