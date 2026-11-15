@@ -12,8 +12,8 @@
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. Consent has a 2s hard timeout within the
- *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 10s partial-or-(3s settle + 2.5s scroll + 2s consent + 2s post) ≈ 30s worst-case; in practice load fires in 2-5s).
- *   Partial captures skip consent entirely.
+ *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle + 2.5s scroll + 2s consent + 2s post ≈ 30s worst-case; in practice load fires in 2-5s).
+ *   A page that hit the navigation timeout gets the same steps.
  *
  * Called from queue consumer. For retryable errors, does NOT write KV
  * (leaves pending for retry). For non-retryable errors and success, writes
@@ -182,7 +182,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(headers ? { headers: `${prefix}/headers.json` } : {}),
     };
 
-    // Build captureSettings for full (non-partial) captures
+    // Build captureSettings (null only for a renderer that reports no consent step)
     const captureSettings = consent ? {
       version: 1,
       consent: {
@@ -490,6 +490,8 @@ async function defaultRenderer(env, url, captureId) {
     serviceWorkers: 'block',
   });
 
+  let timedOut = false;
+  let readyState = 'complete';
   try {
     // Request interception for isolation and safety limits (context level)
     const targetOrigin = new URL(url).origin;
@@ -555,6 +557,12 @@ async function defaultRenderer(env, url, captureId) {
     const tContext = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.context_ready', url, captureId, contextSetupMs: tContext - tSession });
 
+    // What the page is still waiting on, for the nav_timeout log
+    const openRequests = new Set();
+    page.on('request', (req) => openRequests.add(req));
+    page.on('requestfinished', (req) => openRequests.delete(req));
+    page.on('requestfailed', (req) => openRequests.delete(req));
+
     // Response monitoring for total page size
     page.on('response', (resp) => {
       const cl = resp.headers()['content-length'];
@@ -574,84 +582,26 @@ async function defaultRenderer(env, url, captureId) {
     });
 
     // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
-    // On timeout: 10s partial capture budget. On success: 3s settle + 2s consent + 2s post. Well within 15-min wall clock.
+    // A page whose HTML is there when the timeout hits goes on through the same
+    // steps as a loaded page and ends as a partial capture.
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
       await log(env, 3, 'capture', { event: 'render.default.nav_success', url, captureId, navigationMs: Date.now() - tContext, httpStatus, subresourceCount, totalBytes });
     } catch (navError) {
-      if (navError.name === 'TimeoutError') {
-        const tNav = Date.now();
-        // Check if DOM has at least loaded before attempting partial capture
-        const readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
-        await log(env, 3, 'capture', { event: 'render.default.nav_timeout', url, captureId, navigationMs: tNav - tContext, readyState, totalBytes, subresourceCount });
-        if (readyState !== 'interactive' && readyState !== 'complete') {
-          // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
-          if (totalBytes === 0) {
-            await log(env, 3, 'capture', { event: 'render.default.nav_no_response', url, captureId, navigationMs: tNav - tContext, totalBytes });
-            throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
-          }
-          throw navError;
+      if (navError.name !== 'TimeoutError') throw navError;
+      // Check if DOM has at least loaded before attempting partial capture
+      readyState = await page.evaluate(() => document.readyState).catch(() => 'unknown');
+      await log(env, 3, 'capture', { event: 'render.default.nav_timeout', url, captureId, navigationMs: Date.now() - tContext, readyState, totalBytes, subresourceCount, openRequestCount: openRequests.size, openRequests: summarizeOpenRequests(openRequests) });
+      if (readyState !== 'interactive' && readyState !== 'complete') {
+        // Distinguish "page is slow" from "site never sent bytes" (bot protection, geo-block)
+        if (totalBytes === 0) {
+          await log(env, 3, 'capture', { event: 'render.default.nav_no_response', url, captureId, navigationMs: Date.now() - tContext, totalBytes });
+          throw new Error('Target site did not respond (possible bot protection or geo-restriction)');
         }
-        if (limitExceeded) {
-          await log(env, 3, 'capture', { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
-          throw new Error(limitExceeded);
-        }
-
-        // 120s budget for partial capture (screenshot up to 90s + HTML extraction).
-        // The 10-min RENDER_DEADLINE_MS leaves plenty of headroom.
-        const deadline = Date.now() + PARTIAL_BUDGET_MS;
-        const remainingMs = () => Math.max(0, deadline - Date.now());
-
-        if (remainingMs() < 500) throw new Error('Deadline exceeded before partial capture could complete');
-
-        await log(env, 3, 'capture', { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
-        try {
-          const shot = await takeCappedScreenshot(page);
-          const { screenshot } = shot;
-          const tScreenshot = Date.now();
-
-          if (remainingMs() < 200) throw new Error('Deadline exceeded before partial capture could complete');
-
-          const html = await Promise.race([
-            page.content(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Content extraction timeout')), Math.min(PARTIAL_CONTENT_TIMEOUT_MS, remainingMs()))),
-          ]);
-          const tContent = Date.now();
-
-          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart, httpStatus, subresourceCount, blockedRequests, totalBytes });
-          return {
-            screenshot,
-            html,
-            partial: true,
-            render: {
-              waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
-              timedOut: true,
-              subresourceLimitReached,
-              ...(httpStatus !== null ? { httpStatus } : {}),
-              durationMs: tContent - renderStart,
-              ...screenshotCoverage(shot),
-              stages: {
-                sessionAcquireMs: tSession - renderStart,
-                contextSetupMs: tContext - tSession,
-                navigationMs: tNav - tContext,
-                settleMs: null,
-                consentMs: null,
-                screenshotMs: tScreenshot - tNav,
-                contentMs: tContent - tScreenshot,
-              },
-            },
-            consent: null,
-            screenshotBefore: null,
-          };
-        } catch (err) {
-          await log(env, 3, 'capture', { event: 'render.default.partial_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
-          throw new Error(
-            `Partial capture failed: ${err?.message ?? 'unknown'}`,
-            { cause: err },
-          );
-        }
+        throw navError;
       }
-      throw navError;
+      timedOut = true;
+      await log(env, 3, 'capture', { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
     }
 
     if (limitExceeded) {
@@ -659,6 +609,9 @@ async function defaultRenderer(env, url, captureId) {
       throw new Error(limitExceeded);
     }
     const tNav = Date.now();
+    // A page that timed out gets 120s for the steps below (two screenshots of
+    // up to 90s each are the long ones). RENDER_DEADLINE_MS covers the rest.
+    const partialDeadline = tNav + PARTIAL_BUDGET_MS;
 
     // Adaptive settle: wait for in-flight requests to drain (or hard cap).
     // Ignores websocket/eventsource (they stay open indefinitely).
@@ -754,18 +707,30 @@ async function defaultRenderer(env, url, captureId) {
     const tScreenshot = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.screenshot_after', url, captureId, screenshotMs: tScreenshot - tConsent, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
 
-    const html = await page.content();
+    // A page that is still loading can hold page.content() back, so the
+    // timed-out path gives it one second.
+    let html;
+    if (timedOut) {
+      const remainingMs = partialDeadline - Date.now();
+      if (remainingMs < 200) throw new Error('Deadline exceeded before partial capture could complete');
+      html = await Promise.race([
+        page.content(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Content extraction timeout')), Math.min(PARTIAL_CONTENT_TIMEOUT_MS, remainingMs))),
+      ]);
+    } else {
+      html = await page.content();
+    }
     const tContent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs: tContent - tScreenshot, htmlLength: html.length });
 
-    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
+    await log(env, 3, 'capture', { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
     return {
       screenshot,
       html,
-      partial: subresourceLimitReached,
+      partial: timedOut || subresourceLimitReached,
       render: {
-        waitUntilReached: 'load',
-        timedOut: false,
+        waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
+        timedOut,
         subresourceLimitReached,
         ...(httpStatus !== null ? { httpStatus } : {}),
         durationMs: tContent - renderStart,
@@ -786,6 +751,11 @@ async function defaultRenderer(env, url, captureId) {
       consent,
       screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,
     };
+  } catch (err) {
+    if (timedOut) {
+      await log(env, 3, 'capture', { event: 'render.default.partial_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+    }
+    throw err;
   } finally {
     // MANDATORY: close context before disconnecting to clear all isolation state.
     // Timeout cleanup to prevent hanging on unresponsive browser sessions
@@ -797,6 +767,25 @@ async function defaultRenderer(env, url, captureId) {
       return log(env, 4, 'capture', { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
   }
+}
+
+/**
+ * Names the requests a page is still waiting on as "resource type host", each
+ * pair once and at most `max` of them. Logged when the load event doesn't come
+ * within the navigation timeout, to show which host kept the page from
+ * finishing.
+ *
+ * @param {Iterable<{ url: () => string, resourceType: () => string }>} requests
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function summarizeOpenRequests(requests, max = 8) {
+  const seen = new Set();
+  for (const req of requests) {
+    seen.add(`${req.resourceType()} ${new URL(req.url()).host}`);
+    if (seen.size >= max) break;
+  }
+  return [...seen];
 }
 
 /**
@@ -914,8 +903,6 @@ export function classifyBotCheck(s) {
  * Scrolls the page in viewport-height increments to trigger lazy-loaded images
  * (loading="lazy" and IntersectionObserver-based). Called after settle + error
  * detection, before the before-screenshot.
- *
- * Skipped for partial captures (they already timed out on navigation).
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @returns {Promise<number>} scrollMs — time spent scrolling

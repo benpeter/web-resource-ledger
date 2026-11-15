@@ -524,8 +524,8 @@ components:
           type: integer
           minimum: 0
           description: >
-            Wall-clock milliseconds from navigation start to the point the page
-            was captured (either at load + adaptive settle, or at timeout).
+            Wall-clock milliseconds from the start of rendering to the point the
+            page was captured, after the settle, scroll and consent steps.
           examples:
             - 25012
         settleMs:
@@ -534,8 +534,9 @@ components:
           description: >
             Wall-clock milliseconds spent in the post-load adaptive settle phase.
             Settle ends when in-flight requests drain (settleReason: idle) or the
-            3s hard cap is reached (settleReason: cap). Absent on partial captures
-            and captures created before this feature.
+            3s hard cap is reached (settleReason: cap). Absent on captures that
+            hit the navigation timeout until 15 November 2026 and on captures
+            created before this feature.
           examples:
             - 320
         settleReason:
@@ -544,8 +545,9 @@ components:
           description: >
             Why the settle phase ended. "idle" means all non-persistent in-flight
             requests completed within the quiescence window. "cap" means the 3s
-            hard cap was reached before quiescence. Absent on partial captures
-            and captures created before this feature.
+            hard cap was reached before quiescence. Absent on captures that hit
+            the navigation timeout until 15 November 2026 and on captures
+            created before this feature.
         pageHeight:
           type: integer
           minimum: 0
@@ -580,8 +582,9 @@ components:
       description: >
         Per-stage wall-clock durations within the rendering pipeline. All
         properties are present on every instrumented capture. Null values
-        indicate stages that were not executed (e.g., consent on partial
-        captures). The sum of non-null stages approximates but does not
+        indicate stages that were not executed: until 15 November 2026 a page
+        that hit the navigation timeout was captured without the settle, scroll
+        and consent steps. The sum of non-null stages approximates but does not
         exactly equal render.durationMs due to inter-stage overhead.
       required:
         - sessionAcquireMs
@@ -615,20 +618,25 @@ components:
             - integer
             - 'null'
           minimum: 0
-          description: Time in ms for the post-navigation settle delay. Null on partial captures.
+          description: >
+            Time in ms for the post-navigation settle delay. Null on captures
+            that hit the navigation timeout until 15 November 2026.
         scrollMs:
           type: integer
           minimum: 0
           description: >
             Time in ms spent scrolling the page to load lazy content before the
-            screenshot. Absent on partial captures and on captures made before
-            lazy-load scrolling.
+            screenshot. Absent on captures that hit the navigation timeout
+            until 15 November 2026 and on captures made before lazy-load
+            scrolling.
         consentMs:
           type:
             - integer
             - 'null'
           minimum: 0
-          description: Time in ms for cookie consent detection and dismissal. Null on partial captures.
+          description: >
+            Time in ms for cookie consent detection and dismissal. Null on
+            captures that hit the navigation timeout until 15 November 2026.
         screenshotMs:
           type:
             - integer
@@ -706,6 +714,9 @@ components:
             3s). 'partial' when the capture was taken after a navigation timeout
             but DOMContentLoaded had fired, or when the page made more than 2000
             requests and WRL blocked the rest (`render.subresourceLimitReached`).
+            A page that timed out still gets the settle, scroll and consent
+            steps, and fails like any other page when it is blank or shows a
+            bot check.
             Partial captures get a signed,
             timestamped WACZ bundle like full ones, and the bundle's
             datapackage.json records the render quality in `captureQuality`.
@@ -3401,7 +3412,7 @@ paths:
                     render:
                       waitUntilReached: domcontentloaded
                       timedOut: true
-                      durationMs: 20012
+                      durationMs: 27480
                     artifacts:
                       screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
                       html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
