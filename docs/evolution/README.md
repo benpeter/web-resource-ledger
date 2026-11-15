@@ -191,3 +191,4 @@ software development.
 | [0182-battery-blocked-sites](0182-battery-blocked-sites/) | The battery gate of the weekly autoconsent update leaves out sites that refused the browser instead of blaming the update for them |
 | [0183-verify-cli-capture-quality](0183-verify-cli-capture-quality/) | The standalone verifier says when a capture is partial, shows only the top of the page, or shows an error answer from the site |
 | [0184-partial-full-pipeline](0184-partial-full-pipeline/) | A page that hits the 20 second load timeout gets the settle, scroll and consent steps before it is captured as partial, and a blank one fails instead of being stored |
+| [0185-after-consent-reload](0185-after-consent-reload/) | After a cookie banner is declined WRL lets the page come to rest, and scrolls a page that reloaded itself again, before the second screenshot |
