@@ -106,6 +106,31 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 export const CAPTURE_MAX_ATTEMPTS = 4;
 // How long a detected bot check gets to finish by itself before the capture fails.
 const BOT_CHECK_WAIT_MS = 8000;
+
+// How long one check of the loaded page may take (browser error page, bot
+// check). Each is one small call to the browser, answered in milliseconds
+// unless the page keeps the browser busy.
+const PAGE_CHECK_MAX_MS = 15000;
+
+/**
+ * Waits for a call to the browser, for a limited time. A page that keeps the
+ * browser busy can leave a call unanswered for minutes (backlog #102, #105).
+ *
+ * @template T
+ * @param {Promise<T>} call
+ * @param {number} maxMs
+ * @param {string} message  Error message when the time is up
+ * @returns {Promise<T>}
+ */
+function answerWithin(call, maxMs, message) {
+  let timer;
+  return Promise.race([
+    call,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), maxMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 // How long to watch for a reload after a cookie banner was dismissed. Sites
 // that reload themselves on the choice (theguardian.com) start within this.
 const POST_CONSENT_NAV_WAIT_MS = 2000;
@@ -934,9 +959,10 @@ export async function takeCappedScreenshot(page, timeout = 90000) {
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @returns {Promise<{ failed: boolean, reason?: string }>}
+ * @throws {Error} When the page does not answer within PAGE_CHECK_MAX_MS
  */
-async function detectRenderFailure(page) {
-  return page.evaluate(() => {
+export async function detectRenderFailure(page) {
+  return answerWithin(page.evaluate(() => {
     // Chromium error interstitial (dino game page)
     if (document.querySelector('.interstitial-wrapper')) {
       return { failed: true, reason: 'chromium-error-page' };
@@ -956,7 +982,7 @@ async function detectRenderFailure(page) {
       return { failed: true, reason: 'blank-page' };
     }
     return { failed: false };
-  });
+  }), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was checked');
 }
 
 /**
@@ -964,9 +990,10 @@ async function detectRenderFailure(page) {
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @returns {Promise<{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean }>}
+ * @throws {Error} When the page does not answer within PAGE_CHECK_MAX_MS
  */
-async function readBotCheckSignals(page) {
-  return page.evaluate(() => ({
+export async function readBotCheckSignals(page) {
+  return answerWithin(page.evaluate(() => ({
     title: (document.title || '').trim(),
     hasChallengeOptions: typeof window._cf_chl_opt !== 'undefined',
     hasChallengeScript: Boolean(document.querySelector(
@@ -975,7 +1002,7 @@ async function readBotCheckSignals(page) {
     hasChallengeMarkup: Boolean(document.querySelector(
       '#challenge-form, #challenge-running, #challenge-stage, #cf-challenge-running',
     )),
-  }));
+  })), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was checked');
 }
 
 /**
@@ -1134,6 +1161,9 @@ export function categorizeError(error) {
   }
   if (msg.includes('stopped answering while it was scrolled')) {
     return { message: 'The page stopped answering while WRL scrolled it', retryable: true };
+  }
+  if (msg.includes('stopped answering while it was checked')) {
+    return { message: 'The page stopped answering while WRL checked it', retryable: true };
   }
   if (msg.includes('did not respond')) {
     return { message: 'The site did not respond, possibly because it blocks automated visits or this region', retryable: false };
