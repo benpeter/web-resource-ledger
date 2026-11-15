@@ -478,7 +478,7 @@ async function defaultRenderer(env, url, captureId) {
     await ctx.close();
     orphanContextsClosed++;
   }
-  await log(env, 3, 'capture', { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed });
+  await log(env, 3, 'capture', { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed, browserVersion: browser.version() });
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },

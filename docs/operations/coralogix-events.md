@@ -66,7 +66,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 
 | Sev | Event | Meaning |
 |-----|-------|---------|
-| 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed) |
+| 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed, browserVersion) |
 | 3 | `render.default.context_ready` | Browser context + page created (contextSetupMs) |
 | 3 | `render.default.cross_domain_blocked` | Main-frame cross-domain navigation blocked (blockedUrl) |
 | 3 | `render.default.nav_success` | Navigation completed within timeout (navigationMs, subresourceCount, totalBytes) |
