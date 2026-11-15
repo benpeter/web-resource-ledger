@@ -71,7 +71,7 @@ npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com --lega
 
 Produces a structured plain-text report designed for use in legal proceedings or formal documentation. No ANSI color codes are written, so the output is safe to redirect to a file or attach as a document.
 
-The report is organized into seven sections: a plain-language summary, a description of the subject (the captured page, when it was captured and signed, its bundle hash), per-check explanations in non-technical terms, a chain of custody narrative, applicable legal standards (FRE 901(b)(9) and eIDAS Art. 41), a methodology description, and full technical details with untruncated cryptographic values. The format version is WRL-LEGAL-1.0, which appears in the report header.
+The report is organized into seven sections: a plain-language summary, a description of the subject (the captured page, when it was captured and signed, its bundle hash, and what the capture service recorded about a partial render, a cut-off screenshot or an error answer from the site), per-check explanations in non-technical terms, a chain of custody narrative, applicable legal standards (FRE 901(b)(9) and eIDAS Art. 41), a methodology description, and full technical details with untruncated cryptographic values. The format version is WRL-LEGAL-1.0, which appears in the report header.
 
 Standard and qualified timestamps are reported separately when both are present. A standard RFC 3161 timestamp (DigiCert) is included whenever the timestamp authority answered at capture time; the report says so when a capture has none. An eIDAS-qualified timestamp appears only when the capturing account has opted into a qualified Trust Service Provider; the report identifies which tier applies and what legal weight it carries.
 
@@ -109,6 +109,7 @@ Outputs a single JSON object to stdout. All human messages go to stderr in JSON 
     "signedAt": "2026-03-16T14:22:07Z",
     "url": "https://example.com/terms",
     "capturedAt": "2026-03-16T14:22:05Z",
+    "quality": { "renderQuality": "full", "waitUntilReached": "load", "timedOut": false, "httpStatus": 200 },
     "timestamp": { "genTime": "2026-03-16T14:22:08Z", "tsa": "DigiCert Timestamp Authority" }
   },
   "keyResolution": {
@@ -121,6 +122,8 @@ Outputs a single JSON object to stdout. All human messages go to stderr in JSON 
   "verifiedAt": "2026-03-17T00:30:00.000Z"
 }
 ```
+
+`capture.quality` is the capture service's record of how the page loaded, read from `datapackage.json` and so covered by the signature: whether the render was `full` or `partial` and why (`timedOut`, `subresourceLimitReached`), whether the screenshot shows the whole page (`screenshotClipped`, `pageHeight`, `screenshotHeight`), and the HTTP status the site answered with (`httpStatus`). It is `null` for archives that record none; older captures have only some of the fields. The standard output and the legal report turn it into a note when the capture is partial, the screenshot is cut off, or the status is 400 or higher, for example `Note      The site answered with HTTP 403; the capture shows that answer, which can be an error page or a block page`.
 
 On errors, `verified` is `null` (not `false`) and an `error` field is present:
 

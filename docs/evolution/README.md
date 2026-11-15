@@ -189,3 +189,4 @@ software development.
 | [0180-render-http-status](0180-render-http-status/) | A capture records the HTTP status the site answered the browser with, and says so where people look when it was an error, so a block page no longer passes as the page |
 | [0181-mcp-keyless-lists](0181-mcp-keyless-lists/) | MCP directories that ask for resources and prompts without a key get "there are none" instead of a 401 |
 | [0182-battery-blocked-sites](0182-battery-blocked-sites/) | The battery gate of the weekly autoconsent update leaves out sites that refused the browser instead of blaming the update for them |
+| [0183-verify-cli-capture-quality](0183-verify-cli-capture-quality/) | The standalone verifier says when a capture is partial, shows only the top of the page, or shows an error answer from the site |

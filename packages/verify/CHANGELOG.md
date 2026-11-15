@@ -3,6 +3,7 @@
 ## v0.4.0 (unreleased)
 
 - Name the captured page: the standard output shows it, the `--legal` report lists it in the summary and the subject section with the time it was captured, and `--json` and `--legal --json` carry `capture.url` and `capture.capturedAt`. The values come from `datapackage.json`, which the signature covers
+- Report what the capture service recorded about the capture: a note in the standard output and in the `--legal` report when the render was partial, when the screenshot shows only the top of the page, or when the site answered with an error status (the capture then shows an error page or a block page), and `capture.quality` in `--json` and `--legal --json`. The values come from `captureQuality` in `datapackage.json`, which the signature covers
 - The README describes what the `--legal` report contains
 - Require fflate 0.8.3 or later: in 0.8.0 to 0.8.2, unzipping a malformed ZIP64 archive could loop forever ([GHSA-px8p-9vwx-vf98](https://github.com/advisories/GHSA-px8p-9vwx-vf98)), so a crafted WACZ could hang the verifier
 

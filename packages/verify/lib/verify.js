@@ -34,6 +34,33 @@ const MAX_DECOMPRESSED = 100 * 1024 * 1024; // 100 MB
 // Public API
 // ---------------------------------------------------------------------------
 
+const WAIT_MILESTONES = ['domcontentloaded', 'load', 'networkidle'];
+const QUALITY_FLAGS    = ['timedOut', 'subresourceLimitReached', 'screenshotClipped'];
+const QUALITY_NUMBERS  = ['pageHeight', 'screenshotHeight', 'httpStatus'];
+
+/**
+ * Reads the captureQuality record of datapackage.json: how far the page got,
+ * how much of it the screenshot shows, what status the site answered with.
+ * Keeps only the fields this tool knows, each with the type it expects, so
+ * nothing else from the archive reaches the output.
+ *
+ * @param {*} raw  datapackage.captureQuality
+ * @returns {object|null}  null when the archive records none
+ */
+function readCaptureQuality(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const quality = {};
+  if (raw.renderQuality === 'full' || raw.renderQuality === 'partial') quality.renderQuality = raw.renderQuality;
+  if (WAIT_MILESTONES.includes(raw.waitUntilReached)) quality.waitUntilReached = raw.waitUntilReached;
+  for (const name of QUALITY_FLAGS) {
+    if (typeof raw[name] === 'boolean') quality[name] = raw[name];
+  }
+  for (const name of QUALITY_NUMBERS) {
+    if (Number.isInteger(raw[name])) quality[name] = raw[name];
+  }
+  return Object.keys(quality).length > 0 ? quality : null;
+}
+
 /**
  * Verifies a WACZ file against a trusted Ed25519 public key.
  *
@@ -303,6 +330,8 @@ export async function verifyWacz(waczBytes, publicKeyBytes, options = {}) {
       // The captured page, from datapackage.json: covered by the bundle hash
       url:        typeof datapackage.mainPageUrl === 'string' ? datapackage.mainPageUrl : null,
       capturedAt: typeof datapackage.mainPageDate === 'string' ? datapackage.mainPageDate : null,
+      // How the page loaded, as the capture service recorded it: also in datapackage.json
+      quality:    readCaptureQuality(datapackage.captureQuality),
     };
     if (timestampData) {
       result.capture.timestamp = timestampData;

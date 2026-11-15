@@ -220,6 +220,7 @@ export async function buildTestWacz(privateKey, publicKeyBytes) {
  *   keyId?: string,   8-char hex key ID (default: 'aaaabbbb')
  *   mainPageUrl?: string,   datapackage mainPageUrl (default: none)
  *   mainPageDate?: string,  datapackage mainPageDate (default: none)
+ *   captureQuality?: object, datapackage captureQuality (default: none)
  * }} [options={}]
  * @returns {Promise<{
  *   waczBytes: Uint8Array,
@@ -243,6 +244,7 @@ export async function buildTestWaczV2(privateKey, publicKeyBytes, options = {}) 
     keyId = 'aaaabbbb',
     mainPageUrl = null,
     mainPageDate = null,
+    captureQuality = null,
   } = options;
 
   const warcBytes  = enc.encode('WARC/1.1\r\ntest warc content v2');
@@ -263,6 +265,7 @@ export async function buildTestWaczV2(privateKey, publicKeyBytes, options = {}) 
     ],
     ...(mainPageUrl !== null ? { mainPageUrl } : {}),
     ...(mainPageDate !== null ? { mainPageDate } : {}),
+    ...(captureQuality !== null ? { captureQuality } : {}),
   };
 
   const dpBytes    = enc.encode(JSON.stringify(datapackage, null, 2));

@@ -10,7 +10,7 @@
  *   formatLegalJson() -- machine-readable JSON for document assembly
  */ // tva
 
-import { checkLabel } from './format.js';
+import { checkLabel, captureQualityNotes } from './format.js';
 
 // ---------------------------------------------------------------------------
 // Report format version -- bumped when report structure changes
@@ -305,6 +305,15 @@ export function formatLegal(result, opts = {}) {
     out.push(`Bundle hash:   ${capture.bundleHash}`);
   }
   out.push('');
+
+  const qualityNotes = captureQualityNotes(capture.quality);
+  if (qualityNotes.length > 0) {
+    out.push('Recorded by the capture service and covered by the signature:');
+    for (const note of qualityNotes) {
+      out.push(wrap(`- ${note}.`));
+    }
+    out.push('');
+  }
 
   // Section 3: Verification Checks Performed
   out.push('3. VERIFICATION CHECKS PERFORMED');
@@ -690,6 +699,7 @@ export function formatLegalJson(result, opts = {}) {
       signedAt: capture.signedAt ?? null,
       url: capture.url ?? null,
       capturedAt: capture.capturedAt ?? null,
+      quality: capture.quality ?? null,
     },
     timestamps,
     keyResolution: {
