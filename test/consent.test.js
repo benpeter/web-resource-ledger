@@ -3,7 +3,7 @@
 // banners themselves are covered in a real browser, in
 // test/integration/capture-pipeline.test.js.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { dismissCookieConsent } from '../src/consent.js';
 
 // A page whose autoconsent script asks for its config and rules ('init') in
@@ -84,4 +84,41 @@ describe('dismissCookieConsent: how long it looks for a banner', () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(5900);
     expect(result.durationMs).toBeLessThan(6700);
   }, 10000);
+});
+
+// On a page with hundreds of ad frames a call to the browser can stay
+// unanswered. Without a limit the step sat there until the render deadline,
+// ten minutes later (merriam-webster.com on staging, 340 frames).
+describe('dismissCookieConsent: a browser that does not answer while the step is set up', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('gives up after 15 seconds when the binding is never set up', async () => {
+    vi.useFakeTimers();
+    const { page } = createPage(['https://www.merriam-webster.com/']);
+    page.exposeBinding = () => new Promise(() => {});
+
+    const pending = dismissCookieConsent(page);
+    await vi.dynamicImportSettled();
+    await vi.advanceTimersByTimeAsync(15000);
+    const result = await pending;
+
+    expect(result.status).toBe('failed');
+    expect(result._error.message).toBe('The consent step could not be set up within 15 seconds');
+  });
+
+  it('gives up after 15 seconds when the script never arrives in the main frame', async () => {
+    vi.useFakeTimers();
+    const { page } = createPage(['https://www.merriam-webster.com/']);
+    page.evaluate = () => new Promise(() => {});
+
+    const pending = dismissCookieConsent(page);
+    await vi.dynamicImportSettled();
+    await vi.advanceTimersByTimeAsync(15000);
+    const result = await pending;
+
+    expect(result.status).toBe('failed');
+    expect(result._error.message).toBe('The consent step could not be set up within 15 seconds');
+  });
 });
