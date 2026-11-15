@@ -3170,8 +3170,9 @@ paths:
         Poll until status is "complete" or "failed". Failed attempts are retried
         up to four times, so a capture can stay pending for several minutes. A
         capture still pending 24 hours after it was created is marked failed with
-        the error "WRL lost track of this capture before it finished." and
-        `retryable: true`.
+        the error "WRL lost track of this capture before it finished." (or the
+        last attempt's reason followed by "WRL then lost track of the capture.")
+        and `retryable: true`.
       tags: [captures]
       security: []
       parameters:
