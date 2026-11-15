@@ -78,7 +78,7 @@
 import { completeCapture, failCapture, recordAttemptError, archiveSigningKey } from './db.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
-import { dismissCookieConsent, AUTOCONSENT_VERSION } from './consent.js';
+import { dismissCookieConsent, consentResult, AUTOCONSENT_VERSION } from './consent.js';
 import { softwareId } from './build-info.js';
 
 // ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         library: '@duckduckgo/autoconsent',
         libraryVersion: AUTOCONSENT_VERSION,
         action: 'optOut',
-        result: consent.status === 'dismissed' ? 'success' : (consent.status === 'none' ? 'notDetected' : 'failed'),
+        result: consentResult(consent),
         ...(consent.cmp ? { cmpDetected: consent.cmp } : {}),
       },
     } : null;

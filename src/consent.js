@@ -121,6 +121,24 @@ function autoconsentInitMessage({ compactRules, filterCompactRules }, url, mainF
 }
 
 /**
+ * What a capture's `captureSettings.consent.result` says for a result of
+ * dismissCookieConsent().
+ *
+ * A consent tool that is on the page and showed no banner counts as no
+ * banner: many tools only ask visitors from some countries, and there was
+ * nothing to decline.
+ *
+ * @param {{ status: string, popupFound?: boolean }} consent
+ * @returns {'success'|'notDetected'|'failed'}
+ */
+export function consentResult(consent) {
+  if (consent.status === 'dismissed') return 'success';
+  if (consent.status === 'none') return 'notDetected';
+  if (consent.status === 'timeout' && !consent.popupFound) return 'notDetected';
+  return 'failed';
+}
+
+/**
  * Attempts to dismiss cookie consent on the given Playwright page.
  *
  * @param {import('@cloudflare/playwright').Page} page
