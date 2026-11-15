@@ -37,6 +37,8 @@
         // news site does, and reloads while WRL waits for them to finish.
         var reloadDelay = 300;
         if (location.search.indexOf('late') !== -1) reloadDelay = 2600;
+        // With ?afterwait the reload comes just after that wait is over
+        if (location.search.indexOf('afterwait') !== -1) reloadDelay = 3600;
         if (location.search.indexOf('busy') !== -1) {
           reloadDelay = 4000;
           setInterval(function () { fetch('/ping'); }, 200);

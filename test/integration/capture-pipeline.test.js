@@ -298,6 +298,23 @@ describe('integration: page that reloads once its cookie banner is dismissed', (
     expect(html).toContain('fragment-marker');
     expect(html).not.toContain('loading="lazy"');
   });
+
+  it('notices a reload that starts while WRL writes its log line after the wait', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-reload.html?afterwait`;
+    const slowLogEnv = { ...env, CORALOGIX_ENDPOINT: `http://127.0.0.1:${port}/log-sink`, CORALOGIX_SEND_KEY: 'test' };
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(slowLogEnv, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent?.result).toBe('success');
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).not.toContain('We use cookies.');
+    expect(html).toContain('fragment-marker');
+    expect(html).not.toContain('loading="lazy"');
+  });
 });
 
 // ---------------------------------------------------------------------------
