@@ -221,6 +221,19 @@ describe('integration: page with a banner from autoconsent\'s JSON rules', () =>
     const html = await (await env.BUCKET.get(record.artifacts.html)).text();
     expect(html).not.toContain('About cookies on this site.');
   });
+
+  it('reports no banner when the consent tool is on the page and shows none', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-cookiehub.html?nobanner`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent?.result).toBe('notDetected');
+    expect(record.captureSettings?.consent?.cmpDetected).toBe('cookiehub');
+    expect(record.artifacts.screenshotBefore).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

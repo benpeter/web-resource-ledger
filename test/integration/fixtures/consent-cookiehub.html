@@ -25,6 +25,11 @@
   </div>
   <script>
     var container = document.querySelector('.ch2-container');
+    // With ?nobanner the tool is on the page and shows nothing, as on a site
+    // that only asks visitors from some countries
+    if (location.search.indexOf('nobanner') !== -1) {
+      document.querySelector('.ch2-dialog').style.display = 'none';
+    }
     // With ?slow the settings take three seconds to open, as on a site that
     // loads them only when asked
     var settingsDelay = location.search.indexOf('slow') === -1 ? 0 : 3000;
