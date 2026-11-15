@@ -336,6 +336,50 @@ describe('integration: status of the page response', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Navigation timeout: the page gets the same steps as one that finished loading
+// ---------------------------------------------------------------------------
+
+describe('integration: page whose load event comes after the navigation timeout', () => {
+  const captureId = 'cap_0000000000000000000000000000e5ac';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('captures it as partial after settling, scrolling and the consent step', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/slow-load.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('partial');
+    expect(record.render?.timedOut).toBe(true);
+    expect(record.render?.httpStatus).toBe(200);
+    expect(record.render?.stages?.settleMs).toEqual(expect.any(Number));
+    expect(record.render?.stages?.scrollMs).toEqual(expect.any(Number));
+    expect(record.render?.stages?.consentMs).toEqual(expect.any(Number));
+    expect(record.captureSettings?.consent?.result).toBe('notDetected');
+  });
+
+  it('fails a blank page instead of storing it as a partial capture', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/slow-blank.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(false);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('failed');
+    expect(record.error).toBe('The page loaded but showed nothing (blank page)');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Lazy-load triggering: below-fold images
 // ---------------------------------------------------------------------------
 

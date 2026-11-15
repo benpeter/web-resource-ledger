@@ -67,6 +67,26 @@ export async function setup({ provide }) {
       return;
     }
 
+    // Pages whose load event comes after the 20 s navigation timeout: a script
+    // that answers after 22 s holds it back. One has content, one is blank.
+    if (url.pathname === '/slow-load.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><head><title>Slow Load Test</title></head><body><h1 id="slow-load-marker">Slow load</h1><div style="height:3000px"></div><img loading="lazy" src="/lazy-pixel.png?slow=1" width="1" height="1" alt=""><script async src="/slow.js"></script></body></html>');
+      return;
+    }
+    if (url.pathname === '/slow-blank.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><head><title></title></head><body><script async src="/slow.js"></script></body></html>');
+      return;
+    }
+    if (url.pathname === '/slow.js') {
+      setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'text/javascript' });
+        res.end('// slow');
+      }, 22000);
+      return;
+    }
+
     // An error page with content, and an error answer with an empty page (backlog #101)
     if (url.pathname === '/gone.html') {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
