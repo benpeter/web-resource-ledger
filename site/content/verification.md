@@ -150,19 +150,21 @@ A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` a
 
 ### Cookie banners
 
-WRL acts on the page in one way: it declines cookies. It never accepts them and never clicks anything else.
+WRL acts on the page in one way: it declines cookies. It never accepts them and never clicks anything outside the cookie banner. Where a banner has no "Reject" button, declining takes more than one click: the rule opens the banner's settings, unticks what is ticked and saves.
 
-After the page has loaded and been scrolled, WRL takes a screenshot. Then it runs [@duckduckgo/autoconsent](https://github.com/duckduckgo/autoconsent), which looks for a cookie banner it knows and chooses the opt-out. When that worked, WRL takes a second screenshot. The capture's `captureSettings.consent` says what happened:
+After the page has loaded and been scrolled, WRL takes a screenshot. Then it runs [@duckduckgo/autoconsent](https://github.com/duckduckgo/autoconsent), which looks for a cookie banner it knows and chooses the opt-out. autoconsent knows a banner from one of about 1,000 rules: some cover a consent tool that many sites use (OneTrust, Cookiebot, Sourcepoint, CookieHub), others one site. When the opt-out worked, WRL takes a second screenshot. The capture's `captureSettings.consent` says what happened:
 
 | `result` | What it means | Screenshots |
 |---|---|---|
-| `notDetected` | No banner that autoconsent knows. | One. A banner autoconsent does not know is still in it. |
-| `success` | A banner was found and declined; `cmpDetected` names it. | Two: `artifacts.screenshot` is the page without the banner, `artifacts.screenshotBefore` is the page with it. |
-| `failed` | A banner was found but could not be declined, for example one that only offers "Accept". | One, with the banner. |
+| `notDetected` | No banner that autoconsent knows was showing. When `cmpDetected` is there, that consent tool is on the page but showed no banner within 5 seconds; many tools only ask visitors from some countries. | One. A banner autoconsent does not know is still in it. |
+| `success` | A banner was found and declined; `cmpDetected` names the rule that matched, for example `Onetrust` or `cookiehub`. | Two: `artifacts.screenshot` is the page without the banner, `artifacts.screenshotBefore` is the page with it. |
+| `failed` | A banner was found but could not be declined, for example one that only offers "Accept", or declining it took longer than 10 seconds. | One, with the banner. |
+
+The step takes 2 seconds on a page without a consent tool. When autoconsent detects one, its banner has until 5 seconds after the step began to show, and until 10 seconds to be declined, because some banners need their settings opened first.
 
 Some sites reload themselves once a choice is made (theguardian.com does), and many change the page. Before the second screenshot WRL waits for that: up to 2 seconds for a reload to start, then for the page's requests to finish, and after a reload it scrolls the page again so lazy images load. The HTML artifact is read after the second screenshot, so it matches it.
 
-Both screenshots and `captureSettings`, with the autoconsent version, are in the WACZ bundle and covered by its signature. Captures made until 15 November 2026 took the second screenshot the moment the banner was gone; on a site that reloads, that screenshot can show the page halfway through loading, with images missing, while `screenshotBefore` shows it whole.
+Both screenshots and `captureSettings`, with the autoconsent version, are in the WACZ bundle and covered by its signature. Captures made until 15 November 2026 knew only the 11 consent tools autoconsent detects in code and gave the whole step 2 seconds, so many of them say `notDetected` or `failed` for a banner that a capture made today declines. They also took the second screenshot the moment the banner was gone; on a site that reloads, that screenshot can show the page halfway through loading, with images missing, while `screenshotBefore` shows it whole.
 
 ### Captures of an error answer
 
