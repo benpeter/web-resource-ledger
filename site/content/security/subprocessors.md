@@ -6,7 +6,7 @@ description: Third-party subprocessors used by WRL — cloud infrastructure, sto
 
 # Subprocessors
 
-Last updated: 2026-11-14
+Last updated: 2026-11-15
 
 > **What this page is:** WRL runs on Cloudflare's infrastructure and integrates with a small set of external services to authenticate users, process payments, send email, screen URLs for threats, and issue cryptographic timestamps. This page lists every third-party service that processes data on behalf of WRL or its customers, what data each service receives, and the legal mechanism that governs the transfer. No service receives personal data beyond what is strictly necessary for its function.
 
@@ -80,7 +80,7 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 **Entity:** Coralogix Ltd. (Israel / EU operations)
 **Purpose:** Operational logging, monitoring, and alerting
 **Data processed:** Pseudonymized IP identifiers (HMAC-SHA-256 with a daily rotating key — not reversible to the original IP), tenant IDs, capture event metadata, and Worker error traces. Raw IP addresses and email addresses are never logged.
-**Data location:** EU (Coralogix EU2 region, Frankfurt)
+**Data location:** EU (Coralogix EU2 region, AWS eu-north-1, Stockholm)
 **Transfer mechanism:** EU processing (no transfer outside the EU for this region)
 **DPA / Privacy:** [coralogix.com/legal/privacy-policy](https://coralogix.com/legal/privacy-policy/)
 
