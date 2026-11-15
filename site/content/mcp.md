@@ -216,7 +216,7 @@ https://example.com/contact
 
 #### `get_capture`
 
-Get the status and details of a capture by ID. Returns `pending`, `complete`, or `failed`. When complete, includes artifact URLs for screenshot, HTML, headers, WACZ bundle, and a verification link. When the page was taller than the screenshot, it adds a line such as `Screenshot covers the top 8000 px of a 21860 px page; the HTML has the whole page.` When the page made more than 500 requests, `Render quality` is `partial` and it adds `The page made more than 500 requests; WRL blocked the ones after the first 500.`
+Get the status and details of a capture by ID. Returns `pending`, `complete`, or `failed`. When complete, includes artifact URLs for screenshot, HTML, headers, WACZ bundle, and a verification link. When the page was taller than the screenshot, it adds a line such as `Screenshot covers the top 8000 px of a 21860 px page; the HTML has the whole page.` When the page made more than 2000 requests, `Render quality` is `partial` and it adds `The page made more requests than WRL allows for one capture; WRL blocked the rest.`
 
 **Requires:** `read` scope
 

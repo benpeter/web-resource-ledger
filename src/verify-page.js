@@ -517,7 +517,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     // A partial render is signed like a full one; say so next to the checks
     if (capture.renderQuality === 'partial') {
       checks = checks.concat([render && render.subresourceLimitReached && !render.timedOut
-        ? { name: 'renderQuality', status: 'skip', desc: 'The page made more than 500 requests. WRL let the first 500 through and blocked the rest, so images or content that load later may be missing.' }
+        ? { name: 'renderQuality', status: 'skip', desc: 'The page made more requests than WRL allows for one capture. WRL blocked the rest, so images or content that load later may be missing.' }
         : { name: 'renderQuality', status: 'skip' }]);
     }
 

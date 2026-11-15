@@ -128,7 +128,7 @@ For how these technical properties map to legal authentication standards (FRE 90
 WRL captures a page as it stands, instead of failing, in two cases:
 
 - The page has not finished loading after 20 seconds but its HTML has (the browser fired `DOMContentLoaded`).
-- The page made more than 500 requests. WRL lets the first 500 through and blocks the rest (see [Requests and Page Size](/limits/#requests-and-page-size)).
+- The page made more than 2000 requests. WRL lets the first 2000 through and blocks the rest (see [Requests and Page Size](/limits/#requests-and-page-size)).
 
 Either way the capture has `"renderQuality": "partial"`. Images, fonts or content that would have loaded later may be missing from the screenshot and the HTML.
 

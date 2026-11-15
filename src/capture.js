@@ -84,7 +84,10 @@ import { softwareId } from './build-info.js';
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_SUBRESOURCES = 500;
+// 500 until phase 0178 (2026-11-15). Measured on staging with the cap out of
+// the way: Guardian 865 requests, Yahoo Finance 1193, NYT 1208,
+// Merriam-Webster 1739 (docs/evolution/0178-subresource-cap-partial/outcome.md).
+const MAX_SUBRESOURCES = 2000;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 export const MAX_PAGE_HEIGHT = 8000;
 // Screenshot resolution relative to CSS pixels. 4 until phase 0118 (2026-10-23);

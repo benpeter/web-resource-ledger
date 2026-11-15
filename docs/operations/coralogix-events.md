@@ -85,7 +85,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, consentMs, errorName) |
 | 3 | `render.default.screenshot_after` | Post-consent screenshot taken or reused (screenshotMs, tookAfterScreenshot, screenshotBytes) |
 | 3 | `render.default.content_extracted` | HTML content extracted (contentMs, htmlLength) |
-| 3 | `render.default.complete` | Full render pipeline finished (durationMs, partial, subresourceCount, blockedRequests, totalBytes). blockedRequests counts requests refused past the 500-request cap |
+| 3 | `render.default.complete` | Full render pipeline finished (durationMs, partial, subresourceCount, blockedRequests, totalBytes). blockedRequests counts requests refused past the 2000-request cap |
 | 4 | `render.default.cleanup_fail` | Browser context/session cleanup failed (errorMessage) |
 
 ## Signing (`signing`)

@@ -503,10 +503,10 @@ components:
         subresourceLimitReached:
           type: boolean
           description: >
-            True when the page made more than 500 requests. WRL let the first
-            500 through and blocked the rest, so content that loads late may be
-            missing, and renderQuality is "partial". Absent on captures made
-            before 15 November 2026.
+            True when the page made more requests than WRL allows for one
+            capture (2000). WRL blocked the ones past the cap, so content that
+            loads late may be missing, and renderQuality is "partial". Absent
+            on captures made before 15 November 2026.
         durationMs:
           type: integer
           minimum: 0
@@ -838,7 +838,7 @@ components:
           description: >
             Present when status is "complete". Indicates whether the page fully rendered
             or was captured after a navigation timeout or with its requests past
-            the 500-request cap blocked.
+            the 2000-request cap blocked.
         failedAt:
           type: string
           format: date-time
@@ -3872,7 +3872,7 @@ paths:
         The endpoint returns 200 for all reachable captures, even when verification fails.
 
         Partial captures (navigation timed out after DOMContentLoaded, or the
-        page hit the 500-request cap) are signed
+        page hit the 2000-request cap) are signed
         and verify like full captures; `capture.renderQuality` is `partial` for
         them. Captures without a WACZ bundle return 404 from this endpoint; that
         includes partial captures made before November 2026, which were not signed.
