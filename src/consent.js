@@ -66,7 +66,12 @@ const AUTOCONSENT_CONFIG = {
   disabledCmps: [],
   enablePrehide: false,
   detectRetries: 5,
+  // Cosmetic rules hide a banner with CSS and decide nothing.
   enableCosmeticRules: false,
+  // Rules named auto_*, which autoconsent generates for one site each from a
+  // crawl. The one for semrush.com clicks the button that opens the cookie
+  // settings and leaves them open over the page.
+  enableGeneratedRules: false,
 };
 
 /**
