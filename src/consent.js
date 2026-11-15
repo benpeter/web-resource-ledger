@@ -15,12 +15,14 @@
  * first capture, not when the Worker starts.
  *
  * Returns a consistent result shape regardless of outcome:
- *   { status, cmp, durationMs }
+ *   { status, cmp, popupFound, durationMs }
  *
  * status values:
  *   'dismissed' -- consent popup detected and successfully opted out
- *   'none'      -- no CMP detected within timeout
- *   'timeout'   -- CMP detected but opt-out did not complete in time
+ *   'none'      -- no CMP detected within CONSENT_DETECT_MS
+ *   'timeout'   -- CMP detected, but its popup did not show within
+ *                  CONSENT_POPUP_MS (popupFound false) or the opt-out did
+ *                  not complete within CONSENT_OPTOUT_MS (popupFound true)
  *   'failed'    -- opt-out attempted but reported failure
  *
  * Security notes:
@@ -36,7 +38,14 @@ import autoconsentScript from './vendor/autoconsent-script.js';
 
 export const AUTOCONSENT_VERSION = '18.5.0';
 
-const CONSENT_TIMEOUT_MS = 2000;
+// How long the consent step waits, counted from the injection. With no
+// consent tool detected it ends after CONSENT_DETECT_MS. A detected tool gets
+// until CONSENT_POPUP_MS to show its banner, and a banner that is showing
+// gets until CONSENT_OPTOUT_MS to be declined (some need a settings dialog
+// opened first).
+const CONSENT_DETECT_MS = 2000;
+const CONSENT_POPUP_MS = 5000;
+const CONSENT_OPTOUT_MS = 10000;
 const MAX_INJECTED_FRAMES = 50;
 
 const ALLOWED_MSG_TYPES = new Set([
@@ -59,6 +68,19 @@ const AUTOCONSENT_CONFIG = {
   detectRetries: 5,
   enableCosmeticRules: false,
 };
+
+/**
+ * How long the consent step may take in all, given what autoconsent has
+ * reported so far.
+ *
+ * @param {string|null} cmp Consent tool detected, if any
+ * @param {boolean} popupFound Whether its banner is showing
+ * @returns {number} Milliseconds from the injection
+ */
+function consentLimitMs(cmp, popupFound) {
+  if (popupFound) return CONSENT_OPTOUT_MS;
+  return cmp ? CONSENT_POPUP_MS : CONSENT_DETECT_MS;
+}
 
 let rulesModules = null;
 
@@ -97,7 +119,7 @@ function autoconsentInitMessage({ compactRules, filterCompactRules }, url, mainF
  * Attempts to dismiss cookie consent on the given Playwright page.
  *
  * @param {import('@cloudflare/playwright').Page} page
- * @returns {Promise<{ status: 'dismissed'|'none'|'timeout'|'failed', cmp: string|null, durationMs: number }>}
+ * @returns {Promise<{ status: 'dismissed'|'none'|'timeout'|'failed', cmp: string|null, popupFound: boolean, durationMs: number }>}
  */
 export async function dismissCookieConsent(page) {
   const start = Date.now();
@@ -112,6 +134,7 @@ export async function dismissCookieConsent(page) {
     return {
       status: 'failed',
       cmp: null,
+      popupFound: false,
       durationMs: Date.now() - start,
       _error: {
         name: err?.constructor?.name ?? 'Unknown',
@@ -133,6 +156,7 @@ async function _dismissWithBinding(page, start) {
   });
 
   let detectedCmp = null;
+  let popupFound = false;
 
   await page.exposeBinding('autoconsentSendMessage', (source, msg) => {
     if (!msg || !ALLOWED_MSG_TYPES.has(msg.type)) {
@@ -159,6 +183,7 @@ async function _dismissWithBinding(page, start) {
 
       case 'popupFound':
         detectedCmp = detectedCmp ?? msg.cmp ?? null;
+        popupFound = true;
         break;
 
       case 'optOutResult':
@@ -223,19 +248,32 @@ async function _dismissWithBinding(page, start) {
   // Register listener for late-loading CMP iframes before the initial loop
   page.on('framenavigated', injectIntoFrame);
 
+  let timer;
   try {
     await page.evaluate(inject, [autoconsentScript]);
     for (const frame of page.frames()) {
       injectIntoFrame(frame);
     }
 
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve({ status: detectedCmp ? 'timeout' : 'none', cmp: detectedCmp }), CONSENT_TIMEOUT_MS)
-    );
+    // The limit depends on how far autoconsent has come, so each time it
+    // runs out it is worked out again from what has been seen by then.
+    const began = Date.now();
+    const timeoutPromise = new Promise((resolve) => {
+      const check = () => {
+        const remaining = began + consentLimitMs(detectedCmp, popupFound) - Date.now();
+        if (remaining > 0) {
+          timer = setTimeout(check, remaining);
+        } else {
+          resolve({ status: detectedCmp ? 'timeout' : 'none', cmp: detectedCmp });
+        }
+      };
+      timer = setTimeout(check, CONSENT_DETECT_MS);
+    });
 
     const outcome = await Promise.race([resultPromise, timeoutPromise]);
-    return { ...outcome, durationMs: Date.now() - start };
+    return { ...outcome, popupFound, durationMs: Date.now() - start };
   } finally {
+    clearTimeout(timer);
     page.off('framenavigated', injectIntoFrame);
   }
 }
@@ -252,10 +290,14 @@ async function _dismissWithPolling(page, start) {
   // Override autoconsentSendMessage to write results to window.__autoconsentResult
   window.__autoconsentResult = null;
   window.__autoconsentCmp = null;
+  window.__autoconsentPopup = false;
   window.autoconsentSendMessage = function(msg) {
     if (!msg) return;
     if (msg.type === 'cmpDetected' || msg.type === 'popupFound') {
       window.__autoconsentCmp = msg.cmp || window.__autoconsentCmp;
+    }
+    if (msg.type === 'popupFound') {
+      window.__autoconsentPopup = true;
     }
     if (msg.type === 'autoconsentDone') {
       window.__autoconsentResult = { status: 'dismissed', cmp: window.__autoconsentCmp };
@@ -304,29 +346,31 @@ async function _dismissWithPolling(page, start) {
       injectIntoFrame(frame);
     }
 
-    const deadline = Date.now() + CONSENT_TIMEOUT_MS;
+    const began = Date.now();
     const pollIntervalMs = 200;
+    let cmp = null;
+    let popupFound = false;
 
-    while (Date.now() < deadline) {
+    while (Date.now() < began + consentLimitMs(cmp, popupFound)) {
       // Poll all frames -- CMP result may come from an iframe
       for (const frame of page.frames()) {
         // Detached frames throw on evaluate -- treat as no result
-        const result = await frame.evaluate(() => window.__autoconsentResult).catch(() => null);
-        if (result) {
-          return { ...result, durationMs: Date.now() - start };
+        const state = await frame.evaluate(() => ({
+          result: window.__autoconsentResult,
+          cmp: window.__autoconsentCmp,
+          popupFound: window.__autoconsentPopup === true,
+        })).catch(() => null);
+        if (!state) continue;
+        cmp = cmp ?? state.cmp ?? null;
+        popupFound = popupFound || state.popupFound;
+        if (state.result) {
+          return { ...state.result, popupFound, durationMs: Date.now() - start };
         }
       }
       await new Promise((r) => setTimeout(r, pollIntervalMs));
     }
 
-    // Timed out -- check if a CMP was ever detected in any frame
-    let cmp = null;
-    for (const frame of page.frames()) {
-      // Detached frames throw on evaluate -- treat as no CMP
-      const frameCmp = await frame.evaluate(() => window.__autoconsentCmp).catch(() => null);
-      if (frameCmp) { cmp = frameCmp; break; }
-    }
-    return { status: cmp ? 'timeout' : 'none', cmp, durationMs: Date.now() - start };
+    return { status: cmp ? 'timeout' : 'none', cmp, popupFound, durationMs: Date.now() - start };
   } finally {
     page.off('framenavigated', injectIntoFrame);
   }

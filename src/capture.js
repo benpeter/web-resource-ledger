@@ -11,8 +11,9 @@
  *   detect and dismiss cookie consent banners. If a CMP is found and
  *   dismissed, a second screenshot is taken. Both screenshots and consent
  *   metadata (captureSettings) are included in the WACZ bundle and covered
- *   by the Ed25519 signature. Consent has a 2s hard timeout within the
- *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle + 2.5s scroll + 2s consent + 2s post ≈ 30s worst-case; in practice load fires in 2-5s).
+ *   by the Ed25519 signature. The consent step takes 2s when no consent tool
+ *   is detected and at most 10s when one is (see consent.js), within the
+ *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle + 2.5s scroll + 2-10s consent + 2s post ≈ 38s worst-case; in practice load fires in 2-5s).
  *   A page that hit the navigation timeout gets the same steps.
  *
  * Called from queue consumer. For retryable errors, does NOT write KV
@@ -699,12 +700,13 @@ async function defaultRenderer(env, url, captureId) {
       consent = {
         status: 'failed',
         cmp: null,
+        popupFound: false,
         durationMs: 0,
         _error: { name: err?.constructor?.name ?? 'Unknown', message: String(err?.message ?? '').slice(0, 256) },
       };
     }
     const tConsent = Date.now();
-    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
+    await log(env, 3, 'capture', { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
 
     // After-screenshot only when consent was successfully dismissed
     let screenshot;

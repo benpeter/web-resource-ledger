@@ -82,7 +82,7 @@ Informational logging inside the browser rendering pipeline (`defaultRenderer`).
 | 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs) |
 | 3 | `render.default.screenshot_capped` | Page taller than 8000 px; the screenshot covers the top 8000 px (originalHeight, cappedHeight). Logged after the screenshot succeeds. Called `viewport_capped` before phase 0117 |
 | 3 | `render.default.screenshot_before` | Pre-consent screenshot taken (screenshotMs, screenshotBytes) |
-| 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, consentMs, errorName) |
+| 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, popupFound, consentMs, errorName). `status: timeout` with `popupFound: false` means a consent tool was detected but showed no banner within 5 s; with `popupFound: true` the banner showed and declining it took longer than 10 s |
 | 3 | `render.default.post_consent` | After a banner was dismissed the page came to rest before the second screenshot (postConsentMs, reloaded). reloaded is true when the site reloaded itself on the choice; the page then got the load wait, the settle and the scroll again |
 | 4 | `render.default.post_consent_fail` | That wait threw; the capture goes on to the second screenshot (errorMessage) |
 | 3 | `render.default.screenshot_after` | Post-consent screenshot taken or reused (screenshotMs, tookAfterScreenshot, screenshotBytes) |
