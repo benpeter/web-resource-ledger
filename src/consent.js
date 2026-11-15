@@ -39,13 +39,18 @@ import autoconsentScript from './vendor/autoconsent-script.js';
 export const AUTOCONSENT_VERSION = '18.5.0';
 
 // How long the consent step waits, counted from the injection. With no
-// consent tool detected it ends after CONSENT_DETECT_MS. A detected tool gets
-// until CONSENT_POPUP_MS to show its banner, and a banner that is showing
-// gets until CONSENT_OPTOUT_MS to be declined (some need a settings dialog
-// opened first).
+// consent tool detected it ends after CONSENT_DETECT_MS, provided autoconsent
+// has been through its rules in the main frame once; on a page that keeps
+// the browser busy that can take longer, so the step waits for it until
+// CONSENT_DETECT_MAX_MS. A detected tool gets until CONSENT_POPUP_MS to show
+// its banner, and a banner that is showing gets until CONSENT_OPTOUT_MS to be
+// declined (some need a settings dialog opened first).
 const CONSENT_DETECT_MS = 2000;
+const CONSENT_DETECT_MAX_MS = 6000;
 const CONSENT_POPUP_MS = 5000;
 const CONSENT_OPTOUT_MS = 10000;
+// How often the step looks again once a limit has passed and a longer one applies
+const CONSENT_RECHECK_MS = 250;
 const MAX_INJECTED_FRAMES = 50;
 
 const ALLOWED_MSG_TYPES = new Set([
@@ -80,11 +85,26 @@ const AUTOCONSENT_CONFIG = {
  *
  * @param {string|null} cmp Consent tool detected, if any
  * @param {boolean} popupFound Whether its banner is showing
+ * @param {boolean} roundDone Whether autoconsent has finished a detection
+ *   round in the main frame
  * @returns {number} Milliseconds from the injection
  */
-function consentLimitMs(cmp, popupFound) {
+function consentLimitMs(cmp, popupFound, roundDone) {
   if (popupFound) return CONSENT_OPTOUT_MS;
-  return cmp ? CONSENT_POPUP_MS : CONSENT_DETECT_MS;
+  if (cmp) return CONSENT_POPUP_MS;
+  return roundDone ? CONSENT_DETECT_MS : CONSENT_DETECT_MAX_MS;
+}
+
+/**
+ * Whether a 'report' message says that autoconsent has finished a detection
+ * round: it counts the rounds it starts, so the second one starting means the
+ * first one ended.
+ *
+ * @param {{ state?: { findCmpAttempts?: number, lifecycle?: string } }} msg
+ * @returns {boolean}
+ */
+function detectionRoundDone(msg) {
+  return msg.state?.findCmpAttempts >= 2 || msg.state?.lifecycle === 'nothingDetected';
 }
 
 let rulesModules = null;
@@ -180,6 +200,7 @@ async function _dismissWithBinding(page, start) {
 
   let detectedCmp = null;
   let popupFound = false;
+  let roundDone = false;
 
   await page.exposeBinding('autoconsentSendMessage', (source, msg) => {
     if (!msg || !ALLOWED_MSG_TYPES.has(msg.type)) {
@@ -246,8 +267,11 @@ async function _dismissWithBinding(page, start) {
         break;
       }
 
-      case 'selfTestResult':
       case 'report':
+        if (frame === page.mainFrame() && detectionRoundDone(msg)) roundDone = true;
+        break;
+
+      case 'selfTestResult':
         break;
     }
   });
@@ -283,9 +307,9 @@ async function _dismissWithBinding(page, start) {
     const began = Date.now();
     const timeoutPromise = new Promise((resolve) => {
       const check = () => {
-        const remaining = began + consentLimitMs(detectedCmp, popupFound) - Date.now();
+        const remaining = began + consentLimitMs(detectedCmp, popupFound, roundDone) - Date.now();
         if (remaining > 0) {
-          timer = setTimeout(check, remaining);
+          timer = setTimeout(check, Math.min(remaining, CONSENT_RECHECK_MS));
         } else {
           resolve({ status: detectedCmp ? 'timeout' : 'none', cmp: detectedCmp });
         }
@@ -314,8 +338,12 @@ async function _dismissWithPolling(page, start) {
   window.__autoconsentResult = null;
   window.__autoconsentCmp = null;
   window.__autoconsentPopup = false;
+  window.__autoconsentRoundDone = false;
   window.autoconsentSendMessage = function(msg) {
     if (!msg) return;
+    if (msg.type === 'report' && (${detectionRoundDone.toString()})(msg)) {
+      window.__autoconsentRoundDone = true;
+    }
     if (msg.type === 'cmpDetected' || msg.type === 'popupFound') {
       window.__autoconsentCmp = msg.cmp || window.__autoconsentCmp;
     }
@@ -373,8 +401,9 @@ async function _dismissWithPolling(page, start) {
     const pollIntervalMs = 200;
     let cmp = null;
     let popupFound = false;
+    let roundDone = false;
 
-    while (Date.now() < began + consentLimitMs(cmp, popupFound)) {
+    while (Date.now() < began + consentLimitMs(cmp, popupFound, roundDone)) {
       // Poll all frames -- CMP result may come from an iframe
       for (const frame of page.frames()) {
         // Detached frames throw on evaluate -- treat as no result
@@ -382,10 +411,12 @@ async function _dismissWithPolling(page, start) {
           result: window.__autoconsentResult,
           cmp: window.__autoconsentCmp,
           popupFound: window.__autoconsentPopup === true,
+          roundDone: window.__autoconsentRoundDone === true,
         })).catch(() => null);
         if (!state) continue;
         cmp = cmp ?? state.cmp ?? null;
         popupFound = popupFound || state.popupFound;
+        roundDone = roundDone || (frame === page.mainFrame() && state.roundDone);
         if (state.result) {
           return { ...state.result, popupFound, durationMs: Date.now() - start };
         }
