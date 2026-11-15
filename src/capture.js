@@ -988,7 +988,7 @@ export function classifyBotCheck(s) {
  * @param {import('@cloudflare/playwright').Page} page
  * @returns {Promise<number>} scrollMs — time spent scrolling
  */
-async function triggerLazyLoading(page) {
+export async function triggerLazyLoading(page) {
   const STEP_PX = 720;
   const STEP_PAUSE_MS = 150;
   const MAX_SCROLL_HEIGHT = 12000;
