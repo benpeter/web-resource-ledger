@@ -7,8 +7,9 @@ import { describe, it, expect } from 'vitest';
 import { dismissCookieConsent } from '../src/consent.js';
 
 // A page whose autoconsent script asks for its config and rules ('init') in
-// every frame and then reports a declined banner, so the step ends at once.
-function createPage(frameUrls) {
+// every frame when it is injected. `script` then plays the messages
+// autoconsent sends from the main frame: [delay in ms, message] pairs.
+function createPage(frameUrls, script = [[0, { type: 'autoconsentDone' }]]) {
   const initResponses = [];
   const frames = frameUrls.map((url) => ({
     url: () => url,
@@ -25,11 +26,18 @@ function createPage(frameUrls) {
     exposeBinding: async (name, fn) => { sendMessage = fn; },
     evaluate: async () => {
       for (const frame of frames) sendMessage({ frame }, { type: 'init' });
-      sendMessage({ frame: frames[0] }, { type: 'autoconsentDone' });
+      for (const [delay, message] of script) {
+        if (delay === 0) sendMessage({ frame: frames[0] }, message);
+        else setTimeout(() => sendMessage({ frame: frames[0] }, message), delay);
+      }
     },
   };
   return { page, initResponses };
 }
+
+// autoconsent reports its state as it goes; findCmpAttempts counts the
+// detection rounds it has started.
+const detectionRound = (n) => ({ type: 'report', state: { lifecycle: 'started', findCmpAttempts: n } });
 
 describe('dismissCookieConsent: what a frame is told', () => {
   it('does not let autoconsent use the rules generated for single sites', async () => {
@@ -40,4 +48,40 @@ describe('dismissCookieConsent: what a frame is told', () => {
     expect(initResponses).toHaveLength(1);
     expect(initResponses[0].message.config.enableGeneratedRules).toBe(false);
   });
+});
+
+describe('dismissCookieConsent: how long it looks for a banner', () => {
+  it('ends after two seconds when the first detection round found nothing', async () => {
+    const { page } = createPage(['https://example.com/'], [[100, detectionRound(1)], [300, detectionRound(2)]]);
+
+    const result = await dismissCookieConsent(page);
+
+    expect(result.status).toBe('none');
+    expect(result.durationMs).toBeGreaterThanOrEqual(1900);
+    expect(result.durationMs).toBeLessThan(2700);
+  });
+
+  it('waits for the first detection round of a page that keeps the browser busy', async () => {
+    const { page } = createPage(['https://www.ikea.com/de/de/'], [
+      [2800, detectionRound(1)],
+      [3000, { type: 'cmpDetected', cmp: 'Onetrust' }],
+      [3100, { type: 'popupFound', cmp: 'Onetrust' }],
+      [3400, { type: 'autoconsentDone' }],
+    ]);
+
+    const result = await dismissCookieConsent(page);
+
+    expect(result.status).toBe('dismissed');
+    expect(result.cmp).toBe('Onetrust');
+  });
+
+  it('gives up after six seconds when no detection round ends', async () => {
+    const { page } = createPage(['https://example.com/'], [[100, detectionRound(1)]]);
+
+    const result = await dismissCookieConsent(page);
+
+    expect(result.status).toBe('none');
+    expect(result.durationMs).toBeGreaterThanOrEqual(5900);
+    expect(result.durationMs).toBeLessThan(6700);
+  }, 10000);
 });
