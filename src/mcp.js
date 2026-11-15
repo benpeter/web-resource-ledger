@@ -421,6 +421,10 @@ function createMcpServer(env, ctx, auth, origin) {
         `Created: ${record.createdAt}`,
         `Completed: ${record.completedAt}`,
         `Render quality: ${record.renderQuality ?? 'full'}`,
+        ...(record.render?.httpStatus !== undefined ? [`HTTP status: ${record.render.httpStatus}`] : []),
+        ...(record.render?.httpStatus >= 400
+          ? ['The site answered with an error status; the capture shows that answer, which can be an error page or a block page.']
+          : []),
         ...(record.render?.subresourceLimitReached
           ? ['The page made more requests than WRL allows for one capture; WRL blocked the rest.']
           : []),
@@ -637,6 +641,10 @@ function createMcpServer(env, ctx, auth, origin) {
         `Captured: ${record.createdAt}`,
         `Completed: ${record.completedAt}`,
         `Render quality: ${record.renderQuality ?? 'full'}`,
+        ...(record.render?.httpStatus !== undefined ? [`HTTP status: ${record.render.httpStatus}`] : []),
+        ...(record.render?.httpStatus >= 400
+          ? ['The site answered with an error status; the capture shows that answer, which can be an error page or a block page.']
+          : []),
         '',
         'Checks:',
       ];

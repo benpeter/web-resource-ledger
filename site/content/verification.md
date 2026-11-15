@@ -146,6 +146,14 @@ A page that hit the request cap records `"subresourceLimitReached": true`; when 
 
 A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` and `"timedOut": false`. Captures made since November 2026 also record `pageHeight`, `screenshotHeight` and `screenshotClipped`, which say whether the screenshot shows the whole page or only its top 8,000 pixels (see [Screenshot Size](/limits/#screenshot-size)). `GET /v1/verify/{id}` returns `capture.renderQuality`, and the verification page shows a partial capture with a "Page load" row under the checks.
 
+### Captures of an error answer
+
+WRL captures what the site answers, also when that is an error. A page that answers `404` or `410` is often exactly what you want on record, and a site that blocks automated visitors may answer `403` with a block page ("Access Denied"). Such a capture completes and is signed like any other, so check `render.httpStatus` on the capture: it is the status of the page's own response as WRL's browser received it, after redirects. With a 4xx or 5xx status the verification page shows a "Site answer" row under the checks ("The site answered with HTTP 403"), the dashboard shows the status in the capture's details, and MCP `get_capture` and `verify_capture` say so. The status is signed into the bundle as `captureQuality.httpStatus`. Captures made before 15 November 2026 don't have it.
+
+The headers artifact can show a different status. WRL fetches the headers in a request of its own, without a browser and without following redirects, so a site may answer that request with a redirect and the browser with a block page.
+
+An error answer with an empty page fails instead, with a reason such as "The site answered HTTP 403 and the page showed nothing (blank page)".
+
 Partial captures made before November 2026 have no WACZ bundle, because partial captures were not signed then. They cannot be verified, and `GET /v1/verify/{id}` returns `404` for them.
 
 ---

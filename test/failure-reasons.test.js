@@ -53,6 +53,12 @@ describe('categorizeError -- messages users can act on', () => {
     expect(r.retryable).toBe(false);
   });
 
+  it('names the status when the site answered a blank page with an error', () => {
+    const r = categorizeError(new Error('Captured page is not target content (blank-page, http 403)'));
+    expect(r.message).toBe('The site answered HTTP 403 and the page showed nothing (blank page)');
+    expect(r.retryable).toBe(false);
+  });
+
   it('explains a browser error page', () => {
     const r = categorizeError(new Error('Captured page is not target content (chromium-error-page)'));
     expect(r.message).toBe('The browser showed an error page instead of the site');

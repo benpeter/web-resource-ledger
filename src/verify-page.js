@@ -378,6 +378,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     timeVerification:   'Time verification',
     consentHandling:    'Cookie consent handled',
     renderQuality:      'Page load',
+    pageStatus:         'Site answer',
   };
 
   var CHECK_DESCS = {
@@ -519,6 +520,11 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       checks = checks.concat([render && render.subresourceLimitReached && !render.timedOut
         ? { name: 'renderQuality', status: 'skip', desc: 'The page made more requests than WRL allows for one capture. WRL blocked the rest, so images or content that load later may be missing.' }
         : { name: 'renderQuality', status: 'skip' }]);
+    }
+
+    // The capture shows what the site answered, and that was an error status
+    if (render && render.httpStatus >= 400) {
+      checks = checks.concat([{ name: 'pageStatus', status: 'skip', desc: 'The site answered with HTTP ' + Number(render.httpStatus) + '. The capture shows that answer, which can be an error page or a block page instead of the page itself.' }]);
     }
 
     var completedAt = fmtDate(capture.completedAt);

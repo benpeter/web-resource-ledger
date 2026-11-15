@@ -200,6 +200,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(render?.waitUntilReached !== undefined ? { waitUntilReached: render.waitUntilReached } : {}),
       ...(render?.timedOut !== undefined ? { timedOut: render.timedOut } : {}),
       ...(render?.subresourceLimitReached !== undefined ? { subresourceLimitReached: render.subresourceLimitReached } : {}),
+      ...(render?.httpStatus !== undefined ? { httpStatus: render.httpStatus } : {}),
       ...(render?.screenshotClipped !== undefined ? {
         pageHeight: render.pageHeight,
         screenshotHeight: render.screenshotHeight,
@@ -500,6 +501,10 @@ async function defaultRenderer(env, url, captureId) {
     let subresourceLimitReached = false;
     let blockedRequests = 0;
     let limitExceeded = null;
+    // Status of the page's own response as the browser got it (backlog #101).
+    // The headers artifact comes from a separate request by the Worker and can
+    // differ: a site may redirect one and block the other.
+    let httpStatus = null;
     let page = null;
 
     await context.route('**/*', async (route) => {
@@ -557,13 +562,22 @@ async function defaultRenderer(env, url, captureId) {
       if (totalBytes > MAX_PAGE_BYTES) {
         limitExceeded = 'Page exceeded 50MB size limit';
       }
+      // A later navigation of the main frame (a redirect target, a bot check
+      // that reloads the page) replaces the earlier status.
+      if (resp.request().isNavigationRequest()) {
+        try {
+          if (resp.frame() === page.mainFrame()) httpStatus = resp.status();
+        } catch (err) {
+          // frame() throws for detached frames during lifecycle transitions
+        }
+      }
     });
 
     // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
     // On timeout: 10s partial capture budget. On success: 3s settle + 2s consent + 2s post. Well within 15-min wall clock.
     try {
       await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
-      await log(env, 3, 'capture', { event: 'render.default.nav_success', url, captureId, navigationMs: Date.now() - tContext, subresourceCount, totalBytes });
+      await log(env, 3, 'capture', { event: 'render.default.nav_success', url, captureId, navigationMs: Date.now() - tContext, httpStatus, subresourceCount, totalBytes });
     } catch (navError) {
       if (navError.name === 'TimeoutError') {
         const tNav = Date.now();
@@ -604,7 +618,7 @@ async function defaultRenderer(env, url, captureId) {
           ]);
           const tContent = Date.now();
 
-          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart, subresourceCount, blockedRequests, totalBytes });
+          await log(env, 3, 'capture', { event: 'render.default.partial_complete', url, captureId, screenshotMs: tScreenshot - tNav, screenshotBytes: screenshot.byteLength, contentMs: tContent - tScreenshot, durationMs: tContent - renderStart, httpStatus, subresourceCount, blockedRequests, totalBytes });
           return {
             screenshot,
             html,
@@ -613,6 +627,7 @@ async function defaultRenderer(env, url, captureId) {
               waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
               timedOut: true,
               subresourceLimitReached,
+              ...(httpStatus !== null ? { httpStatus } : {}),
               durationMs: tContent - renderStart,
               ...screenshotCoverage(shot),
               stages: {
@@ -661,8 +676,9 @@ async function defaultRenderer(env, url, captureId) {
     // Validate rendered page is actual content (not Chromium error / blank)
     const renderCheck = await detectRenderFailure(page);
     if (renderCheck.failed) {
-      await log(env, 3, 'capture', { event: 'render.default.render_check_fail', url, captureId, reason: renderCheck.reason });
-      throw new Error(`Captured page is not target content (${renderCheck.reason})`);
+      await log(env, 3, 'capture', { event: 'render.default.render_check_fail', url, captureId, reason: renderCheck.reason, httpStatus });
+      const answeredError = renderCheck.reason === 'blank-page' && httpStatus >= 400;
+      throw new Error(`Captured page is not target content (${renderCheck.reason}${answeredError ? `, http ${httpStatus}` : ''})`);
     }
 
     // A bot check (Cloudflare challenge) instead of the page: give a JavaScript
@@ -742,7 +758,7 @@ async function defaultRenderer(env, url, captureId) {
     const tContent = Date.now();
     await log(env, 3, 'capture', { event: 'render.default.content_extracted', url, captureId, contentMs: tContent - tScreenshot, htmlLength: html.length });
 
-    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: subresourceLimitReached, subresourceCount, blockedRequests, totalBytes });
+    await log(env, 3, 'capture', { event: 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
     return {
       screenshot,
       html,
@@ -751,6 +767,7 @@ async function defaultRenderer(env, url, captureId) {
         waitUntilReached: 'load',
         timedOut: false,
         subresourceLimitReached,
+        ...(httpStatus !== null ? { httpStatus } : {}),
         durationMs: tContent - renderStart,
         ...screenshotCoverage(shot),
         settleMs: settle.settleMs,
@@ -984,6 +1001,10 @@ export function categorizeError(error) {
   if (msg.includes('not target content')) {
     if (msg.includes('(blank-page)')) {
       return { message: 'The page loaded but showed nothing (blank page)', retryable: false };
+    }
+    const answeredError = msg.match(/\(blank-page, http (\d{3})\)/);
+    if (answeredError) {
+      return { message: `The site answered HTTP ${answeredError[1]} and the page showed nothing (blank page)`, retryable: false };
     }
     return { message: 'The browser showed an error page instead of the site', retryable: false };
   }

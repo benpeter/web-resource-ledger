@@ -439,7 +439,9 @@ components:
           description: >
             JSON object of HTTP response headers captured at fetch time.
             Set-Cookie values are redacted to [redacted]. Absent if the header
-            fetch failed or timed out.
+            fetch failed or timed out. WRL fetches them in a request of its
+            own that does not follow redirects, so the status in this file can
+            differ from what the browser got (`render.httpStatus`).
           examples:
             - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
 
@@ -507,6 +509,17 @@ components:
             capture (2000). WRL blocked the ones past the cap, so content that
             loads late may be missing, and renderQuality is "partial". Absent
             on captures made before 15 November 2026.
+        httpStatus:
+          type: integer
+          minimum: 100
+          maximum: 599
+          description: >
+            HTTP status of the page's own response as WRL's browser received
+            it, after redirects. With a 4xx or 5xx status the capture shows
+            what the site answered, which can be an error page or a block page
+            instead of the page itself. It can differ from the status in the
+            headers artifact, which comes from a separate request. Absent on
+            captures made before 15 November 2026.
         durationMs:
           type: integer
           minimum: 0
@@ -691,7 +704,7 @@ components:
             Render quality of the capture. 'full' when the page reached the load
             milestone before capture (followed by an adaptive settle phase, up to
             3s). 'partial' when the capture was taken after a navigation timeout
-            but DOMContentLoaded had fired, or when the page made more than 500
+            but DOMContentLoaded had fired, or when the page made more than 2000
             requests and WRL blocked the rest (`render.subresourceLimitReached`).
             Partial captures get a signed,
             timestamped WACZ bundle like full ones, and the bundle's

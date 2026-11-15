@@ -67,6 +67,18 @@ export async function setup({ provide }) {
       return;
     }
 
+    // An error page with content, and an error answer with an empty page (backlog #101)
+    if (url.pathname === '/gone.html') {
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><head><title>Not found</title></head><body><h1 id="gone-marker">This page is gone</h1></body></html>');
+      return;
+    }
+    if (url.pathname === '/blocked-blank.html') {
+      res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><head><title></title></head><body></body></html>');
+      return;
+    }
+
     const fixtureMap = {
       '/fast.html': 'fast.html',
       '/never-settle.html': 'never-settle.html',

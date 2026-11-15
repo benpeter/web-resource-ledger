@@ -462,6 +462,35 @@ describe('verify page script -- render quality', () => {
   });
 });
 
+describe('verify page script -- the status the site answered with', () => {
+  it('adds a row when the site answered the browser with an error status', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-14T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      render: { waitUntilReached: 'load', timedOut: false, httpStatus: 403 },
+    });
+    expect(out).toContain('Verified');
+    expect(out).toContain('data-check-label="pageStatus">Site answer</div>');
+    expect(out).toContain('The site answered with HTTP 403. The capture shows that answer, which can be an error page or a block page instead of the page itself.');
+  });
+
+  it('adds no row for a 200', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-14T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      render: { waitUntilReached: 'load', timedOut: false, httpStatus: 200 },
+    });
+    expect(out).toContain('data-check-label="signature"');
+    expect(out).not.toContain('pageStatus');
+  });
+});
+
 describe('verify page script -- clipped screenshot', () => {
   it('captions a screenshot that covers only the top of the page', async () => {
     const out = await renderVerifyPage({
