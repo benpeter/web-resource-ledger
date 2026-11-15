@@ -25,9 +25,14 @@
   </div>
   <script>
     var container = document.querySelector('.ch2-container');
+    // With ?slow the settings take three seconds to open, as on a site that
+    // loads them only when asked
+    var settingsDelay = location.search.indexOf('slow') === -1 ? 0 : 3000;
     document.querySelector('.ch2-open-settings-btn').addEventListener('click', function () {
       document.querySelector('.ch2-dialog').style.display = 'none';
-      document.querySelector('.ch2-settings').style.display = 'block';
+      setTimeout(function () {
+        document.querySelector('.ch2-settings').style.display = 'block';
+      }, settingsDelay);
     });
     document.querySelector('.ch2-deny-all-btn').addEventListener('click', function () {
       document.cookie = 'cookiehub=denied; path=/';
