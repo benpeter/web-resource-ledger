@@ -30,7 +30,9 @@
       document.getElementById('CybotCookiebotDialogBodyLevelButtonLevelOptinDeclineAll').addEventListener('click', function () {
         sessionStorage.setItem('declined', '1');
         dialog.remove();
-        setTimeout(function () { location.reload(); }, 300);
+        // With ?late the reload comes after WRL has stopped watching for one
+        var reloadDelay = location.search.indexOf('late') === -1 ? 300 : 2600;
+        setTimeout(function () { location.reload(); }, reloadDelay);
       });
     }
     // The page's content comes from a request that takes two seconds, on every load
