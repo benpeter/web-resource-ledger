@@ -373,7 +373,7 @@ There is no in-place rotation. To change your webhook secret:
 2. Update your endpoint to accept signatures from both the old and new secrets during the transition window.
 3. Delete the old webhook.
 
-The brief gap between creating the new webhook and deleting the old one is safe -- both are active simultaneously. If you cannot tolerate any gap, use the [captures list endpoint](/api-reference/#tag/captures/GET/v1/captures) to detect missed completions by polling while you rotate.
+The brief gap between creating the new webhook and deleting the old one is safe -- both are active simultaneously. If you cannot tolerate any gap, use the [captures list endpoint](/api-reference/#listCaptures) to detect missed completions by polling while you rotate.
 
 ---
 

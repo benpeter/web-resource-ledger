@@ -20,6 +20,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The webhooks guide linked the captures list endpoint with an anchor (`#tag/captures/GET/v1/captures`) that the API reference page doesn't have, so the link opened the top of the page instead of `GET /v1/captures`
 - The API reference didn't describe the extra fields of problem responses (`limitType` and `quota` on a 429, `threatTypes` on a 422 from threat screening, `quarantineReason` and `quarantinedAt` on a 451), so clients generated from `openapi.yaml` dropped them. It also left out the 451 that `GET /v1/verify/{captureId}` and the diff route answer for a quarantined capture, and its 451 examples gave a `detail` WRL doesn't send
 - Broken links: Data Retention linked to Authentication and Security pages under `/security/` that don't exist, and the subprocessors page linked to DigiCert's and Coralogix's privacy policies at addresses that now answer 404
 - The Security and Compliance overview left the emailed sign-in link out of the authentication methods the whitepaper covers, and referred to "Section on Operational Model" of the incident response policy without a link
