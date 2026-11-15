@@ -38,6 +38,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - The authentication guide gave the diff route as `/v1/captures/{id}/diff/{baseId}`, the wrong way round: the first ID is the base (`/v1/captures/{baseId}/diff/{targetId}`), as in the API reference. Data Retention said rate limit counters live 60-120 seconds; each one expires 2 minutes after the last request it counted
 - The MCP `get_capture` example padded its artifact lines, and the `diff_captures` example left out the `HTML hunks` section the tool prints whenever the HTML changed. `list_captures` now has an example output too
 
+### Security
+
+- The docs site build used Eleventy, liquidjs, markdown-it, js-yaml, fast-uri and other packages with 38 open Dependabot alerts (1 critical, 20 high); they are updated and the built pages are unchanged. These packages run only when the docs site is built, not in a Worker
+
 ## [1.4.1] - 2026-11-14
 
 ### Added
