@@ -20,6 +20,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The Security and Compliance overview left the emailed sign-in link out of the authentication methods the whitepaper covers, and referred to "Section on Operational Model" of the incident response policy without a link
 - The subprocessors page put Coralogix's EU2 region in Frankfurt; it is AWS eu-north-1 in Stockholm, also in the EU
 - Why Captures Fail left out "Queue dispatch failed", the error of a capture WRL accepted but couldn't put in its capture queue, and the form "<last attempt's reason>. WRL then lost track of the capture." of a capture still pending after 24 hours; the API reference and the MCP guide quoted only the shorter form
 - The privacy policy said usage counters are kept for the current and previous billing periods; WRL keeps the current period and the 12 before it, as the Data Retention page says. It also said sign-in link hashes are deleted after use; they are deleted a day after the link expires

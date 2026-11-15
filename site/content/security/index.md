@@ -12,7 +12,7 @@ WRL's approach to security documentation is honest disclosure over marketing cla
 
 ## Security Whitepaper
 
-The whitepaper is the primary technical reference for WRL's security architecture. It covers the full system architecture, data classification and handling, authentication model (API keys, GitHub OAuth PKCE, admin credentials), encryption in transit and at rest, tenant isolation model, SSRF prevention controls, content threat screening, incident detection, supply chain controls, GDPR and eIDAS compliance posture, and a complete inventory of known residual risks with their mitigations. Every claim cites the source file that implements it. Security engineers, procurement teams, and enterprise architects evaluating WRL should start here.
+The whitepaper is the primary technical reference for WRL's security architecture. It covers the full system architecture, data classification and handling, authentication model (API keys, GitHub OAuth with PKCE, sign-in links sent by email, admin credentials), encryption in transit and at rest, tenant isolation model, SSRF prevention controls, content threat screening, incident detection, supply chain controls, GDPR and eIDAS compliance posture, and a complete inventory of known residual risks with their mitigations. Every claim cites the source file that implements it. Security engineers, procurement teams, and enterprise architects evaluating WRL should start here.
 
 [Read the Security Whitepaper](/security/whitepaper/)
 
@@ -36,7 +36,7 @@ This page lists every third-party service that processes data on behalf of WRL o
 
 ## Incident Response
 
-This document describes how WRL detects and responds to security incidents. Detection relies on eleven Coralogix alert rules covering capture failures, 5xx errors, authentication anomalies, and threat screening failures. WRL is sole-proprietor operated with no 24/7 SOC; the document is explicit about what this means for response times. In the event of a confirmed personal data breach, WRL commits to notifying affected customers within 48 hours and the supervisory authority within 72 hours (GDPR Articles 33 and 34). The document includes a breach assessment decision tree and a severity classification table. Customers whose security review requires SLA commitments should read Section on Operational Model carefully.
+This document describes how WRL detects and responds to security incidents. Detection relies on eleven Coralogix alert rules covering capture failures, 5xx errors, authentication anomalies, and threat screening failures. WRL is sole-proprietor operated with no 24/7 SOC; the document is explicit about what this means for response times. In the event of a confirmed personal data breach, WRL commits to notifying affected customers within 48 hours and the supervisory authority within 72 hours (GDPR Articles 33 and 34). The document includes a breach assessment decision tree and a severity classification table. Customers whose security review requires SLA commitments should read its [Operational Model](/security/incident-response/#operational-model) section carefully.
 
 [Read the Incident Response Policy](/security/incident-response/)
 
