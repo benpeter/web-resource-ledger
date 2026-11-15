@@ -1468,7 +1468,7 @@ function createMcpServer(env, ctx, auth, origin) {
       const fields = withNextRun(checked.fields, existing);
       const updated = await updateSchedule(env.DB, scheduleId, auth.tenantId, fields);
       ctx.waitUntil(log(env, 3, 'schedule', {
-        event: 'schedule.update',
+        event: 'schedule.updated',
         tenantId: auth.tenantId,
         keyName: auth.keyName,
         scheduleId,
