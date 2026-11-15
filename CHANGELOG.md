@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- A verification link pasted into Slack, Teams, LinkedIn, X, WhatsApp, Discord, Telegram, Mastodon or Bluesky shows a preview card that names the captured page and the capture time ("Verified capture of example.com/pricing"). The verification page has Open Graph and Twitter tags for it, and those services get the page instead of JSON although they ask for `*/*`. The card image is the Web Resource Ledger card, never the screenshot
 - `openapi.yaml` describes webhook deliveries in an OpenAPI 3.1 `webhooks` section: the request WRL sends to your endpoint, its five headers and the `WebhookEventPayload` body, and what WRL does with your answer. The API reference shows it as "Event delivery to your endpoint" under Webhooks
 - `/.well-known/security.txt` (RFC 9116) on webresourceledger.com names the reporting channel and points to `SECURITY.md`; `api.`, `verify.` and `docs.webresourceledger.com` redirect to it
 

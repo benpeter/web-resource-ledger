@@ -105,6 +105,8 @@ curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b
 
 The `verifyUrl` included in every capture record also renders as a human-readable browser page. Share it freely; no account is needed to view it.
 
+Pasted into Slack, Teams, LinkedIn, X, WhatsApp, Discord, Telegram, Mastodon or Bluesky, the link shows a preview card: "Verified capture of example.com/pricing", the capture time, and the Web Resource Ledger card image. The card never shows the screenshot. Those services fetch the link with `Accept: */*`, so WRL recognises them by their user agent and serves them the page; every other client that doesn't ask for `text/html` still gets JSON.
+
 ### What each check confirms
 
 | Check | What it confirms |

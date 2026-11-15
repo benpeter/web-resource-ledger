@@ -20,7 +20,7 @@ import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
 import { handleMcp } from './mcp.js';
-import { buildCacheKey, buildSimpleCacheKey, getCache } from './cache.js';
+import { buildCacheKey, buildSimpleCacheKey, getCache, wantsHtml } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { htmlAdminDashboard } from './admin/admin-shell.js';
 import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
@@ -2354,9 +2354,9 @@ async function handleVerifyCapture(request, env, ctx, match) {
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
   const cip = await computeCip(env, clientIp);
 
-  // Determine content type early for logging (Accept negotiation)
-  const accept = request.headers.get('Accept') || '';
-  const contentType = accept.includes('text/html') ? 'html' : 'json';
+  // Determine content type early for logging (Accept negotiation; link-preview
+  // clients get the page so a shared link shows a card)
+  const contentType = wantsHtml(request) ? 'html' : 'json';
 
   // Cache status tracking for logging and headers
   let cacheStatus = 'bypass';
@@ -2492,7 +2492,8 @@ async function handleVerifyCapture(request, env, ctx, match) {
 
   // Step 9: Content negotiation -- serve HTML to browsers
   if (contentType === 'html') {
-    const htmlResp = withInstrumentHeaders(htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl), originDurationMs);
+    const card = { url: record.url, completedAt: record.completedAt, verified: result.verified };
+    const htmlResp = withInstrumentHeaders(htmlVerifyResponse(captureId, new URL(request.url).origin, cacheControl, card), originDurationMs);
     if (result.verified) {
       const toCache = new Response(htmlResp.body, { status: htmlResp.status, headers: new Headers(htmlResp.headers) });
       if (cache) ctx.waitUntil(cache.put(cacheKey, toCache.clone()));

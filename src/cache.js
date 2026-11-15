@@ -11,9 +11,26 @@
  */
 export function buildCacheKey(request) {
   const url = new URL(request.url);
-  const accept = request.headers.get('Accept') || '';
-  url.searchParams.set('_fmt', accept.includes('text/html') ? 'html' : 'json');
+  url.searchParams.set('_fmt', wantsHtml(request) ? 'html' : 'json');
   return new Request(url.toString(), { method: 'GET' });
+}
+
+// Clients that fetch a shared link to build a preview card. Most send
+// `Accept: */*`, which would otherwise get them JSON and no card.
+const LINK_PREVIEW_AGENTS = /Slackbot|Twitterbot|facebookexternalhit|Facebot|LinkedInBot|Discordbot|WhatsApp|TelegramBot|SkypeUriPreview|Mastodon|Bluesky Cardyb/i;
+
+/**
+ * Content negotiation for endpoints that serve a page to people and JSON to
+ * programs: HTML when the client asks for it, or when it is a link-preview
+ * client that accepts anything.
+ *
+ * @param {Request} request
+ * @returns {boolean}
+ */
+export function wantsHtml(request) {
+  const accept = request.headers.get('Accept') || '';
+  if (accept.includes('text/html')) return true;
+  return (accept === '' || accept.includes('*/*')) && LINK_PREVIEW_AGENTS.test(request.headers.get('User-Agent') || '');
 }
 
 /**
