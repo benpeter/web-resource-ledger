@@ -841,7 +841,8 @@ async function settleAfterConsent(page, navigated, openRequests) {
   }
   if (!navigated()) {
     await waitForSettle(page);
-    return false;
+    // The reload can start during this wait as well (theguardian.com)
+    if (!navigated()) return false;
   }
   // A reloaded page that doesn't reach its load event is captured as it stands
   await page.waitForLoadState('load', { timeout: NAV_TIMEOUT_MS }).catch(() => {});
