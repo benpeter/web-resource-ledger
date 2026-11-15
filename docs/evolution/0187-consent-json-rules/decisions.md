@@ -46,9 +46,13 @@
 - Not done: ending the step early when autoconsent reports that it found
   nothing. Its last detection attempt ends after the 2 seconds anyway.
 - Not done: a browser in the EU. WRL's browser runs where Cloudflare puts
-  it, and sites that only ask EU visitors show it no banner
-  (kleinanzeigen.de, lemonde.fr). That is what the page looked like to that
-  visitor, and the capture says so.
+  it; on staging the CookieHub banner of semrush.com carried
+  `data-region="us-ca"`, so the site took it for a visitor from California.
+  A site that only asks EU visitors shows it no banner. That is what the
+  page looked like to that visitor, and the capture says so.
+- Not done: banners autoconsent has no hand-written rule for. kleinanzeigen.de
+  shows its own "accept all or pay" wall, which stays in the screenshot
+  with `notDetected`, as before.
 - The polling fallback (a browser without `exposeBinding`) gets the same
   rules and limits, so the two paths don't differ. Nothing runs it today.
 - "WRL never clicks anything else" on the site was no longer exact: where a
