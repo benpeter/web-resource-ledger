@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WRL Integration Test - CookieHub banner</title>
+</head>
+<body>
+  <h1>Page with a CookieHub banner</h1>
+  <p id="content-marker">The page's own content.</p>
+  <!-- Markup of a CookieHub banner (class names as on semrush.com). autoconsent
+       has no built-in detector for it; it knows it from its JSON rule
+       "cookiehub": open the settings, then deny all. -->
+  <div class="ch2">
+    <div class="ch2-container">
+      <div id="ch2-dialog" class="ch2-dialog ch2-visible" role="dialog" style="position:fixed;left:0;right:0;bottom:0;padding:40px;background:#036;color:#fff">
+        <p>About cookies on this site.</p>
+        <button class="ch2-btn ch2-open-settings-btn">Cookie settings</button>
+        <button class="ch2-btn ch2-allow-all-btn">Allow all cookies</button>
+      </div>
+      <div class="ch2-settings" style="display:none;position:fixed;left:20%;right:20%;top:20%;padding:40px;background:#fff;color:#000">
+        <p>Choose your cookies.</p>
+        <button class="ch2-btn ch2-deny-all-btn">Deny all</button>
+        <button class="ch2-btn ch2-save-settings-btn">Save settings</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    var container = document.querySelector('.ch2-container');
+    document.querySelector('.ch2-open-settings-btn').addEventListener('click', function () {
+      document.querySelector('.ch2-dialog').style.display = 'none';
+      document.querySelector('.ch2-settings').style.display = 'block';
+    });
+    document.querySelector('.ch2-deny-all-btn').addEventListener('click', function () {
+      document.cookie = 'cookiehub=denied; path=/';
+      container.remove();
+    });
+    document.querySelector('.ch2-allow-all-btn').addEventListener('click', function () {
+      document.cookie = 'cookiehub=allowed; path=/';
+      container.remove();
+    });
+  </script>
+</body>
+</html>
