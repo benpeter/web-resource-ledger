@@ -1117,6 +1117,9 @@ export function categorizeError(error) {
     }
     return { message: 'The browser showed an error page instead of the site', retryable: false };
   }
+  if (msg.includes('stopped answering while it was scrolled')) {
+    return { message: 'The page stopped answering while WRL scrolled it', retryable: true };
+  }
   if (msg.includes('did not respond')) {
     return { message: 'The site did not respond, possibly because it blocks automated visits or this region', retryable: false };
   }
