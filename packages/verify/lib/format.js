@@ -137,6 +137,36 @@ function mergeTimestampChecks(checks) {
 }
 
 // ---------------------------------------------------------------------------
+// Capture quality notes
+// ---------------------------------------------------------------------------
+
+/**
+ * What a reader should know about the capture before relying on it, from the
+ * capture service's signed record: a partial render, a screenshot that shows
+ * only the top of the page, an error answer from the site. Empty for a full
+ * capture of a page that answered normally.
+ *
+ * @param {object|null|undefined} quality  result.capture.quality
+ * @returns {string[]}  sentences without a full stop
+ */
+export function captureQualityNotes(quality) {
+  if (!quality) return [];
+  const notes = [];
+  if (quality.renderQuality === 'partial') {
+    notes.push(quality.subresourceLimitReached && !quality.timedOut
+      ? 'Partial capture: the page made more requests than the capture service allows, so content that loads late may be missing'
+      : 'Partial capture: the page had not finished loading, so content that loads late may be missing');
+  }
+  if (quality.screenshotClipped && quality.screenshotHeight && quality.pageHeight) {
+    notes.push(`The screenshot shows the top ${quality.screenshotHeight} px of a ${quality.pageHeight} px page; the HTML has the whole page`);
+  }
+  if (quality.httpStatus >= 400) {
+    notes.push(`The site answered with HTTP ${quality.httpStatus}; the capture shows that answer, which can be an error page or a block page`);
+  }
+  return notes;
+}
+
+// ---------------------------------------------------------------------------
 // Human-readable formatter
 // ---------------------------------------------------------------------------
 
@@ -151,6 +181,7 @@ function mergeTimestampChecks(checks) {
  *     signature?: string,
  *     publicKey?: string,
  *     signedAt?: string,
+ *     quality?: object|null,
  *     timestamp?: { genTime: string, tsa: string },
  *     qualifiedTimestamp?: { genTime: string, tsa: string }
  *   },
@@ -214,6 +245,10 @@ export function formatHuman(result, opts = {}) {
   const pageUrl = result.capture?.url;
   if (pageUrl) {
     process.stdout.write(`  Page      ${pageUrl}\n`);
+  }
+
+  for (const note of captureQualityNotes(result.capture?.quality)) {
+    process.stdout.write(`  Note      ${note}\n`);
   }
 
   const signedAt = result.capture?.signedAt;
