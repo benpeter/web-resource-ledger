@@ -10,7 +10,7 @@ npm install
 npm test
 ```
 
-This works immediately -- no accounts or API keys needed. The test suite is fully self-contained via Miniflare's simulated Workers runtime.
+This works immediately, with no accounts or API keys. The test suite is fully self-contained via Miniflare's simulated Workers runtime.
 
 ## License
 
@@ -27,7 +27,7 @@ an issue and ask.
 Running the actual capture pipeline requires:
 
 - Cloudflare Workers Paid plan with Browser Rendering enabled
-- A `.dev.vars` file -- create it from this template:
+- A `.dev.vars` file. Create it from this template:
 
 ```ini
 # Required
@@ -102,7 +102,7 @@ cd packages/verify && npm test   # The @w-r-l/verify CLI (plain node --test)
 
 **Sync tests** (`npm run test:sync`) read the code, the docs and the landing pages as text. CI runs them with a build of the docs site in the `test-docs` job on every pull request, including docs-only ones, which the `test` job skips.
 
-**Unit tests** (`npm test`) use mocked renderers and `fetchMock` -- fast, no network, no browser. **Integration tests** (`npm run test:integration`) exercise the real capture pipeline through headless Chromium: browser rendering, WACZ bundling, TSA timestamping. The first run downloads Chromium automatically via miniflare.
+**Unit tests** (`npm test`) use mocked renderers and `fetchMock`: fast, no network, no browser. **Integration tests** (`npm run test:integration`) exercise the real capture pipeline through headless Chromium: browser rendering, WACZ bundling, TSA timestamping. The first run downloads Chromium automatically via miniflare.
 
 A few gotchas worth knowing before you write tests:
 
@@ -110,12 +110,12 @@ A few gotchas worth knowing before you write tests:
 - Import `SELF`, `env` and `createExecutionContext` from `cloudflare:test`, and `fetchMock` from `./fetch-mock.js` (vitest-pool-workers 0.13 dropped the built-in one; the shim keeps its `get().intercept().reply()` calls).
 - Storage is isolated per test file, not per test. Clean up in `beforeEach`: `cleanDb(env.DB)` for D1, and delete the `rl:` KV keys when a test goes through rate limits.
 - Test signing keys are auto-generated at load time; no key setup is needed.
-- **Unit tests only:** Tests that make outbound HTTP calls require `fetchMock`. Call `fetchMock.activate()` in `beforeEach` and `fetchMock.deactivate()` in `afterEach`. A `fetchMock` left active after a test will cause failures in later tests -- this is a 20+ minute debugging trap if you don't know to look for it.
+- **Unit tests only:** Tests that make outbound HTTP calls require `fetchMock`. Call `fetchMock.activate()` in `beforeEach` and `fetchMock.deactivate()` in `afterEach`. A `fetchMock` left active after a test will cause failures in later tests. This is a 20+ minute debugging trap if you don't know to look for it.
 - **Integration tests only:** Each test pre-acquires a browser session via `acquire()` in `beforeEach`. This is required because miniflare's browser binding doesn't implement `limits()`.
 
 ## Design Philosophy
 
-This project uses vanilla JavaScript with zero frontend frameworks. This is intentional -- not a gap waiting to be filled. PRs that introduce frameworks (React, Vue, Tailwind, jQuery, etc.) or transpilation steps (TypeScript, Babel) will be declined. If you think a dependency is warranted, open an issue first to discuss.
+This project uses vanilla JavaScript with zero frontend frameworks. This is intentional, not a gap waiting to be filled. PRs that introduce frameworks (React, Vue, Tailwind, jQuery, etc.) or transpilation steps (TypeScript, Babel) will be declined. If you think a dependency is warranted, open an issue first to discuss.
 
 The project follows the [Helix Manifesto](https://github.com/adobe/helix-home/blob/main/manifesto.md). YAGNI and KISS are the core principles: don't build it until you need it, and simple beats elegant.
 
@@ -132,7 +132,7 @@ Run `npm run lint:api` locally against `openapi.yaml` before pushing. CI runs th
 
 ## How This Project Is Built
 
-`docs/evolution/` contains the design rationale for each development phase -- including the prompts, decisions made, and outcomes. If you're wondering why something is the way it is, start there.
+`docs/evolution/` contains the design rationale for each development phase, including the prompts, decisions made, and outcomes. If you're wondering why something is the way it is, start there.
 
 The backlog at `docs/backlog.md` shows planned work and current priorities.
 

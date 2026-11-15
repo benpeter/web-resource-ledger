@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE) [![98% Vibe Coded](https://img.shields.io/badge/98%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
 
-Cryptographic evidence of web content -- capture what a page looked like, when, with proof anyone can verify.
+Cryptographic evidence of web content: capture what a page looked like, when, with proof anyone can verify.
 
-Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519-signed WACZ bundle. The verification URL works for anyone -- no account needed. Deploy on your own infrastructure; your captures, your keys, your evidence.
+Submit a URL, get back a screenshot, rendered HTML, HTTP headers, and an Ed25519-signed WACZ bundle. The verification URL works for anyone, without an account. Deploy on your own infrastructure; your captures, your keys, your evidence.
 
-WRL was built almost entirely by an LLM (Claude) with a human directing the work. Every phase -- from MVP to production -- is documented in [`docs/evolution/`](docs/evolution/). The prompts, agent debates, decisions, and outcomes are all public.
+WRL was built almost entirely by an LLM (Claude) with a human directing the work. Every phase, from MVP to production, is documented in [`docs/evolution/`](docs/evolution/). The prompts, agent debates, decisions, and outcomes are all public.
 
 For comprehensive guides on authentication, verification, batch captures, and MCP integration, see [docs.webresourceledger.com](https://docs.webresourceledger.com).
 
@@ -16,13 +16,13 @@ For comprehensive guides on authentication, verification, batch captures, and MC
 
 A single API call produces:
 
-- **Dual screenshots** (PNG) -- before and after cookie consent dismissal, so both
+- **Dual screenshots** (PNG): before and after cookie consent dismissal, so both
   the banner presence and the underlying page content are preserved
-- **Rendered HTML** -- the DOM after JavaScript execution
-- **HTTP response headers** -- the server's response at capture time
-- **Signed WACZ bundle** -- all artifacts packaged, hashed, and signed with Ed25519
-- **Verification URL** -- a shareable link anyone can use to confirm authenticity
-- **FRE 902(13) certification PDF** -- `GET /v1/captures/{captureId}/certificate` returns a signed PDF describing the capture process and integrity evidence, designed to support a Rule 902(13) self-authentication foundation
+- **Rendered HTML**: the DOM after JavaScript execution
+- **HTTP response headers**: the server's response at capture time
+- **Signed WACZ bundle**: all artifacts packaged, hashed, and signed with Ed25519
+- **Verification URL**: a shareable link anyone can use to confirm authenticity
+- **FRE 902(13) certification PDF**: `GET /v1/captures/{captureId}/certificate` returns a signed PDF describing the capture process and integrity evidence, designed to support a Rule 902(13) self-authentication foundation
 
 ## Content Security
 
@@ -30,7 +30,7 @@ WRL screens every submitted URL against threat intelligence databases before cap
 
 - URLs identified as threats (malware, phishing, etc.) are rejected at submission time with a 422 response.
 - Existing captures are re-scanned daily. Captures that fail re-screening are quarantined: metadata remains accessible, artifact downloads return 451.
-- Screening degrades gracefully -- if the threat intelligence service is unavailable, captures proceed normally. The `threatCheck` field on a capture record reflects the outcome: `pass`, `fail`, or `unavailable`.
+- Screening degrades gracefully: if the threat intelligence service is unavailable, captures proceed normally. The `threatCheck` field on a capture record reflects the outcome: `pass`, `fail`, or `unavailable`.
 
 Configure the service via `GOOGLE_WEB_RISK_API_KEY` in your environment (see [step 8b](#8b-configure-content-security-screening-optional) below). The key is optional; omitting it disables screening and all captures report `threatCheck: unavailable`.
 
@@ -87,13 +87,13 @@ curl https://api.webresourceledger.com/v1/verify/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b
 
 Returns a JSON verification result with up to five checks: `artifactHashes`, `bundleHash`, `signature`, `timestamp` (the RFC 3161 timestamp obtained at capture time) and, for captures made with qualified timestamps turned on, `qualifiedTimestamp`. Legacy captures from before timestamps return three checks. The `verifyUrl` from step 3 also renders as a human-readable page in browsers.
 
-Capture URLs are directly shareable -- anyone with the capture ID can access the capture and its artifacts. No tokens needed.
+Capture URLs are directly shareable: anyone with the capture ID can access the capture and its artifacts. No tokens needed.
 
 > **Sharing:** Capture URLs are inherently shareable. Anyone with the URL can access the capture record and all artifacts. For proof-of-authenticity, share the `verifyUrl` which renders as a human-readable verification page.
 
 #### Offline verification
 
-For independent, offline verification -- including full CMS/PKCS#7 certificate chain validation -- use the CLI tool:
+For independent, offline verification, including full CMS/PKCS#7 certificate chain validation, use the CLI tool:
 
 ```bash
 npx @w-r-l/verify capture.wacz --origin https://api.webresourceledger.com
@@ -207,7 +207,7 @@ CAPTURE_API_KEY=<hex string from the command above>
 
 ### 5. Configure signing key
 
-WRL signs WACZ bundles with Ed25519. The signing key is optional -- if `SIGNING_KEY` is not set, captures complete successfully but without WACZ bundles (screenshot, HTML, and headers are still stored).
+WRL signs WACZ bundles with Ed25519. The signing key is optional: if `SIGNING_KEY` is not set, captures complete successfully but without WACZ bundles (screenshot, HTML, and headers are still stored).
 
 Generate a key pair:
 
@@ -215,7 +215,7 @@ Generate a key pair:
 node scripts/generate-signing-key.js
 ```
 
-The script prints a private key (PKCS8 DER, base64) and the corresponding public key (raw, base64). The public key is embedded automatically in every signed bundle for verification -- no separate distribution needed.
+The script prints a private key (PKCS8 DER, base64) and the corresponding public key (raw, base64). The public key is embedded automatically in every signed bundle for verification, so no separate distribution is needed.
 
 Set the production secret:
 
@@ -256,7 +256,7 @@ IP_HASH_SEED=<hex string from the command above>
 
 ### 7. Configure Coralogix log ingestion (required for production observability)
 
-`CORALOGIX_SEND_KEY` is the API key for structured log ingestion to Coralogix. Without it, the Worker runs normally but logs go to console only -- no structured log ingestion occurs. For fork developers who do not use Coralogix, this key is effectively optional.
+`CORALOGIX_SEND_KEY` is the API key for structured log ingestion to Coralogix. Without it, the Worker runs normally but logs go to console only; no structured log ingestion occurs. For fork developers who do not use Coralogix, this key is effectively optional.
 
 Find your send key in the Coralogix dashboard under **Settings > Send Your Data > API Keys**.
 
@@ -418,9 +418,9 @@ npm run smoke
 
 WRL followed a three-act development plan. All three acts are complete:
 
-1. **Solid Foundation** (complete) -- List endpoint, key versioning, CORS, security hardening. Closed trust gaps for single-operator use.
-2. **Evidence-Grade** (complete) -- RFC 3161 timestamps, per-tenant keys, audit logging. Made captures independently verifiable.
-3. **Infrastructure** (complete) -- MCP server, web UI, batch capture, scheduled captures, docs site, landing page, usage metering, webhooks. Expanded WRL into a platform.
+1. **Solid Foundation** (complete): List endpoint, key versioning, CORS, security hardening. Closed trust gaps for single-operator use.
+2. **Evidence-Grade** (complete): RFC 3161 timestamps, per-tenant keys, audit logging. Made captures independently verifiable.
+3. **Infrastructure** (complete): MCP server, web UI, batch capture, scheduled captures, docs site, landing page, usage metering, webhooks. Expanded WRL into a platform.
 
 [`docs/backlog.md`](docs/backlog.md) is the roadmap record from March to October 2026; open work is tracked privately since then. [GitHub issues](https://github.com/benpeter/web-resource-ledger/issues) are open for bug reports and requests.
 
@@ -428,13 +428,13 @@ WRL followed a three-act development plan. All three acts are complete:
 
 WRL is a production web evidence service. It is also a documented experiment in LLM-driven software development. A human defined what to build and made product decisions; an LLM (Claude) wrote virtually all the code, tests, infrastructure, and documentation.
 
-The full build history is in [`docs/evolution/`](docs/evolution/) -- more than 170 phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
+The full build history is in [`docs/evolution/`](docs/evolution/): more than 170 phases covering architecture decisions, agent disagreements, and human overrides. If you're interested in what LLM-driven development actually looks like at production scale, start there.
 
 ## Reference
 
 ### Key Rotation
 
-Key rotation is safe -- old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData.signatures` array (v0.2.0) or `signedData` directly (v0.1.0 legacy) and in the D1 capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
+Key rotation is safe: old captures continue to verify after rotation. Every time a capture is signed, the signing key is archived automatically. Each key is identified by a `keyId`: the first 8 hex characters of the SHA-256 of the raw 32-byte public key. The `keyId` is stored in the WACZ bundle's `signedData.signatures` array (v0.2.0) or `signedData` directly (v0.1.0 legacy) and in the D1 capture record. During verification, the system looks up the correct historical key by `keyId` rather than assuming the current key.
 
 Rotation procedure:
 
@@ -495,10 +495,10 @@ The `build` object is present when deployed via CI (injected at build time via `
 
 All responses include:
 
-- `Link` -- points to the terms-of-service URL with `rel="terms-of-service"`. Present on every response.
-- `Strict-Transport-Security` -- includes `preload` and `includeSubDomains`. Present on every response.
-- `WRL-API-Version` -- the API version that produced the response (see [CHANGELOG.md](CHANGELOG.md)). Present on every response.
-- `X-RateLimit-Limit` -- the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints.
+- `Link`: points to the terms-of-service URL with `rel="terms-of-service"`. Present on every response.
+- `Strict-Transport-Security`: includes `preload` and `includeSubDomains`. Present on every response.
+- `WRL-API-Version`: the API version that produced the response (see [CHANGELOG.md](CHANGELOG.md)). Present on every response.
+- `X-RateLimit-Limit`: the rate limit ceiling for the endpoint. Present on responses from rate-limited endpoints.
 
 ## Legal
 
@@ -509,4 +509,4 @@ By using this API, you agree to the [Terms of Service](TERMS.md).
 
 ## License
 
-[PolyForm Shield 1.0.0](LICENSE) -- source-available. You may use, modify, and self-host WRL for any purpose except offering a competing web capture service. See [LICENSE](LICENSE) for the full text.
+[PolyForm Shield 1.0.0](LICENSE): source-available. You may use, modify, and self-host WRL for any purpose except offering a competing web capture service. See [LICENSE](LICENSE) for the full text.

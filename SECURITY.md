@@ -14,7 +14,7 @@ The same channel is listed in [`security.txt`](https://webresourceledger.com/.we
 
 ## What to Expect
 
-We will acknowledge receipt of your report within 72 hours and aim to provide an initial assessment within 7 days. These are goals, not guarantees -- this is a small project maintained in spare time. We do take every report seriously.
+We will acknowledge receipt of your report within 72 hours and aim to provide an initial assessment within 7 days. These are goals, not guarantees; this is a small project maintained in spare time. We do take every report seriously.
 
 ## Scope
 
@@ -42,7 +42,7 @@ The following are considered security issues:
 
 **Residual risks:**
 - Capture ID as bearer capability: anyone who obtains a capture ID (from logs, shared URLs, browser history) can access that capture and all its artifacts. This is the intended design. Tenants should treat capture IDs with the same care as a document sharing link.
-- All individual capture endpoints confirm capture existence: intentional -- public verifiability is a core requirement.
+- All individual capture endpoints confirm capture existence: intentional, because public verifiability is a core requirement.
 
 The following are regular bugs, not security issues:
 
