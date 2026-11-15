@@ -60,7 +60,7 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 **Data processed:** SHA-256 hash of the WACZ bundle only. No personal data is transmitted.
 **Data location:** USA
 **Transfer mechanism:** No personal data transferred
-**DPA / Privacy:** [digicert.com/legal/privacy-policy](https://www.digicert.com/legal/privacy-policy/)
+**DPA / Privacy:** [privacy.digicert.com/policies/en](https://privacy.digicert.com/policies/en/)
 
 ---
 
@@ -82,7 +82,7 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 **Data processed:** Pseudonymized IP identifiers (HMAC-SHA-256 with a daily rotating key — not reversible to the original IP), tenant IDs, capture event metadata, and Worker error traces. Raw IP addresses and email addresses are never logged.
 **Data location:** EU (Coralogix EU2 region, AWS eu-north-1, Stockholm)
 **Transfer mechanism:** EU processing (no transfer outside the EU for this region)
-**DPA / Privacy:** [coralogix.com/legal/privacy-policy](https://coralogix.com/legal/privacy-policy/)
+**DPA / Privacy:** [coralogix.com/privacy-policy](https://coralogix.com/privacy-policy/)
 
 ---
 

@@ -20,6 +20,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- Broken links: Data Retention linked to Authentication and Security pages under `/security/` that don't exist, and the subprocessors page linked to DigiCert's and Coralogix's privacy policies at addresses that now answer 404
 - The Security and Compliance overview left the emailed sign-in link out of the authentication methods the whitepaper covers, and referred to "Section on Operational Model" of the incident response policy without a link
 - The subprocessors page put Coralogix's EU2 region in Frankfurt; it is AWS eu-north-1 in Stockholm, also in the EU
 - Why Captures Fail left out "Queue dispatch failed", the error of a capture WRL accepted but couldn't put in its capture queue, and the form "<last attempt's reason>. WRL then lost track of the capture." of a capture still pending after 24 hours; the API reference and the MCP guide quoted only the shorter form
