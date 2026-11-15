@@ -107,9 +107,9 @@ export const CAPTURE_MAX_ATTEMPTS = 4;
 // How long a detected bot check gets to finish by itself before the capture fails.
 const BOT_CHECK_WAIT_MS = 8000;
 
-// How long one check of the loaded page may take (browser error page, bot
-// check). Each is one small call to the browser, answered in milliseconds
-// unless the page keeps the browser busy.
+// How long one small call to the loaded page may take: the two checks before
+// the scroll (browser error page, bot check) and the two calls after it. Each
+// is answered in milliseconds unless the page keeps the browser busy.
 const PAGE_CHECK_MAX_MS = 15000;
 
 /**
@@ -1075,7 +1075,7 @@ export async function scrollStepwise({ stepPx, pauseMs, maxHeight, budgetMs }) {
  * @param {import('@cloudflare/playwright').Page} page
  * @returns {Promise<{ scrollMs: number, steps: number, budgetUsedUp: boolean }>}
  *   scrollMs is the time the whole step took
- * @throws {Error} When the page does not answer the scroll call in time
+ * @throws {Error} When the page does not answer one of the step's three calls in time
  */
 export async function triggerLazyLoading(page) {
   const start = Date.now();
@@ -1097,12 +1097,15 @@ export async function triggerLazyLoading(page) {
   // browser fetches them immediately regardless of viewport position.
   // Scrolling alone doesn't reliably trigger lazy images -- the browser
   // cancels fetches for elements that leave the viewport too quickly.
-  await page.evaluate(() => {
+  // The two small calls below get a limit like the scroll call: on a page
+  // that keeps the browser busy one of them stayed unanswered until the
+  // browser session was gone (backlog #105).
+  await answerWithin(page.evaluate(() => {
     document.querySelectorAll('img[loading="lazy"]').forEach(img => {
       img.loading = 'eager';
       if (img.dataset.src && !img.src) img.src = img.dataset.src;
     });
-  });
+  }), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was scrolled');
 
   // Settle: wait for the force-loaded image requests to complete
   await waitForSettle(page, 3000);
@@ -1112,7 +1115,7 @@ export async function triggerLazyLoading(page) {
   // bottom of an 8000px page is ~32k pixels that need repainting after
   // scroll position changes.  Without this pause, page.screenshot()
   // captures stale/blank tiles at the bottom.
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await answerWithin(page.evaluate(() => window.scrollTo(0, 0)), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was scrolled');
   await new Promise((r) => setTimeout(r, 500));
 
   return { scrollMs: Date.now() - start, steps, budgetUsedUp };
