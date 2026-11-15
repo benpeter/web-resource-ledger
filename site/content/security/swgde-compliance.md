@@ -81,7 +81,15 @@ WRL's capture pipeline addresses this through its isolated browser architecture.
 
 The pipeline uses headless Chromium with no extensions installed. There is no translator plugin to modify displayed text, no ad blocker to hide page elements, and no password manager to inject credentials. The browser presents the target URL as an unauthenticated visitor with a standard Chromium user agent.
 
-One step does change what the page shows. After the first screenshot, WRL runs the open-source `@duckduckgo/autoconsent` library, which looks for a cookie consent banner and declines it. When a banner was dismissed, WRL takes a second screenshot, so the capture shows the page both with and without the banner, and `captureSettings` in `datapackage.json` records the outcome. Both screenshots and the settings are covered by the signature. Captures that time out after the page loaded (partial captures) skip this step. The first screenshot is the page as a visitor first saw it.
+WRL does act on the page in three ways, and each one shows in the capture:
+
+- **It scrolls.** Once from top to bottom, 12,000 px at most, and back to the top, so that content which loads when it comes into view is there. `render.stages.scrollMs` has the time it took.
+- **It loads lazy images.** Images marked `loading="lazy"` are told to load at once. In the stored HTML those images read `loading="eager"`, and a lazy image that kept its address in `data-src` has it in `src`. WRL changes nothing else in the page's markup.
+- **It declines cookies.** After the first screenshot, WRL runs the open-source `@duckduckgo/autoconsent` library, which looks for a cookie consent banner and declines it. When a banner was dismissed, WRL waits for the page to come to rest (a site that reloads itself on the choice is scrolled again) and takes a second screenshot, so the capture shows the page both with and without the banner, and `captureSettings` in `datapackage.json` records the outcome. Both screenshots and the settings are covered by the signature. See [Cookie banners](/verification/#cookie-banners).
+
+WRL never accepts cookies, never fills in a form or clicks anything else, and does not answer a bot check: a page that shows one fails. The first screenshot is the page after the scroll and before the cookie step.
+
+WRL also holds the page back in three ways. Service workers are blocked. The page cannot take its main frame to another site. And requests past the first 2000 are blocked, in which case the capture is marked partial (see [Partial captures](/verification/#partial-captures)).
 
 WRL captures originate from Cloudflare's network. The capture does not originate from the tenant's IP address or the examiner's workstation. This architectural separation means the examiner's own network presence is not exposed to the target site during capture. However, the capture does originate from Cloudflare infrastructure with a standard Chromium user agent; the target site may log the request with Cloudflare egress IP addresses. This should be understood and accounted for in the investigation.
 
@@ -96,6 +104,7 @@ SWGDE 21-F-001 Section 4.1 requires that the capture device be equipped with app
 WRL's pipeline provides a standardized, fixed configuration for every capture:
 
 - Headless Chromium with no extensions, no plugins, and no user data directory
+- A 1280 × 720 viewport at device scale factor 2
 - No cookies or cached data from prior sessions
 - Standard Chromium user agent string
 - Google Web Risk threat screening before each capture
@@ -151,7 +160,7 @@ WRL captures produce WACZ (Web Archive Collection Zipped) bundles. WACZ is an op
 - `datapackage.json` manifest with SHA-256 hashes for every artifact
 - `datapackage-digest.json` with the Ed25519 signature, RFC 3161 timestamp, and signing metadata
 
-Content is captured as the browser receives it from the server, in the native encoding, language, and format served. The bundle preserves both the rendered HTML and the underlying HTTP response data.
+Content is captured as the browser receives it from the server, in the native encoding, language, and format served. The rendered HTML is the page after its own scripts ran and after the steps described under [Section 3.4](#section-3-4-evidence-contamination); the bundle also holds the HTTP response headers, which WRL fetches in a request of its own.
 
 SWGDE Section 9 explicitly identifies zip and gzip as acceptable archive formats for preservation. WACZ is a ZIP-based format and satisfies this requirement directly.
 
