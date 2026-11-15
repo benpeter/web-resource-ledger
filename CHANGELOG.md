@@ -24,6 +24,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- The MCP endpoint answers `resources/list`, `resources/templates/list` and `prompts/list` without a key with "method not found" instead of 401. WRL offers tools only, and MCP directories that ask for all three lists read the 401 as a server that needs sign-in before it says what it has
 - webresourceledger.com printed typed double hyphens in every page title ("Privacy Policy -- Web Resource Ledger"), in the homepage text, in the FAQ structured data that search engines show, and in `llms.txt`. Titles now use " — Web Resource Ledger", like the docs titles; the homepage sentences use a comma, colon, semicolon, parentheses or a new sentence
 - The API reference printed 45 typed double hyphens from `openapi.yaml` descriptions, such as "Store this value now -- it cannot be retrieved after this response". Response descriptions now use the "Service Unavailable — service is at capacity" form the rest of the spec uses, and other descriptions a comma, colon, semicolon or parentheses
 - Docs pages printed a typed double hyphen wherever a dash was meant, on 123 lines such as "the brief window where both keys are valid is safe -- old captures remain accessible"; they now use a comma, colon, semicolon, parentheses or a new sentence. Limits & Quotas also says plainly that each URL of a batch counts against the rate limit

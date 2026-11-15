@@ -290,6 +290,20 @@ describe('keyless discovery', () => {
     expect(body.error.code).toBe(-32601);
   });
 
+  // Directories also ask what else the server offers. WRL has no resources
+  // and no prompts; a 401 there reads as "sign in to find out".
+  it('answers the resource and prompt lists without a key as methods the server does not have', async () => {
+    const resources = await mcpPost({ jsonrpc: '2.0', id: 5, method: 'resources/list' }, null);
+    expect(resources.status).toBe(200);
+    expect((await resources.json()).error.code).toBe(-32601);
+    const templates = await mcpPost({ jsonrpc: '2.0', id: 6, method: 'resources/templates/list' }, null);
+    expect(templates.status).toBe(200);
+    expect((await templates.json()).error.code).toBe(-32601);
+    const prompts = await mcpPost({ jsonrpc: '2.0', id: 7, method: 'prompts/list' }, null);
+    expect(prompts.status).toBe(200);
+    expect((await prompts.json()).error.code).toBe(-32601);
+  });
+
   it('answers 401 to a batch that mixes tools/list with a tool call', async () => {
     const res = await mcpPost([TOOLS_LIST, toolCall('list_captures', {})], null);
     expect(res.status).toBe(401);
@@ -321,7 +335,7 @@ describe('keyless discovery', () => {
       const res = await handleMcp(new Request('http://localhost/mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'CF-Connecting-IP': '203.0.113.9' },
-        body: JSON.stringify([{ jsonrpc: '2.0', id: 1, method: 'prompts/list' }, { jsonrpc: '2.0', id: 2, method: 'resources/list' }]),
+        body: JSON.stringify([{ jsonrpc: '2.0', id: 1, method: 'tools/call' }, { jsonrpc: '2.0', id: 2, method: 'logging/setLevel' }]),
       }), {
         ...env,
         CORALOGIX_ENDPOINT: 'https://ingress.test.coralogix.com/logs/v1/singles',
@@ -330,7 +344,7 @@ describe('keyless discovery', () => {
       await waitOnExecutionContext(ctx);
       expect(res.status).toBe(401);
       const event = logged.find((e) => e.event === 'security.auth_fail');
-      expect(event).toMatchObject({ reason: 'missing_header', via: 'mcp', methods: ['prompts/list', 'resources/list'] });
+      expect(event).toMatchObject({ reason: 'missing_header', via: 'mcp', methods: ['tools/call', 'logging/setLevel'] });
       expect(event.cip).toEqual(expect.any(String));
     } finally {
       fetchMock.deactivate();
