@@ -36,7 +36,7 @@
 
 import autoconsentScript from './vendor/autoconsent-script.js';
 
-export const AUTOCONSENT_VERSION = '18.5.0';
+export const AUTOCONSENT_VERSION = '18.9.0';
 
 // How long the consent step waits, counted from the injection. With no
 // consent tool detected it ends after CONSENT_DETECT_MS, provided autoconsent
