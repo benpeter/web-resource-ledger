@@ -374,6 +374,9 @@ QUALIFIED_TSA_URL = "https://timestamp.sectigo.com/qualified"
 GITHUB_CLIENT_ID = "Ov23li0lii7I7Y43lbUs"
 STRIPE_CAPTURE_PRICE_ID = "price_1TE3yVJQK0cymoiEc5eoRpBv"
 RESCAN_CRON = "0 4 * * *"
+# Captures created more than this many days ago are deleted hourly, with their
+# R2 objects (src/retention.js). Production leaves it unset and keeps captures.
+CAPTURE_RETENTION_DAYS = "30"
 # Comma-separated origins allowed for CORS preflight (browser clients).
 # Omit or leave empty to disable CORS. No wildcards.
 # CORS_ORIGINS = "https://my-extension.example.com"

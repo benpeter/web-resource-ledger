@@ -75,6 +75,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `CORS_ORIGINS` | _(unset)_ | Comma-separated allowed origins for CORS preflight; empty = CORS disabled |
 | `VERIFICATION_BASE_URL` | _(unset)_ | Origin of the links in emails and webhook payloads (verification, email confirmation, unsubscribe, billing); unset = `https://api.webresourceledger.com` |
 | `MAX_BATCH_SIZE` | _(unset)_ | URLs allowed per `POST /v1/captures/batch`; unset = 20, never more than 100 |
+| `CAPTURE_RETENTION_DAYS` | _(unset)_ | Captures created more than this many days ago are deleted on the hour, 100 per run, with their R2 objects and threat checks (`src/retention.js`); unset = captures are kept. Staging sets `"30"` |
 
 ---
 
@@ -328,6 +329,7 @@ For request/response schemas, see `openapi.yaml`.
 | DELETE | `/v1/admin/tenants/{tenantId}` | admin-key | admin | admin |
 | POST | `/v1/admin/tenants/{tenantId}/deletion` | admin-key | admin | admin |
 | DELETE | `/v1/admin/tenants/{tenantId}/deletion` | admin-key | admin | admin |
+| DELETE | `/v1/admin/tenants/{tenantId}/captures` | admin-key | admin | admin |
 | GET | `/v1/admin/overview` | admin-key | admin | admin |
 | POST | `/v1/webhooks` | dual | — | public-api |
 | GET | `/v1/webhooks` | dual | — | public-api |
@@ -471,6 +473,7 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | `GITHUB_CLIENT_ID` | `Ov23liIG5Of9wSbgcFqW` | `Ov23li0lii7I7Y43lbUs` |
 | `RESCAN_CRON` | `"0 3 * * *"` | `"0 4 * * *"` |
 | `VERIFICATION_BASE_URL` | _(unset: `https://api.webresourceledger.com`)_ | `https://staging.webresourceledger.com` |
+| `CAPTURE_RETENTION_DAYS` | _(unset: captures are kept)_ | `"30"` |
 | `PIRSCH_ACCESS_KEY` secret | set | not set, so staging sends no analytics events |
 | Captures queue `max_concurrency` | 10 | 2 (constrained by browser session pool) |
 | Emails queue `max_concurrency` | 5 | 2 |

@@ -277,11 +277,25 @@ The renderer sends these lines as the events happen and does not wait for each t
 | 3 | `admin.tenant_deletion_requested` | Admin recorded an account deletion request (`deletionRequestedAt`) |
 | 3 | `admin.tenant_deletion_cancelled` | Admin withdrew a deletion request |
 | 3 | `admin.tenant_purged` | Admin removed all of a tenant's data (`captures`, `r2Objects`) |
+| 3 | `admin.tenant_captures_purged` | Admin deleted up to 100 of a tenant's captures and kept the account (`captures`, `failed`, `r2Objects`, `remaining`) |
 | 3 | `tenant.settings_change` | Tenant settings modified |
 | 4 | `admin.get_tenant_fail` | Admin tenant lookup failed |
 | 4 | `admin.usage_query_fail` | Admin usage query failed |
 | 5 | `admin.cache_purge` | CDN cache purge (also logged at error for audit) |
 | 5 | `admin.key_create_fail` | Admin key creation failed |
+
+## Retention (`retention`)
+
+| Sev | Event | Meaning |
+|-----|-------|---------|
+| 3 | `retention.quarantine_purged` | Weekly purge of captures quarantined more than 90 days ago (`purged`, `failed`, `before`) |
+| 4 | `retention.quarantine_purge_fail` | One quarantined capture could not be deleted (`captureId`, `errorMessage`) |
+| 3 | `retention.usage_trimmed` | Weekly trim of usage counters older than 12 periods (`cutoff`, `deleted`) |
+| 3 | `retention.sign_ins_purged` | Hourly purge of expired sessions and sign-in links, only when it deleted something (`sessions`, `loginTokens`) |
+| 3 | `retention.expired_purged` | Hourly purge of captures created more than `CAPTURE_RETENTION_DAYS` ago, only when it deleted something (`purged`, `failed`, `r2Objects`, `before`, `days`); staging only |
+| 4 | `retention.expired_purge_fail` | One expired capture could not be deleted (`captureId`, `errorMessage`) |
+| 4 | `retention.tenant_capture_purge_fail` | One capture could not be deleted by `DELETE /v1/admin/tenants/{tenantId}/captures` (`captureId`, `errorMessage`) |
+| 4 | `retention.job_fail` | A retention job failed as a whole (`job`: `quarantine`, `usage`, `sign_ins`, `expired_captures`; `errorMessage`) |
 
 ## Pirsch (`pirsch`)
 

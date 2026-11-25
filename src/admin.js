@@ -20,6 +20,7 @@ import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
 import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists, requestTenantDeletion, cancelTenantDeletion, getTenantDeletion, listTenantObjectKeys, deleteTenantRows, DELETION_GRACE_DAYS } from './db.js';
 import { log } from './log.js';
+import { purgeTenantCaptures, CAPTURE_PURGE_BATCH } from './retention.js';
 import { computeCip } from './ip-hash.js';
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const VALID_SCOPES = ['capture', 'read', 'admin'];
@@ -566,4 +567,31 @@ export async function handleAdminPurgeTenant(request, env, ctx, match) {
   ctx.waitUntil(log(env, 3, 'admin', { event: 'admin.tenant_purged', tenantId, ...deleted, cip }) ?? Promise.resolve());
   // Stripe isn't touched here: the operator cancels the customer by hand (OPERATIONS.md).
   return jsonResponse({ tenantId, deleted, stripeCustomerId: deletion.stripeCustomerId }, 200, ADMIN_CACHE);
+}
+
+/**
+ * DELETE /v1/admin/tenants/:id/captures?confirm=:id[&limit=n] -- delete a tenant's
+ * captures and keep the account (phase 0196)
+ *
+ * Deletes up to limit captures (1 to CAPTURE_PURGE_BATCH, default the maximum),
+ * oldest first, with their R2 objects and threat checks, and says how many are
+ * left, so the operator repeats the call until remaining is 0.
+ */
+export async function handleAdminPurgeTenantCaptures(request, env, ctx, match) {
+  const tenantId = match[1];
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  const params = new URL(request.url).searchParams;
+
+  if (params.get('confirm') !== tenantId) {
+    return problemResponse(400, 'Repeat the tenant id in the confirm query parameter to delete its captures.', ADMIN_CACHE);
+  }
+  if (!await tenantExists(env.DB, tenantId)) return problemResponse(404, 'Tenant not found.', ADMIN_CACHE);
+  const requested = params.has('limit') ? Number.parseInt(params.get('limit'), 10) : CAPTURE_PURGE_BATCH;
+  if (!Number.isInteger(requested) || requested < 1 || requested > CAPTURE_PURGE_BATCH) {
+    return problemResponse(400, `limit must be a whole number from 1 to ${CAPTURE_PURGE_BATCH}.`, ADMIN_CACHE);
+  }
+
+  const { captures, failed, r2Objects, remaining } = await purgeTenantCaptures(env, tenantId, requested);
+  ctx.waitUntil(log(env, 3, 'admin', { event: 'admin.tenant_captures_purged', tenantId, captures, failed, r2Objects, remaining, cip }) ?? Promise.resolve());
+  return jsonResponse({ tenantId, deleted: { captures, r2Objects }, remaining }, 200, ADMIN_CACHE);
 }

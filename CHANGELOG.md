@@ -10,6 +10,11 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Added
+
+- Self-hosted deployments can delete old captures: with `CAPTURE_RETENTION_DAYS` set, the per-minute cron deletes up to 100 captures an hour that were created more than that many days ago, each with its R2 objects and threat checks. Unset, captures are kept, as before. The hosted service leaves it unset; its staging environment sets 30.
+- `DELETE /v1/admin/tenants/{tenantId}/captures?confirm={tenantId}` deletes up to 100 of a tenant's captures per call, oldest first, and keeps the account; the answer says how many are left.
+
 ## [1.6.0] - 2026-11-16
 
 ### Changed
