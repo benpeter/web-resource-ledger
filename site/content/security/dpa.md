@@ -188,7 +188,7 @@ Where complete information is not yet available at the time of initial notificat
 
 **Deletion.** At the end of the 30-day grace period, WRL will permanently delete all personal data processed on behalf of the Customer, including capture artifacts, capture metadata, account records, and associated operational data, in accordance with the deletion procedure described at [/security/data-retention/](/security/data-retention/).
 
-**Operational logs.** Pseudonymized IP identifiers in operational logs expire automatically within 90 days. Because they are not reversible to a personal identity, they cannot be attributed to any data subject after the account is deleted.
+**Operational logs.** Pseudonymized IP identifiers in operational logs are deleted automatically after about two days, and never kept longer than 90 days. Because they are not reversible to a personal identity, they cannot be attributed to any data subject after the account is deleted.
 
 **Deletion confirmation.** WRL will provide written confirmation of deletion to the Customer Contact within 14 days of the deletion being completed.
 
@@ -303,7 +303,7 @@ The following measures are in place as of the Effective Date. WRL will not reduc
 
 **Automated alerting.** Threshold-based alerts notify WRL of anomalous error rates and processing failures.
 
-**Structured logging.** Operational logs are retained in the EU (Coralogix EU2 region, Frankfurt) for 90 days for incident investigation. Logs are designed to contain no raw personal data: IP addresses are pseudonymized before logging and email addresses are not logged.
+**Structured logging.** Operational logs are kept in the EU (Coralogix EU2 region, AWS eu-north-1, Stockholm, Sweden) for about two days, for investigating incidents while they happen, and are then deleted automatically. They are never kept longer than 90 days. Logs are designed to contain no raw personal data: IP addresses are pseudonymized before logging and email addresses are not logged.
 
 **Breach notification.** WRL will notify the Customer within 48 hours of confirming a personal data breach, as described in Section 9.
 
@@ -330,7 +330,7 @@ The full detailed profile of each sub-processor, including purpose, data process
 | Cloudflare | Cloudflare, Inc. (USA) | All infrastructure: compute, database, object storage, KV, browser rendering, queues | Global (primarily EU where configured) | EU-US DPF + SCCs; DPA in place |
 | GitHub | GitHub, Inc. (USA) | OAuth authentication (identity provider) | USA | EU-US DPF + SCCs; DPA in place |
 | Stripe | Stripe, Inc. (USA) | Payment processing | USA | EU-US DPF + SCCs; DPA in place |
-| Coralogix | Coralogix Ltd. (Israel / EU operations) | Operational logging and monitoring | EU (Frankfurt, EU2 region) | EU processing; DPA in place |
+| Coralogix | Coralogix Ltd. (Israel / EU operations) | Operational logging and monitoring | EU (Stockholm, EU2 region) | EU processing; DPA in place |
 | Resend | Resend, Inc. (USA) | Transactional email delivery | USA | SCCs; DPA in place |
 | DigiCert | DigiCert, Inc. (USA) | RFC 3161 timestamping (standard) | USA | No personal data transferred |
 | Sectigo | Sectigo (Europe) SL (Spain) | eIDAS-qualified RFC 3161 timestamping | Spain (EU) | No personal data transferred |
@@ -349,7 +349,7 @@ WRL will notify the Customer at least 30 days before adding a new sub-processor 
 | Stripe, Inc. (USA) | EU-US Data Privacy Framework adequacy decision + Standard Contractual Clauses (Stripe DPA) |
 | Google LLC (USA) — Web Risk API | EU-US Data Privacy Framework adequacy decision + Standard Contractual Clauses (Google Cloud DPA) |
 | Resend, Inc. (USA) | Standard Contractual Clauses (Resend DPA) |
-| Coralogix Ltd. | No transfer outside the EU: data is processed and stored in the EU2 region (Frankfurt, Germany) |
+| Coralogix Ltd. | No transfer outside the EU: data is processed and stored in the EU2 region (Stockholm, Sweden) |
 | DigiCert, Inc. (USA) | No personal data transferred; only a SHA-256 hash of the capture bundle is submitted |
 | Sectigo (Europe) SL (Spain) | No personal data transferred; only a SHA-256 hash of the capture bundle is submitted |
 

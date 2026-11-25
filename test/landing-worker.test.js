@@ -22,16 +22,21 @@ async function get(url, env = envWithAsset()) {
   return res;
 }
 
+// Ben decided on 2026-11-25 to submit webresourceledger.com to the browsers'
+// HSTS preload list (backlog #72); hstspreload.org requires the apex to send
+// max-age of at least a year, includeSubDomains and preload.
+const PRELOAD_HSTS = 'max-age=31536000; includeSubDomains; preload';
+
 describe('landing Worker -- HTTPS', () => {
-  it('sends Strict-Transport-Security on pages, matching the docs site', async () => {
+  it('sends Strict-Transport-Security with preload on pages', async () => {
     const res = await get('https://webresourceledger.com/');
     expect(res.status).toBe(200);
-    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains');
+    expect(res.headers.get('Strict-Transport-Security')).toBe(PRELOAD_HSTS);
   });
 
   it('sends Strict-Transport-Security on assets too', async () => {
     const res = await get('https://webresourceledger.com/css/landing.css', envWithAsset('body{}', 'text/css'));
-    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains');
+    expect(res.headers.get('Strict-Transport-Security')).toBe(PRELOAD_HSTS);
   });
 
   it('redirects www to the HTTPS apex even when the request came over HTTP', async () => {

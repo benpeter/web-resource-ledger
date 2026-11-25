@@ -6,7 +6,7 @@ description: Third-party subprocessors used by WRL — cloud infrastructure, sto
 
 # Subprocessors
 
-Last updated: 2026-11-15
+Last updated: 2026-11-25
 
 > **What this page is:** WRL runs on Cloudflare's infrastructure and integrates with a small set of external services to authenticate users, process payments, send email, screen URLs for threats, and issue cryptographic timestamps. This page lists every third-party service that processes data on behalf of WRL or its customers, what data each service receives, and the legal mechanism that governs the transfer. No service receives personal data beyond what is strictly necessary for its function.
 
@@ -116,3 +116,4 @@ If you object to a planned addition, contact [hello@webresourceledger.com](mailt
 **Data location:** Germany (EU)
 **Transfer mechanism:** None required (EU only)
 **DPA / Privacy:** [pirsch.io/privacy](https://pirsch.io/privacy)
+**Role:** Pirsch processes data about visitors to WRL's own websites (the landing page, the docs and the dashboard pages), for WRL's own purposes. For that data WRL is the controller, so Pirsch is WRL's processor, not a sub-processor of customer data under the [Data Processing Agreement](/security/dpa/), and is not listed in its Annex C. It receives nothing from your captures.
