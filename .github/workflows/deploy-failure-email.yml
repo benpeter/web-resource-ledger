@@ -1,0 +1,63 @@
+# Emails the operator when a deploy of main fails (backlog #103).
+#
+# A failed "Deploy to Staging" on main skips "Deploy to Production" without any
+# alert: /health keeps the old commit and the merge never reaches production
+# (2026-11-15: the smoke tenant was out of quota). Ben chose an email through
+# Resend. Runs after either deploy workflow finishes; sends only when it failed
+# on main. Manual run (Actions > Deploy failure email > Run workflow) sends a
+# test email.
+#
+# Secret: RESEND_DEPLOY_ALERT_KEY, the staging Resend key (send-only, restricted
+# to sending; 1Password vault WRL, item Staging, field RESEND_API_KEY).
+
+name: Deploy failure email
+
+on:
+  workflow_run:
+    workflows: ["Deploy to Staging", "Deploy to Production"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  email:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send email through Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_DEPLOY_ALERT_KEY }}
+          TEST_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          COMMIT_TITLE: ${{ github.event.workflow_run.display_title }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::error::RESEND_DEPLOY_ALERT_KEY is not set"
+            exit 1
+          fi
+          if [ "$TEST_RUN" = "true" ]; then
+            subject="WRL: deploy failure email test"
+            text="Test run of the deploy failure email ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). A failed deploy of main sends a mail like this one."
+          else
+            subject="WRL: $WORKFLOW failed on main (${HEAD_SHA:0:7})"
+            text="$WORKFLOW failed for ${HEAD_SHA:0:7} ($COMMIT_TITLE).
+
+          Run: $RUN_URL
+
+          If Deploy to Staging failed, production was skipped and still runs the previous commit. OPERATIONS.md, section Deploy to Staging, says what to check (smoke tenant quota, a forgotten D1 migration); after fixing, re-run the failed job with gh run rerun <id> --failed."
+          fi
+          body=$(jq -n --arg subject "$subject" --arg text "$text" \
+            '{from: "WRL Deploys <notifications@webresourceledger.com>", to: ["bp@ben-peter.com"], subject: $subject, text: $text}')
+          status=$(curl -sS -o resend.json -w '%{http_code}' -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" -H 'Content-Type: application/json' -d "$body")
+          echo "Resend answered $status"
+          if [ "$status" != "200" ]; then
+            jq -r '.message // .' resend.json || cat resend.json
+            exit 1
+          fi
