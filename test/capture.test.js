@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { performCapture, captureHeaders, categorizeError, parseCloudflareTrace } from '../src/capture.js';
+import { performCapture, captureHeaders, categorizeError, parseCloudflareTrace, holdsBackRequest, frozenAfterRequest } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';
 import { unzipSync } from 'fflate';
 import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer, consentNotDetectedRenderer } from './fixtures.js';
@@ -790,6 +790,56 @@ describe('performCapture -- full capture quality in the WACZ', () => {
       timedOut: false,
       subresourceLimitReached: true,
     });
+  });
+});
+
+// Backlog #105: on ad-heavy pages the screenshot set off hundreds of new
+// requests (merriam-webster: 674 during one screenshot, 28 s). Once the page
+// has settled and been scrolled, WRL holds back new requests while it takes
+// the screenshots; the consent step in between may still load.
+describe('holdsBackRequest -- no new loads while WRL takes the screenshots (backlog #105)', () => {
+  it('lets every request through before the page is frozen', () => {
+    expect(holdsBackRequest({ frozen: false, isMainFrameNavigation: false })).toBe(false);
+  });
+
+  it('holds back a request once the page is frozen', () => {
+    expect(holdsBackRequest({ frozen: true, isMainFrameNavigation: false })).toBe(true);
+  });
+
+  it('lets a navigation of the page itself through, so a reload is not broken', () => {
+    expect(holdsBackRequest({ frozen: true, isMainFrameNavigation: true })).toBe(false);
+  });
+
+  // The reloaded document loads its scripts, styles and fetches after the
+  // navigation request: they must not be held back (integration test
+  // "captures the reloaded page when the reload starts while the second
+  // screenshot is taken" lost its fetched fragment).
+  it('lifts the freeze when the page navigates, so the new document can load', () => {
+    expect(frozenAfterRequest({ frozen: true, isMainFrameNavigation: true })).toBe(false);
+  });
+
+  it('keeps the freeze for any other request', () => {
+    expect(frozenAfterRequest({ frozen: true, isMainFrameNavigation: false })).toBe(true);
+    expect(frozenAfterRequest({ frozen: false, isMainFrameNavigation: false })).toBe(false);
+  });
+});
+
+describe('performCapture -- requests held back during the screenshots (backlog #105)', () => {
+  it('records how many and signs it into the WACZ', async () => {
+    const heldBackRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, render: { ...result.render, requestsHeldBack: 12 } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, heldBackRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.render.requestsHeldBack).toBe(12);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality.requestsHeldBack).toBe(12);
   });
 });
 

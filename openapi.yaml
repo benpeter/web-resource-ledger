@@ -546,6 +546,16 @@ components:
             capture (2000). WRL blocked the ones past the cap, so content that
             loads late may be missing, and renderQuality is "partial". Absent
             on captures made before 15 November 2026.
+        requestsHeldBack:
+          type: integer
+          minimum: 0
+          description: >
+            How many requests the page started while WRL took its screenshots,
+            after the page had loaded, settled and been scrolled. WRL held them
+            back (the page's own reload excepted) so the screenshot doesn't wait
+            for them; they are mostly ads, and an ad slot that would only have
+            filled then is empty in the screenshot. Does not make a capture
+            partial. Absent on captures made before 25 November 2026.
         httpStatus:
           type: integer
           minimum: 100

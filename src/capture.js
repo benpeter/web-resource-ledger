@@ -252,6 +252,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(render?.waitUntilReached !== undefined ? { waitUntilReached: render.waitUntilReached } : {}),
       ...(render?.timedOut !== undefined ? { timedOut: render.timedOut } : {}),
       ...(render?.subresourceLimitReached !== undefined ? { subresourceLimitReached: render.subresourceLimitReached } : {}),
+      ...(render?.requestsHeldBack !== undefined ? { requestsHeldBack: render.requestsHeldBack } : {}),
       ...(render?.httpStatus !== undefined ? { httpStatus: render.httpStatus } : {}),
       ...(render?.screenshotClipped !== undefined ? {
         pageHeight: render.pageHeight,
@@ -633,6 +634,9 @@ async function defaultRenderer(env, url, captureId) {
     // the capture fails, because the rendered HTML is held in Worker memory.
     let subresourceLimitReached = false;
     let blockedRequests = 0;
+    // On while WRL takes the screenshots (backlog #105): see holdsBackRequest()
+    let networkFrozen = false;
+    let requestsHeldBack = 0;
     let limitExceeded = null;
     // Status of the page's own response as the browser got it (backlog #101).
     // The headers artifact comes from a separate request by the Worker and can
@@ -670,6 +674,21 @@ async function defaultRenderer(env, url, captureId) {
         blockedRequests++;
         await route.abort('blockedbyclient');
         return;
+      }
+
+      if (networkFrozen) {
+        let isMainFrameNavigation = false;
+        try {
+          isMainFrameNavigation = route.request().isNavigationRequest() && route.request().frame() === page?.mainFrame();
+        } catch (err) {
+          // frame() throws for detached frames; such a request is not the page's own navigation
+        }
+        if (holdsBackRequest({ frozen: networkFrozen, isMainFrameNavigation })) {
+          requestsHeldBack++;
+          await route.abort('blockedbyclient');
+          return;
+        }
+        networkFrozen = frozenAfterRequest({ frozen: networkFrozen, isMainFrameNavigation });
       }
 
       if (subresourceCount >= MAX_SUBRESOURCES) {
@@ -799,7 +818,10 @@ async function defaultRenderer(env, url, captureId) {
     logLine(3, { event: 'render.default.lazy_load_complete', url, captureId, scrollMs, scrollSteps, scrollCutShort });
 
     // Before-screenshot MUST be taken before injecting autoconsent
+    networkFrozen = true;
     const shotBefore = await takeCappedScreenshot(page);
+    // The consent step may load what it needs, and a site may reload
+    networkFrozen = false;
     const screenshotBefore = shotBefore.screenshot;
     if (shotBefore.capped) {
       logLine(3, { event: 'render.default.screenshot_capped', url, captureId, originalHeight: shotBefore.pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
@@ -873,6 +895,7 @@ async function defaultRenderer(env, url, captureId) {
     // read, gets a second pass on the new document.
     for (let pass = 1; tookAfterScreenshot; pass++) {
       const tPass = Date.now();
+      networkFrozen = false;
       // Navigations from here on are the ones the screenshot and the HTML
       // read have to be done over for. The count is taken as soon as the wait
       // is over, before anything else is awaited: a reload that commits
@@ -888,6 +911,7 @@ async function defaultRenderer(env, url, captureId) {
       }
       const tSettled = Date.now();
       postConsentMs += tSettled - tPass;
+      networkFrozen = true;
 
       let tShot = tSettled;
       let failure = null;
@@ -913,7 +937,7 @@ async function defaultRenderer(env, url, captureId) {
     const tContent = Date.now();
     logLine(3, { event: 'render.default.content_extracted', url, captureId, contentMs, htmlLength: html.length });
 
-    logLine(3, { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, totalBytes });
+    logLine(3, { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, requestsHeldBack, totalBytes });
     return {
       screenshot,
       html,
@@ -922,6 +946,7 @@ async function defaultRenderer(env, url, captureId) {
         waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
         timedOut,
         subresourceLimitReached,
+        requestsHeldBack,
         ...(httpStatus !== null ? { httpStatus } : {}),
         durationMs: tContent - renderStart,
         ...screenshotCoverage(shot),
@@ -1101,6 +1126,35 @@ export async function detectRenderFailure(page) {
     }
     return { failed: false };
   }), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was checked');
+}
+
+/**
+ * Whether WRL holds back a request the page starts while WRL takes its
+ * screenshots (backlog #105, phase 0201). A full-page screenshot lays out the
+ * whole page at once, and on ad-heavy pages that set off hundreds of new
+ * requests the screenshot then waited for: 674 during one screenshot of a
+ * merriam-webster.com page, which took 28 seconds. The page's own navigation
+ * still goes through, so a reload isn't broken.
+ *
+ * @param {{ frozen: boolean, isMainFrameNavigation: boolean }} request
+ * @returns {boolean}
+ */
+export function holdsBackRequest({ frozen, isMainFrameNavigation }) {
+  return frozen && !isMainFrameNavigation;
+}
+
+/**
+ * Whether the freeze still holds after a request. A navigation of the page
+ * itself lifts it: the new document loads its scripts, styles and fetches
+ * after the navigation request, and holding those back left a page that
+ * reloaded during the second screenshot without its content. The loop after
+ * the consent step then takes the screenshot again on the new document.
+ *
+ * @param {{ frozen: boolean, isMainFrameNavigation: boolean }} request
+ * @returns {boolean}
+ */
+export function frozenAfterRequest({ frozen, isMainFrameNavigation }) {
+  return frozen && !isMainFrameNavigation;
 }
 
 /**
