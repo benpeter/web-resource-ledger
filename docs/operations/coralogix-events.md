@@ -15,7 +15,7 @@ A field name has one type across all events. Coralogix fixes the type of a field
 | 5 | `security.invalid_tenant_id` | API key maps to a non-existent tenant |
 | 5 | `security.kv_error` | Key-value store error during auth lookup |
 | 5 | `signing.key_unavailable` | Signing key not configured (MCP endpoint) |
-| 4 | `security.rate_limit` | Request rate-limited (per-IP, per-tenant, admin, artifact, verify, or signing key limiter; `via: mcp` for keyless MCP discovery) |
+| 4 | `security.rate_limit` | Request rate-limited (per-IP, per-tenant, admin, verify, or signing key limiter; keyless capture routes log `limiter` as `capture_public`, `status_public`, `artifact_public` or `certificate_public`; `via: mcp` for keyless MCP discovery) |
 | 4 | `security.capacity_limit` | Global browser capacity full, 503 returned |
 | 4 | `security.quota_exceeded` | Monthly capture or storage quota exceeded |
 | 4 | `security.account_refused` | Capture refused because the account can't capture: `reason` is `billing_blocked` or `deletion_requested` (403) |
