@@ -172,6 +172,38 @@ describe('verifyWacz -- capture quality', () => {
   });
 });
 
+// Where the capture service's browser went out to the web (WRL phase 0197):
+// captureSettings.browserLocation in datapackage.json, covered by the signature.
+describe('verifyWacz -- browser location', () => {
+  it('returns the signed browserLocation as capture.browserLocation', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA, {
+      captureSettings: { version: 1, browserLocation: { colo: 'LAX', country: 'US' } },
+    });
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.verified, true);
+    assert.deepStrictEqual(result.capture.browserLocation, { colo: 'LAX', country: 'US' });
+  });
+
+  it('capture.browserLocation is null when the archive records none', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA, {
+      captureSettings: { version: 1, consent: { result: 'success' } },
+    });
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.capture.browserLocation, null);
+  });
+
+  it('capture.browserLocation is null for values that are not a data center and a country code', async () => {
+    const { waczBytes } = await buildTestWaczV2(privA, pubA, {
+      captureSettings: { version: 1, browserLocation: { colo: 'Los Angeles', country: 'US' } },
+    });
+    const result = await verifyWacz(waczBytes, pubA);
+
+    assert.strictEqual(result.capture.browserLocation, null);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Happy path: v0.2.0 with valid timestamp
 // ---------------------------------------------------------------------------

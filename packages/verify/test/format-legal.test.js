@@ -190,6 +190,36 @@ describe('formatLegal -- captured page', () => {
   });
 });
 
+describe('formatLegal -- browser location', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  function makeLocatedResult(browserLocation) {
+    return makeBaseResult({ capture: { ...makePageResult().capture, browserLocation } });
+  }
+
+  it('Section 2 names the data center and country below the captured page', () => {
+    formatLegal(makeLocatedResult({ colo: 'DFW', country: 'US' }));
+    const subject = stdoutOutput.split('2. SUBJECT OF VERIFICATION')[1].split('3. VERIFICATION CHECKS PERFORMED')[0];
+    assert.match(subject, /Captured page: https:\/\/example\.com\/terms\nCaptured from: DFW, US \(Cloudflare data center\)\n/);
+  });
+
+  it('leaves the line out when the archive records none', () => {
+    formatLegal(makeLocatedResult(null));
+    assert.doesNotMatch(stdoutOutput, /Captured from:/);
+  });
+
+  it('JSON report carries capture.browserLocation', () => {
+    formatLegalJson(makeLocatedResult({ colo: 'DFW', country: 'US' }));
+    assert.deepStrictEqual(JSON.parse(stdoutOutput).capture.browserLocation, { colo: 'DFW', country: 'US' });
+  });
+
+  it('JSON report has capture.browserLocation null when the archive records none', () => {
+    formatLegalJson(makePageResult());
+    assert.strictEqual(JSON.parse(stdoutOutput).capture.browserLocation, null);
+  });
+});
+
 describe('formatLegal -- capture quality', () => {
   beforeEach(captureStdout);
   afterEach(restoreStdout);
