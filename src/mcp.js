@@ -43,6 +43,7 @@ import { validateCron, nextRun } from './cron.js';
 import { getSigningKeys } from './signing.js';
 import { computeCip } from './ip-hash.js';
 import { releaseVersion } from './build-info.js';
+import { browserLocationText } from './browser-location.js';
 
 // Input bounds for /mcp. The SDK defaults allow 4 MiB and unlimited elements.
 const MAX_TOOL_INPUT_ELEMENTS = 1000;
@@ -426,6 +427,9 @@ function createMcpServer(env, ctx, auth, origin) {
         `Created: ${record.createdAt}`,
         `Completed: ${record.completedAt}`,
         `Render quality: ${record.renderQuality ?? 'full'}`,
+        ...(browserLocationText(record.captureSettings?.browserLocation)
+          ? [`Captured from: ${browserLocationText(record.captureSettings.browserLocation)}`]
+          : []),
         ...(record.render?.httpStatus !== undefined ? [`HTTP status: ${record.render.httpStatus}`] : []),
         ...(record.render?.httpStatus >= 400
           ? ['The site answered with an error status; the capture shows that answer, which can be an error page or a block page.']
@@ -646,6 +650,9 @@ function createMcpServer(env, ctx, auth, origin) {
         `Captured: ${record.createdAt}`,
         `Completed: ${record.completedAt}`,
         `Render quality: ${record.renderQuality ?? 'full'}`,
+        ...(browserLocationText(record.captureSettings?.browserLocation)
+          ? [`Captured from: ${browserLocationText(record.captureSettings.browserLocation)}`]
+          : []),
         ...(record.render?.httpStatus !== undefined ? [`HTTP status: ${record.render.httpStatus}`] : []),
         ...(record.render?.httpStatus >= 400
           ? ['The site answered with an error status; the capture shows that answer, which can be an error page or a block page.']

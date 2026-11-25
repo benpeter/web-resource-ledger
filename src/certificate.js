@@ -2,6 +2,7 @@
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { signBytes } from './signing.js';
+import { browserLocationText } from './browser-location.js';
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -324,6 +325,11 @@ export async function generateCertificate(capture, signingKeys, origin, operator
   drawKV('Completed:',      fmtUtc(capture.completedAt),     { indent: 12, labelWidth: 120 });
   gap(2);
   drawKV('Render Quality:', capture.renderQuality ?? 'full', { indent: 12, labelWidth: 120 });
+  const location = browserLocationText(capture.captureSettings?.browserLocation);
+  if (location) {
+    gap(2);
+    drawKV('Captured From:', location, { indent: 12, labelWidth: 120 });
+  }
 
   // 3.2 Hash Integrity
   gap(8);

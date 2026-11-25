@@ -148,6 +148,12 @@ function buildMetadataSection(data) {
       : String(data.render.httpStatus));
   }
 
+  // Where the browser went out to the web (backlog #108)
+  var loc = data.captureSettings && data.captureSettings.browserLocation;
+  if (loc && /^[A-Z]{3}$/.test(loc.colo) && /^[A-Z]{2}$/.test(loc.country)) {
+    addDataRow(grid, 'Captured From', loc.colo + ', ' + loc.country + ' (Cloudflare data center)');
+  }
+
   // Timestamp status (only when WACZ is present and timestamps field exists)
   if (data.wacz && data.timestamps) {
     var tsSpan = document.createElement('span');
