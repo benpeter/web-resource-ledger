@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { performCapture, captureHeaders, categorizeError, parseCloudflareTrace, holdsBackRequest } from '../src/capture.js';
+import { performCapture, captureHeaders, categorizeError, parseCloudflareTrace, holdsBackRequest, frozenAfterRequest } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';
 import { unzipSync } from 'fflate';
 import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer, consentNotDetectedRenderer } from './fixtures.js';
@@ -808,6 +808,19 @@ describe('holdsBackRequest -- no new loads while WRL takes the screenshots (back
 
   it('lets a navigation of the page itself through, so a reload is not broken', () => {
     expect(holdsBackRequest({ frozen: true, isMainFrameNavigation: true })).toBe(false);
+  });
+
+  // The reloaded document loads its scripts, styles and fetches after the
+  // navigation request: they must not be held back (integration test
+  // "captures the reloaded page when the reload starts while the second
+  // screenshot is taken" lost its fetched fragment).
+  it('lifts the freeze when the page navigates, so the new document can load', () => {
+    expect(frozenAfterRequest({ frozen: true, isMainFrameNavigation: true })).toBe(false);
+  });
+
+  it('keeps the freeze for any other request', () => {
+    expect(frozenAfterRequest({ frozen: true, isMainFrameNavigation: false })).toBe(true);
+    expect(frozenAfterRequest({ frozen: false, isMainFrameNavigation: false })).toBe(false);
   });
 });
 
