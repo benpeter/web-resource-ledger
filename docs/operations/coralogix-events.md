@@ -286,8 +286,8 @@ The renderer sends these lines as the events happen and does not wait for each t
 
 ## Retention (`retention`)
 
-| Severity | Event | Description |
-|---|---|---|
+| Sev | Event | Meaning |
+|-----|-------|---------|
 | 3 | `retention.quarantine_purged` | Weekly purge of captures quarantined more than 90 days ago (`purged`, `failed`, `before`) |
 | 4 | `retention.quarantine_purge_fail` | One quarantined capture could not be deleted (`captureId`, `errorMessage`) |
 | 3 | `retention.usage_trimmed` | Weekly trim of usage counters older than 12 periods (`cutoff`, `deleted`) |
