@@ -146,6 +146,24 @@ The purge needs the `CLOUDFLARE_CACHE_PURGE_TOKEN` secret (a Cloudflare API toke
 
 Then, by hand: cancel the subscription and delete the customer in the Stripe dashboard if the response named a `stripeCustomerId`, and tell the customer the deletion is done. Coralogix logs expire on their own and hold no raw personal data. Pending deletions show as `deletionRequestedAt` in `GET /v1/admin/tenants/{tenantId}`; nothing purges automatically.
 
+### Deleting a tenant's captures
+
+To remove a tenant's captures and keep the account (its keys, schedules and settings), delete them in calls of up to 100, oldest first, until `remaining` is 0. Each capture goes with its R2 objects and threat checks; a WACZ object that another capture still uses stays. Used on 2026-11-25 for the founder tenant's 801 schedule captures of apache.org.
+
+```bash
+source ~/.wrl-keys   # WRL_PROD_ADMIN_KEY
+API=https://api.webresourceledger.com
+T=gh-398734
+curl -s -X DELETE "$API/v1/admin/tenants/$T/captures?confirm=$T" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
+# -> { tenantId, deleted: { captures, r2Objects }, remaining }; repeat while remaining > 0
+```
+
+Their verification responses stay in the edge cache for up to 24 hours unless purged as above.
+
+### Staging retention
+
+Staging sets `CAPTURE_RETENTION_DAYS = "30"`: on the hour, the per-minute cron deletes up to 100 captures created more than 30 days ago, with their R2 objects (`retention.expired_purged` in Coralogix). A staging capture used as a battery baseline is gone after 30 days, so keep the battery's JSON results (they hold the numbers) rather than relying on the capture. Production leaves the variable unset.
+
 ---
 
 ## Rollback

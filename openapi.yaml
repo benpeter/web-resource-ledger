@@ -5588,6 +5588,105 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
 
+  /v1/admin/tenants/{tenantId}/captures:
+    delete:
+      operationId: adminPurgeTenantCaptures
+      summary: Delete a tenant's captures and keep the account
+      description: >
+        Deletes up to `limit` of the tenant's captures, oldest first, each with its
+        artifacts and WACZ bundle in R2 and its threat checks. A WACZ bundle that
+        another capture still uses stays. The account, its keys, schedules, webhooks,
+        usage and settings stay. Irreversible.
+
+        Repeat the call until `remaining` is 0. Only allowed when `confirm` repeats
+        the tenant id. Cached capture responses stay at the edge until purged with
+        `POST /v1/admin/cache/purge`.
+
+        ```bash
+        curl -X DELETE "https://api.webresourceledger.com/v1/admin/tenants/gh-424242/captures?confirm=gh-424242" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          description: Tenant ID.
+          schema:
+            type: string
+            pattern: '^[a-z0-9_-]{1,64}$'
+            example: gh-424242
+        - name: confirm
+          in: query
+          required: true
+          description: The tenant id again.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Captures to delete in this call.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 100
+      responses:
+        '200':
+          description: Up to `limit` captures were deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tenantId, deleted, remaining]
+                properties:
+                  tenantId:
+                    type: string
+                  deleted:
+                    type: object
+                    properties:
+                      captures:
+                        type: integer
+                      r2Objects:
+                        type: integer
+                  remaining:
+                    type: integer
+                    description: The tenant's captures still left.
+              example:
+                tenantId: gh-424242
+                deleted:
+                  captures: 100
+                  r2Objects: 500
+                remaining: 41
+        '400':
+          description: confirm is missing or does not repeat the tenant id, or limit is not a whole number from 1 to 100.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 400
+                title: Bad Request
+                detail: "Repeat the tenant id in the confirm query parameter to delete its captures."
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Tenant not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Tenant not found."
+        '429':
+          $ref: '#/components/responses/Problem429'
+
   /v1/admin/tenants/{tenantId}/deletion:
     post:
       operationId: adminRequestTenantDeletion
