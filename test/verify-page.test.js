@@ -547,3 +547,32 @@ describe('verify page script -- clipped screenshot', () => {
     expect(out).toContain('Shows the top 8,000 px of a 21,860 px page. The HTML in the bundle has the whole page.');
   });
 });
+
+describe('verify page script -- requests held back during the screenshot', () => {
+  it('captions a screenshot taken while WRL held requests back', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-25T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      artifacts: { screenshot: 'https://worker.test/v1/captures/' + TEST_ID + '/artifacts/screenshot' },
+      render: { requestsHeldBack: 236 },
+    });
+    expect(out).toContain('id="screenshot-held-note"');
+    expect(out).toContain('WRL held back 236 requests the page started while the screenshot was taken, mostly ads. An ad slot that would only have filled then is empty here.');
+  });
+
+  it('adds no caption when nothing was held back', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-25T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      artifacts: { screenshot: 'https://worker.test/v1/captures/' + TEST_ID + '/artifacts/screenshot' },
+      render: { requestsHeldBack: 0 },
+    });
+    expect(out).not.toContain('id="screenshot-held-note"');
+  });
+});

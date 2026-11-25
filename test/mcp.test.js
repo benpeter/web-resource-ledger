@@ -659,6 +659,25 @@ describe('tool: get_capture -- clipped screenshot', () => {
   });
 });
 
+describe('tool: get_capture -- requests held back during the screenshots', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000, requestsHeldBack: 236 });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('says how many requests WRL held back', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('WRL held back 236 requests the page started during the screenshots, mostly ads; an ad slot that would only have filled then is empty in the screenshot.');
+  });
+});
+
 describe('tool: get_capture -- site answered with an error status', () => {
   beforeEach(async () => {
     const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
