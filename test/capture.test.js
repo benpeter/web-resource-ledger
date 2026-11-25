@@ -151,9 +151,9 @@ describe('performCapture -- renderer failure: timeout', () => {
   });
 });
 
-describe('performCapture -- renderer failure: page size limit', () => {
+describe('performCapture -- renderer failure: HTML size limit (backlog #99)', () => {
   const sizeLimitRenderer = async () => {
-    throw new Error('Page exceeded 50MB size limit');
+    throw new Error('Page HTML exceeded 15 MB size limit');
   };
 
   it('transitions KV to failed with retryable=false', async () => {
@@ -180,7 +180,7 @@ describe('performCapture -- renderer failure: page size limit', () => {
     await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, sizeLimitRenderer);
 
     const record = await getCapture(env.DB, TEST_ID);
-    expect(record.error).toBe('Page exceeded 50MB size limit');
+    expect(record.error).toBe('The page\'s HTML is larger than 15 MB, more than WRL can sign in one capture');
     expect(record.error).not.toContain('at ');
   });
 });
@@ -791,6 +791,29 @@ describe('performCapture -- full capture quality in the WACZ', () => {
       subresourceLimitReached: true,
     });
   });
+
+  it('records a page that hit the size cap as partial (backlog #99)', async () => {
+    const overCapRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, partial: true, render: { ...result.render, sizeLimitReached: true } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, overCapRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.renderQuality).toBe('partial');
+    expect(record.render.sizeLimitReached).toBe(true);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality).toEqual({
+      renderQuality: 'partial',
+      waitUntilReached: 'load',
+      timedOut: false,
+      sizeLimitReached: true,
+    });
+  });
 });
 
 // Backlog #105: on ad-heavy pages the screenshot set off hundreds of new
@@ -1158,7 +1181,7 @@ describe('categorizeError -- is a named export from capture.js', () => {
   });
 
   it('returns retryable: false for non-retryable errors', () => {
-    const result = categorizeError(new Error('Page exceeded 50MB size limit'));
+    const result = categorizeError(new Error('Page HTML exceeded 15 MB size limit'));
     expect(result.retryable).toBe(false);
     expect(typeof result.message).toBe('string');
   });

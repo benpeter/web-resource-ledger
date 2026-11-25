@@ -450,6 +450,22 @@ describe('verify page script -- render quality', () => {
     expect(out).not.toContain('did not finish loading');
   });
 
+  it('says so when the page hit the size cap', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-25T10:00:00.000Z', renderQuality: 'partial' },
+      signing: {},
+      checks: PASSING_CHECKS,
+    }, {
+      render: { waitUntilReached: 'load', timedOut: false, sizeLimitReached: true },
+    });
+    expect(out).toContain('data-check-label="renderQuality">Page load</div>');
+    expect(out).toContain('The page loaded more data than WRL allows for one capture. WRL blocked the rest, so images or content that load later may be missing.');
+    // The cap can change; a number here would become false for older captures
+    expect(out).not.toMatch(/more than \d+ ?MB/);
+    expect(out).not.toContain('did not finish loading');
+  });
+
   it('adds no page load row for a full render', async () => {
     const out = await renderVerifyPage({
       verified: true,
