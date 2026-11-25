@@ -65,7 +65,7 @@ WRL is a Cloudflare-native system. All components run in Cloudflare's network. E
 | RFC 3161 timestamp token | R2 (embedded in WACZ), D1 | Same as WACZ bundle |
 | SHA-256 artifact hashes | D1 `captures.artifacts` (JSON), WACZ manifest | Same as WACZ bundle |
 | API key hash | D1 `api_keys` table | Until key deletion |
-| Structured logs | Coralogix EU2 | Per Coralogix retention setting |
+| Structured logs | Coralogix EU2 (Stockholm) | About two days (Coralogix retention), never longer than 90 days |
 
 ### 3.3 Personal Data Flow
 

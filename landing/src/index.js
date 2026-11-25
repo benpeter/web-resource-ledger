@@ -14,8 +14,10 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  // Same value as the docs site (site/src/index.js). No preload: that is hard to undo.
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  // preload: webresourceledger.com is submitted to the browsers' HSTS preload
+  // list (Ben, 2026-11-25, backlog #72). Only the apex's header counts for the
+  // list; getting off it again takes months.
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
 };
 
 // Webhook target for the staging E2E suite (test/e2e/webhook-lifecycle.spec.js),
