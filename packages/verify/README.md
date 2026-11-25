@@ -183,9 +183,9 @@ Releases are published to npm automatically when a `verify/v*` tag is pushed.
    git push origin main --follow-tags
    ```
 
-The CI workflow runs tests and publishes to npm with provenance attestation.
+The CI workflow (`.github/workflows/publish-verify.yml`, on a `verify/v*` tag) runs the tests and publishes to npm with provenance attestation. It needs no npm token: npm trusts this repository's workflow as a trusted publisher (OpenID Connect), set up in the package's settings on npmjs.com.
 If the version already exists on npm, the publish step exits cleanly.
 
 ## License
 
-[PolyForm Shield 1.0.0](../../LICENSE)
+[Apache 2.0](LICENSE). The verifier is under a permissive license so that anyone (a court, an opposing expert, another archive) can run, copy and build it into their own tools. The rest of WRL is under [PolyForm Shield 1.0.0](../../LICENSE).

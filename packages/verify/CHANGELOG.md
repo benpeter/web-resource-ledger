@@ -1,7 +1,8 @@
 # Changelog
 
-## v0.4.0 (unreleased)
+## v0.4.0 (2026-11-25)
 
+- License: Apache 2.0, as the LICENSE file in every published version says. The README and the v0.3.0 entry below named PolyForm Shield 1.0.0; that no longer applies to this package. The rest of WRL stays under PolyForm Shield
 - Name the captured page: the standard output shows it, the `--legal` report lists it in the summary and the subject section with the time it was captured, and `--json` and `--legal --json` carry `capture.url` and `capture.capturedAt`. The values come from `datapackage.json`, which the signature covers
 - Report what the capture service recorded about the capture: a note in the standard output and in the `--legal` report when the render was partial, when the screenshot shows only the top of the page, or when the site answered with an error status (the capture then shows an error page or a block page), and `capture.quality` in `--json` and `--legal --json`. The values come from `captureQuality` in `datapackage.json`, which the signature covers
 - The README describes what the `--legal` report contains
