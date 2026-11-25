@@ -148,7 +148,7 @@ describe('purgeExpiredCaptures', () => {
     await seedStored(EXPIRED, new Date(NOW.getTime() - 31 * DAY));
     await seedStored(FRESH, new Date(NOW.getTime() - 29 * DAY));
     await env.DB.prepare(
-      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types) VALUES (?, ?, 'clean', '')`,
+      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types) VALUES (?, ?, 'safe', '')`,
     ).bind(EXPIRED, NOW.toISOString()).run();
 
     const result = await purgeExpiredCaptures(withRetention, NOW);

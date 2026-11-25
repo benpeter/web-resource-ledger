@@ -11,13 +11,13 @@ import { getSigningKeys } from './signing.js';
 import { htmlVerifyResponse } from './verify-page.js';
 import { FAVICON_SVG } from './favicon.js';
 import { log } from './log.js';
-import { runRetentionJobs, purgeExpiredSignIns } from './retention.js';
+import { runRetentionJobs, purgeExpiredSignIns, purgeExpiredCaptures } from './retention.js';
 import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, limitReachedEmailData, accountRefusalDetail, quotaLimitDetail } from './quotas.js';
 import { computeCip } from './ip-hash.js';
-import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant } from './admin.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant, handleAdminPurgeTenantCaptures } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
 import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey, getCache, wantsHtml } from './cache.js';
@@ -105,6 +105,8 @@ const routes = [
   ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})$/, handleAdminPurgeTenant],
   ['POST',   /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/deletion$/, handleAdminRequestDeletion],
   ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/deletion$/, handleAdminCancelDeletion],
+  // A tenant's captures without the account (phase 0196)
+  ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/captures$/, handleAdminPurgeTenantCaptures],
   ['GET',    /^\/v1\/admin\/overview$/, handleAdminGetOverview],
   ['POST',   /^\/v1\/webhooks$/, handleCreateWebhook],
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
@@ -515,6 +517,7 @@ export default {
       ctx.waitUntil(reportPendingMeterEvents(env, ctx));
       ctx.waitUntil(failStaleCaptures(env, new Date(controller.scheduledTime)));
       ctx.waitUntil(purgeExpiredSignIns(env, new Date(controller.scheduledTime)));
+      ctx.waitUntil(purgeExpiredCaptures(env, new Date(controller.scheduledTime)));
     }
   },
 

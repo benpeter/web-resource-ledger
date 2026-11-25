@@ -207,7 +207,7 @@ describe('DELETE /v1/admin/tenants/{id}/captures', () => {
     const keys = await seedStoredCapture(CAP, TENANT);
     const otherKeys = await seedStoredCapture(OTHER_CAP, OTHER);
     await env.DB.prepare(
-      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types) VALUES (?, ?, 'clean', '')`,
+      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types) VALUES (?, ?, 'safe', '')`,
     ).bind(CAP, new Date().toISOString()).run();
     await seedSchedule(env.DB, 'sch_' + 'a'.repeat(32), { tenantId: TENANT });
 
