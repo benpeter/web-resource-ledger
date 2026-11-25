@@ -346,6 +346,8 @@ Steps 1-9 are one-time setup. After initial deployment, the CD pipeline handles 
 
 WRL's MCP tools capture pages (one URL, a batch, or the URLs in a sitemap), retrieve, list, verify and compare captures, return certificate details and usage, and manage schedules. Any MCP-compatible agent or IDE can capture web pages and verify evidence without writing HTTP client code.
 
+Glama lists WRL twice: as an [MCP server](https://glama.ai/mcp/servers/benpeter/web-resource-ledger) for this repository, and as a [connector](https://glama.ai/mcp/connectors/io.github.benpeter/web-resource-ledger) for the hosted endpoint at `https://api.webresourceledger.com/mcp`.
+
 See the [MCP Server Guide](https://docs.webresourceledger.com/mcp/) for setup, the full tool reference and example workflows. Its source is [`site/content/mcp.md`](site/content/mcp.md); `npm run test:sync` fails when a tool in `src/mcp.js` is missing from it.
 
 ## Web UI
