@@ -25,3 +25,11 @@
   fixtures used a verdict the table doesn't allow and were fixed there.
 - `npm run test:sync`: 59 passed. `npm run lint:api`: exit 0.
 - Full unit suite: 2053 passed, 19 failed, all in the four files that need DNS inside workerd (batch-capture, mcp, queue-consumer, quota-enforcement; "expected 422 to be 202", "Could not resolve hostname"). CI is the check for those.
+
+## In production
+
+- 7821a67 deployed to production. Seven calls of
+  `DELETE /v1/admin/tenants/gh-398734/captures?confirm=gh-398734` deleted the
+  founder tenant's 609 captures (608 from its apache.org schedule, 1 on-demand)
+  and 2,233 R2 objects; D1 shows 0 captures, the tenant, its 2 keys and the
+  paused schedule remain.
