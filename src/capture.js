@@ -106,6 +106,7 @@ const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
 export const CAPTURE_MAX_ATTEMPTS = 4;
 // How long a detected bot check gets to finish by itself before the capture fails.
 const BOT_CHECK_WAIT_MS = 8000;
+const BOT_CHECK_VENDOR_NAMES = { cloudflare: 'Cloudflare', datadome: 'DataDome' };
 
 // How long one small call to the loaded page may take: the two checks before
 // the scroll (browser error page, bot check) and the two calls after it. Each
@@ -760,6 +761,15 @@ async function defaultRenderer(env, url, captureId) {
     const renderCheck = await detectRenderFailure(page);
     if (renderCheck.failed) {
       logLine(3, { event: 'render.default.render_check_fail', url, captureId, reason: renderCheck.reason, httpStatus });
+      // A bot check whose captcha is an iframe looks blank to the check above
+      // (DataDome on nytimes.com and etsy.com): name it instead.
+      if (renderCheck.reason === 'blank-page') {
+        const blankBotCheck = classifyBotCheck(await readBotCheckSignals(page));
+        if (blankBotCheck.detected) {
+          logLine(4, { event: 'render.default.bot_check', url, captureId, vendor: blankBotCheck.vendor, signals: blankBotCheck.signals, httpStatus });
+          throw new Error(`Bot check: ${BOT_CHECK_VENDOR_NAMES[blankBotCheck.vendor]} challenge (${blankBotCheck.signals.join(', ')})`);
+        }
+      }
       const answeredError = renderCheck.reason === 'blank-page' && httpStatus >= 400;
       throw new Error(`Captured page is not target content (${renderCheck.reason}${answeredError ? `, http ${httpStatus}` : ''})`);
     }
@@ -780,7 +790,7 @@ async function defaultRenderer(env, url, captureId) {
     }
     if (botCheck.detected) {
       logLine(4, { event: 'render.default.bot_check', url, captureId, vendor: botCheck.vendor, signals: botCheck.signals });
-      throw new Error(`Bot check: Cloudflare challenge (${botCheck.signals.join(', ')})`);
+      throw new Error(`Bot check: ${BOT_CHECK_VENDOR_NAMES[botCheck.vendor]} challenge (${botCheck.signals.join(', ')})`);
     }
 
     // Trigger lazy-loaded images by scrolling the viewport
@@ -1097,7 +1107,7 @@ export async function detectRenderFailure(page) {
  * Reads the page features classifyBotCheck looks at.
  *
  * @param {import('@cloudflare/playwright').Page} page
- * @returns {Promise<{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean }>}
+ * @returns {Promise<{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean, hasDataDomeConfig: boolean, hasDataDomeCaptcha: boolean }>}
  * @throws {Error} When the page does not answer within PAGE_CHECK_MAX_MS
  */
 export async function readBotCheckSignals(page) {
@@ -1110,18 +1120,29 @@ export async function readBotCheckSignals(page) {
     hasChallengeMarkup: Boolean(document.querySelector(
       '#challenge-form, #challenge-running, #challenge-stage, #cf-challenge-running',
     )),
+    // DataDome's block page: `var dd={'rt':'c','cid':...}` and a script from
+    // ct.captcha-delivery.com that puts the captcha in an iframe.
+    hasDataDomeConfig: typeof window.dd === 'object' && window.dd !== null && 'cid' in window.dd,
+    hasDataDomeCaptcha: Boolean(document.querySelector(
+      'script[src*="captcha-delivery.com"], iframe[src*="captcha-delivery.com"]',
+    )),
   })), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was checked');
 }
 
 /**
- * Decides whether a rendered page is a Cloudflare bot check rather than the
- * page itself. Needs two signals, so a page that merely mentions Cloudflare or
- * is titled "Just a moment..." does not count (GH #317, phase 0121).
+ * Decides whether a rendered page is a Cloudflare or DataDome bot check rather
+ * than the page itself. Needs two signals, so a page that merely mentions
+ * Cloudflare or is titled "Just a moment..." does not count (GH #317, phase
+ * 0121). DataDome was added in phase 0199 (backlog #100): nytimes.com and
+ * etsy.com answer WRL's browser with its captcha page.
  *
- * @param {{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean }} s
- * @returns {{ detected: boolean, vendor: 'cloudflare', signals: string[] }}
+ * @param {{ title: string, hasChallengeOptions: boolean, hasChallengeScript: boolean, hasChallengeMarkup: boolean, hasDataDomeConfig?: boolean, hasDataDomeCaptcha?: boolean }} s
+ * @returns {{ detected: boolean, vendor: 'cloudflare' | 'datadome', signals: string[] }}
  */
 export function classifyBotCheck(s) {
+  if (s.hasDataDomeConfig && s.hasDataDomeCaptcha) {
+    return { detected: true, vendor: 'datadome', signals: ['datadome-config', 'captcha-delivery'] };
+  }
   const signals = [];
   if (/^just a moment\.{3}$/i.test(s.title) || /^attention required! \| cloudflare$/i.test(s.title)) signals.push('title');
   if (s.hasChallengeOptions) signals.push('cf_chl_opt');
@@ -1240,8 +1261,9 @@ export function categorizeError(error) {
   const msg = error?.message ?? '';
 
   if (msg.startsWith('Bot check')) {
+    const vendor = msg.startsWith('Bot check: DataDome') ? 'DataDome' : 'Cloudflare';
     return {
-      message: 'The site showed a Cloudflare bot check instead of the page, so WRL did not capture it. Failed captures are not counted or billed.',
+      message: `The site showed a ${vendor} bot check instead of the page, so WRL did not capture it. Failed captures are not counted or billed.`,
       retryable: false,
     };
   }
