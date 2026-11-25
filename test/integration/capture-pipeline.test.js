@@ -640,9 +640,48 @@ describe('integration: page over the size cap', () => {
   });
   afterEach(async () => { await cleanupCapture(captureId); });
 
-  it('fails the capture when the page also never finishes loading', async () => {
+  // Backlog #99: the cap counts announced response sizes, which never reach
+  // the Worker, so past it WRL blocks further requests and captures the page
+  // as partial, like the request cap
+  it('captures a page that loads more than 50 MB as partial', async () => {
     const port = inject('testServerPort');
-    const url = `http://127.0.0.1:${port}/huge-and-pending.html`;
+    const url = `http://127.0.0.1:${port}/huge-loaded.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.renderQuality).toBe('partial');
+    expect(record.render?.sizeLimitReached).toBe(true);
+    expect(record.render?.timedOut).toBe(false);
+  });
+
+  it('records that a fast page stayed under the cap', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/fast.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.renderQuality).toBe('full');
+    expect(record.render?.sizeLimitReached).toBe(false);
+  });
+});
+
+// Backlog #99: the rendered HTML is what the Worker holds to build the WACZ
+describe('integration: page whose HTML is too large', () => {
+  const captureId = 'cap_0000000000000000000000000000e5ab';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('fails the capture before reading the HTML into the Worker', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/huge-html.html`;
     await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
     const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
 
@@ -650,6 +689,6 @@ describe('integration: page over the size cap', () => {
     expect(result.retryable).toBe(false);
     const record = await getCapture(env.DB, captureId);
     expect(record.status).toBe('failed');
-    expect(record.error).toBe('Page exceeded 50MB size limit');
+    expect(record.error).toBe('The page\'s HTML is larger than 15 MB, more than WRL can sign in one capture');
   });
 });

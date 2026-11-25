@@ -80,7 +80,8 @@ The renderer sends these lines as the events happen and does not wait for each t
 | 3 | `render.default.partial_complete` | A page that timed out was captured, in place of `render.default.complete` (durationMs, partial, httpStatus, subresourceCount, blockedRequests, totalBytes) |
 | 3 | `render.default.partial_fail` | A page that timed out failed in a later step; the error is rethrown as it is (errorMessage) |
 | 3 | `render.default.subresource_limit` | First request past the cap blocked; the capture goes on and ends as partial (subresourceCount, totalBytes) |
-| 3 | `render.default.limit_exceeded` | Size limit hit, the capture fails (limit, subresourceCount, totalBytes) |
+| 3 | `render.default.size_limit` | First response past 50 MB; later requests are blocked and the capture ends as partial (subresourceCount, totalBytes). Before phase 0202 the capture failed and logged `render.default.limit_exceeded` |
+| 3 | `render.default.html_limit` | The rendered HTML is longer than 15 million characters; the capture fails before the HTML is read (htmlChars) |
 | 3 | `render.default.settle_complete` | Network settlement finished (settleMs, settleReason, pendingAtCap) |
 | 3 | `render.default.render_check_fail` | Rendered page is not target content (reason, httpStatus) |
 | 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs, scrollSteps, scrollCutShort). scrollCutShort is true when the 10 seconds for the scroll down ran out before the bottom or 12,000 px |

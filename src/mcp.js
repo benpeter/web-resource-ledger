@@ -443,6 +443,9 @@ function createMcpServer(env, ctx, auth, origin) {
         ...(record.render?.subresourceLimitReached
           ? ['The page made more requests than WRL allows for one capture; WRL blocked the rest.']
           : []),
+        ...(record.render?.sizeLimitReached
+          ? ['The page loaded more data than WRL allows for one capture; WRL blocked the rest.']
+          : []),
         ...(record.render?.screenshotClipped
           ? [`Screenshot covers the top ${record.render.screenshotHeight} px of a ${record.render.pageHeight} px page; the HTML has the whole page.`]
           : []),

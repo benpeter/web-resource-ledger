@@ -148,7 +148,7 @@ A partial capture is signed and timestamped like a full one, and every check abo
 }
 ```
 
-A page that hit the request cap records `"subresourceLimitReached": true`; when it finished loading otherwise, `"waitUntilReached"` is `"load"` and `"timedOut"` is `false`. Captures made before 15 November 2026 don't have that field.
+A page that hit the request cap records `"subresourceLimitReached": true`; when it finished loading otherwise, `"waitUntilReached"` is `"load"` and `"timedOut"` is `false`. Captures made before 15 November 2026 don't have that field. A page whose responses added up to more than 50 MB records `"sizeLimitReached": true` in the same way; captures made before 25 November 2026 don't have it.
 
 `requestsHeldBack` counts the requests the page started while WRL took its screenshots, which WRL held back so the screenshot doesn't wait for them; they are mostly ads, and an ad slot that would only have filled then is empty in the screenshot. It doesn't make a capture partial. Captures made before 25 November 2026 don't have it.
 
