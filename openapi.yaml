@@ -1930,10 +1930,10 @@ components:
               description: Alerts when a scheduled or API-triggered capture fails.
             approaching_limit:
               type: boolean
-              description: Warnings when the tenant is approaching their monthly quota.
+              description: Warnings when the tenant is approaching its monthly free captures (160 of 200) or free storage (8 of 10 GB).
             limit_reached:
               type: boolean
-              description: Alerts when the monthly capture quota is exhausted.
+              description: Alerts when the monthly free captures or free storage are used up, or when a batch asks for more captures than are left.
             invoice_generated:
               type: boolean
               description: Notifications when a new invoice is generated.

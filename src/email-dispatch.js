@@ -145,8 +145,11 @@ function renderTemplate(notificationType, templateData, unsubscribeUrl) {
  * @param {string} tenantId
  * @param {string} notificationType  Must match a NOTIFICATION_TYPES member
  * @param {object} templateData      Type-specific data object passed to the template
+ * @param {{ dedupKey?: string }} [options]  dedupKey: deduplicate under this
+ *   key instead of the type, for a second email of the same type that has its
+ *   own once-a-month limit (the storage warning, a refused batch)
  */
-export async function dispatchNotification(env, tenantId, notificationType, templateData) {
+export async function dispatchNotification(env, tenantId, notificationType, templateData, { dedupKey } = {}) {
   try {
     // 1. Load notification preferences
     let prefs;
@@ -194,7 +197,7 @@ export async function dispatchNotification(env, tenantId, notificationType, temp
 
       let alreadySent;
       try {
-        alreadySent = await checkNotificationSent(env.DB, tenantId, period, notificationType);
+        alreadySent = await checkNotificationSent(env.DB, tenantId, period, dedupKey ?? notificationType);
       } catch (err) {
         log(env, 4, 'email', {
           event: 'email.dispatch_error',
@@ -219,7 +222,7 @@ export async function dispatchNotification(env, tenantId, notificationType, temp
 
       // Record BEFORE enqueuing to prevent races
       try {
-        await markNotificationSent(env.DB, tenantId, period, notificationType);
+        await markNotificationSent(env.DB, tenantId, period, dedupKey ?? notificationType);
       } catch (err) {
         log(env, 4, 'email', {
           event: 'email.dispatch_error',

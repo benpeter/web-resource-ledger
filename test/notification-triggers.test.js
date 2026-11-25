@@ -31,9 +31,9 @@ import {
   completeCapture,
   markNotificationSent,
 } from '../src/db.js';
-import { setStripeCustomerId, setPaymentMethodAdded } from '../src/db.js';
+import { setStripeCustomerId, setPaymentMethodAdded, setTenantConfig } from '../src/db.js';
 import { handleWeeklyDigest } from '../src/notifications.js';
-import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT } from '../src/quotas.js';
+import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT, approachingStorageEmailData, batchRefusedEmailData } from '../src/quotas.js';
 import worker from '../src/index.js';
 
 // ---------------------------------------------------------------------------
@@ -441,6 +441,122 @@ describe('3c: limit reached -- storage limit and scheduler', () => {
     const limitEmails = sent.filter(m => m.notificationType === 'limit_reached');
     expect(limitEmails.length).toBe(1);
     expect(limitEmails[0].subject).toBe('Free capture limit reached');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3c: approaching the storage limit (backlog #34) and a refused batch (#35)
+// ---------------------------------------------------------------------------
+
+describe('3c: approaching the free storage limit', () => {
+  const freeQuota = (storageBytes) => ({
+    allowed: true,
+    hasPaymentMethod: false,
+    quota: { capturesPerMonth: FREE_CAPTURE_LIMIT, storageBytes: FREE_STORAGE_LIMIT },
+    storageBytes,
+  });
+
+  it('builds a storage warning for a free tenant at 80% of its storage', () => {
+    expect(approachingStorageEmailData(env, freeQuota(Math.ceil(FREE_STORAGE_LIMIT * 0.8)))).toMatchObject({
+      resource: 'storage',
+      used: '8.0 GB',
+      limit: '10.0 GB',
+      addPaymentUrl: expect.stringContaining('/v1/billing/checkout'),
+    });
+  });
+
+  it('builds none below 80%, with a payment method, or without a storage limit', () => {
+    expect(approachingStorageEmailData(env, freeQuota(Math.floor(FREE_STORAGE_LIMIT * 0.79)))).toBeNull();
+    expect(approachingStorageEmailData(env, { ...freeQuota(FREE_STORAGE_LIMIT - 1), hasPaymentMethod: true })).toBeNull();
+    expect(approachingStorageEmailData(env, { ...freeQuota(FREE_STORAGE_LIMIT - 1), quota: { capturesPerMonth: Infinity, storageBytes: Infinity } })).toBeNull();
+  });
+
+  it('sends the storage warning once a month, apart from the capture warning', async () => {
+    await seedNotificationPrefs(env.DB, 'default');
+    const { dispatchNotification } = await import('../src/email-dispatch.js');
+    const sent = [];
+    const mockEnv = makeEmailEnv(sent);
+    const storageData = approachingStorageEmailData(env, freeQuota(Math.ceil(FREE_STORAGE_LIMIT * 0.8)));
+
+    await dispatchNotification(mockEnv, 'default', 'approaching_limit', {
+      used: 160,
+      limit: FREE_CAPTURE_LIMIT,
+      period: 'March 2026',
+      addPaymentUrl: 'https://api.webresourceledger.com/v1/billing/checkout',
+    });
+    await dispatchNotification(mockEnv, 'default', 'approaching_limit', storageData, { dedupKey: 'approaching_storage_limit' });
+    await dispatchNotification(mockEnv, 'default', 'approaching_limit', storageData, { dedupKey: 'approaching_storage_limit' });
+
+    expect(sent.map(m => m.subject)).toEqual([
+      'Approaching free capture limit (160/200)',
+      'Approaching free storage limit (8.0 GB of 10.0 GB)',
+    ]);
+  });
+});
+
+describe('3c: a batch refused while free captures are left', () => {
+  // The per-tenant limit of 10 captures a minute counts in KV, across tests,
+  // and a batch counts its URLs: these tests send more than 10 in a minute.
+  function raiseRateLimit() {
+    return setTenantConfig(env.DB, 'default', { rateLimit: { capture: { limit: 100, period: 60 } } }, 'test');
+  }
+
+  function postBatch(size, sent, ctx) {
+    const urls = Array.from({ length: size }, (_, i) => ({ url: `https://example.com/${i}` }));
+    return worker.fetch(new Request('https://worker.test/v1/captures/batch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${TEST_TENANT_KEY}`,
+        'CF-Connecting-IP': '10.77.0.2',
+      },
+      body: JSON.stringify({ urls }),
+    }), makeEmailEnv(sent), ctx);
+  }
+
+  it('builds no batch email when nothing is left or the tenant has a payment method', () => {
+    expect(batchRefusedEmailData(env, { allowed: false, reason: 'payment_required', used: FREE_CAPTURE_LIMIT, limit: FREE_CAPTURE_LIMIT, requested: 5 })).toBeNull();
+    expect(batchRefusedEmailData(env, { allowed: false, reason: 'capture_limit', used: 190, limit: 200, requested: 20 })).toBeNull();
+  });
+
+  it('emails a free tenant whose batch asks for more captures than are left', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY);
+    await raiseRateLimit();
+    await seedNotificationPrefs(env.DB, 'default');
+    await seedUsage(FREE_CAPTURE_LIMIT - 2);
+
+    const sent = [];
+    const ctx = createExecutionContext();
+    const res = await postBatch(5, sent, ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(res.status).toBe(429);
+    expect(sent.length).toBe(1);
+    expect(sent[0].notificationType).toBe('limit_reached');
+    expect(sent[0].subject).toBe('Batch refused: 5 captures requested, 2 free captures left');
+  });
+
+  it('sends it once a month, and the limit-reached email still comes later', async () => {
+    await seedApiKey(env.DB, TEST_TENANT_KEY);
+    await raiseRateLimit();
+    await seedNotificationPrefs(env.DB, 'default');
+    await seedUsage(FREE_CAPTURE_LIMIT - 2);
+
+    const sent = [];
+    for (const size of [5, 3]) {
+      const ctx = createExecutionContext();
+      await postBatch(size, sent, ctx);
+      await waitOnExecutionContext(ctx);
+    }
+    await seedUsage(FREE_CAPTURE_LIMIT);
+    const ctx = createExecutionContext();
+    await postBatch(1, sent, ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(sent.map(m => m.subject)).toEqual([
+      'Batch refused: 5 captures requested, 2 free captures left',
+      'Free capture limit reached',
+    ]);
   });
 });
 

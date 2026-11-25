@@ -271,13 +271,66 @@ export function limitReachedEmailData(env, quotaCheck) {
     return null;
   }
 
+  return {
+    ...usage,
+    ...billingEmailLinks(env),
+    resetsAt: quotaCheck.resetsAt,
+  };
+}
+
+/**
+ * Template data for the email to a free tenant whose batch asks for more
+ * captures than are left this month (backlog #35), or null for any other
+ * refusal. limitReachedEmailData covers the tenant with nothing left; a
+ * tenant with a payment method has no free captures to run out of.
+ *
+ * @param {object} env
+ * @param {object} quotaCheck  Result of checkQuota()
+ * @returns {object|null}
+ */
+export function batchRefusedEmailData(env, quotaCheck) {
+  if (quotaCheck.allowed || quotaCheck.reason !== 'payment_required') return null;
+  if (!(quotaCheck.used < quotaCheck.limit)) return null;
+  return {
+    resource: 'captures',
+    used: quotaCheck.used,
+    limit: quotaCheck.limit,
+    requested: quotaCheck.requested,
+    ...billingEmailLinks(env),
+    resetsAt: quotaCheck.resetsAt,
+  };
+}
+
+/**
+ * Template data for the warning to a free tenant that has used 80% of its
+ * storage (backlog #34), or null. The capture warning at 160 captures comes
+ * first for typical pages; this one is for captures large enough to fill the
+ * storage before that.
+ *
+ * @param {object} env
+ * @param {object} quotaCheck  An allowed result of checkQuota()
+ * @returns {object|null}
+ */
+export function approachingStorageEmailData(env, quotaCheck) {
+  if (!quotaCheck.allowed || quotaCheck.hasPaymentMethod) return null;
+  const limit = quotaCheck.quota?.storageBytes;
+  if (!Number.isFinite(limit)) return null;
+  if (quotaCheck.storageBytes < Math.floor(limit * 0.8)) return null;
+  return {
+    resource: 'storage',
+    used: formatStorage(quotaCheck.storageBytes),
+    limit: formatStorage(limit),
+    ...billingEmailLinks(env),
+  };
+}
+
+// The billing period and the add-a-payment-method link the limit emails show.
+function billingEmailLinks(env) {
   const baseUrl = env.VERIFICATION_BASE_URL
     ? env.VERIFICATION_BASE_URL.replace(/\/$/, '')
     : 'https://api.webresourceledger.com';
   return {
-    ...usage,
     period: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
     addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
-    resetsAt: quotaCheck.resetsAt,
   };
 }

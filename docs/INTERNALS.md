@@ -256,7 +256,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 |---|---|---|---|
 | `tenant_id` | TEXT | NOT NULL, FK → `tenants(id)`, PK part | |
 | `period` | TEXT | NOT NULL, PK part, GLOB `'[0-9]{4}-[0-9]{2}'`, length 7 | Format: `YYYY-MM` |
-| `event_type` | TEXT | NOT NULL, PK part | e.g. `'approaching_limit'`, `'limit_reached'` |
+| `event_type` | TEXT | NOT NULL, PK part | The notification type, e.g. `'approaching_limit'`, `'limit_reached'`, or the `dedupKey` of an email that has its own monthly limit: `'approaching_storage_limit'` (phase 0200), `'batch_refused'` (phase 0200) |
 | `sent_at` | TEXT | NOT NULL, default now | ISO 8601. Dedup: at most one send per (tenant, period, event_type) |
 
 ### Threat Intelligence Tables

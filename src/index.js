@@ -15,7 +15,7 @@ import { runRetentionJobs, purgeExpiredSignIns, purgeExpiredCaptures } from './r
 import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
-import { checkQuota, FREE_CAPTURE_LIMIT, limitReachedEmailData, accountRefusalDetail, quotaLimitDetail } from './quotas.js';
+import { checkQuota, FREE_CAPTURE_LIMIT, limitReachedEmailData, batchRefusedEmailData, approachingStorageEmailData, accountRefusalDetail, quotaLimitDetail } from './quotas.js';
 import { computeCip } from './ip-hash.js';
 import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant, handleAdminPurgeTenantCaptures } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
@@ -394,6 +394,18 @@ async function handleCaptureMessage(msg, env, ctx) {
                 addPaymentUrl: `${baseUrl}/v1/billing/checkout`,
               }).catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
             }
+          }
+        }
+        // Storage at 80% of a free tenant's limit (backlog #34), deduplicated
+        // apart from the capture warning. Same short-circuit as above.
+        const storageEmail = approachingStorageEmailData(env, quota);
+        if (storageEmail) {
+          const now = new Date();
+          const period = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+          const alreadySent = await checkNotificationSent(env.DB, tenantId, period, 'approaching_storage_limit');
+          if (!alreadySent) {
+            await dispatchNotification(env, tenantId, 'approaching_limit', storageEmail, { dedupKey: 'approaching_storage_limit' })
+              .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId }));
           }
         }
       } catch (err) {
@@ -1338,6 +1350,12 @@ async function handleBatchCapture(request, env, ctx) {
       const limitEmail = limitReachedEmailData(env, quotaCheck);
       if (limitEmail) {
         ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', limitEmail)
+          .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId })));
+      }
+      // A batch bigger than the free captures left (backlog #35)
+      const batchEmail = batchRefusedEmailData(env, quotaCheck);
+      if (batchEmail) {
+        ctx.waitUntil(dispatchNotification(env, tenantId, 'limit_reached', batchEmail, { dedupKey: 'batch_refused' })
           .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId })));
       }
 
