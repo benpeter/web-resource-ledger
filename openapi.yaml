@@ -67,6 +67,14 @@ components:
       schema:
         type: string
         enum: [no-referrer]
+    XRobotsTag:
+      description: >
+        Asks search engines not to index the response. Every response of the
+        API carries it: verification pages and artifacts show pages tenants
+        captured, often as evidence.
+      schema:
+        type: string
+        enum: [noindex]
     XContentTypeOptions:
       description: Prevents MIME-type sniffing.
       schema:
@@ -2063,6 +2071,8 @@ components:
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
+        X-Robots-Tag:
+          $ref: '#/components/headers/XRobotsTag'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
         X-Frame-Options:
@@ -2093,6 +2103,8 @@ components:
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
+        X-Robots-Tag:
+          $ref: '#/components/headers/XRobotsTag'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
         X-Frame-Options:
@@ -2126,6 +2138,8 @@ components:
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
+        X-Robots-Tag:
+          $ref: '#/components/headers/XRobotsTag'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
         X-Frame-Options:
@@ -2155,6 +2169,8 @@ components:
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
+        X-Robots-Tag:
+          $ref: '#/components/headers/XRobotsTag'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
         X-Frame-Options:
@@ -2189,6 +2205,8 @@ components:
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
+        X-Robots-Tag:
+          $ref: '#/components/headers/XRobotsTag'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
         X-Frame-Options:
@@ -2230,6 +2248,8 @@ components:
       headers:
         Referrer-Policy:
           $ref: '#/components/headers/ReferrerPolicy'
+        X-Robots-Tag:
+          $ref: '#/components/headers/XRobotsTag'
         X-Content-Type-Options:
           $ref: '#/components/headers/XContentTypeOptions'
         X-Frame-Options:
@@ -2264,6 +2284,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2490,6 +2512,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2572,6 +2596,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2632,6 +2658,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2679,6 +2707,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2719,6 +2749,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2776,6 +2808,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2810,6 +2844,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2853,6 +2889,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2902,6 +2940,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -2987,6 +3027,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3052,6 +3094,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3080,6 +3124,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3128,6 +3174,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3157,6 +3205,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3198,6 +3248,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3344,6 +3396,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3386,8 +3440,12 @@ paths:
                     status: failed
                     error: Page did not finish loading within 20 seconds. WRL tried 4 times.
                     retryable: false
+        '401':
+          $ref: '#/components/responses/Problem401'
         '404':
           $ref: '#/components/responses/Problem404'
+        '429':
+          $ref: '#/components/responses/Problem429'
 
   /v1/captures/{captureId}:
     get:
@@ -3411,6 +3469,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3488,8 +3548,12 @@ paths:
                       screenshot: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/screenshot
                       html: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/html
                       headers: https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/headers
+        '401':
+          $ref: '#/components/responses/Problem401'
         '404':
           $ref: '#/components/responses/Problem404'
+        '429':
+          $ref: '#/components/responses/Problem429'
 
   /v1/captures/{captureId}/artifacts/{name}:
     get:
@@ -3520,6 +3584,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3565,8 +3631,12 @@ paths:
                 type: string
                 format: binary
                 description: Signed WACZ bundle (artifact name "wacz").
+        '401':
+          $ref: '#/components/responses/Problem401'
         '404':
           $ref: '#/components/responses/Problem404'
+        '429':
+          $ref: '#/components/responses/Problem429'
         '451':
           description: >
             Unavailable For Legal Reasons — this capture has been quarantined due to
@@ -3575,6 +3645,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -3988,6 +4060,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4112,6 +4186,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4167,6 +4243,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4243,6 +4321,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4350,6 +4430,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4389,6 +4471,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4417,6 +4501,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4444,6 +4530,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4468,6 +4556,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4534,6 +4624,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4600,6 +4692,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4629,6 +4723,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4684,6 +4780,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4721,6 +4819,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4748,6 +4848,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4777,6 +4879,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4832,6 +4936,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4866,6 +4972,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4904,6 +5012,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -4969,6 +5079,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -5028,6 +5140,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6061,6 +6175,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6409,6 +6525,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6450,6 +6568,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6486,6 +6606,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6563,6 +6685,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6649,6 +6773,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:
@@ -6703,6 +6829,8 @@ paths:
           headers:
             Referrer-Policy:
               $ref: '#/components/headers/ReferrerPolicy'
+            X-Robots-Tag:
+              $ref: '#/components/headers/XRobotsTag'
             X-Content-Type-Options:
               $ref: '#/components/headers/XContentTypeOptions'
             X-Frame-Options:

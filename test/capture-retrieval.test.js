@@ -451,3 +451,79 @@ describe('GET /v1/captures/{id}/artifacts -- Content-Disposition filenames', () 
     expect(cd).toMatch(/^attachment; filename="capture-example\.com-\d{4}-\d{2}-\d{2}-before\.png"$/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Backlog #64: the public capture routes. Artifacts and the certificate had a
+// per-IP limit for requests without a key; the capture record and its status
+// did not. Search engines are asked not to index anything this Worker serves,
+// and a wrong key is refused on every public route instead of being read as
+// no key.
+// ---------------------------------------------------------------------------
+
+const refusingLimiter = { limit: async () => ({ success: false }) };
+
+async function fetchWithEnv(path, overrides, headers = {}) {
+  const ctx = createExecutionContext();
+  const res = await worker.fetch(new Request(`https://worker.test${path}`, {
+    headers: { 'CF-Connecting-IP': '10.0.64.1', ...headers },
+  }), { ...env, ...overrides }, ctx);
+  await waitOnExecutionContext(ctx);
+  return res;
+}
+
+describe('public capture routes -- per-IP limit without a key (backlog #64)', () => {
+  it('GET /v1/captures/{id} answers 429 when the IP is over the limit', async () => {
+    const res = await fetchWithEnv(`/v1/captures/${CAP_A}`, { VERIFY_RATE_LIMITER: refusingLimiter });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('GET /v1/captures/{id}/status answers 429 when the IP is over the limit', async () => {
+    const res = await fetchWithEnv(`/v1/captures/${CAP_A}/status`, { VERIFY_RATE_LIMITER: refusingLimiter });
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('does not limit the owner calling with a key', async () => {
+    const res = await fetchWithEnv(`/v1/captures/${CAP_A}`, { VERIFY_RATE_LIMITER: refusingLimiter }, {
+      Authorization: `Bearer ${TEST_TENANT_KEY}`,
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('public capture routes -- not for search engines (backlog #64)', () => {
+  it('sends X-Robots-Tag: noindex on the capture record, status, artifacts and verification page', async () => {
+    for (const path of [
+      `/v1/captures/${CAP_A}`,
+      `/v1/captures/${CAP_A}/status`,
+      `/v1/captures/${CAP_A}/artifacts/screenshot`,
+      `/v1/verify/${CAP_A}`,
+    ]) {
+      const res = await SELF.fetch(`https://worker.test${path}`);
+      expect(res.headers.get('X-Robots-Tag'), path).toBe('noindex');
+    }
+  });
+
+  it('sends it on a 404 too', async () => {
+    const res = await SELF.fetch(`https://worker.test/v1/captures/cap_${'f'.repeat(32)}`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('X-Robots-Tag')).toBe('noindex');
+  });
+});
+
+describe('public capture routes -- a wrong key is refused (backlog #64)', () => {
+  it('answers 401 on the record, status, artifacts and certificate', async () => {
+    for (const path of [
+      `/v1/captures/${CAP_A}`,
+      `/v1/captures/${CAP_A}/status`,
+      `/v1/captures/${CAP_A}/artifacts/screenshot`,
+      `/v1/captures/${CAP_A}/certificate`,
+    ]) {
+      const res = await SELF.fetch(`https://worker.test${path}`, {
+        headers: { Authorization: 'Bearer wrl_live_' + '0'.repeat(32) },
+      });
+      expect(res.status, path).toBe(401);
+    }
+  });
+});

@@ -130,7 +130,7 @@ Unauthenticated or low-trust requests are subject to per-IP rate limiting. The l
 
 | What | Limit per IP address |
 |---|---|
-| Verification and signing keys (`/v1/verify/{id}`, `/.well-known/signing-key`, `/.well-known/signing-keys`), artifact and certificate downloads without an API key, and MCP tool listing without a key | 60 a minute, shared |
+| Verification and signing keys (`/v1/verify/{id}`, `/.well-known/signing-key`, `/.well-known/signing-keys`), capture records, status, artifact and certificate downloads without an API key (`/v1/captures/{id}`, `/status`, `/artifacts/...`, `/certificate`), and MCP tool listing without a key | 60 a minute, shared |
 | `GET /v1/account/usage`, sign-in and the dashboard's account routes | 10 a minute, shared |
 
 ### Per-Tenant Limits

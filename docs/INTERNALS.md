@@ -440,7 +440,7 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | Binding | Limit | Purpose |
 |---|---|---|
 | `CAPTURE_RATE_LIMITER` | 100 req/60s | Per-tenant hard ceiling for capture endpoints. Application KV counters enforce lower per-tenant defaults (10 req/60s). Tenant `config.rateLimit.capture` may override the KV default up to 100. |
-| `VERIFY_RATE_LIMITER` | 60 req/60s | Per-IP ceiling for verify and signing-key endpoints |
+| `VERIFY_RATE_LIMITER` | 60 req/60s | Per-IP ceiling for verify and signing-key endpoints, and for the public capture routes (record, status, artifacts, certificate) called without a key |
 | `GLOBAL_CAPTURE_LIMITER` | 200 req/60s | Global capture ceiling across all tenants |
 | `ADMIN_RATE_LIMITER` | 30 req/60s | Per-IP ceiling for admin endpoints |
 | `CAPTURE_IP_GUARD` | 50 req/60s | Secondary per-IP abuse guard on capture endpoints (layer 3 of 3-layer check) |

@@ -23,6 +23,8 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 - A page whose responses add up to more than 50 MB is captured as partial, with `render.sizeLimitReached` set to `true` (also signed into `captureQuality`, and shown on the verification page and in MCP `get_capture`), instead of failing with "Page exceeded 50MB size limit". WRL blocks the requests after that point for the whole capture; before, a page that passed 50 MB while WRL scrolled it was captured as full.
 - A page whose rendered HTML is longer than 15 million characters fails with "The page's HTML is larger than 15 MB, more than WRL can sign in one capture", checked before the HTML is read into the Worker.
+- `GET /v1/captures/{id}` and `GET /v1/captures/{id}/status` called without an API key share the per-IP limit of 60 a minute with verification, artifact and certificate downloads, and answer `429` with `Retry-After: 60` past it. With a key they are not limited there.
+- Every API response carries `X-Robots-Tag: noindex`, so search engines don't list verification pages, artifacts or capture records.
 
 ### Fixed
 
