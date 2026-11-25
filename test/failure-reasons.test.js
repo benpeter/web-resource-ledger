@@ -72,6 +72,13 @@ describe('categorizeError -- messages users can act on', () => {
     });
   });
 
+  it('a DataDome bot check is named as DataDome, not Cloudflare (backlog #100)', () => {
+    expect(categorizeError(new Error('Bot check: DataDome challenge (datadome-config, captcha-delivery)'))).toEqual({
+      message: 'The site showed a DataDome bot check instead of the page, so WRL did not capture it. Failed captures are not counted or billed.',
+      retryable: false,
+    });
+  });
+
   it('a screenshot the browser could not take is named as such and retried', () => {
     expect(
       categorizeError(new Error('page.screenshot: Protocol error (Page.captureScreenshot): Unable to capture screenshot')),
@@ -165,6 +172,21 @@ describe('classifyBotCheck -- two signals before a page counts as a challenge', 
     const r = classifyBotCheck({ title: 'Example Domain', hasChallengeOptions: false, hasChallengeScript: false, hasChallengeMarkup: false });
     expect(r.detected).toBe(false);
     expect(r.signals).toEqual([]);
+  });
+
+  // nytimes.com and etsy.com answer WRL's browser with a 403 DataDome page:
+  // `var dd={...}` and a script from ct.captcha-delivery.com that puts the
+  // captcha in an iframe (backlog #100, checked 2026-11-25).
+  it("DataDome's config plus its captcha script is a DataDome challenge", () => {
+    const r = classifyBotCheck({ title: 'nytimes.com', hasChallengeOptions: false, hasChallengeScript: false, hasChallengeMarkup: false, hasDataDomeConfig: true, hasDataDomeCaptcha: true });
+    expect(r.detected).toBe(true);
+    expect(r.vendor).toBe('datadome');
+    expect(r.signals).toEqual(['datadome-config', 'captcha-delivery']);
+  });
+
+  it("DataDome's captcha script alone is not enough", () => {
+    const r = classifyBotCheck({ title: 'etsy.com', hasChallengeOptions: false, hasChallengeScript: false, hasChallengeMarkup: false, hasDataDomeConfig: false, hasDataDomeCaptcha: true });
+    expect(r.detected).toBe(false);
   });
 });
 

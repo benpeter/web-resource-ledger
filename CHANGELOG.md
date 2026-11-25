@@ -10,6 +10,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
+### Fixed
+
+- A capture of a page behind DataDome's captcha (nytimes.com and etsy.com show it to WRL's browser, with HTTP 403) failed as "The site answered HTTP 403 and the page showed nothing (blank page)". It now fails with "The site showed a DataDome bot check instead of the page", like a Cloudflare bot check: not retried and not counted.
+
 ### Added
 
 - A capture records where WRL's browser went out to the web, as `captureSettings.browserLocation` with the Cloudflare data center (`colo`, for example `LAX`) and the country (`country`, `US`), read from Cloudflare's trace page inside the browser and signed into the WACZ. Cloudflare picks the place, so far always in the United States, and it can change what a site shows: in November 2026 three sites showed WRL a cookie banner in Los Angeles and none in Dallas. The verification page ("Captured from" under Capture details), the dashboard, the certification PDF and MCP `get_capture` and `verify_capture` show it. Captures made before have none.
