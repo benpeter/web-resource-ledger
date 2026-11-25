@@ -17,6 +17,8 @@ This works immediately, with no accounts or API keys. The test suite is fully se
 This project is licensed under [PolyForm Shield 1.0.0](LICENSE), a source-available
 license. The source code is public and you are free to use, modify, and share it --
 but you may not use it to offer a product that competes with Web Resource Ledger.
+The offline verifier in `packages/verify` is the exception: it is under Apache 2.0
+(`packages/verify/LICENSE`), and contributions to it are licensed under Apache 2.0.
 
 By submitting a pull request, you agree that your contribution is licensed under the
 same terms. If you have questions about whether your intended use is permitted, open

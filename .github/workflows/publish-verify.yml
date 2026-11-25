@@ -1,9 +1,11 @@
 # Publishes the @w-r-l/verify package to npmjs.com when a tag matching
 # verify/v* is pushed (e.g. verify/v0.2.0).
 #
-# Prerequisites:
-#   - NPM_TOKEN secret must be provisioned in repository settings with
-#     publish access to the @w-r-l scope.
+# Authentication: npm trusted publishing (OIDC). The package's settings on
+# npmjs.com trust this repository's publish-verify.yml; the job's id-token
+# permission lets npm exchange the GitHub OIDC token for a publish token. No
+# NPM_TOKEN secret. Trusted publishing needs npm 11.5.1 or later; Node 22
+# ships npm 10, so the job installs npm 11 first.
 #
 # Note: tags use a verify/v* prefix (not bare v*) because path filters
 # don't work on tag push events -- the prefix is the only scoping mechanism.
@@ -43,14 +45,8 @@ jobs:
         working-directory: packages/verify
         run: npm test
 
-      - name: Check NPM_TOKEN is set
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::NPM_TOKEN secret is not set. Configure it in repository settings."
-            exit 1
-          fi
+      - name: Install npm 11 (trusted publishing needs 11.5.1 or later)
+        run: npm install -g npm@11
 
       - name: Verify version matches tag
         working-directory: packages/verify
@@ -64,8 +60,6 @@ jobs:
 
       - name: Publish to npm
         working-directory: packages/verify
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           OUTPUT=$(npm publish --provenance --access public 2>&1) || {
             EXIT_CODE=$?

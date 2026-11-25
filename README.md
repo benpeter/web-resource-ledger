@@ -511,4 +511,4 @@ By using this API, you agree to the [Terms of Service](TERMS.md).
 
 ## License
 
-[PolyForm Shield 1.0.0](LICENSE): source-available. You may use, modify, and self-host WRL for any purpose except offering a competing web capture service. See [LICENSE](LICENSE) for the full text.
+[PolyForm Shield 1.0.0](LICENSE): source-available. You may use, modify, and self-host WRL for any purpose except offering a competing web capture service. See [LICENSE](LICENSE) for the full text. The offline verifier, [`packages/verify`](packages/verify) (`@w-r-l/verify` on npm), is under [Apache 2.0](packages/verify/LICENSE), so anyone can run and reuse it.
