@@ -16,6 +16,13 @@
  * block page, or an empty 403 that fails the capture): the consent step never
  * saw the page, so the result says nothing about the update.
  *
+ * Cloudflare runs browser sessions in different data centers, and some
+ * consent tools ask visitors in one place and not in another (backlog #108:
+ * banners in Los Angeles, none in Dallas). When the two runs of a site went out
+ * from different data centers (colo, recorded since phase 0197) and only the
+ * consent result got worse, the verdict is 'location', not a regression. A
+ * failed capture or a partial render stays a regression wherever it ran.
+ *
  * Pure module (no Node or Workers APIs): used by scripts/battery-compare.js
  * and tested in test/battery-compare.test.js.
  */
@@ -42,7 +49,7 @@ function describeSide(r) {
   const refused = errorStatus(r);
   if (r.status !== 'complete') return refused ? `${r.status}, HTTP ${refused}` : r.status;
   if (refused) return `complete, HTTP ${refused}`;
-  return `complete, ${r.renderQuality || 'full'}, consent ${r.consentResult || 'n/a'}`;
+  return `complete, ${r.renderQuality || 'full'}, consent ${r.consentResult || 'n/a'}${r.colo ? `, ${r.colo}` : ''}`;
 }
 
 /**
@@ -102,7 +109,11 @@ export function compareBattery(baseline, candidate) {
       if (!bConsent && cConsent) improve.push('consent');
     }
 
-    if (regress.length > 0) {
+    const moved = b.colo && c?.colo && b.colo !== c.colo;
+    if (moved && regress.length > 0 && regress.every((reason) => reason === 'consent')) {
+      row.verdict = 'location';
+      row.reasons = regress;
+    } else if (regress.length > 0) {
       row.verdict = 'regression';
       row.reasons = regress;
     } else if (improve.length > 0) {
@@ -138,7 +149,7 @@ function plural(n, word) {
  * @param {{ rows: Array<object> }} result  return value of compareBattery
  */
 export function formatReport(result) {
-  const order = { regression: 0, improvement: 1, same: 2, skipped: 3, blocked: 4 };
+  const order = { regression: 0, location: 1, improvement: 2, same: 3, skipped: 4, blocked: 5 };
   const rows = [...result.rows].sort((a, b) => order[a.verdict] - order[b.verdict]);
   const lines = [
     '| Site | Verdict | Baseline | Candidate |',
@@ -150,6 +161,7 @@ export function formatReport(result) {
   ];
   const count = (v) => result.rows.filter((r) => r.verdict === v).length;
   lines.push('');
-  lines.push(`${plural(count('regression'), 'regression')}, ${plural(count('improvement'), 'improvement')}, ${count('same')} unchanged, ${count('skipped')} skipped, ${count('blocked')} blocked`);
+  const moved = count('location');
+  lines.push(`${plural(count('regression'), 'regression')}, ${plural(count('improvement'), 'improvement')}, ${count('same')} unchanged, ${count('skipped')} skipped, ${count('blocked')} blocked${moved > 0 ? `, ${plural(moved, 'location change')}` : ''}`);
   return lines.join('\n');
 }
