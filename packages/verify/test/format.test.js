@@ -315,6 +315,24 @@ describe('formatHuman -- captured page', () => {
   });
 });
 
+describe('formatHuman -- browser location', () => {
+  beforeEach(captureStdout);
+  afterEach(restoreStdout);
+
+  it('says where the page was loaded from, below the page', () => {
+    const result = makePassResult();
+    result.capture.url = 'https://example.com/terms';
+    result.capture.browserLocation = { colo: 'LAX', country: 'US' };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Page      https:\/\/example\.com\/terms\n  From      LAX, US \(Cloudflare data center\)\n/);
+  });
+
+  it('leaves the line out when the archive records none', () => {
+    formatHuman(makePassResult(), { noColor: true });
+    assert.doesNotMatch(stdoutOutput, /  From  /);
+  });
+});
+
 describe('formatHuman -- capture quality', () => {
   beforeEach(captureStdout);
   afterEach(restoreStdout);

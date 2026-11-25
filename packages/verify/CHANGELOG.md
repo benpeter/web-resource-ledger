@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.0 (2026-11-25)
+
+- Say where the capture service's browser loaded the page from: `From` in the standard output, `Captured from` in the subject section of the `--legal` report, and `capture.browserLocation` (`colo`, `country`) in `--json` and `--legal --json`. The values come from `captureSettings.browserLocation` in `datapackage.json`, which the signature covers; only a three-letter data center code and a two-letter country code are shown
+
 ## v0.4.0 (2026-11-25)
 
 - License: Apache 2.0, as the LICENSE file in every published version says. The README and the v0.3.0 entry below named PolyForm Shield 1.0.0; that no longer applies to this package. The rest of WRL stays under PolyForm Shield

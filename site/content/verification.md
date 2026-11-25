@@ -40,6 +40,8 @@ Verified  https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0
   Time verification     pass
   Timestamp chain       pass
 
+  Page      https://example.com/
+  From      LAX, US (Cloudflare data center)
   Signed    2026-03-22T10:30:12.350Z
   TSA       http://timestamp.digicert.com
   Key       ab487612 (from api.webresourceledger.com)
@@ -49,6 +51,8 @@ Verdict: All 5 cryptographic checks passed. This capture has not been modified s
 ```
 
 Exit code `0` means all checks passed. Exit code `1` means one or more checks failed. Exit code `2` means a usage error (bad arguments, missing file, or network failure fetching the key or bundle).
+
+`Page` is the captured page and `From` where WRL's browser loaded it from (see [Where the capture was made from](#where-the-capture-was-made-from)); both come from the signed `datapackage.json`. When the capture service recorded something a reader should know (a partial render, a screenshot that shows only the top of the page, or an error status from the site), a `Note` line says so. These lines need `@w-r-l/verify` 0.5.0 or later; `npx` fetches the latest.
 
 For machine-readable output, add `--json`. For a legal report, add `--legal` (see below). For full CLI options, see the [verify package README](https://github.com/benpeter/web-resource-ledger/tree/main/packages/verify).
 

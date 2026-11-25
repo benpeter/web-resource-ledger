@@ -10,7 +10,7 @@
  *   formatLegalJson() -- machine-readable JSON for document assembly
  */ // tva
 
-import { checkLabel, captureQualityNotes } from './format.js';
+import { checkLabel, captureQualityNotes, browserLocationText } from './format.js';
 
 // ---------------------------------------------------------------------------
 // Report format version -- bumped when report structure changes
@@ -293,6 +293,10 @@ export function formatLegal(result, opts = {}) {
   const capture = result.capture ?? {};
   if (capture.url) {
     out.push(`Captured page: ${capture.url}`);
+  }
+  const from = browserLocationText(capture.browserLocation);
+  if (from) {
+    out.push(`Captured from: ${from}`);
   }
   if (capture.capturedAt) {
     out.push(`Captured at:   ${capture.capturedAt}`);
@@ -700,6 +704,7 @@ export function formatLegalJson(result, opts = {}) {
       url: capture.url ?? null,
       capturedAt: capture.capturedAt ?? null,
       quality: capture.quality ?? null,
+      browserLocation: capture.browserLocation ?? null,
     },
     timestamps,
     keyResolution: {

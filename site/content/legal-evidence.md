@@ -91,8 +91,8 @@ The report is formatted as WRL-LEGAL-1.0 and contains seven sections:
 
 | Section | Contents |
 |---------|----------|
-| Summary | Plain-language pass/fail result, how many checks ran, what was verified (the capture URL or WACZ file given to the tool) and when |
-| Subject | What a WACZ capture contains, when it was signed, and its bundle hash |
+| Summary | Plain-language pass/fail result, how many checks ran, the captured page, what was verified (the capture URL or WACZ file given to the tool) and when |
+| Subject | What a WACZ capture contains; the captured page, where WRL's browser loaded it from (Cloudflare data center and country) and when; when it was signed and its bundle hash; and what the capture service recorded about a partial render, a cut-off screenshot or an error status from the site |
 | Check explanations | Each verification check described in non-technical terms |
 | Chain of custody | Narrative from capture request through signing and timestamping |
 | Legal standards | How the verification properties map to FRE 901(b)(9) and eIDAS Art. 41; does not claim admissibility |

@@ -39,6 +39,23 @@ const QUALITY_FLAGS    = ['timedOut', 'subresourceLimitReached', 'screenshotClip
 const QUALITY_NUMBERS  = ['pageHeight', 'screenshotHeight', 'httpStatus'];
 
 /**
+ * Reads captureSettings.browserLocation of datapackage.json: the Cloudflare
+ * data center and country the capture service's browser went out to the web
+ * from. Kept only as a three-letter data center code and a two-letter country
+ * code, so nothing else from the archive reaches the output.
+ *
+ * @param {*} settings  datapackage.captureSettings
+ * @returns {{ colo: string, country: string }|null}
+ */
+function readBrowserLocation(settings) {
+  const loc = settings && typeof settings === 'object' ? settings.browserLocation : null;
+  if (!loc || typeof loc !== 'object') return null;
+  if (typeof loc.colo !== 'string' || !/^[A-Z]{3}$/.test(loc.colo)) return null;
+  if (typeof loc.country !== 'string' || !/^[A-Z]{2}$/.test(loc.country)) return null;
+  return { colo: loc.colo, country: loc.country };
+}
+
+/**
  * Reads the captureQuality record of datapackage.json: how far the page got,
  * how much of it the screenshot shows, what status the site answered with.
  * Keeps only the fields this tool knows, each with the type it expects, so
@@ -332,6 +349,8 @@ export async function verifyWacz(waczBytes, publicKeyBytes, options = {}) {
       capturedAt: typeof datapackage.mainPageDate === 'string' ? datapackage.mainPageDate : null,
       // How the page loaded, as the capture service recorded it: also in datapackage.json
       quality:    readCaptureQuality(datapackage.captureQuality),
+      // Where the browser loaded the page from, as the capture service recorded it
+      browserLocation: readBrowserLocation(datapackage.captureSettings),
     };
     if (timestampData) {
       result.capture.timestamp = timestampData;
