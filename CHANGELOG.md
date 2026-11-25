@@ -19,6 +19,11 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 - Self-hosted deployments can delete old captures: with `CAPTURE_RETENTION_DAYS` set, the per-minute cron deletes up to 100 captures an hour that were created more than that many days ago, each with its R2 objects and threat checks. Unset, captures are kept, as before. The hosted service leaves it unset; its staging environment sets 30.
 - `DELETE /v1/admin/tenants/{tenantId}/captures?confirm={tenantId}` deletes up to 100 of a tenant's captures per call, oldest first, and keeps the account; the answer says how many are left.
 
+### Changed
+
+- A page whose responses add up to more than 50 MB is captured as partial, with `render.sizeLimitReached` set to `true` (also signed into `captureQuality`, and shown on the verification page and in MCP `get_capture`), instead of failing with "Page exceeded 50MB size limit". WRL blocks the requests after that point for the whole capture; before, a page that passed 50 MB while WRL scrolled it was captured as full.
+- A page whose rendered HTML is longer than 15 million characters fails with "The page's HTML is larger than 15 MB, more than WRL can sign in one capture", checked before the HTML is read into the Worker.
+
 ### Fixed
 
 - A capture of a page behind DataDome's captcha (nytimes.com and etsy.com show it to WRL's browser, with HTTP 403) failed as "The site answered HTTP 403 and the page showed nothing (blank page)". It now fails with "The site showed a DataDome bot check instead of the page", like a Cloudflare bot check: not retried and not counted.

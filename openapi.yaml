@@ -546,6 +546,13 @@ components:
             capture (2000). WRL blocked the ones past the cap, so content that
             loads late may be missing, and renderQuality is "partial". Absent
             on captures made before 15 November 2026.
+        sizeLimitReached:
+          type: boolean
+          description: >
+            True when the sizes the page's responses announced (Content-Length)
+            added up to more than 50 MB. WRL blocked the requests past that
+            point, so content that loads late may be missing, and renderQuality
+            is "partial". Absent on captures made before 25 November 2026.
         requestsHeldBack:
           type: integer
           minimum: 0
@@ -775,7 +782,8 @@ components:
             milestone before capture (followed by an adaptive settle phase, up to
             3s). 'partial' when the capture was taken after a navigation timeout
             but DOMContentLoaded had fired, or when the page made more than 2000
-            requests and WRL blocked the rest (`render.subresourceLimitReached`).
+            requests or loaded more than 50 MB and WRL blocked the rest
+            (`render.subresourceLimitReached`, `render.sizeLimitReached`).
             A page that timed out still gets the settle, scroll and consent
             steps, and fails like any other page when it is blank or shows a
             bot check.

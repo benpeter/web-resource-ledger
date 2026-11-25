@@ -184,7 +184,9 @@ A page can make 2000 requests while WRL loads it: the page itself, its scripts, 
 
 Before 15 November 2026 the cap was 500 requests, and a page past it failed with "Page exceeded 500 subresource limit" when it finished loading within 20 seconds, and was captured as partial when it didn't.
 
-A page whose responses announce more than 50 MB in total fails with "Page exceeded 50MB size limit".
+The same happens when the page's responses add up to more than 50 MB: WRL blocks any request after that, captures the page as partial and sets `render.sizeLimitReached` to `true`, signed into `captureQuality` and shown on the verification page and in MCP `get_capture` like the request cap. WRL counts the sizes the responses announce in their `Content-Length` header, so a response without one counts as 0. Before 25 November 2026 a page past 50 MB failed with "Page exceeded 50MB size limit", but only when it got there before it finished loading; a page that passed 50 MB later, while WRL scrolled it, was captured as full.
+
+The page's HTML has its own limit, because WRL holds it in memory to sign it and pack it into the WACZ bundle: a page whose rendered HTML is longer than 15 million characters fails. The largest HTML WRL had captured by November 2026 was under 9 MB.
 
 ## Why Captures Fail
 
@@ -205,7 +207,7 @@ A failed capture has an `error` that says why, in the API status response, the c
 | The browser could not take a screenshot of this page | The page loaded, but the browser couldn't capture it, the screenshot wasn't done after 90 seconds, or the page didn't answer for 30 seconds when WRL measured its height for the screenshot. This happens on some pages with heavy animation or many ads. | Yes |
 | The page stopped answering while WRL checked it | The page loaded, but it didn't answer the browser for 15 seconds when WRL checked that it is the site's page and not an error page or a bot check. Pages with very many ads do this. | Yes |
 | The page stopped answering while WRL scrolled it | The page loaded, but it didn't answer the browser while WRL scrolled it: for 30 seconds during the scroll, or for 15 seconds when WRL made lazy images load or scrolled back to the top. | Yes |
-| Page exceeded 50MB size limit | The page's responses add up to more than 50 MB. | No |
+| The page's HTML is larger than 15 MB, more than WRL can sign in one capture | The rendered HTML is longer than 15 million characters. | No |
 | Could not navigate to the target URL, or a message about the browser session | A problem on WRL's side or the network. | Yes |
 | WRL lost track of this capture before it finished | A problem on WRL's side: the capture was still pending 24 hours after it was submitted. When an attempt had already failed, the message is that attempt's reason followed by "WRL then lost track of the capture." Submit it again. | No |
 | Queue dispatch failed | A problem on WRL's side: WRL accepted the capture but couldn't put it in its capture queue. The request that submitted it got a 500 (MCP: "Could not dispatch capture"). Submit it again. | No |
