@@ -816,6 +816,10 @@ export default {
     }
 
     response.headers.set('Referrer-Policy', 'no-referrer');
+    // Nothing this Worker serves belongs in search results: verification pages
+    // and artifacts show pages tenants captured, often as evidence (backlog #64).
+    // Docs and the landing page are separate Workers.
+    response.headers.set('X-Robots-Tag', 'noindex');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
@@ -1834,6 +1838,10 @@ async function handleGetCapture(request, env, ctx, match) {
   const captureId = match[1];
   const captureAuth = env._captureAuth;
 
+  // Rate-limit requests without a key per IP, as for artifacts (backlog #64)
+  const limited = await limitPublicCaptureRequest(request, env, ctx, captureAuth, 'capture_public');
+  if (limited) return limited;
+
   const record = await getCapture(env.DB, captureId);
 
   if (!record) {
@@ -1968,6 +1976,20 @@ function buildArtifactFilename(record, artifactName) {
   }
 }
 
+/**
+ * Per-IP limit for a public capture route called without a key: the verify
+ * limiter, 60 a minute. Returns the 429 response, or null to go on.
+ */
+async function limitPublicCaptureRequest(request, env, ctx, captureAuth, limiter) {
+  if (captureAuth || !env.VERIFY_RATE_LIMITER) return null;
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
+  if (success) return null;
+  const cip = await computeCip(env, clientIp);
+  ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter, cip }) ?? Promise.resolve());
+  return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
+}
+
 async function handleGetCaptureArtifact(request, env, ctx, match) {
   const captureId = match[1];
   const artifactName = match[2];
@@ -1975,15 +1997,8 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
 
   // All artifact types are now public (#169).
   // Rate-limit unauthenticated requests per IP using the verify limiter.
-  if (!captureAuth && env.VERIFY_RATE_LIMITER) {
-    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
-    if (!success) {
-      const cip = await computeCip(env, clientIp);
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'artifact_public', cip }) ?? Promise.resolve());
-      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
-    }
-  }
+  const limited = await limitPublicCaptureRequest(request, env, ctx, captureAuth, 'artifact_public');
+  if (limited) return limited;
 
   const record = await getCapture(env.DB, captureId);
 
@@ -2062,15 +2077,8 @@ async function handleGetCertificate(request, env, ctx, match) {
   const captureAuth = env._captureAuth;
 
   // Rate-limit unauthenticated requests per IP.
-  if (!captureAuth && env.VERIFY_RATE_LIMITER) {
-    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: clientIp });
-    if (!success) {
-      const cip = await computeCip(env, clientIp);
-      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'certificate_public', cip }) ?? Promise.resolve());
-      return problemResponse(429, 'Rate limit exceeded. Try again later.', { 'Retry-After': '60' });
-    }
-  }
+  const limited = await limitPublicCaptureRequest(request, env, ctx, captureAuth, 'certificate_public');
+  if (limited) return limited;
 
   const record = await getCapture(env.DB, captureId);
 
@@ -2662,6 +2670,10 @@ async function handleCaptureStatus(request, env, ctx, match) {
   // match[1] is validated by regex: cap_[a-f0-9]{32}
   const captureId = match[1];
   const captureAuth = env._captureAuth;
+
+  // Rate-limit requests without a key per IP, as for artifacts (backlog #64)
+  const limited = await limitPublicCaptureRequest(request, env, ctx, captureAuth, 'status_public');
+  if (limited) return limited;
 
   const record = await getCapture(env.DB, captureId);
 
