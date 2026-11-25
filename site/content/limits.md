@@ -193,6 +193,7 @@ A failed capture has an `error` that says why, in the API status response, the c
 | Message | What happened | Retried |
 |---|---|---|
 | The site showed a Cloudflare bot check instead of the page | The site answered with a bot check ("Just a moment...") that didn't clear within a few seconds. WRL doesn't get around these checks. | No |
+| The site showed a DataDome bot check instead of the page | The site answered with DataDome's captcha page, usually with HTTP 403. nytimes.com and etsy.com do this for WRL's browser. Until November 2026 these captures failed as a blank page. | No |
 | The site did not respond, possibly because it blocks automated visits or this region | The site sent nothing back at all. | No |
 | Page did not finish loading within 20 seconds | The page didn't load in time. | Yes |
 | The site's address could not be found (DNS) | The domain doesn't resolve. | Yes |
