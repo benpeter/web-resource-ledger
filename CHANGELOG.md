@@ -10,15 +10,17 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ## [Unreleased]
 
-### Fixed
-
-- A capture of a page behind DataDome's captcha (nytimes.com and etsy.com show it to WRL's browser, with HTTP 403) failed as "The site answered HTTP 403 and the page showed nothing (blank page)". It now fails with "The site showed a DataDome bot check instead of the page", like a Cloudflare bot check: not retried and not counted.
-
 ### Added
 
+- An account without a payment method gets an email when its captures have used 8 of its 10 GB of free storage, once a month, under the "Approaching limit" preference.
+- An account without a payment method gets an email when a batch is refused for asking for more captures than are left, with how many are left, once a month, under the "Limit reached" preference. Before, only the `429` said so.
 - A capture records where WRL's browser went out to the web, as `captureSettings.browserLocation` with the Cloudflare data center (`colo`, for example `LAX`) and the country (`country`, `US`), read from Cloudflare's trace page inside the browser and signed into the WACZ. Cloudflare picks the place, so far always in the United States, and it can change what a site shows: in November 2026 three sites showed WRL a cookie banner in Los Angeles and none in Dallas. The verification page ("Captured from" under Capture details), the dashboard, the certification PDF and MCP `get_capture` and `verify_capture` show it. Captures made before have none.
 - Self-hosted deployments can delete old captures: with `CAPTURE_RETENTION_DAYS` set, the per-minute cron deletes up to 100 captures an hour that were created more than that many days ago, each with its R2 objects and threat checks. Unset, captures are kept, as before. The hosted service leaves it unset; its staging environment sets 30.
 - `DELETE /v1/admin/tenants/{tenantId}/captures?confirm={tenantId}` deletes up to 100 of a tenant's captures per call, oldest first, and keeps the account; the answer says how many are left.
+
+### Fixed
+
+- A capture of a page behind DataDome's captcha (nytimes.com and etsy.com show it to WRL's browser, with HTTP 403) failed as "The site answered HTTP 403 and the page showed nothing (blank page)". It now fails with "The site showed a DataDome bot check instead of the page", like a Cloudflare bot check: not retried and not counted.
 
 ## [1.6.0] - 2026-11-16
 

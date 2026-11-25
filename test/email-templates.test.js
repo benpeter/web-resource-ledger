@@ -295,6 +295,12 @@ describe('limitReachedEmail -- refused batch', () => {
     expect(html).not.toContain('New captures are paused');
   });
 
+  it('says "1 free capture left" when one is left', () => {
+    const { subject, html } = limitReachedEmail({ ...BATCH_DATA, used: 199 });
+    expect(subject).toBe('Batch refused: 20 captures requested, 1 free capture left');
+    expect(html).toContain('1 of your free captures for <strong>March 2026</strong> is left');
+  });
+
   it('plain text lists the batch size and the captures left', () => {
     const { text } = limitReachedEmail(BATCH_DATA);
     expect(text).toContain('Captures used: 190 of 200');

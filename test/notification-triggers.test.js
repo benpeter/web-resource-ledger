@@ -31,7 +31,7 @@ import {
   completeCapture,
   markNotificationSent,
 } from '../src/db.js';
-import { setStripeCustomerId, setPaymentMethodAdded } from '../src/db.js';
+import { setStripeCustomerId, setPaymentMethodAdded, setTenantConfig } from '../src/db.js';
 import { handleWeeklyDigest } from '../src/notifications.js';
 import { FREE_CAPTURE_LIMIT, FREE_STORAGE_LIMIT, approachingStorageEmailData, batchRefusedEmailData } from '../src/quotas.js';
 import worker from '../src/index.js';
@@ -495,6 +495,12 @@ describe('3c: approaching the free storage limit', () => {
 });
 
 describe('3c: a batch refused while free captures are left', () => {
+  // The per-tenant limit of 10 captures a minute counts in KV, across tests,
+  // and a batch counts its URLs: these tests send more than 10 in a minute.
+  function raiseRateLimit() {
+    return setTenantConfig(env.DB, 'default', { rateLimit: { capture: { limit: 100, period: 60 } } }, 'test');
+  }
+
   function postBatch(size, sent, ctx) {
     const urls = Array.from({ length: size }, (_, i) => ({ url: `https://example.com/${i}` }));
     return worker.fetch(new Request('https://worker.test/v1/captures/batch', {
@@ -515,27 +521,29 @@ describe('3c: a batch refused while free captures are left', () => {
 
   it('emails a free tenant whose batch asks for more captures than are left', async () => {
     await seedApiKey(env.DB, TEST_TENANT_KEY);
+    await raiseRateLimit();
     await seedNotificationPrefs(env.DB, 'default');
-    await seedUsage(FREE_CAPTURE_LIMIT - 10);
+    await seedUsage(FREE_CAPTURE_LIMIT - 2);
 
     const sent = [];
     const ctx = createExecutionContext();
-    const res = await postBatch(20, sent, ctx);
+    const res = await postBatch(5, sent, ctx);
     await waitOnExecutionContext(ctx);
 
     expect(res.status).toBe(429);
     expect(sent.length).toBe(1);
     expect(sent[0].notificationType).toBe('limit_reached');
-    expect(sent[0].subject).toBe('Batch refused: 20 captures requested, 10 free captures left');
+    expect(sent[0].subject).toBe('Batch refused: 5 captures requested, 2 free captures left');
   });
 
   it('sends it once a month, and the limit-reached email still comes later', async () => {
     await seedApiKey(env.DB, TEST_TENANT_KEY);
+    await raiseRateLimit();
     await seedNotificationPrefs(env.DB, 'default');
-    await seedUsage(FREE_CAPTURE_LIMIT - 10);
+    await seedUsage(FREE_CAPTURE_LIMIT - 2);
 
     const sent = [];
-    for (const size of [20, 15]) {
+    for (const size of [5, 3]) {
       const ctx = createExecutionContext();
       await postBatch(size, sent, ctx);
       await waitOnExecutionContext(ctx);
@@ -546,7 +554,7 @@ describe('3c: a batch refused while free captures are left', () => {
     await waitOnExecutionContext(ctx);
 
     expect(sent.map(m => m.subject)).toEqual([
-      'Batch refused: 20 captures requested, 10 free captures left',
+      'Batch refused: 5 captures requested, 2 free captures left',
       'Free capture limit reached',
     ]);
   });
