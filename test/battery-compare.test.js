@@ -138,6 +138,55 @@ describe('compareBattery: render quality and consent', () => {
   });
 });
 
+// Cloudflare runs browser sessions in different places, and a site's consent
+// tool may ask visitors in one and not in another (backlog #108: Guardian,
+// Slashdot and Samsung showed a banner in Los Angeles, none in Dallas). Since
+// phase 0197 each result carries the session's data center as colo.
+describe('compareBattery: browser location', () => {
+  it('a lost banner in another data center is a location change, not a regression', () => {
+    const result = compareBattery(
+      [site('A', { colo: 'LAX' })],
+      [site('A', { colo: 'DFW', consentResult: 'notDetected', cmp: 'none' })],
+    );
+    expect(result.regressions).toEqual([]);
+    expect(verdictOf(result, 'A')).toBe('location');
+    expect(result.rows[0].reasons).toEqual(['consent']);
+  });
+
+  it('a lost banner in the same data center is still a regression', () => {
+    const result = compareBattery(
+      [site('A', { colo: 'LAX' })],
+      [site('A', { colo: 'LAX', consentResult: 'notDetected' })],
+    );
+    expect(result.regressions).toEqual(['A']);
+  });
+
+  it('a failed capture in another data center is still a regression', () => {
+    const result = compareBattery(
+      [site('A', { colo: 'LAX' })],
+      [site('A', { colo: 'DFW', status: 'failed' })],
+    );
+    expect(result.regressions).toEqual(['A']);
+  });
+
+  it('without a data center on either side the comparison is as before', () => {
+    const result = compareBattery(
+      [site('A')],
+      [site('A', { colo: 'DFW', consentResult: 'notDetected' })],
+    );
+    expect(result.regressions).toEqual(['A']);
+  });
+
+  it('the report names the data center of each side and counts location changes', () => {
+    const report = formatReport(compareBattery(
+      [site('Ok', { colo: 'LAX' }), site('A', { colo: 'LAX' })],
+      [site('Ok', { colo: 'LAX' }), site('A', { colo: 'DFW', consentResult: 'notDetected' })],
+    ));
+    expect(report).toMatch(/A \| location \(consent\) \| complete, full, consent success, LAX \| complete, full, consent notDetected, DFW \|/);
+    expect(report).toMatch(/0 regressions, 0 improvements, 1 unchanged, 0 skipped, 0 blocked, 1 location change/);
+  });
+});
+
 describe('compareBattery: input guards', () => {
   it('throws when the baseline has no comparable site', () => {
     expect(() => compareBattery([], [site('A')])).toThrow(/baseline/i);
