@@ -246,6 +246,63 @@ describe('limitReachedEmail', () => {
   });
 });
 
+// Backlog #34: a free tenant hears before its storage runs out, not only at the cut-off.
+describe('approachingLimitEmail -- storage', () => {
+  const STORAGE_DATA = {
+    ...APPROACHING_LIMIT_DATA,
+    resource: 'storage',
+    used: '8.0 GB',
+    limit: '10.0 GB',
+  };
+
+  it('subject names storage used against the limit', () => {
+    const { subject } = approachingLimitEmail(STORAGE_DATA);
+    expect(subject).toBe('Approaching free storage limit (8.0 GB of 10.0 GB)');
+  });
+
+  it('HTML names storage, not captures', () => {
+    const { html } = approachingLimitEmail(STORAGE_DATA);
+    expect(html).toContain('Approaching free storage limit');
+    expect(html).toContain('8.0 GB / 10.0 GB');
+    expect(html).not.toContain('Approaching free capture limit');
+  });
+
+  it('plain text reports storage used against the limit', () => {
+    const { text } = approachingLimitEmail(STORAGE_DATA);
+    expect(text).toContain('Storage used: 8.0 GB of 10.0 GB');
+  });
+});
+
+// Backlog #35: a batch refused because it asks for more captures than are left.
+describe('limitReachedEmail -- refused batch', () => {
+  const BATCH_DATA = {
+    ...LIMIT_REACHED_DATA,
+    used: 190,
+    limit: 200,
+    requested: 20,
+    resetsAt: '2026-11-01T00:00:00.000Z',
+  };
+
+  it('subject says how many were requested and how many are left', () => {
+    const { subject } = limitReachedEmail(BATCH_DATA);
+    expect(subject).toBe('Batch refused: 20 captures requested, 10 free captures left');
+  });
+
+  it('HTML says the batch was refused and captures are still possible', () => {
+    const { html } = limitReachedEmail(BATCH_DATA);
+    expect(html).toContain('Batch refused');
+    expect(html).toContain('190 / 200');
+    expect(html).not.toContain('New captures are paused');
+  });
+
+  it('plain text lists the batch size and the captures left', () => {
+    const { text } = limitReachedEmail(BATCH_DATA);
+    expect(text).toContain('Captures used: 190 of 200');
+    expect(text).toContain('Captures requested: 20');
+    expect(text).toContain('Free captures left: 10');
+  });
+});
+
 describe('limitReachedEmail -- storage', () => {
   const STORAGE_DATA = {
     ...LIMIT_REACHED_DATA,
