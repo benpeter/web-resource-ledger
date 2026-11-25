@@ -1,0 +1,87 @@
+# Emails the operator when a WRL Worker run was killed for using too much
+# memory or CPU (backlog #99).
+#
+# Cloudflare ends such a run with status exceededMemory or exceededCpu. The
+# queue redelivers the capture, so nothing fails visibly, and Coralogix sees
+# nothing because the Worker never gets to log it. On 2026-11-25 one capture
+# run on wrl-staging was killed that way while it held three captures of
+# ad-heavy pages. Runs hourly and asks Cloudflare's GraphQL analytics about the
+# previous full hour, for production (wrl) and staging (wrl-staging). It runs
+# outside the Worker, so a Worker out of memory can't keep the alert from going
+# out. Manual run: Actions > Worker health alert > Run workflow, with "hours"
+# to look further back.
+#
+# Secrets:
+# - CF_ANALYTICS_TOKEN: Cloudflare user token "wrl-analytics-read", Account
+#   Analytics Read on the WRL account only (1Password vault WRL,
+#   "wrl-analytics-read (Cloudflare)").
+# - CF_ACCOUNT_ID: the WRL Cloudflare account.
+# - RESEND_DEPLOY_ALERT_KEY: the send-only Resend key the deploy failure email
+#   uses.
+
+name: Worker health alert
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: How many full hours back to look
+        default: '1'
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask Cloudflare and email when a run was killed
+        env:
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_DEPLOY_ALERT_KEY }}
+          HOURS: ${{ inputs.hours || '1' }}
+        run: |
+          for name in CF_ANALYTICS_TOKEN CF_ACCOUNT_ID RESEND_API_KEY; do
+            if [ -z "${!name}" ]; then echo "::error::$name is not set"; exit 1; fi
+          done
+          end=$(date -u +%Y-%m-%dT%H:00:00Z)
+          start=$(date -u -d "$end - $HOURS hours" +%Y-%m-%dT%H:%M:%SZ)
+          query='query($a:String!,$s:Time!,$e:Time!){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:50,filter:{datetime_geq:$s,datetime_lt:$e,scriptName_in:["wrl","wrl-staging"],status_in:["exceededMemory","exceededCpu"]}){sum{requests}dimensions{scriptName status datetimeHour}}}}}'
+          jq -n --arg q "$query" --arg a "$CF_ACCOUNT_ID" --arg s "$start" --arg e "$end" \
+            '{query: $q, variables: {a: $a, s: $s, e: $e}}' > request.json
+          curl -sS -X POST https://api.cloudflare.com/client/v4/graphql \
+            -H "Authorization: Bearer $CF_ANALYTICS_TOKEN" -H 'Content-Type: application/json' \
+            -d @request.json > answer.json
+          if jq -e '.errors // empty | length > 0' answer.json > /dev/null; then
+            jq -r '.errors[].message' answer.json
+            exit 1
+          fi
+          rows=$(jq -r '.data.viewer.accounts[0].workersInvocationsAdaptive[] | "\(.dimensions.datetimeHour)  \(.dimensions.scriptName)  \(.dimensions.status)  \(.sum.requests)"' answer.json)
+          echo "Window $start to $end"
+          if [ -z "$rows" ]; then
+            echo "No run killed for memory or CPU."
+            exit 0
+          fi
+          echo "$rows"
+          count=$(jq '[.data.viewer.accounts[0].workersInvocationsAdaptive[].sum.requests] | add' answer.json)
+          subject="WRL: $count Worker run(s) killed for memory or CPU"
+          text="Cloudflare ended $count run(s) of the WRL Workers between $start and $end (UTC) because they used too much memory or CPU:
+
+          hour (UTC)            Worker  status  runs
+          $rows
+
+          A capture run that was killed is redelivered by the queue, so the capture usually completes on a later attempt. Several in a row point at pages that are too heavy for the captures an isolate runs at once (backlog #99, #105).
+
+          Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          body=$(jq -n --arg subject "$subject" --arg text "$text" \
+            '{from: "WRL Alerts <notifications@webresourceledger.com>", to: ["bp@ben-peter.com"], subject: $subject, text: $text}')
+          status=$(curl -sS -o resend.json -w '%{http_code}' -X POST https://api.resend.com/emails \
+            -H "Authorization: Bearer $RESEND_API_KEY" -H 'Content-Type: application/json' -d "$body")
+          echo "Resend answered $status"
+          if [ "$status" != "200" ]; then
+            jq -r '.message // .' resend.json || cat resend.json
+            exit 1
+          fi
