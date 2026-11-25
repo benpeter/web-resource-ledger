@@ -314,6 +314,23 @@ describe('certificate generation -- content verification', () => {
   });
 });
 
+describe('certificate generation -- where the capture was made from', () => {
+  it('names the Cloudflare data center and country under Capture Identification', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture({
+      captureSettings: { version: 1, browserLocation: { colo: 'LAX', country: 'US' } },
+    }), signingKeys);
+    expect(pdfContains(streams, 'Captured From:')).toBe(true);
+    expect(pdfContains(streams, 'LAX, US (Cloudflare data center)')).toBe(true);
+  });
+
+  it('leaves the line out for a capture without it', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture(), signingKeys);
+    expect(pdfContains(streams, 'Captured From:')).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // describe('certificate generation -- timestamp variations')
 // ---------------------------------------------------------------------------
