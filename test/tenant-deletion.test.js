@@ -188,6 +188,57 @@ describe('DELETE /v1/admin/tenants/{id}', () => {
   });
 });
 
+// Deleting a tenant's captures without deleting the account (phase 0196): the
+// founder tenant's 801 schedule captures of apache.org were removed this way.
+describe('DELETE /v1/admin/tenants/{id}/captures', () => {
+  it('refuses unless confirm repeats the tenant id', async () => {
+    await seedStoredCapture(CAP, TENANT);
+    const res = await admin('DELETE', `/v1/admin/tenants/${TENANT}/captures?confirm=${OTHER}`);
+    expect(res.status).toBe(400);
+    expect(await env.DB.prepare('SELECT id FROM captures WHERE id = ?').bind(CAP).first()).not.toBeNull();
+  });
+
+  it('answers 404 for an unknown tenant', async () => {
+    const res = await admin('DELETE', '/v1/admin/tenants/gh-999999/captures?confirm=gh-999999');
+    expect(res.status).toBe(404);
+  });
+
+  it('removes the captures with their R2 objects and threat checks, and keeps the account and other tenants\' captures', async () => {
+    const keys = await seedStoredCapture(CAP, TENANT);
+    const otherKeys = await seedStoredCapture(OTHER_CAP, OTHER);
+    await env.DB.prepare(
+      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types) VALUES (?, ?, 'clean', '')`,
+    ).bind(CAP, new Date().toISOString()).run();
+    await seedSchedule(env.DB, 'sch_' + 'a'.repeat(32), { tenantId: TENANT });
+
+    const res = await admin('DELETE', `/v1/admin/tenants/${TENANT}/captures?confirm=${TENANT}`);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ tenantId: TENANT, deleted: { captures: 1, r2Objects: keys.length }, remaining: 0 });
+    expect(await env.DB.prepare('SELECT id FROM captures WHERE id = ?').bind(CAP).first()).toBeNull();
+    for (const key of keys) expect(await env.BUCKET.head(key)).toBeNull();
+    const tc = await env.DB.prepare('SELECT count(*) n FROM threat_checks WHERE capture_id = ?').bind(CAP).first();
+    expect(tc.n).toBe(0);
+    expect(await env.DB.prepare('SELECT id FROM tenants WHERE id = ?').bind(TENANT).first()).not.toBeNull();
+    expect(await env.DB.prepare('SELECT id FROM schedules WHERE tenant_id = ?').bind(TENANT).first()).not.toBeNull();
+    expect((await capture(TEST_TENANT_KEY)).status).toBe(202);
+    expect(await env.DB.prepare('SELECT id FROM captures WHERE id = ?').bind(OTHER_CAP).first()).not.toBeNull();
+    for (const key of otherKeys) expect(await env.BUCKET.head(key)).not.toBeNull();
+  });
+
+  it('deletes at most limit captures per call and says how many remain', async () => {
+    await seedStoredCapture(CAP, TENANT);
+    await seedStoredCapture('cap_' + '7'.repeat(32), TENANT);
+    await seedStoredCapture('cap_' + '8'.repeat(32), TENANT);
+
+    const res = await admin('DELETE', `/v1/admin/tenants/${TENANT}/captures?confirm=${TENANT}&limit=2`);
+
+    const body = await res.json();
+    expect(body.deleted.captures).toBe(2);
+    expect(body.remaining).toBe(1);
+  });
+});
+
 describe('POST /v1/captures for an account blocked for non-payment', () => {
   it('answers 403 with a message, not a storage limit with an invalid date', async () => {
     await env.DB.prepare("UPDATE tenants SET billing_status = 'blocked' WHERE id = ?").bind(TENANT).run();

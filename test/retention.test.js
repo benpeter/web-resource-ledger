@@ -10,6 +10,7 @@ import worker from '../src/index.js';
 import { WEEKLY_CRON, MINUTE_CRON } from '../src/crons.js';
 import {
   purgeQuarantinedCaptures,
+  purgeExpiredCaptures,
   trimUsageCounters,
   purgeExpiredSignIns,
   usageCutoffPeriod,
@@ -109,6 +110,76 @@ describe('purgeQuarantinedCaptures', () => {
     expect(await captureRow(SHARES_WACZ)).toBeNull();
     expect(await exists(artifactsFor(SHARES_WACZ).screenshot)).toBe(false);
     expect(await exists(sharedKey)).toBe(true);
+  });
+});
+
+// Captures older than CAPTURE_RETENTION_DAYS (phase 0196). Staging sets 30 so its
+// battery and probe captures don't pile up in R2 (18 GB on 2026-11-25);
+// production leaves the variable unset and keeps captures.
+describe('purgeExpiredCaptures', () => {
+  const EXPIRED = 'cap_' + '5'.repeat(32); // created 31 days ago -> purged
+  const FRESH = 'cap_' + '6'.repeat(32);   // created 29 days ago -> kept
+  const withRetention = Object.create(env, { CAPTURE_RETENTION_DAYS: { value: '30' } });
+
+  async function seedStored(id, createdAt, { waczKey = `captures/${id.slice(4)}.wacz` } = {}) {
+    await seedCapture(env.DB, id, {
+      status: 'complete',
+      createdAt: createdAt.toISOString(),
+      completedAt: createdAt.toISOString(),
+      artifacts: artifactsFor(id),
+      wacz: { key: waczKey, bundleHash: 'sha256:' + 'a'.repeat(64), size: 10 },
+    });
+    for (const key of [...Object.values(artifactsFor(id)), waczKey]) {
+      await env.BUCKET.put(key, 'x');
+    }
+  }
+
+  it('does nothing when CAPTURE_RETENTION_DAYS is not set', async () => {
+    await seedStored(EXPIRED, new Date(NOW.getTime() - 400 * DAY));
+
+    const result = await purgeExpiredCaptures(env, NOW);
+
+    expect(result.purged).toBe(0);
+    expect(await captureRow(EXPIRED)).not.toBeNull();
+    expect(await exists(artifactsFor(EXPIRED).screenshot)).toBe(true);
+  });
+
+  it('deletes captures created more than CAPTURE_RETENTION_DAYS ago, with their artifacts, WACZ and threat checks, and keeps newer ones', async () => {
+    await seedStored(EXPIRED, new Date(NOW.getTime() - 31 * DAY));
+    await seedStored(FRESH, new Date(NOW.getTime() - 29 * DAY));
+    await env.DB.prepare(
+      `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types) VALUES (?, ?, 'clean', '')`,
+    ).bind(EXPIRED, NOW.toISOString()).run();
+
+    const result = await purgeExpiredCaptures(withRetention, NOW);
+
+    expect(result.purged).toBe(1);
+    expect(await captureRow(EXPIRED)).toBeNull();
+    for (const key of Object.values(artifactsFor(EXPIRED))) expect(await exists(key)).toBe(false);
+    expect(await exists(`captures/${EXPIRED.slice(4)}.wacz`)).toBe(false);
+    const tc = await env.DB.prepare('SELECT count(*) n FROM threat_checks WHERE capture_id = ?').bind(EXPIRED).first();
+    expect(tc.n).toBe(0);
+    expect(await captureRow(FRESH)).not.toBeNull();
+    expect(await exists(artifactsFor(FRESH).screenshot)).toBe(true);
+  });
+
+  it('keeps a WACZ object that a newer capture still references', async () => {
+    const sharedKey = 'captures/shared-expired.wacz';
+    await seedStored(EXPIRED, new Date(NOW.getTime() - 31 * DAY), { waczKey: sharedKey });
+    await seedStored(FRESH, new Date(NOW.getTime() - 1 * DAY), { waczKey: sharedKey });
+
+    await purgeExpiredCaptures(withRetention, NOW);
+
+    expect(await captureRow(EXPIRED)).toBeNull();
+    expect(await exists(sharedKey)).toBe(true);
+  });
+
+  it('runs on the hour from the per-minute cron', async () => {
+    await seedStored(EXPIRED, new Date(NOW.getTime() - 31 * DAY));
+    const ctx = createExecutionContext();
+    await worker.scheduled({ cron: MINUTE_CRON, scheduledTime: NOW.getTime(), noRetry() {} }, withRetention, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(await captureRow(EXPIRED)).toBeNull();
   });
 });
 
