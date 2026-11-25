@@ -121,7 +121,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `artifacts` | TEXT | nullable | JSON: `{ screenshot, screenshotBefore?, html, headers? }` — R2 key paths |
 | `wacz` | TEXT | nullable | JSON: `{ key, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus }`. Null without `SIGNING_KEY`, and on partial captures made before phase 0138 |
 | `render` | TEXT | nullable | JSON: browser render metadata (`waitUntilReached`, `timedOut`, timings, and since phase 0141 `pageHeight`, `screenshotHeight`, `screenshotClipped`, since 0178 `subresourceLimitReached`, since 0180 `httpStatus`) |
-| `capture_settings` | TEXT | nullable | JSON: `{ version, consent: { library, libraryVersion, action, result, cmpDetected? } }` |
+| `capture_settings` | TEXT | nullable | JSON: `{ version, consent?: { library, libraryVersion, action, result, cmpDetected? }, browserLocation?: { colo, country } }`. `browserLocation` (since phase 0197) is where the browser session went out to the web, read once per session from `https://www.cloudflare.com/cdn-cgi/trace` |
 | `schedule_id` | TEXT | nullable, FK → `schedules(id)` | Added in 0007. NULL for on-demand captures |
 | `quarantined` | INTEGER | NOT NULL, default `0` | App-layer 0/1. Artifact access gate; `1` blocks artifact retrieval |
 | `quarantine_reason` | TEXT | nullable | Threat type string, e.g. `'MALWARE'` |

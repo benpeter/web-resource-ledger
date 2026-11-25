@@ -571,10 +571,18 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         '</section>';
     }
 
-    // Capture details (only when captureSettings present)
+    // Capture details (only when captureSettings present). Where the browser
+    // went out to the web (backlog #108) goes in as text only after both values
+    // check out as a data center code and a country code.
     if (captureSettings) {
+      var loc = captureSettings.browserLocation;
+      var locText = loc && /^[A-Z]{3}$/.test(loc.colo) && /^[A-Z]{2}$/.test(loc.country)
+        ? loc.colo + ', ' + loc.country + ' (Cloudflare data center)'
+        : null;
       html += '<details id="capture-details-disclosure"><summary>Capture details</summary>' +
-        '<div class="crypto-grid" id="capture-details-grid"></div>' +
+        '<div class="crypto-grid" id="capture-details-grid">' +
+          (locText ? '<div class="crypto-row"><div class="crypto-label">Captured from</div><div class="crypto-value">' + locText + '</div></div>' : '') +
+        '</div>' +
         '</details>';
     }
 

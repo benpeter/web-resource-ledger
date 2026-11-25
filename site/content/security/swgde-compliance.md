@@ -91,7 +91,7 @@ WRL never accepts cookies, never fills in a form or clicks anything outside the 
 
 WRL also holds the page back in three ways. Service workers are blocked. The page cannot take its main frame to another site. And requests past the first 2000 are blocked, in which case the capture is marked partial (see [Partial captures](/verification/#partial-captures)).
 
-WRL captures originate from Cloudflare's network. The capture does not originate from the tenant's IP address or the examiner's workstation. This architectural separation means the examiner's own network presence is not exposed to the target site during capture. However, the capture does originate from Cloudflare infrastructure with a standard Chromium user agent; the target site may log the request with Cloudflare egress IP addresses. This should be understood and accounted for in the investigation.
+WRL captures originate from Cloudflare's network, from one of several data centers that Cloudflare picks, so far all in the United States (Los Angeles, Dallas and San Jose have been seen). Each capture records which one in `captureSettings.browserLocation`. The capture does not originate from the tenant's IP address or the examiner's workstation. This architectural separation means the examiner's own network presence is not exposed to the target site during capture. However, the capture does originate from Cloudflare infrastructure with a standard Chromium user agent; the target site may log the request with Cloudflare egress IP addresses. This should be understood and accounted for in the investigation.
 
 WRL does not support configuring the browser to present specific geolocation signals or custom user agent strings. For investigations where the target site serves different content based on visitor location or identity, the examiner should assess whether WRL's standard capture configuration is appropriate for that specific collection goal.
 
@@ -112,7 +112,7 @@ WRL's pipeline provides a standardized, fixed configuration for every capture:
 
 This configuration satisfies the "sanitized environment" requirement: there is no pre-existing data, extraneous software, or cross-capture contamination. The `BrowserContext` isolation described in Section 3.4 above applies here as well.
 
-The SWGDE document's recommendation to mimic the target audience (presenting a specific location, user agent, or IP profile) is a configurable behavior in manual forensic workflows. WRL currently does not support configurable geolocation, custom user agent overrides, or proxy routing to present a specific geographic origin. Captures present Cloudflare egress IPs with a standard Chromium user agent.
+The SWGDE document's recommendation to mimic the target audience (presenting a specific location, user agent, or IP profile) is a configurable behavior in manual forensic workflows. WRL currently does not support configurable geolocation, custom user agent overrides, or proxy routing to present a specific geographic origin. Captures present Cloudflare egress IPs with a standard Chromium user agent, and each records the Cloudflare data center and country it went out from, so an examiner can tell afterwards which regional version of a page the capture shows.
 
 For investigations where the target content is gated behind geographic or identity signals, this limitation is material and the examiner should assess whether alternative acquisition methods are appropriate.
 
@@ -200,6 +200,7 @@ WRL records the following documentation automatically for every capture:
 | Timestamps | Capture-submitted-at and capture-completed-at in UTC; RFC 3161 timestamp from DigiCert binding the bundle hash to an independently verified time |
 | Browser identity | Headless Chromium on Cloudflare Browser Rendering. The WACZ names the WRL release and commit that made it (`software` in `datapackage.json`, the signed `datapackage-digest.json` and the WARC `warcinfo` record, for example `WRL/1.3.0+564eae4`), not the browser version |
 | Access IP address | Originates from Cloudflare egress; Cloudflare egress IPs are publicly documented |
+| Physical location of access | The Cloudflare data center and country WRL's browser went out to the web from, as Cloudflare's trace page reported it to that browser: `captureSettings.browserLocation`, for example `LAX` and `US`. Signed into the WACZ, shown on the verification page, the dashboard, the certification PDF and in MCP. Captures made before 25 November 2026 don't have it |
 | Process description | Automated capture pipeline described in certification PDF and [Architecture](/architecture/) |
 
 Domain registration information and archival history (WHOIS, archive.org) are investigator-side documentation tasks that fall outside automated capture scope. The tenant or examiner is responsible for those records.

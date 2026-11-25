@@ -491,6 +491,31 @@ describe('verify page script -- the status the site answered with', () => {
   });
 });
 
+describe('verify page script -- where the capture was made from', () => {
+  it('names the Cloudflare data center and country in the capture details', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-25T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, browserLocation: { colo: 'LAX', country: 'US' } },
+    });
+    expect(out).toContain('<div class="crypto-label">Captured from</div><div class="crypto-value">LAX, US (Cloudflare data center)</div>');
+  });
+
+  it('shows nothing for values that are not a data center code and a country code', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-25T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, browserLocation: { colo: '<img src=x>', country: 'US' } },
+    });
+    expect(out).not.toContain('Captured from');
+    expect(out).not.toContain('<img src=x>');
+  });
+});
+
 describe('verify page script -- clipped screenshot', () => {
   it('captions a screenshot that covers only the top of the page', async () => {
     const out = await renderVerifyPage({

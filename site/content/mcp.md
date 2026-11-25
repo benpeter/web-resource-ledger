@@ -232,6 +232,7 @@ URL: https://example.com
 Created: 2026-03-22T10:30:00.000Z
 Completed: 2026-03-22T10:30:12.481Z
 Render quality: full
+Captured from: LAX, US (Cloudflare data center)
 HTTP status: 200
 
 Artifacts:
@@ -309,6 +310,7 @@ Captured URL: https://example.com
 Captured: 2026-03-22T10:30:00.000Z
 Completed: 2026-03-22T10:30:12.481Z
 Render quality: full
+Captured from: LAX, US (Cloudflare data center)
 HTTP status: 200
 
 Checks:

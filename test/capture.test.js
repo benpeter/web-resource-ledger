@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { performCapture, captureHeaders, categorizeError } from '../src/capture.js';
+import { performCapture, captureHeaders, categorizeError, parseCloudflareTrace } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';
 import { unzipSync } from 'fflate';
 import { PNG_BYTES, TEST_HTML, TEST_URL, TEST_IP, stubRenderer, consentNotDetectedRenderer } from './fixtures.js';
@@ -816,6 +816,56 @@ describe('performCapture -- the status the site answered the browser with (backl
       timedOut: false,
       httpStatus: 403,
     });
+  });
+});
+
+// Cloudflare runs browser sessions in different places, and the place changes
+// what a site shows: consent banners in Los Angeles that Dallas doesn't get
+// (backlog #108). The renderer reads the session's location from
+// https://www.cloudflare.com/cdn-cgi/trace inside the browser.
+describe('parseCloudflareTrace', () => {
+  it('reads the data center and the country', () => {
+    const trace = 'fl=123f45\nh=www.cloudflare.com\nip=203.0.113.9\nts=1764061200.1\nvisit_scheme=https\ncolo=LAX\nhttp=http/2\nloc=US\ntls=TLSv1.3\n';
+    expect(parseCloudflareTrace(trace)).toEqual({ colo: 'LAX', country: 'US' });
+  });
+
+  it('gives null for anything that is not a trace', () => {
+    expect(parseCloudflareTrace('')).toBeNull();
+    expect(parseCloudflareTrace(null)).toBeNull();
+    expect(parseCloudflareTrace('<html>blocked</html>')).toBeNull();
+    expect(parseCloudflareTrace('colo=<script>\nloc=US')).toBeNull();
+    expect(parseCloudflareTrace('colo=LAX\nloc=united states')).toBeNull();
+  });
+});
+
+describe('performCapture -- where the browser loaded the page from (backlog #108)', () => {
+  const locatedRenderer = async (...args) => ({
+    ...await consentNotDetectedRenderer(...args),
+    browserLocation: { colo: 'LAX', country: 'US' },
+  });
+
+  it('records it in captureSettings and signs it into the WACZ', async () => {
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, locatedRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.status).toBe('complete');
+    expect(record.captureSettings.browserLocation).toEqual({ colo: 'LAX', country: 'US' });
+    expect(record.captureSettings.consent.result).toBe('notDetected');
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureSettings.browserLocation).toEqual({ colo: 'LAX', country: 'US' });
+  });
+
+  it('leaves it out when the renderer could not read it', async () => {
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, consentNotDetectedRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.captureSettings).not.toHaveProperty('browserLocation');
   });
 });
 

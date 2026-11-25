@@ -167,6 +167,12 @@ describe('htmlDashboard -- view function markers', () => {
     expect(html).toContain("addDataRow(grid, 'HTTP Status'");
     expect(html).toContain('the capture shows an error page or a block page');
   });
+
+  it('shows where the capture was made from in the capture details', async () => {
+    const html = await htmlDashboard().text();
+    expect(html).toContain("addDataRow(grid, 'Captured From'");
+    expect(html).toContain('(Cloudflare data center)');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -141,6 +141,16 @@ function answerWithin(call, maxMs, message) {
 // that reload themselves on the choice (theguardian.com) start within this.
 const POST_CONSENT_NAV_WAIT_MS = 2000;
 
+// Where a browser session goes out to the web (backlog #108). Cloudflare runs
+// sessions in different places (seen: SJC, DFW, LAX), a session keeps its
+// place, and the place changes what a site shows, e.g. consent banners in Los
+// Angeles that Dallas doesn't get. Read once per session from Cloudflare's
+// trace page, in a context of its own, and kept per session in this isolate.
+const BROWSER_TRACE_URL = 'https://www.cloudflare.com/cdn-cgi/trace';
+const BROWSER_LOCATION_MAX_MS = 6000;
+const browserLocations = new Map();
+const MAX_KNOWN_SESSIONS = 50;
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -190,7 +200,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       return { ok: false, retryable: false };
     }
 
-    const { screenshot, html, partial, render, consent, screenshotBefore } = renderResult.value;
+    const { screenshot, html, partial, render, consent, screenshotBefore, browserLocation } = renderResult.value;
     const renderQuality = partial ? 'partial' : 'full';
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
@@ -218,16 +228,21 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(headers ? { headers: `${prefix}/headers.json` } : {}),
     };
 
-    // Build captureSettings (null only for a renderer that reports no consent step)
-    const captureSettings = consent ? {
+    // Build captureSettings (null only for a renderer that reports neither a
+    // consent step nor where its browser went out to the web). Signed into the
+    // bundle, so a verifier can see where the page was loaded from (backlog #108).
+    const captureSettings = consent || browserLocation ? {
       version: 1,
-      consent: {
-        library: '@duckduckgo/autoconsent',
-        libraryVersion: AUTOCONSENT_VERSION,
-        action: 'optOut',
-        result: consentResult(consent),
-        ...(consent.cmp ? { cmpDetected: consent.cmp } : {}),
-      },
+      ...(consent ? {
+        consent: {
+          library: '@duckduckgo/autoconsent',
+          libraryVersion: AUTOCONSENT_VERSION,
+          action: 'optOut',
+          result: consentResult(consent),
+          ...(consent.cmp ? { cmpDetected: consent.cmp } : {}),
+        },
+      } : {}),
+      ...(browserLocation ? { browserLocation } : {}),
     } : null;
 
     // Signed into the bundle, so a verifier can tell a partial render from a full one
@@ -387,6 +402,22 @@ export async function captureHeaders(url) {
   };
 }
 
+/**
+ * The data center and country in the text of https://www.cloudflare.com/cdn-cgi/trace.
+ *
+ * @param {string | null | undefined} text
+ * @returns {{ colo: string, country: string } | null} null unless both are there
+ *   as a three-letter data center code and a two-letter country code
+ */
+export function parseCloudflareTrace(text) {
+  if (typeof text !== 'string') return null;
+  const field = (name) => text.match(new RegExp(`^${name}=(.*)$`, 'm'))?.[1]?.trim();
+  const colo = field('colo');
+  const country = field('loc');
+  if (!/^[A-Z]{3}$/.test(colo ?? '') || !/^[A-Z]{2}$/.test(country ?? '')) return null;
+  return { colo, country };
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -427,6 +458,52 @@ async function getOrCreateSession(browserBinding) {
   }
 
   throw new Error('No browser session available: session pool is at capacity');
+}
+
+/**
+ * Where the browser session goes out to the web, read from Cloudflare's trace
+ * page in a context of its own (no route handler, nothing of the capture).
+ * Known sessions are answered from memory. Never throws.
+ *
+ * @param {import('@cloudflare/playwright').Browser} browser
+ * @returns {Promise<{ location: { colo: string, country: string } | null, cached: boolean, error?: string }>}
+ */
+async function readBrowserLocation(browser) {
+  let sessionId = null;
+  try { sessionId = browser.sessionId?.() ?? null; } catch { /* sessionless browser */ }
+  if (sessionId && browserLocations.has(sessionId)) {
+    return { location: browserLocations.get(sessionId), cached: true };
+  }
+  let context = null;
+  let timer;
+  let done = false;
+  try {
+    const read = (async () => {
+      context = await browser.newContext();
+      // A context that opens after the time is up is closed here; the finally
+      // below has already run.
+      if (done) { await context.close().catch(() => {}); return null; }
+      const page = await context.newPage();
+      const resp = await page.goto(BROWSER_TRACE_URL, { timeout: BROWSER_LOCATION_MAX_MS });
+      return parseCloudflareTrace(resp ? await resp.text() : null);
+    })();
+    read.catch(() => {}); // after a timeout nobody awaits it
+    const location = await Promise.race([
+      read,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('browser location read timed out')), BROWSER_LOCATION_MAX_MS); }),
+    ]);
+    if (sessionId && location) {
+      if (browserLocations.size >= MAX_KNOWN_SESSIONS) browserLocations.delete(browserLocations.keys().next().value);
+      browserLocations.set(sessionId, location);
+    }
+    return { location, cached: false };
+  } catch (err) {
+    return { location: null, cached: false, error: String(err?.message ?? err).slice(0, 120) };
+  } finally {
+    done = true;
+    clearTimeout(timer);
+    if (context) await context.close().catch(() => {});
+  }
 }
 
 /**
@@ -528,7 +605,14 @@ async function defaultRenderer(env, url, captureId) {
     await ctx.close();
     orphanContextsClosed++;
   }
-  logLine(3, { event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed, browserVersion: browser.version() });
+  const tLocation = Date.now();
+  const located = await readBrowserLocation(browser);
+  const browserLocation = located.location;
+  logLine(3, {
+    event: 'render.default.session_acquired', url, captureId, sessionAcquireMs: tSession - renderStart, orphanContextsClosed, browserVersion: browser.version(),
+    colo: browserLocation?.colo ?? null, country: browserLocation?.country ?? null, locationMs: Date.now() - tLocation, locationCached: located.cached,
+    ...(located.error ? { locationError: located.error } : {}),
+  });
 
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -746,7 +830,7 @@ async function defaultRenderer(env, url, captureId) {
       };
     }
     const tConsent = Date.now();
-    logLine(3, { event: 'render.default.consent_result', url, captureId, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
+    logLine(3, { event: 'render.default.consent_result', url, captureId, colo: browserLocation?.colo ?? null, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
 
     // A page that is still loading can hold page.content() back, so the
     // timed-out path gives it one second.
@@ -847,6 +931,7 @@ async function defaultRenderer(env, url, captureId) {
       },
       consent,
       screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,
+      ...(browserLocation ? { browserLocation } : {}),
     };
   } catch (err) {
     if (timedOut) {

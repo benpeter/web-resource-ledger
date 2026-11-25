@@ -148,7 +148,7 @@ Then, by hand: cancel the subscription and delete the customer in the Stripe das
 
 ### Deleting a tenant's captures
 
-To remove a tenant's captures and keep the account (its keys, schedules and settings), delete them in calls of up to 100, oldest first, until `remaining` is 0. Each capture goes with its R2 objects and threat checks; a WACZ object that another capture still uses stays. Used on 2026-11-25 for the founder tenant's 801 schedule captures of apache.org.
+To remove a tenant's captures and keep the account (its keys, schedules and settings), delete them in calls of up to 100, oldest first, until `remaining` is 0. Each capture goes with its R2 objects and threat checks; a WACZ object that another capture still uses stays. Used on 2026-11-25 for the founder tenant's 609 captures (608 of them from its apache.org schedule): seven calls, 2,233 R2 objects.
 
 ```bash
 source ~/.wrl-keys   # WRL_PROD_ADMIN_KEY

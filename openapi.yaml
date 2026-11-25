@@ -199,6 +199,32 @@ components:
         consent:
           $ref: '#/components/schemas/ConsentHandling'
           description: Consent handling metadata. Present when consent opt-out was attempted.
+        browserLocation:
+          $ref: '#/components/schemas/BrowserLocation'
+
+    BrowserLocation:
+      type: object
+      description: >
+        Where WRL's browser went out to the web for this capture, as Cloudflare's
+        trace page (`https://www.cloudflare.com/cdn-cgi/trace`) reported it to
+        that browser. Cloudflare runs WRL's browsers in several places, so far all
+        in the United States, and what a site shows can depend on the place:
+        consent banners, prices, block pages. Signed into the WACZ bundle as part
+        of `captureSettings`. Missing when the browser could not read the trace
+        page, and on captures made before 25 November 2026.
+      required: [colo, country]
+      properties:
+        colo:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          description: Cloudflare data center, by its three-letter airport code (`LAX` is Los Angeles, `DFW` Dallas, `SJC` San Jose).
+        country:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          description: Country of the browser's address, as an ISO 3166-1 alpha-2 code.
+      example:
+        colo: LAX
+        country: US
 
     ProblemDetail:
       type: object
@@ -785,7 +811,8 @@ components:
           $ref: '#/components/schemas/CaptureSettings'
           description: >
             Settings and metadata about how the capture was performed. Present when
-            capture settings were recorded (e.g., consent handling was attempted).
+            capture settings were recorded (e.g., consent handling was attempted, or
+            the browser's location was read).
         threatCheck:
           type: ['string', 'null']
           enum: [pass, fail, unavailable, null]

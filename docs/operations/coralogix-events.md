@@ -70,7 +70,7 @@ The renderer sends these lines as the events happen and does not wait for each t
 
 | Sev | Event | Meaning |
 |-----|-------|---------|
-| 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed, browserVersion) |
+| 3 | `render.default.session_acquired` | Browser session acquired from pool (sessionAcquireMs, orphanContextsClosed, browserVersion), with where it goes out to the web: `colo` and `country` (null when unread), `locationMs`, `locationCached` (true when this isolate already knew the session), `locationError` |
 | 3 | `render.default.context_ready` | Browser context + page created (contextSetupMs) |
 | 3 | `render.default.cross_domain_blocked` | Main-frame cross-domain navigation blocked (blockedUrl) |
 | 3 | `render.default.nav_success` | Navigation completed within timeout (navigationMs, httpStatus, subresourceCount, totalBytes). httpStatus is the status of the page's own response as the browser got it, null when the browser reported none |
@@ -86,7 +86,7 @@ The renderer sends these lines as the events happen and does not wait for each t
 | 3 | `render.default.lazy_load_complete` | Lazy loading scroll completed (scrollMs, scrollSteps, scrollCutShort). scrollCutShort is true when the 10 seconds for the scroll down ran out before the bottom or 12,000 px |
 | 3 | `render.default.screenshot_capped` | Page taller than 8000 px; the screenshot covers the top 8000 px (originalHeight, cappedHeight). Logged after the screenshot succeeds. Called `viewport_capped` before phase 0117 |
 | 3 | `render.default.screenshot_before` | Pre-consent screenshot taken (screenshotMs, screenshotBytes) |
-| 3 | `render.default.consent_result` | Cookie consent outcome (status, cmp, popupFound, consentMs, errorName). `status: timeout` with `popupFound: false` means a consent tool was detected but showed no banner within 5 s (the capture says `notDetected`); with `popupFound: true` the banner showed and declining it took longer than 10 s (`failed`) |
+| 3 | `render.default.consent_result` | Cookie consent outcome (colo, status, cmp, popupFound, consentMs, errorName); `colo` is the session's data center, which changes what banners show (backlog #108). `status: timeout` with `popupFound: false` means a consent tool was detected but showed no banner within 5 s (the capture says `notDetected`); with `popupFound: true` the banner showed and declining it took longer than 10 s (`failed`) |
 | 3 | `render.default.post_consent` | After a banner was dismissed the page came to rest before the second screenshot (postConsentMs, reloaded, pass). reloaded is true when the site reloaded itself on the choice, in the 2 seconds WRL watches for it or during the settle after them; the page then got the load wait, the settle and the scroll again. `pass: 2` means the reload came while the second screenshot was taken or the HTML was read, and both were done over |
 | 4 | `render.default.post_consent_fail` | That wait threw; the capture goes on to the second screenshot (errorMessage) |
 | 3 | `render.default.screenshot_after` | Post-consent screenshot taken or reused (screenshotMs, tookAfterScreenshot, screenshotBytes) |

@@ -679,6 +679,26 @@ describe('tool: get_capture -- site answered with an error status', () => {
   });
 });
 
+describe('tool: get_capture -- where the capture was made from', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000 },
+    { version: 1, browserLocation: { colo: 'DFW', country: 'US' } });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('names the Cloudflare data center and country', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('Captured from: DFW, US (Cloudflare data center)');
+  });
+});
+
 describe('tool: get_capture -- site answered 200', () => {
   beforeEach(async () => {
     const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
@@ -861,7 +881,7 @@ describe('tool: verify_capture -- site answered with an error status', () => {
   const BLOCKED_ID = 'cap_' + 'e'.repeat(32);
   const blockedRenderer = async (...args) => {
     const result = await consentNotDetectedRenderer(...args);
-    return { ...result, render: { ...result.render, httpStatus: 403 } };
+    return { ...result, render: { ...result.render, httpStatus: 403 }, browserLocation: { colo: 'LAX', country: 'US' } };
   };
 
   beforeEach(async () => {
@@ -883,6 +903,7 @@ describe('tool: verify_capture -- site answered with an error status', () => {
     const res = await mcpPost(toolCall('verify_capture', { capture_id: BLOCKED_ID }));
     const text = (await res.json()).result.content[0].text;
     expect(text).toContain(`Verification PASSED for capture ${BLOCKED_ID}.`);
+    expect(text).toContain('Captured from: LAX, US (Cloudflare data center)');
     expect(text).toContain('HTTP status: 403');
     expect(text).toContain('The site answered with an error status; the capture shows that answer, which can be an error page or a block page.');
   });
