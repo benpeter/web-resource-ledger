@@ -236,6 +236,8 @@ for (const { label, result } of pollResults) {
     httpStatus: render?.httpStatus ?? null,
     consentResult: consent?.result || 'n/a',
     cmp: consent?.cmpDetected || 'none',
+    // The browser session's Cloudflare data center (phase 0197): banners differ by place
+    colo: result.captureSettings?.browserLocation?.colo ?? null,
     durationMs: render?.durationMs || 'n/a',
     scrollMs: render?.stages?.scrollMs ?? 'n/a',
     error: result.error || null,
@@ -243,7 +245,7 @@ for (const { label, result } of pollResults) {
 }
 
 // Print summary table
-console.log(`\n${'='.repeat(96)}`);
+console.log(`\n${'='.repeat(102)}`);
 console.log('Summary\n');
 console.log(
   'Site'.padEnd(18) +
@@ -252,10 +254,11 @@ console.log(
   'HTTP'.padEnd(6) +
   'Consent'.padEnd(14) +
   'CMP'.padEnd(18) +
+  'Colo'.padEnd(6) +
   'Scroll'.padEnd(8) +
   'Duration',
 );
-console.log('-'.repeat(96));
+console.log('-'.repeat(102));
 
 for (const r of results) {
   if (r.status === 'skipped' || r.status === 'error') {
@@ -269,6 +272,7 @@ for (const r of results) {
       `${String(r.httpStatus ?? 'n/a').padEnd(6)}` +
       `${(r.consentResult || 'n/a').padEnd(14)}` +
       `${(r.cmp || 'none').padEnd(18)}` +
+      `${(r.colo || '-').padEnd(6)}` +
       `${scrollStr.padEnd(8)}` +
       `${r.durationMs}ms`,
     );
