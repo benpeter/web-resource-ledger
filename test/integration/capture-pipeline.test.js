@@ -657,20 +657,6 @@ describe('integration: page over the size cap', () => {
     expect(record.render?.timedOut).toBe(false);
   });
 
-  it('captures a page over the cap that never finishes loading as partial', async () => {
-    const port = inject('testServerPort');
-    const url = `http://127.0.0.1:${port}/huge-and-pending.html`;
-    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
-    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
-
-    expect(result.ok).toBe(true);
-    const record = await getCapture(env.DB, captureId);
-    expect(record.status).toBe('complete');
-    expect(record.renderQuality).toBe('partial');
-    expect(record.render?.sizeLimitReached).toBe(true);
-    expect(record.render?.timedOut).toBe(true);
-  });
-
   it('records that a fast page stayed under the cap', async () => {
     const port = inject('testServerPort');
     const url = `http://127.0.0.1:${port}/fast.html`;

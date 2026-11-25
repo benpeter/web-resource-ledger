@@ -91,6 +91,10 @@ import { softwareId } from './build-info.js';
 // Merriam-Webster 1739 (docs/evolution/0178-subresource-cap-partial/outcome.md).
 const MAX_SUBRESOURCES = 2000;
 const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
+// The rendered HTML is read into the Worker and packed into the WACZ, so it
+// counts against Worker memory (128 MB, shared by the captures an isolate runs
+// at once). The largest seen by 2026-11-25 was 8.9 MB (backlog #99).
+export const MAX_HTML_CHARS = 15_000_000;
 export const MAX_PAGE_HEIGHT = 8000;
 // Screenshot resolution relative to CSS pixels. 4 until phase 0118 (2026-10-23);
 // 2 keeps text sharp and makes screenshots, most of a capture's size, about 4x smaller.
@@ -252,6 +256,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(render?.waitUntilReached !== undefined ? { waitUntilReached: render.waitUntilReached } : {}),
       ...(render?.timedOut !== undefined ? { timedOut: render.timedOut } : {}),
       ...(render?.subresourceLimitReached !== undefined ? { subresourceLimitReached: render.subresourceLimitReached } : {}),
+      ...(render?.sizeLimitReached !== undefined ? { sizeLimitReached: render.sizeLimitReached } : {}),
       ...(render?.requestsHeldBack !== undefined ? { requestsHeldBack: render.requestsHeldBack } : {}),
       ...(render?.httpStatus !== undefined ? { httpStatus: render.httpStatus } : {}),
       ...(render?.screenshotClipped !== undefined ? {
@@ -629,15 +634,15 @@ async function defaultRenderer(env, url, captureId) {
     const targetOrigin = new URL(url).origin;
     let subresourceCount = 0;
     let totalBytes = 0;
-    // The two caps end differently (backlog #98). Past the subresource cap the
-    // page stops loading more and is captured as partial. Past the size cap
-    // the capture fails, because the rendered HTML is held in Worker memory.
+    // Past either cap the page stops loading more and is captured as partial
+    // (backlog #98, #99). The responses never reach the Worker; what does is
+    // the rendered HTML, which readHtml() checks before reading it.
     let subresourceLimitReached = false;
+    let sizeLimitReached = false;
     let blockedRequests = 0;
     // On while WRL takes the screenshots (backlog #105): see holdsBackRequest()
     let networkFrozen = false;
     let requestsHeldBack = 0;
-    let limitExceeded = null;
     // Status of the page's own response as the browser got it (backlog #101).
     // The headers artifact comes from a separate request by the Worker and can
     // differ: a site may redirect one and block the other.
@@ -670,7 +675,7 @@ async function defaultRenderer(env, url, captureId) {
         }
       }
 
-      if (limitExceeded || subresourceLimitReached) {
+      if (sizeLimitReached || subresourceLimitReached) {
         blockedRequests++;
         await route.abort('blockedbyclient');
         return;
@@ -717,8 +722,9 @@ async function defaultRenderer(env, url, captureId) {
     page.on('response', (resp) => {
       const cl = resp.headers()['content-length'];
       if (cl) totalBytes += parseInt(cl, 10);
-      if (totalBytes > MAX_PAGE_BYTES) {
-        limitExceeded = 'Page exceeded 50MB size limit';
+      if (totalBytes > MAX_PAGE_BYTES && !sizeLimitReached) {
+        sizeLimitReached = true;
+        logLine(3, { event: 'render.default.size_limit', url, captureId, subresourceCount, totalBytes });
       }
       // A later navigation of the main frame (a redirect target, a bot check
       // that reloads the page) replaces the earlier status.
@@ -754,10 +760,6 @@ async function defaultRenderer(env, url, captureId) {
       logLine(3, { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
     }
 
-    if (limitExceeded) {
-      logLine(3, { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
-      throw new Error(limitExceeded);
-    }
     const tNav = Date.now();
     // A page that timed out gets 120s for the steps below (two screenshots of
     // up to 90s each are the long ones). RENDER_DEADLINE_MS covers the rest.
@@ -767,12 +769,6 @@ async function defaultRenderer(env, url, captureId) {
     // Ignores websocket/eventsource (they stay open indefinitely).
     const settle = await waitForSettle(page);
 
-    // SECURITY: async response events can push totalBytes past MAX_PAGE_BYTES
-    // during the settle delay. Re-check after settling.
-    if (limitExceeded) {
-      logLine(3, { event: 'render.default.limit_exceeded', url, captureId, limit: limitExceeded, subresourceCount, totalBytes });
-      throw new Error(limitExceeded);
-    }
     const tSettle = Date.now();
     logLine(3, { event: 'render.default.settle_complete', url, captureId, settleMs: settle.settleMs, settleReason: settle.settleReason, pendingAtCap: settle.pendingAtCap });
 
@@ -865,13 +861,22 @@ async function defaultRenderer(env, url, captureId) {
     logLine(3, { event: 'render.default.consent_result', url, captureId, colo: browserLocation?.colo ?? null, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
 
     // A page that is still loading can hold page.content() back, so the
-    // timed-out path gives it one second.
+    // timed-out path gives it one second. The length is read in the page
+    // first, so HTML too large for the Worker never gets there.
+    const checkedContent = async () => {
+      const htmlChars = await page.evaluate(() => document.documentElement?.outerHTML.length ?? 0);
+      if (htmlChars > MAX_HTML_CHARS) {
+        logLine(3, { event: 'render.default.html_limit', url, captureId, htmlChars });
+        throw new Error('Page HTML exceeded 15 MB size limit');
+      }
+      return page.content();
+    };
     const readHtml = () => {
-      if (!timedOut) return page.content();
+      if (!timedOut) return checkedContent();
       const remainingMs = partialDeadline - Date.now();
       if (remainingMs < 200) throw new Error('Deadline exceeded before partial capture could complete');
       return Promise.race([
-        page.content(),
+        checkedContent(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Content extraction timeout')), Math.min(PARTIAL_CONTENT_TIMEOUT_MS, remainingMs))),
       ]);
     };
@@ -937,15 +942,16 @@ async function defaultRenderer(env, url, captureId) {
     const tContent = Date.now();
     logLine(3, { event: 'render.default.content_extracted', url, captureId, contentMs, htmlLength: html.length });
 
-    logLine(3, { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached, httpStatus, subresourceCount, blockedRequests, requestsHeldBack, totalBytes });
+    logLine(3, { event: timedOut ? 'render.default.partial_complete' : 'render.default.complete', url, captureId, durationMs: tContent - renderStart, partial: timedOut || subresourceLimitReached || sizeLimitReached, httpStatus, subresourceCount, blockedRequests, requestsHeldBack, totalBytes });
     return {
       screenshot,
       html,
-      partial: timedOut || subresourceLimitReached,
+      partial: timedOut || subresourceLimitReached || sizeLimitReached,
       render: {
         waitUntilReached: readyState === 'complete' ? 'load' : 'domcontentloaded',
         timedOut,
         subresourceLimitReached,
+        sizeLimitReached,
         requestsHeldBack,
         ...(httpStatus !== null ? { httpStatus } : {}),
         durationMs: tContent - renderStart,
@@ -1367,8 +1373,8 @@ export function categorizeError(error) {
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
   }
-  if (msg.includes('50MB size limit')) {
-    return { message: 'Page exceeded 50MB size limit', retryable: false };
+  if (msg.includes('HTML exceeded 15 MB')) {
+    return { message: 'The page\'s HTML is larger than 15 MB, more than WRL can sign in one capture', retryable: false };
   }
   // Playwright-specific: browser or page lifecycle errors (must precede generic
   // 'Navigation' check -- Playwright crash messages include the word "Navigation")

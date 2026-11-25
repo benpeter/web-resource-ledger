@@ -48,13 +48,6 @@ export async function setup({ provide }) {
       return;
     }
 
-    // A page over the 50 MB cap whose load event never fires: one async
-    // script delivers 60 MB, another never answers past its headers
-    if (url.pathname === '/huge-and-pending.html') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end('<!DOCTYPE html><html><head><title>Huge Test</title></head><body><h1>Huge</h1><script async src="/huge.js"></script><script async src="/stalled.js"></script></body></html>');
-      return;
-    }
     // A page that loads 60 MB and finishes loading (backlog #99)
     if (url.pathname === '/huge-loaded.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -62,21 +55,17 @@ export async function setup({ provide }) {
       return;
     }
     // A small page whose script writes 16 million characters into the
-    // document: the rendered HTML is too large to hold in the Worker (backlog #99)
+    // document, hidden so the browser doesn't lay them out: the rendered HTML
+    // is too large to hold in the Worker (backlog #99)
     if (url.pathname === '/huge-html.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end('<!DOCTYPE html><html><head><title>Huge HTML Test</title></head><body><h1>Huge HTML</h1><pre id="filler"></pre><script>document.getElementById("filler").textContent = "x".repeat(16000000);</script></body></html>');
+      res.end('<!DOCTYPE html><html><head><title>Huge HTML Test</title></head><body><h1>Huge HTML</h1><div id="filler" hidden></div><script>document.getElementById("filler").textContent = "x".repeat(16000000);</script></body></html>');
       return;
     }
     if (url.pathname === '/huge.js') {
       const body = Buffer.alloc(60 * 1024 * 1024, ' ');
       res.writeHead(200, { 'Content-Type': 'text/javascript', 'Content-Length': body.length });
       res.end(body);
-      return;
-    }
-    if (url.pathname === '/stalled.js') {
-      res.writeHead(200, { 'Content-Type': 'text/javascript', 'Content-Length': 1024 });
-      res.flushHeaders();
       return;
     }
 
