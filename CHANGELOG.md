@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- A capture records where WRL's browser went out to the web, as `captureSettings.browserLocation` with the Cloudflare data center (`colo`, for example `LAX`) and the country (`country`, `US`), read from Cloudflare's trace page inside the browser and signed into the WACZ. Cloudflare picks the place, so far always in the United States, and it can change what a site shows: in November 2026 three sites showed WRL a cookie banner in Los Angeles and none in Dallas. The verification page ("Captured from" under Capture details), the dashboard, the certification PDF and MCP `get_capture` and `verify_capture` show it. Captures made before have none.
 - Self-hosted deployments can delete old captures: with `CAPTURE_RETENTION_DAYS` set, the per-minute cron deletes up to 100 captures an hour that were created more than that many days ago, each with its R2 objects and threat checks. Unset, captures are kept, as before. The hosted service leaves it unset; its staging environment sets 30.
 - `DELETE /v1/admin/tenants/{tenantId}/captures?confirm={tenantId}` deletes up to 100 of a tenant's captures per call, oldest first, and keeps the account; the answer says how many are left.
 

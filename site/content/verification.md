@@ -181,6 +181,14 @@ Partial captures made before November 2026 have no WACZ bundle, because partial 
 <details>
 <summary>Under the hood: how the trust model works</summary>
 
+### Where the capture was made from
+
+Cloudflare runs WRL's browsers in several data centers and picks one for each browser session; so far they have all been in the United States (Los Angeles, Dallas, San Jose). What a site shows can depend on where the visitor is. For example, theguardian.com, slashdot.org and samsung.com showed a cookie banner to WRL's browser in Los Angeles and none to the one in Dallas in November 2026.
+
+Each capture records where its browser went out to the web, as Cloudflare's trace page (`https://www.cloudflare.com/cdn-cgi/trace`) reported it to that browser: `captureSettings.browserLocation`, with `colo`, the data center's three-letter airport code, and `country`, a two-letter country code. The verification page shows it under "Capture details" ("Captured from: LAX, US (Cloudflare data center)"), and so do the dashboard, the certification PDF and MCP `get_capture` and `verify_capture`. It is in the WACZ bundle's `datapackage.json` with the rest of `captureSettings`, covered by the signature.
+
+You cannot choose the place. When the browser could not read the trace page, the capture has no `browserLocation`. Captures made before 25 November 2026 don't have it.
+
 ### Ed25519 signatures
 
 When WRL completes a capture, it signs the WACZ bundle using an Ed25519 private key held by the operator. The signature covers the SHA-256 hash of the bundle manifest. Ed25519 is a modern elliptic-curve signing algorithm; the signature is 64 bytes and the public key is 32 bytes.
