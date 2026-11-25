@@ -476,13 +476,18 @@ async function readBrowserLocation(browser) {
   }
   let context = null;
   let timer;
+  let done = false;
   try {
     const read = (async () => {
       context = await browser.newContext();
+      // A context that opens after the time is up is closed here; the finally
+      // below has already run.
+      if (done) { await context.close().catch(() => {}); return null; }
       const page = await context.newPage();
       const resp = await page.goto(BROWSER_TRACE_URL, { timeout: BROWSER_LOCATION_MAX_MS });
       return parseCloudflareTrace(resp ? await resp.text() : null);
     })();
+    read.catch(() => {}); // after a timeout nobody awaits it
     const location = await Promise.race([
       read,
       new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('browser location read timed out')), BROWSER_LOCATION_MAX_MS); }),
@@ -495,6 +500,7 @@ async function readBrowserLocation(browser) {
   } catch (err) {
     return { location: null, cached: false, error: String(err?.message ?? err).slice(0, 120) };
   } finally {
+    done = true;
     clearTimeout(timer);
     if (context) await context.close().catch(() => {});
   }
