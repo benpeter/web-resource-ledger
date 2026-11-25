@@ -1,6 +1,6 @@
 # Web Resource Ledger (WRL)
 
-[![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE) [![98% Vibe Coded](https://img.shields.io/badge/98%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action)
+[![CI](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/benpeter/web-resource-ledger/actions/workflows/ci.yml) [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE) [![98% Vibe Coded](https://img.shields.io/badge/98%25-Vibe_Coded-ff69b4?style=flat&logo=claude&logoColor=white)](https://github.com/ai-ecoverse/vibe-coded-badge-action) [![Web Resource Ledger MCP connector](https://glama.ai/mcp/connectors/io.github.benpeter/web-resource-ledger/badges/score.svg)](https://glama.ai/mcp/connectors/io.github.benpeter/web-resource-ledger)
 
 Cryptographic evidence of web content: capture what a page looked like, when, with proof anyone can verify.
 
