@@ -688,6 +688,7 @@ async function defaultRenderer(env, url, captureId) {
           await route.abort('blockedbyclient');
           return;
         }
+        networkFrozen = frozenAfterRequest({ frozen: networkFrozen, isMainFrameNavigation });
       }
 
       if (subresourceCount >= MAX_SUBRESOURCES) {
@@ -1139,6 +1140,20 @@ export async function detectRenderFailure(page) {
  * @returns {boolean}
  */
 export function holdsBackRequest({ frozen, isMainFrameNavigation }) {
+  return frozen && !isMainFrameNavigation;
+}
+
+/**
+ * Whether the freeze still holds after a request. A navigation of the page
+ * itself lifts it: the new document loads its scripts, styles and fetches
+ * after the navigation request, and holding those back left a page that
+ * reloaded during the second screenshot without its content. The loop after
+ * the consent step then takes the screenshot again on the new document.
+ *
+ * @param {{ frozen: boolean, isMainFrameNavigation: boolean }} request
+ * @returns {boolean}
+ */
+export function frozenAfterRequest({ frozen, isMainFrameNavigation }) {
   return frozen && !isMainFrameNavigation;
 }
 

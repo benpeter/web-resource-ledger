@@ -10,8 +10,12 @@
   screenshot, off for the consent step, and on again once the page has come to
   rest after it, for the second screenshot and the HTML read. A pass that has
   to start over after a reload starts unfrozen.
-- The page's own navigation always goes through, so a reload that starts
-  during a screenshot isn't broken; the existing second pass handles it.
+- The page's own navigation always goes through and lifts the freeze
+  (`frozenAfterRequest()`), so a reload that starts during a screenshot loads
+  its new document in full; the existing second pass then takes the
+  screenshot again. The first version only let the navigation through, and
+  the integration test for a reload during the second screenshot lost the
+  content the new document fetched.
 - Held-back requests don't make a capture partial: the page had loaded and
   settled. The count is recorded as `render.requestsHeldBack` and signed into
   `captureQuality`, and the SWGDE page says what WRL does.
