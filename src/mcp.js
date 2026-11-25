@@ -35,7 +35,7 @@ import { performVerification } from './verify.js';
 import { log } from './log.js';
 import { getEffectiveLimit, RATE_LIMITS } from './rate-limits.js';
 import { readSitemap } from './sitemap.js';
-import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, readTenantUsage, formatStorage, computeQuotaReset } from './quotas.js';
+import { checkQuota, accountRefusalDetail, quotaLimitDetail, limitReachedEmailData, batchRefusedEmailData, readTenantUsage, formatStorage, computeQuotaReset } from './quotas.js';
 import { checkUrl, checkUrls } from './threat-check.js';
 import { dispatchNotification } from './email-dispatch.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
@@ -128,6 +128,12 @@ async function mcpQuotaCheck(env, ctx, auth, batchSize) {
   const limitEmail = limitReachedEmailData(env, quotaCheck);
   if (limitEmail) {
     ctx.waitUntil(dispatchNotification(env, auth.tenantId, 'limit_reached', limitEmail)
+      .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: auth.tenantId })));
+  }
+  // A batch bigger than the free captures left (backlog #35)
+  const batchEmail = batchRefusedEmailData(env, quotaCheck);
+  if (batchEmail) {
+    ctx.waitUntil(dispatchNotification(env, auth.tenantId, 'limit_reached', batchEmail, { dedupKey: 'batch_refused' })
       .catch(err => log(env, 4, 'email', { event: 'email.dispatch_error', error: err?.message, tenantId: auth.tenantId })));
   }
   return { refusal: { isError: true, content: [{ type: 'text', text: quotaLimitDetail(quotaCheck, batchSize) }] } };
