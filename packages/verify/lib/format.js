@@ -137,6 +137,21 @@ function mergeTimestampChecks(checks) {
 }
 
 // ---------------------------------------------------------------------------
+// Browser location
+// ---------------------------------------------------------------------------
+
+/**
+ * "LAX, US (Cloudflare data center)", or null when the archive records none.
+ *
+ * @param {{ colo: string, country: string }|null|undefined} location  result.capture.browserLocation
+ * @returns {string|null}
+ */
+export function browserLocationText(location) {
+  if (!location?.colo || !location?.country) return null;
+  return `${location.colo}, ${location.country} (Cloudflare data center)`;
+}
+
+// ---------------------------------------------------------------------------
 // Capture quality notes
 // ---------------------------------------------------------------------------
 
@@ -182,6 +197,7 @@ export function captureQualityNotes(quality) {
  *     publicKey?: string,
  *     signedAt?: string,
  *     quality?: object|null,
+ *     browserLocation?: { colo: string, country: string }|null,
  *     timestamp?: { genTime: string, tsa: string },
  *     qualifiedTimestamp?: { genTime: string, tsa: string }
  *   },
@@ -245,6 +261,11 @@ export function formatHuman(result, opts = {}) {
   const pageUrl = result.capture?.url;
   if (pageUrl) {
     process.stdout.write(`  Page      ${pageUrl}\n`);
+  }
+
+  const from = browserLocationText(result.capture?.browserLocation);
+  if (from) {
+    process.stdout.write(`  From      ${from}\n`);
   }
 
   for (const note of captureQualityNotes(result.capture?.quality)) {
