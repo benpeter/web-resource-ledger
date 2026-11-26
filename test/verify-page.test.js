@@ -532,6 +532,24 @@ describe('verify page script -- where the capture was made from', () => {
   });
 });
 
+describe('verify page script -- fetch capture (backlog #58)', () => {
+  it('shows a section with the fetched file instead of a screenshot', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-26T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, method: 'fetch' },
+    }, {
+      artifacts: { resource: `https://worker.test/v1/captures/${TEST_ID}/artifacts/resource` },
+      render: { httpStatus: 200, contentType: 'application/pdf', bytes: 12 },
+    });
+    expect(out).toContain('<h2>Fetched file</h2>');
+    expect(out).toContain('id="resource-link"');
+    expect(out).not.toContain('<h2>Screenshot</h2>');
+  });
+});
+
 describe('verify page script -- viewport (backlog #66)', () => {
   it('names the viewport in the capture details', async () => {
     const out = await renderVerifyPage({

@@ -580,6 +580,17 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         '</section>';
     }
 
+    // A fetch capture (backlog #58): a file instead of a screenshot. The link
+    // and the content type are set below with setAttribute and textContent.
+    var resourceUrl = retrievalData && retrievalData.artifacts && retrievalData.artifacts.resource
+      ? retrievalData.artifacts.resource : null;
+    if (!screenshotUrl && resourceUrl) {
+      html += '<section aria-label="Fetched file" class="screenshot-section"><h2>Fetched file</h2>' +
+        '<p id="resource-note">This URL answered with a file, not a web page, so WRL fetched the file and signed its bytes without opening it in a browser.</p>' +
+        '<p><a id="resource-link" rel="noopener noreferrer">Download the file</a> <span id="resource-type"></span></p>' +
+        '</section>';
+    }
+
     // Capture details (only when captureSettings present). Where the browser
     // went out to the web (backlog #108) goes in as text only after both values
     // check out as a data center code and a country code.
@@ -704,6 +715,19 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         if (detailEl) detailEl.textContent = c.detail;
       }
     });
+
+    // Fetched file (backlog #58)
+    var resourceLink = document.getElementById('resource-link');
+    if (resourceLink && retrievalData && retrievalData.artifacts) {
+      var safeResource = safeUrl(retrievalData.artifacts.resource);
+      if (safeResource) resourceLink.setAttribute('href', safeResource);
+      var resourceType = document.getElementById('resource-type');
+      var fetched = retrievalData.render;
+      if (resourceType && fetched && typeof fetched.contentType === 'string') {
+        resourceType.textContent = '(' + fetched.contentType +
+          (Number.isInteger(fetched.bytes) ? ', ' + fetched.bytes + ' bytes' : '') + ')';
+      }
+    }
 
     // Screenshot
     if (screenshotUrl) {

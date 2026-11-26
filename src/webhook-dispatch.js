@@ -112,11 +112,17 @@ export function buildWebhookPayload(eventType, captureRecord, env) {
 
   if (eventType === 'capture.complete') {
     data.completedAt = captureRecord.completedAt;
-    data.artifacts = {
-      screenshot: `${base}/v1/captures/${captureRecord.captureId}/artifacts/screenshot`,
-      html: `${base}/v1/captures/${captureRecord.captureId}/artifacts/html`,
-      headers: `${base}/v1/captures/${captureRecord.captureId}/artifacts/headers`,
-    };
+    // A fetch capture (backlog #58) has the fetched file instead of screenshot and HTML
+    data.artifacts = captureRecord.artifacts?.resource
+      ? {
+        resource: `${base}/v1/captures/${captureRecord.captureId}/artifacts/resource`,
+        headers: `${base}/v1/captures/${captureRecord.captureId}/artifacts/headers`,
+      }
+      : {
+        screenshot: `${base}/v1/captures/${captureRecord.captureId}/artifacts/screenshot`,
+        html: `${base}/v1/captures/${captureRecord.captureId}/artifacts/html`,
+        headers: `${base}/v1/captures/${captureRecord.captureId}/artifacts/headers`,
+      };
     // Include change detection if available
     if (captureRecord.changeSummary) {
       data.changeDetection = {

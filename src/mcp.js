@@ -458,8 +458,10 @@ function createMcpServer(env, ctx, auth, origin) {
           : []),
         '',
         'Artifacts:',
-        `  Screenshot: ${artifactBase}/screenshot`,
-        `  HTML: ${artifactBase}/html`,
+        // A fetch capture (backlog #58) has the fetched file instead
+        ...(record.artifacts?.resource
+          ? [`  File (${record.render?.contentType ?? 'unknown type'}): ${artifactBase}/resource`]
+          : [`  Screenshot: ${artifactBase}/screenshot`, `  HTML: ${artifactBase}/html`]),
       ];
 
       if (record.artifacts?.headers) {

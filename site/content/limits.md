@@ -190,6 +190,10 @@ The same happens when the page's responses add up to more than 50 MB: WRL blocks
 
 The page's HTML has its own limit, because WRL holds it in memory to sign it and pack it into the WACZ bundle: a page whose rendered HTML is longer than 15 million characters fails. The largest HTML WRL had captured by November 2026 was under 9 MB.
 
+## Files: PDF, JSON, images
+
+A URL that answers with a file instead of a web page (a 2xx answer whose content type isn't HTML: a PDF, JSON from an API, an image, plain text) is fetched, not opened in a browser. The capture holds the file byte for byte, as the `resource` artifact and in the WACZ bundle, with the HTTP headers; there is no screenshot and no rendered HTML. `captureSettings.method` is `fetch` and `render` has the file's `contentType` and size in `bytes`. A file can be up to 20 MB, because WRL holds it in memory to sign it; a larger one fails with "The file is larger than 20 MB, more than WRL fetches in one capture". WRL doesn't follow redirects for a file: a URL that redirects is opened in the browser as before. Until 26 November 2026 a PDF failed with "The page loaded but showed nothing (blank page)".
+
 ## Why Captures Fail
 
 A failed capture has an `error` that says why, in the API status response, the capture record, the `capture.failed` webhook, the failure email and the dashboard. WRL tries a capture up to 4 times when the failure may pass on another try, waiting 10, 20 and then 40 seconds after a failed attempt, and reports the reason of the last attempt.

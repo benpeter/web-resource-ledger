@@ -117,6 +117,13 @@ const NAV_TIMEOUT_MS = 20000;
 const SETTLE_MAX_MS = 3000;
 const SETTLE_QUIESCENCE_MS = 500;
 const HEADER_FETCH_TIMEOUT_MS = 10000;
+
+// Fetch capture of files that aren't web pages (backlog #58): the header
+// fetch gets FETCH_PROBE_MS to say what the URL is before the browser starts.
+// A file is held whole in Worker memory to be signed, hence the size limit.
+export const MAX_FETCH_BYTES = 20 * 1024 * 1024; // 20 MB
+const FETCH_PROBE_MS = 3000;
+const FETCH_TIMEOUT_MS = 60000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
 const PARTIAL_BUDGET_MS = 120000;
 const PARTIAL_CONTENT_TIMEOUT_MS = 1000;
@@ -197,6 +204,17 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
   const start = Date.now();
   await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip, attempt });
   try {
+    // A URL that answers 2xx with a type other than HTML is a file: fetch and
+    // sign it without a browser, which shows a PDF as a blank page (backlog #58)
+    const headerPromise = captureHeaders(url);
+    const probe = await Promise.race([
+      headerPromise.catch(() => null),
+      new Promise((resolve) => { setTimeout(resolve, FETCH_PROBE_MS, undefined); }),
+    ]);
+    if (isFetchCapture(probe)) {
+      return await performFetchCapture(env, url, captureId, tenantId, cip, attempt, qualifiedTimestamps, start);
+    }
+
     const RENDER_DEADLINE_MS = 600000; // 10 min hard cap within 15-min queue consumer budget
     const renderWithDeadline = Promise.race([
       renderer(env, url, captureId, { viewport: { width: viewport.width, height: viewport.height } }),
@@ -204,7 +222,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     ]);
     const [renderResult, headerResult] = await Promise.allSettled([
       renderWithDeadline,
-      captureHeaders(url),
+      headerPromise,
     ]);
 
     if (renderResult.status === 'rejected') {
@@ -282,46 +300,14 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     };
 
     // WACZ bundling (optional -- degrades gracefully if signing key is absent)
-    let waczInfo = null;
-    try {
-      const waczArtifacts = {
-        screenshotBefore: screenshotBefore || screenshot,
-        screenshotAfter: screenshotBefore ? screenshot : null,
-        html,
-        headers, // may be null if header fetch failed
-        captureSettings,
-        captureQuality,
-      };
-      const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env, { qualifiedTimestamps });
-      if (result) {
-        const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus } = result;
-        await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
-          httpMetadata: {
-            contentType: 'application/wacz+zip',
-            contentDisposition: `attachment; filename="${waczHash}.wacz"`,
-          },
-        });
-        // Archive signing key BEFORE completeCapture() -- no race window
-        try {
-          await archiveSigningKey(env.DB, keyId, publicKeyBase64);
-        } catch (err) {
-          // Non-fatal: key may already be archived from a prior capture
-          await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
-        }
-        waczInfo = {
-          key: `captures/${waczHash}.wacz`,
-          bundleHash,
-          size: waczBytes.byteLength,
-          keyId,
-          timestampStatus,
-          qualifiedTimestampStatus,
-        };
-      }
-    } catch (err) {
-      // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
-      // Distinguish from "no signing key" path (which returns null, no error)
-      await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
-    }
+    const waczInfo = await signIntoWacz(env, url, captureId, tenantId, cip, {
+      screenshotBefore: screenshotBefore || screenshot,
+      screenshotAfter: screenshotBefore ? screenshot : null,
+      html,
+      headers, // may be null if header fetch failed
+      captureSettings,
+      captureQuality,
+    }, qualifiedTimestamps);
 
     await completeCapture(env.DB, captureId, artifacts, waczInfo, renderQuality, render || null, captureSettings);
 
@@ -378,6 +364,188 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     // Catch-all: retryable -- leave KV pending, let queue consumer retry
     await log(env, 5, 'capture', { event: 'capture.fail', captureId, tenantId, stage: 'catch_all', errorClass: err?.constructor?.name, errorMessage: String(err?.message ?? '').slice(0, 256), cip, attempt });
     return { ok: false, retryable: true, error: 'Capture could not be completed' };
+  }
+}
+
+/**
+ * Whether a header fetch answer is a file to fetch rather than a page to
+ * render: a 2xx status with a content type other than HTML. Redirects,
+ * errors and answers without a type go to the browser as before.
+ *
+ * @param {{ status: number, headers: object } | null | undefined} answer  captureHeaders() result
+ * @returns {boolean}
+ */
+export function isFetchCapture(answer) {
+  if (!answer || answer.status < 200 || answer.status > 299) return false;
+  const type = String(answer.headers?.['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+  return type !== '' && type !== 'text/html' && type !== 'application/xhtml+xml';
+}
+
+/**
+ * Response headers as stored in headers.json, with Set-Cookie values redacted.
+ *
+ * @param {Response} resp
+ * @returns {object}
+ */
+function storedHeaders(resp) {
+  const headers = {};
+  for (const [key, value] of resp.headers.entries()) {
+    // SECURITY: Strip Set-Cookie values (privacy)
+    headers[key] = key.toLowerCase() === 'set-cookie' ? '[redacted]' : value;
+  }
+  return headers;
+}
+
+/**
+ * GETs a file whole, up to MAX_FETCH_BYTES, without following redirects.
+ *
+ * @param {string} url
+ * @returns {Promise<{ status: number, statusText: string, headers: object, contentType: string, bytes: Uint8Array }>}
+ * @throws {Error} When the file is larger than MAX_FETCH_BYTES or the answer is not 2xx
+ */
+async function fetchResource(url) {
+  const resp = await fetch(url, {
+    method: 'GET',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    headers: {
+      'User-Agent': `${softwareId()} (Web Resource Ledger)`,
+      'Cache-Control': 'no-cache',
+    },
+    cf: { cacheTtl: 0 },
+  });
+  if (resp.status < 200 || resp.status > 299) {
+    await resp.body?.cancel();
+    throw new Error(`File fetch answered HTTP ${resp.status}`);
+  }
+  if (Number(resp.headers.get('content-length')) > MAX_FETCH_BYTES) {
+    await resp.body?.cancel();
+    throw new Error('File exceeded 20 MB size limit');
+  }
+  const chunks = [];
+  let total = 0;
+  const reader = resp.body?.getReader();
+  while (reader) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_FETCH_BYTES) {
+      await reader.cancel();
+      throw new Error('File exceeded 20 MB size limit');
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let pos = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, pos);
+    pos += chunk.byteLength;
+  }
+  return {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers: storedHeaders(resp),
+    contentType: resp.headers.get('content-type') ?? 'application/octet-stream',
+    bytes,
+  };
+}
+
+/**
+ * Captures a file by fetch (backlog #58): stores it as the resource artifact
+ * with its headers, signs its bytes into the WACZ and completes the capture.
+ * Same result shape as performCapture.
+ */
+async function performFetchCapture(env, url, captureId, tenantId, cip, attempt, qualifiedTimestamps, start) {
+  let file;
+  try {
+    file = await fetchResource(url);
+  } catch (err) {
+    const { message, retryable } = categorizeError(err);
+    await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'fetch', errorCategory: message, retryable, cip, attempt, errorName: err?.name, errorMessage: String(err?.message ?? '').slice(0, 256) });
+    if (retryable) {
+      await recordAttemptError(env.DB, captureId, message);
+      return { ok: false, retryable: true, error: message };
+    }
+    await failCapture(env.DB, captureId, message, retryable);
+    return { ok: false, retryable: false };
+  }
+
+  const prefix = `captures/${captureId}`;
+  const headers = { status: file.status, statusText: file.statusText, headers: file.headers };
+  const headersJson = JSON.stringify(headers);
+  await Promise.all([
+    env.BUCKET.put(`${prefix}/resource`, file.bytes, { httpMetadata: { contentType: file.contentType } }),
+    env.BUCKET.put(`${prefix}/headers.json`, headersJson),
+  ]);
+  const artifacts = { resource: `${prefix}/resource`, headers: `${prefix}/headers.json` };
+  const captureSettings = { version: 1, method: 'fetch' };
+  const render = { httpStatus: file.status, contentType: file.contentType, bytes: file.bytes.byteLength, durationMs: Date.now() - start };
+  const captureQuality = { renderQuality: 'full', httpStatus: file.status };
+
+  const waczInfo = await signIntoWacz(env, url, captureId, tenantId, cip, {
+    resource: { bytes: file.bytes, contentType: file.contentType },
+    headers,
+    captureSettings,
+    captureQuality,
+  }, qualifiedTimestamps);
+
+  await completeCapture(env.DB, captureId, artifacts, waczInfo, 'full', render, captureSettings);
+  await log(env, 3, 'capture', {
+    event: 'capture.success',
+    captureId,
+    tenantId,
+    method: 'fetch',
+    contentType: file.contentType,
+    bytes: file.bytes.byteLength,
+    durationMs: Date.now() - start,
+    waczStatus: waczInfo ? 'ok' : 'skipped',
+    bundleSize: waczInfo?.size ?? 0,
+    renderQuality: 'full',
+    cip,
+    timestampStatus: waczInfo?.timestampStatus ?? 'skipped',
+    qualifiedTimestampStatus: waczInfo?.qualifiedTimestampStatus ?? 'skipped',
+  });
+  const storedBytes = file.bytes.byteLength + new TextEncoder().encode(headersJson).byteLength + (waczInfo?.size ?? 0);
+  return { ok: true, storedBytes, qualifiedTimestampStatus: waczInfo?.qualifiedTimestampStatus ?? 'skipped' };
+}
+
+/**
+ * Builds the signed WACZ for a capture's artifacts, stores it in R2 and
+ * archives the signing key. Returns the capture record's wacz info, or null
+ * when no signing key is configured or bundling failed (logged): the capture
+ * still completes with its individual artifacts.
+ */
+async function signIntoWacz(env, url, captureId, tenantId, cip, waczArtifacts, qualifiedTimestamps) {
+  try {
+    const result = await buildWacz(url, new Date().toISOString(), waczArtifacts, env, { qualifiedTimestamps });
+    if (!result) return null;
+    const { waczBytes, waczHash, bundleHash, publicKeyBase64, keyId, timestampStatus, qualifiedTimestampStatus } = result;
+    await env.BUCKET.put(`captures/${waczHash}.wacz`, waczBytes, {
+      httpMetadata: {
+        contentType: 'application/wacz+zip',
+        contentDisposition: `attachment; filename="${waczHash}.wacz"`,
+      },
+    });
+    // Archive signing key BEFORE completeCapture() -- no race window
+    try {
+      await archiveSigningKey(env.DB, keyId, publicKeyBase64);
+    } catch (err) {
+      // Non-fatal: key may already be archived from a prior capture
+      await log(env, 4, 'capture', { event: 'capture.key_archive_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
+    }
+    return {
+      key: `captures/${waczHash}.wacz`,
+      bundleHash,
+      size: waczBytes.byteLength,
+      keyId,
+      timestampStatus,
+      qualifiedTimestampStatus,
+    };
+  } catch (err) {
+    // WACZ bundling failed unexpectedly -- capture still completes with individual artifacts
+    // Distinguish from "no signing key" path (which returns null, no error)
+    await log(env, 4, 'capture', { event: 'capture.wacz_fail', captureId, tenantId, cip, errorMessage: String(err?.message ?? '').slice(0, 256) });
+    return null;
   }
 }
 
@@ -1390,6 +1558,9 @@ export function categorizeError(error) {
   // Playwright throws TimeoutError (by name) for navigation and wait timeouts
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
+  }
+  if (msg.includes('File exceeded 20 MB')) {
+    return { message: 'The file is larger than 20 MB, more than WRL fetches in one capture', retryable: false };
   }
   if (msg.includes('HTML exceeded 15 MB')) {
     return { message: 'The page\'s HTML is larger than 15 MB, more than WRL can sign in one capture', retryable: false };

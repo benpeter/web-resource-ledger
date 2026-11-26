@@ -204,6 +204,13 @@ components:
         version:
           type: integer
           description: Schema version for captureSettings.
+        method:
+          type: string
+          enum: [fetch]
+          description: >
+            `fetch` when the URL answered with a file rather than a web page (a
+            2xx answer whose content type is not HTML), so WRL fetched the file
+            and signed its bytes without a browser. Absent on browser captures.
         consent:
           $ref: '#/components/schemas/ConsentHandling'
           description: Consent handling metadata. Present when consent opt-out was attempted.
@@ -474,8 +481,21 @@ components:
         The `screenshot` field always points to the best-available screenshot
         (backward compatible). `screenshotBefore` is the pre-consent-dismissal
         screenshot; present only when consent was detected and dismissed.
-      required: [screenshot, html]
+
+        A fetch capture (`captureSettings.method` is `fetch`: the URL answered
+        with a file, not a web page) has `resource` and `headers` instead of
+        `screenshot` and `html`.
       properties:
+        resource:
+          type: string
+          format: uri
+          description: >
+            The file a fetch capture fetched, byte for byte. Served as
+            application/octet-stream with Content-Disposition: attachment and a
+            file name extension from its content type; its content type is in
+            `render.contentType`.
+          examples:
+            - https://api.webresourceledger.com/v1/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/artifacts/resource
         screenshot:
           type: string
           format: uri
@@ -553,9 +573,22 @@ components:
         reached and whether the navigation timed out before reaching the target
         (load). Present on completed captures created after this feature;
         absent on earlier captures. When absent, the page reached the load
-        milestone (consistent with renderQuality: full).
-      required: [waitUntilReached, timedOut, durationMs]
+        milestone (consistent with renderQuality: full). A fetch capture
+        (`captureSettings.method` is `fetch`) ran no browser and has only
+        httpStatus, contentType, bytes and durationMs.
+      required: [durationMs]
       properties:
+        contentType:
+          type: string
+          description: Content type the site sent with the file of a fetch capture. Absent on browser captures.
+          examples:
+            - application/pdf
+        bytes:
+          type: integer
+          minimum: 0
+          description: Size of the file of a fetch capture, in bytes. Absent on browser captures.
+          examples:
+            - 482113
         waitUntilReached:
           type: string
           enum: [domcontentloaded, load, networkidle]
@@ -647,9 +680,10 @@ components:
           type: integer
           minimum: 0
           description: >
-            Height of the page the screenshot covers, in CSS pixels, from the top.
-            Screenshots stop at 8000 px, so this is the smaller of pageHeight and
-            8000. Absent on captures made before November 2026.
+            Height of the page the screenshot covers, in CSS pixels, from the top:
+            the smaller of pageHeight and the cap, which is 8000 px up to a
+            1280 px wide viewport and less for a wider one. Absent on captures
+            made before November 2026.
           examples:
             - 8000
         screenshotClipped:
@@ -3657,8 +3691,8 @@ paths:
           required: true
           schema:
             type: string
-            enum: [screenshot-before, screenshot, html, headers, wacz]
-          description: Artifact name to retrieve.
+            enum: [screenshot-before, screenshot, html, headers, wacz, resource]
+          description: Artifact name to retrieve. `resource` is the file of a fetch capture.
       responses:
         '200':
           description: Artifact found. Content-Type depends on artifact name.
@@ -3712,6 +3746,11 @@ paths:
                 type: string
                 format: binary
                 description: Signed WACZ bundle (artifact name "wacz").
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: The file of a fetch capture, whatever its type (artifact name "resource").
         '401':
           $ref: '#/components/responses/Problem401'
         '404':

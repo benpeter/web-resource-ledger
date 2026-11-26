@@ -457,60 +457,64 @@ function renderDetailComplete(view, id, data) {
   card.appendChild(buildMetadataSection(data));
 
   // Screenshot section
-  var hasBeforeScreenshot = !!(data.artifacts && data.artifacts.screenshotBefore);
-  var screenshotSection = document.createElement('section');
-  screenshotSection.className = 'section detail-section';
+  // A fetch capture (backlog #58) has a file and no screenshot
+  var isFetchCapture = !!(data.artifacts && data.artifacts.resource);
+  if (!isFetchCapture) {
+    var hasBeforeScreenshot = !!(data.artifacts && data.artifacts.screenshotBefore);
+    var screenshotSection = document.createElement('section');
+    screenshotSection.className = 'section detail-section';
 
-  var ssH2 = document.createElement('h2');
-  ssH2.textContent = 'Screenshot';
-  screenshotSection.appendChild(ssH2);
+    var ssH2 = document.createElement('h2');
+    ssH2.textContent = 'Screenshot';
+    screenshotSection.appendChild(ssH2);
 
-  if (hasBeforeScreenshot) {
-    var screenshotGrid = document.createElement('div');
-    screenshotGrid.className = 'detail-screenshot-grid';
+    if (hasBeforeScreenshot) {
+      var screenshotGrid = document.createElement('div');
+      screenshotGrid.className = 'detail-screenshot-grid';
 
-    var beforeWrap = document.createElement('figure');
-    beforeWrap.className = 'detail-screenshot-figure';
-    var beforeImg = document.createElement('img');
-    beforeImg.loading = 'lazy';
-    beforeImg.src = '/v1/captures/' + id + '/artifacts/screenshot-before';
-    beforeImg.alt = 'Before consent screenshot of ' + (data.url || '');
-    beforeImg.className = 'detail-screenshot-img';
-    var beforeCaption = document.createElement('figcaption');
-    beforeCaption.className = 'detail-screenshot-caption';
-    beforeCaption.textContent = 'Before consent';
-    beforeWrap.appendChild(beforeImg);
-    beforeWrap.appendChild(beforeCaption);
+      var beforeWrap = document.createElement('figure');
+      beforeWrap.className = 'detail-screenshot-figure';
+      var beforeImg = document.createElement('img');
+      beforeImg.loading = 'lazy';
+      beforeImg.src = '/v1/captures/' + id + '/artifacts/screenshot-before';
+      beforeImg.alt = 'Before consent screenshot of ' + (data.url || '');
+      beforeImg.className = 'detail-screenshot-img';
+      var beforeCaption = document.createElement('figcaption');
+      beforeCaption.className = 'detail-screenshot-caption';
+      beforeCaption.textContent = 'Before consent';
+      beforeWrap.appendChild(beforeImg);
+      beforeWrap.appendChild(beforeCaption);
 
-    var afterWrap = document.createElement('figure');
-    afterWrap.className = 'detail-screenshot-figure';
-    var afterImg = document.createElement('img');
-    afterImg.loading = 'lazy';
-    afterImg.src = '/v1/captures/' + id + '/artifacts/screenshot';
-    afterImg.alt = 'After consent screenshot of ' + (data.url || '');
-    afterImg.className = 'detail-screenshot-img';
-    var afterCaption = document.createElement('figcaption');
-    afterCaption.className = 'detail-screenshot-caption';
-    afterCaption.textContent = 'After consent';
-    afterWrap.appendChild(afterImg);
-    afterWrap.appendChild(afterCaption);
+      var afterWrap = document.createElement('figure');
+      afterWrap.className = 'detail-screenshot-figure';
+      var afterImg = document.createElement('img');
+      afterImg.loading = 'lazy';
+      afterImg.src = '/v1/captures/' + id + '/artifacts/screenshot';
+      afterImg.alt = 'After consent screenshot of ' + (data.url || '');
+      afterImg.className = 'detail-screenshot-img';
+      var afterCaption = document.createElement('figcaption');
+      afterCaption.className = 'detail-screenshot-caption';
+      afterCaption.textContent = 'After consent';
+      afterWrap.appendChild(afterImg);
+      afterWrap.appendChild(afterCaption);
 
-    screenshotGrid.appendChild(beforeWrap);
-    screenshotGrid.appendChild(afterWrap);
-    screenshotSection.appendChild(screenshotGrid);
-  } else {
-    var singleFigure = document.createElement('figure');
-    singleFigure.className = 'detail-screenshot-figure';
-    var singleImg = document.createElement('img');
-    singleImg.loading = 'lazy';
-    singleImg.src = '/v1/captures/' + id + '/artifacts/screenshot';
-    singleImg.alt = 'Screenshot of ' + (data.url || '');
-    singleImg.className = 'detail-screenshot-img';
-    singleFigure.appendChild(singleImg);
-    screenshotSection.appendChild(singleFigure);
+      screenshotGrid.appendChild(beforeWrap);
+      screenshotGrid.appendChild(afterWrap);
+      screenshotSection.appendChild(screenshotGrid);
+    } else {
+      var singleFigure = document.createElement('figure');
+      singleFigure.className = 'detail-screenshot-figure';
+      var singleImg = document.createElement('img');
+      singleImg.loading = 'lazy';
+      singleImg.src = '/v1/captures/' + id + '/artifacts/screenshot';
+      singleImg.alt = 'Screenshot of ' + (data.url || '');
+      singleImg.className = 'detail-screenshot-img';
+      singleFigure.appendChild(singleImg);
+      screenshotSection.appendChild(singleFigure);
+    }
+
+    card.appendChild(screenshotSection);
   }
-
-  card.appendChild(screenshotSection);
 
   // Artifacts section
   var artifactsSection = document.createElement('section');
@@ -535,8 +539,12 @@ function renderDetailComplete(view, id, data) {
     artList.appendChild(li);
   }
 
-  addArtifactLink('Screenshot', '/v1/captures/' + id + '/artifacts/screenshot');
-  addArtifactLink('HTML snapshot', '/v1/captures/' + id + '/artifacts/html');
+  if (isFetchCapture) {
+    addArtifactLink('Fetched file', '/v1/captures/' + id + '/artifacts/resource');
+  } else {
+    addArtifactLink('Screenshot', '/v1/captures/' + id + '/artifacts/screenshot');
+    addArtifactLink('HTML snapshot', '/v1/captures/' + id + '/artifacts/html');
+  }
   addArtifactLink('HTTP headers', '/v1/captures/' + id + '/artifacts/headers');
   if (data.wacz) {
     addArtifactLink('WACZ archive', '/v1/captures/' + id + '/artifacts/wacz');

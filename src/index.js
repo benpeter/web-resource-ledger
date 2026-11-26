@@ -84,7 +84,7 @@ const routes = [
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})$/, handleGetCapture],
-  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/, handleGetCaptureArtifact],
+  ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/artifacts\/(screenshot-before|screenshot|html|headers|wacz|resource)$/, handleGetCaptureArtifact],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/certificate$/, handleGetCertificate],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/diff\/(cap_[a-f0-9]{32})$/, handleDiffCaptures],
   ['GET',    /^\/v1\/verify\/(cap_[a-f0-9]{32})$/, handleVerifyCapture],
@@ -168,7 +168,7 @@ const HEAD_PATHS = [
   /^\/favicon\.ico$/,
   /^\/ui$/,
   /^\/v1\/verify\/cap_[a-f0-9]{32}$/,
-  /^\/v1\/captures\/cap_[a-f0-9]{32}(\/status|\/certificate|\/artifacts\/(screenshot-before|screenshot|html|headers|wacz))?$/,
+  /^\/v1\/captures\/cap_[a-f0-9]{32}(\/status|\/certificate|\/artifacts\/(screenshot-before|screenshot|html|headers|wacz|resource))?$/,
   /^\/\.well-known\/signing-keys?$/,
   /^\/\.well-known\/security\.txt$/,
 ];
@@ -595,7 +595,7 @@ export default {
         /^\/\.well-known\/security\.txt$/,
         /^\/health$/,
         /^\/favicon\.ico$/,
-        /^\/v1\/captures\/cap_[a-f0-9]{32}\/artifacts\/(screenshot-before|screenshot|html|headers|wacz)$/,
+        /^\/v1\/captures\/cap_[a-f0-9]{32}\/artifacts\/(screenshot-before|screenshot|html|headers|wacz|resource)$/,
       ];
       const allowed = VERIFY_ALLOWLIST.some(p => p.test(pathname));
       if (!allowed) {
@@ -1896,10 +1896,10 @@ async function handleGetCapture(request, env, ctx, match) {
   const base = new URL(request.url).origin;
   const artifactBase = `${base}/v1/captures/${captureId}/artifacts`;
 
-  const artifacts = {
-    screenshot: `${artifactBase}/screenshot`,
-    html: `${artifactBase}/html`,
-  };
+  // A fetch capture (backlog #58) has the fetched file and no screenshot or HTML
+  const artifacts = record.artifacts?.resource
+    ? { resource: `${artifactBase}/resource` }
+    : { screenshot: `${artifactBase}/screenshot`, html: `${artifactBase}/html` };
   if (record.artifacts?.headers) {
     artifacts.headers = `${artifactBase}/headers`;
   }
@@ -1955,13 +1955,29 @@ async function handleGetCapture(request, env, ctx, match) {
 // Build a descriptive Content-Disposition filename from capture record data.
 // Pattern: capture-{domain}-{date}.{ext} (or capture-{domain}-{date}-before.png)
 // Falls back to generic names if URL parsing fails.
-function buildArtifactFilename(record, artifactName) {
+// File name extensions for a fetch capture's file, by its content type (backlog #58)
+const RESOURCE_EXTENSIONS = {
+  'application/pdf': 'pdf',
+  'application/json': 'json',
+  'application/xml': 'xml',
+  'text/xml': 'xml',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
+};
+
+function buildArtifactFilename(record, artifactName, contentType) {
   const extensions = {
     'screenshot-before': 'png',
     screenshot: 'png',
     html:       'html',
     headers:    'json',
     wacz:       'wacz',
+    resource:   RESOURCE_EXTENSIONS[String(contentType ?? '').split(';')[0].trim().toLowerCase()] ?? 'bin',
   };
   const ext = extensions[artifactName] ?? 'bin';
 
@@ -2065,9 +2081,11 @@ async function handleGetCaptureArtifact(request, env, ctx, match) {
     html:       'text/plain',       // CRITICAL: never text/html (XSS)
     headers:    'application/json',
     wacz:       'application/wacz+zip',
+    // CRITICAL: a fetched file may be HTML or SVG; never serve its own type
+    resource:   'application/octet-stream',
   };
 
-  const filename = buildArtifactFilename(record, artifactName);
+  const filename = buildArtifactFilename(record, artifactName, obj.httpMetadata?.contentType);
 
   const buffer = await obj.arrayBuffer();
 

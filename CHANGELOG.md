@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- A URL that answers with a file instead of a web page (2xx, content type not HTML: PDF, JSON, images, plain text) is fetched and signed byte for byte without a browser, up to 20 MB: the `resource` artifact (served as `application/octet-stream`), `captureSettings.method: "fetch"`, `render.contentType` and `render.bytes`. A PDF used to fail as a blank page.
 - `POST /v1/captures` takes an optional `viewport` (`{"width": 390, "height": 844}`, width 320-1920, height 320-1440 CSS pixels; default 1280 by 720). Past 1280 px wide the screenshot covers less height, so it never holds more pixels than a 1280 by 8000 one.
 - `captureSettings.viewport` records the window size of every new capture, signed into the WACZ bundle, and the verification page, dashboard, certification PDF and MCP `get_capture` show it. `captureSettings` is now present on every new capture.
 - `PATCH /v1/webhooks/{id}` pauses (`active: false`), resumes or changes a webhook's URL, events or name without a new secret.

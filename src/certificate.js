@@ -290,6 +290,14 @@ export async function generateCertificate(capture, signingKeys, origin, operator
     'Independent Timestamping: An RFC 3161-compliant cryptographic timestamp is requested from a trusted ' +
       'timestamp authority (TSA), binding the capture to a precise point in time as certified by the TSA.',
   ];
+  // A fetch capture (backlog #58): no browser ran, the file itself was recorded
+  if (capture.captureSettings?.method === 'fetch') {
+    captureSteps.splice(1, 2,
+      'File Retrieval: The URL answered with a file rather than a web page (its content type is not HTML), ' +
+        'so the system fetched the file directly, without a browser, and did not follow redirects.',
+      'Content Recording: The system records the bytes of the file exactly as received, with their content type, ' +
+        'and the HTTP response headers.');
+  }
   for (let i = 0; i < captureSteps.length; i++) {
     drawText(`${i + 1}. ${captureSteps[i]}`, { indent: 12 });
     gap(5);
