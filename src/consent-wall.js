@@ -32,8 +32,11 @@ const MAX_LABEL_WORDS = 6;
 /** Most clicks the wall step makes. */
 const MAX_CLICKS = 5;
 
-/** How long the whole wall step may take. */
-export const WALL_MAX_MS = 10000;
+/** How long the wall step may go on clicking. */
+export const WALL_MAX_MS = 15000;
+
+/** How long a page a click opened gets to load. */
+const PAGE_LOAD_MS = 8000;
 
 /** How long the page gets to react to a click. */
 const AFTER_CLICK_MS = 1000;
@@ -81,12 +84,14 @@ export function wallConsentSettings(route) {
 
 /**
  * Runs in the page: finds the visible buttons of consent overlays, marks each
- * with data-wrl-wall="<n>" and returns their labels. With `untick`, it first
- * unticks every checked choice inside those overlays.
+ * with data-wrl-wall="<n>" and returns their labels. With `untick`, it also
+ * unticks every checked choice inside those overlays. With `wholePage`, on a
+ * settings page a click led to (kleinanzeigen.de/gdpr), every visible button
+ * of the page counts.
  *
  * Kept free of outside references, since Playwright sends its source to the page.
  */
-function scanWall(untick) {
+function scanWall({ untick, wholePage }) {
   const CONSENT_TEXT = /cookie|consent|privacy|privacidad|privée|datenschutz|données|dati personali|gegevens|partner|tracking|traceurs|tracciament/i;
   const isOverlay = (el) => {
     if (el.matches('dialog[open], [role="dialog"], [role="alertdialog"], [aria-modal="true"]')) return true;
@@ -122,8 +127,10 @@ function scanWall(untick) {
   let unticked = 0;
   for (const el of document.querySelectorAll(selector)) {
     if (!visible(el)) continue;
-    const overlay = overlayOf(el);
-    if (!overlay || !isConsentOverlay(overlay)) continue;
+    if (!wholePage) {
+      const overlay = overlayOf(el);
+      if (!overlay || !isConsentOverlay(overlay)) continue;
+    }
     const text = (el.innerText || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
     if (!text) continue;
     el.setAttribute('data-wrl-wall', String(found.length));
@@ -146,24 +153,25 @@ function scanWall(untick) {
  * Handles a consent wall still showing after autoconsent.
  *
  * @param {import('@cloudflare/playwright').Page} page
- * @param {{ wait?: (ms: number) => Promise<void> }} [options]
  * @returns {Promise<null | { status: 'dismissed'|'failed', route: string|null, button: string|null, clicks: string[], durationMs: number }>}
  *   null when no wall is showing
  */
-export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+export async function dismissConsentWall(page) {
   const start = Date.now();
+  const pageUrl = () => page.url().split('#')[0];
+  const startUrl = pageUrl();
   // A click may reload the page; the scan then runs again on the new document
-  const evaluateScan = async (untick) => {
+  const evaluateScan = async (options) => {
     try {
-      return await page.evaluate(scanWall, untick);
+      return await page.evaluate(scanWall, options);
     } catch (err) {
       if (!/context was destroyed|navigat/i.test(String(err?.message ?? ''))) throw err;
       await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
-      return page.evaluate(scanWall, untick);
+      return page.evaluate(scanWall, options);
     }
   };
   const scan = async (untick = false) => {
-    const result = await evaluateScan(untick);
+    const result = await evaluateScan({ untick, wholePage: pageUrl() !== startUrl });
     if (!result || !Array.isArray(result.buttons)) return [];
     return result.buttons.map((text, index) => ({ text, index, kind: classifyConsentButton(text) }));
   };
@@ -175,7 +183,17 @@ export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) 
       // Something covers the button or it moves: click it from inside the page
       await page.evaluate((sel) => document.querySelector(sel)?.click(), target);
     }
-    await wait(AFTER_CLICK_MS);
+    // The click may open another page (settings of their own) or reload this one
+    const navigated = await page.waitForEvent('framenavigated', { predicate: (frame) => frame === page.mainFrame(), timeout: AFTER_CLICK_MS })
+      .then(() => true, () => false);
+    if (navigated) await page.waitForLoadState('load', { timeout: PAGE_LOAD_MS }).catch(() => {});
+  };
+  // A settings page of its own usually sends the visitor back once they
+  // chose; when it doesn't, WRL goes back itself, so the capture is of the
+  // page that was asked for
+  const backToStart = async () => {
+    if (pageUrl() === startUrl) return;
+    await page.goto(startUrl, { waitUntil: 'load', timeout: PAGE_LOAD_MS }).catch(() => {});
   };
   const answers = (buttons) => buttons.some((b) => b.kind === 'decline' || b.kind === 'accept' || b.kind === 'save');
   const done = (status, route, button, clicks) => ({ status, route, button: button?.text?.slice(0, MAX_LABEL_CHARS) ?? null, clicks, durationMs: Date.now() - start });
@@ -193,7 +211,11 @@ export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) 
     // Gone when no button that answers the wall is left. A "Cookie
     // settings" link that some sites keep on screen afterwards doesn't count.
     const buttons = await scan(inSettings);
-    if (!answers(buttons)) return round === 0 ? null : done('dismissed', route, last, clicks);
+    if (!answers(buttons)) {
+      if (round === 0) return null;
+      await backToStart();
+      return done('dismissed', route, last, clicks);
+    }
     if (round === MAX_CLICKS || Date.now() - start >= WALL_MAX_MS) break;
     // "Preferenze" and "PREFERENZE" are the same button on two screens
     const fresh = (kind) => buttons.find((b) => b.kind === kind && !clicked.has(b.text.toLowerCase()));
@@ -219,5 +241,6 @@ export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) 
     if (next.kind === 'settings' || next.kind === 'decline') inSettings = true;
     if (next.kind === 'decline') declined = true;
   }
+  await backToStart();
   return done('failed', null, null, clicks);
 }
