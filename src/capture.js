@@ -229,6 +229,13 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     ]);
 
     if (renderResult.status === 'rejected') {
+      // The browser got a file as a download: the header probe lost its race
+      // on a slow server (a 359 MB zip on 2026-11-26, backlog #15). Fetch it
+      // the way the probe would have sent it, with the fetch's own time limit.
+      if (String(renderResult.reason?.message ?? '').includes('Download is starting')) {
+        await log(env, 3, 'capture', { event: 'capture.download_fallback', captureId, tenantId, cip, attempt });
+        return await performFetchCapture(env, url, captureId, tenantId, cip, attempt, qualifiedTimestamps, start);
+      }
       const { message, retryable } = categorizeError(renderResult.reason);
       await log(env, 5, 'capture', { event: 'capture.stage.fail', captureId, tenantId, stage: 'browser_render', errorCategory: message, retryable, cip, attempt, errorName: renderResult.reason?.name, errorMessage: String(renderResult.reason?.message ?? '').slice(0, 256) });
       if (retryable) {
@@ -395,6 +402,32 @@ export function isFetchCapture(answer) {
   if (!answer || answer.status < 200 || answer.status > 299) return false;
   const type = String(answer.headers?.['content-type'] ?? '').split(';')[0].trim().toLowerCase();
   return type !== '' && type !== 'text/html' && type !== 'application/xhtml+xml';
+}
+
+/**
+ * Which browser answer to capture as a file: the response page.goto returned,
+ * or, when it returned none, the main-frame response the page saw. page.goto
+ * returns no response for a PDF Chromium opens in its viewer (backlog #15).
+ *
+ * @param {{ status: number, headers: object } | null} navAnswer
+ * @param {{ status: number, headers: object } | null} seenAnswer
+ * @returns {{ status: number, headers: object } | null}
+ */
+export function pickFileAnswer(navAnswer, seenAnswer) {
+  if (isFetchCapture(navAnswer)) return navAnswer;
+  if (!navAnswer && isFetchCapture(seenAnswer)) return seenAnswer;
+  return null;
+}
+
+/**
+ * Whether a file's Content-Length is over MAX_FETCH_BYTES, so it can fail
+ * before its bytes are read.
+ *
+ * @param {object | undefined} headers lower-case response headers
+ * @returns {boolean}
+ */
+export function exceedsFetchLimit(headers) {
+  return Number(headers?.['content-length']) > MAX_FETCH_BYTES;
 }
 
 /**
@@ -631,6 +664,8 @@ export async function captureHeaders(url) {
     },
     cf: { cacheTtl: 0 },
   });
+  // Only the headers are kept; a 359 MB zip kept streaming otherwise
+  try { await resp.body?.cancel(); } catch { /* already closed */ }
 
   const headers = {};
   for (const [key, value] of resp.headers.entries()) {
@@ -887,6 +922,9 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
     // The headers artifact comes from a separate request by the Worker and can
     // differ: a site may redirect one and block the other.
     let httpStatus = null;
+    // The main frame's last navigation response: page.goto returns none for a
+    // PDF Chromium opens in its viewer, but this listener still sees it
+    let mainResponse = null;
     let page = null;
 
     await context.route('**/*', async (route) => {
@@ -970,7 +1008,10 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       // that reloads the page) replaces the earlier status.
       if (resp.request().isNavigationRequest()) {
         try {
-          if (resp.frame() === page.mainFrame()) httpStatus = resp.status();
+          if (resp.frame() === page.mainFrame()) {
+            httpStatus = resp.status();
+            mainResponse = resp;
+          }
         } catch (err) {
           // frame() throws for detached frames during lifecycle transitions
         }
@@ -1004,10 +1045,18 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
     // The main response is a file, not a page (backlog #58): a site whose bot
     // protection turned the header fetch away lets the browser through. Hand
     // over the bytes instead of rendering Chromium's empty PDF viewer.
-    if (navResponse && isFetchCapture({ status: navResponse.status(), headers: navResponse.headers() })) {
+    // page.goto returned no response for a 24 MB PDF on 2026-11-26 (backlog
+    // #15), so the response the listener saw counts too.
+    const navAnswer = navResponse ? { status: navResponse.status(), headers: navResponse.headers() } : null;
+    const seenAnswer = mainResponse ? { status: mainResponse.status(), headers: mainResponse.headers() } : null;
+    const fileAnswer = pickFileAnswer(navAnswer, seenAnswer);
+    if (fileAnswer) {
+      const fileResponse = fileAnswer === navAnswer ? navResponse : mainResponse;
+      // Fail before the bytes are read into the Worker (backlog #99)
+      if (exceedsFetchLimit(fileAnswer.headers)) throw new Error('File exceeded 10 MB size limit');
       let bytes = null;
       try {
-        bytes = await answerWithin(navResponse.body(), PAGE_READ_MAX_MS, 'The file did not arrive from the browser');
+        bytes = await answerWithin(fileResponse.body(), PAGE_READ_MAX_MS, 'The file did not arrive from the browser');
         // For a PDF Chromium hands over its viewer page, not the file: fetch
         // the file again from inside the page, with the browser's cookies
         if (startsWithMarkup(bytes)) {
@@ -1023,15 +1072,15 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       if (bytes) {
         if (bytes.byteLength > MAX_FETCH_BYTES) throw new Error('File exceeded 10 MB size limit');
         const fileHeaders = {};
-        for (const [key, value] of Object.entries(navResponse.headers())) {
+        for (const [key, value] of Object.entries(fileAnswer.headers)) {
           // SECURITY: Strip Set-Cookie values (privacy)
           fileHeaders[key] = key === 'set-cookie' ? '[redacted]' : value;
         }
         logLine(3, { event: 'render.default.file', url, captureId, contentType: fileHeaders['content-type'], bytes: bytes.byteLength });
         return {
           file: {
-            status: navResponse.status(),
-            statusText: navResponse.statusText(),
+            status: fileAnswer.status,
+            statusText: fileResponse.statusText(),
             headers: fileHeaders,
             contentType: fileHeaders['content-type'],
             bytes: new Uint8Array(bytes),
@@ -1658,6 +1707,21 @@ export function categorizeError(error) {
       message: `The site showed a ${vendor} bot check instead of the page, so WRL did not capture it. Failed captures are not counted or billed.`,
       retryable: false,
     };
+  }
+  const refusedFile = msg.match(/^File fetch answered HTTP (\d{3})/);
+  if (refusedFile) {
+    const status = Number(refusedFile[1]);
+    if (status >= 300 && status < 400) {
+      return { message: 'The URL redirects to a file, and WRL does not follow redirects when it fetches a file', retryable: false };
+    }
+    return { message: `The site answered HTTP ${status} when WRL asked for the file`, retryable: status === 429 || status >= 500 };
+  }
+  if (msg.includes('Download is starting')) {
+    return { message: 'The URL starts a file download, which WRL could not fetch', retryable: false };
+  }
+  // Heavy pages crash the tab, often during the screenshot; a retry can pass
+  if (msg.includes('Target crashed')) {
+    return { message: 'The browser tab crashed on this page, often because the page needs too much memory', retryable: true };
   }
   if (
     msg.includes('Unable to capture screenshot') ||
