@@ -175,6 +175,7 @@ max_retries = 0
 # Stripe secrets (set via wrangler secret put):
 #   STRIPE_SECRET_KEY    -- Stripe secret key (sk_live_...)
 #   STRIPE_WEBHOOK_SECRET -- Stripe webhook signing secret (whsec_...)
+#   RESEND_WEBHOOK_SECRET -- Resend webhook signing secret for bounces and complaints (whsec_..., Svix)
 # Email secrets (set via wrangler secret put):
 #   RESEND_API_KEY       -- Resend API key for transactional email delivery
 # Threat check (set via wrangler secret put):

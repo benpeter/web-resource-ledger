@@ -34,6 +34,7 @@ import { handleGetNotificationPreferences, handleUpdateNotificationPreferences, 
 import { handleGetUnsubscribe, handlePostUnsubscribe } from './unsubscribe.js';
 import { handleGetVerifyEmail, handlePostVerifyEmail } from './email-verify.js';
 import { handleBillingCheckout, handleBillingPortal, handleStripeWebhook } from './billing.js';
+import { handleResendWebhook } from './resend-webhook.js';
 import { verifySession } from './session.js';
 import { handleScheduledTick } from './scheduler.js';
 import { reportPendingMeterEvents } from './meter-reporter.js';
@@ -149,6 +150,8 @@ const routes = [
   ['POST',   /^\/v1\/billing\/portal$/, handleBillingPortal],
   // Stripe webhook (public -- signature-verified internally)
   ['POST',   /^\/v1\/stripe\/webhook$/, handleStripeWebhook],
+  // Resend bounces and complaints (public -- Svix signature verified internally)
+  ['POST',   /^\/v1\/resend\/webhook$/, handleResendWebhook],
 ];
 
 // HEAD runs as GET without the body (RFC 9110, section 9.3.2) on the pages and

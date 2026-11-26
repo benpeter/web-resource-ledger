@@ -1149,6 +1149,40 @@ export async function findTenantByVerifiedEmail(db, email) {
 }
 
 /**
+ * A permanent bounce from Resend (backlog #63): the address stops counting as
+ * verified for every tenant that has it as notification address, so no more
+ * notification email goes there and email sign-in with it stops.
+ *
+ * @param {D1Database} db
+ * @param {string} email
+ * @returns {Promise<number>}  how many tenants had it
+ */
+export async function markNotificationEmailBounced(db, email) {
+  const result = await db.prepare(
+    `UPDATE notification_preferences SET email_verified = 0
+     WHERE lower(email) = ? AND email_verified = 1`,
+  ).bind(String(email).toLowerCase()).run();
+  return result.meta?.changes ?? 0;
+}
+
+/**
+ * A spam complaint from Resend (backlog #63): every notification type is
+ * turned off for the tenants that have this notification address. The
+ * address stays verified, so the owner can still sign in with it.
+ *
+ * @param {D1Database} db
+ * @param {string} email
+ * @returns {Promise<number>}  how many tenants had it
+ */
+export async function turnOffNotificationsForEmail(db, email) {
+  const columns = NOTIFICATION_TYPES.map((type) => `notify_${type} = 0`).join(', ');
+  const result = await db.prepare(
+    `UPDATE notification_preferences SET ${columns} WHERE lower(email) = ?`,
+  ).bind(String(email).toLowerCase()).run();
+  return result.meta?.changes ?? 0;
+}
+
+/**
  * Record ToS acceptance for an email user (first acceptance wins).
  *
  * @param {D1Database} db

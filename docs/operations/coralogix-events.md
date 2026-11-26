@@ -208,6 +208,10 @@ The renderer sends these lines as the events happen and does not wait for each t
 | 5 | `email.send_dlq` | Email send permanently failed after retries |
 | 5 | `email.dispatch_error` | Critical email dispatch failure |
 | 1 | `email.dispatch_skipped` | Approaching-limit email already sent this period, not sent again (debug) |
+| 4 | `email.bounced` | Resend reported a permanent bounce; the address no longer counts as verified for the tenants that have it (bounceSubType, tenants, emailId) |
+| 3 | `email.bounced_transient` | Resend reported a temporary bounce; nothing changed (bounceSubType, emailId) |
+| 4 | `email.complained` | The recipient marked a WRL email as spam; every notification type is turned off for the tenants with that address (tenants, emailId) |
+| 4 | `email.webhook_signature_failed` | A request to `/v1/resend/webhook` failed the signature check (error) |
 
 ## Webhook (`webhook`)
 

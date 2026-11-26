@@ -29,6 +29,12 @@ To use another address, enter it on the **Notifications** page. WRL sends a veri
 
 Sign-in links and address verification emails are always sent; they have no setting.
 
+## When emails don't arrive
+
+When an email to your address bounces for good (the mailbox doesn't exist, or the receiving server rejects it), WRL stops treating the address as verified: notification emails stop, and you can't sign in with an emailed link to it until you verify it again on the **Notifications** page. A bounce that only means "try later", a full mailbox for example, changes nothing.
+
+When you mark a WRL email as spam, WRL turns off all notification emails for your address. Sign-in links still work. Turn the emails you want back on on the **Notifications** page.
+
 ## Turning emails off
 
 Every notification email has an unsubscribe link, and mail clients that support one-click unsubscribe show a button for it. It turns off that one kind of email, not the others. To turn it back on, or to change several at once, use the **Notifications** page of the dashboard.
