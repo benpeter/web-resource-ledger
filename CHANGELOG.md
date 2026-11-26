@@ -38,6 +38,10 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Fixed
 
+- A file the browser receives as a download (a zip, for example) is fetched directly and signed, or fails at once with "The file is larger than 10 MB, more than WRL fetches in one capture", instead of being tried 4 times and failing with "Capture could not be completed". This happened when WRL's header check of the URL took more than 3 seconds.
+- A PDF that the browser opens in its viewer is recorded as a file even when the browser's navigation returns no response for it; a 24 MB PDF failed as "The page loaded but showed nothing (blank page)" instead of "larger than 10 MB". A file over 10 MB now fails before its bytes are read.
+- New failure messages: "The browser tab crashed on this page, often because the page needs too much memory" (retried) and "The site answered HTTP 403 when WRL asked for the file" (retried for 429 and 5xx), both formerly "Capture could not be completed".
+
 - A capture of a page behind DataDome's captcha (nytimes.com and etsy.com show it to WRL's browser, with HTTP 403) failed as "The site answered HTTP 403 and the page showed nothing (blank page)". It now fails with "The site showed a DataDome bot check instead of the page", like a Cloudflare bot check: not retried and not counted.
 
 ## [1.6.0] - 2026-11-16
