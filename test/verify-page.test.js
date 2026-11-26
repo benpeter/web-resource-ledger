@@ -532,6 +532,31 @@ describe('verify page script -- where the capture was made from', () => {
   });
 });
 
+describe('verify page script -- viewport (backlog #66)', () => {
+  it('names the viewport in the capture details', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-26T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, viewport: { width: 390, height: 844 } },
+    });
+    expect(out).toContain('<div class="crypto-label">Viewport</div><div class="crypto-value">390 x 844 CSS pixels</div>');
+  });
+
+  it('shows nothing for values that are not whole numbers', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-26T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, viewport: { width: '<img src=x>', height: 844 } },
+    });
+    expect(out).not.toContain('Viewport');
+    expect(out).not.toContain('<img src=x>');
+  });
+});
+
 describe('verify page script -- clipped screenshot', () => {
   it('captions a screenshot that covers only the top of the page', async () => {
     const out = await renderVerifyPage({
