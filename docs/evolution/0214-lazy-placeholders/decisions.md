@@ -14,8 +14,10 @@
   is in view. It replaces the old step that only handled `loading="lazy"`
   images.
 - Only images inside the screenshot (above `screenshotHeightCap` for the
-  viewport width) and laid out (a box larger than 0 by 0, so not hidden
-  menus) are filled. A long page would otherwise load hundreds of images the
+  viewport width) and visible (`checkVisibility` with opacity and
+  visibility, and a box larger than 0 by 0) are filled. The first staging
+  run filled 178 images on samsung.com, its closed menus' thumbnails, which
+  are laid out but hidden; the visibility check came from that. A long page would otherwise load hundreds of images the
   screenshot doesn't show, against the 50 MB page cap and the Worker's
   memory (backlog #99).
 - `render.lazyLoad` records `imagesFilled` and `scrollCutShort`: WRL changes

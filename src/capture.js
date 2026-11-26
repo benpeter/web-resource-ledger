@@ -1697,7 +1697,7 @@ export async function triggerLazyLoading(page) {
  * placeholder gets its data-src (data-lazy-src, data-original), and an image
  * or a picture's source without a real srcset gets its data-srcset: what
  * lazysizes and similar libraries do once the image scrolls into view.
- * Images below maxTop, or not laid out (hidden menus), are left alone, so a
+ * Images below maxTop, or not visible (closed menus), are left alone, so a
  * long page doesn't load hundreds of images the screenshot won't show.
  *
  * @param {{ maxTop: number }} options  maxTop: screenshot height in CSS pixels
@@ -1712,6 +1712,8 @@ export function fillLazyImages({ maxTop }) {
   document.querySelectorAll('img, picture > source').forEach((el) => {
     const shown = el.tagName === 'SOURCE' ? el.parentElement.querySelector('img') : el;
     if (!shown) return;
+    // Closed menus (samsung.com's had 172 thumbnails) are laid out but not visible
+    if (!shown.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return;
     const box = shown.getBoundingClientRect();
     if (box.width === 0 && box.height === 0) return;
     if (box.top + window.scrollY >= maxTop) return;
