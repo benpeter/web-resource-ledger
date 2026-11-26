@@ -170,6 +170,43 @@ export async function buildWarc(url, captureDate, artifacts) {
     });
   }
 
+  // EXPERIMENT (#52): 6. response records for the page's subresources, so a
+  // replay tool (ReplayWeb.page) can show the page with its styles and images
+  offset = chunks.reduce((sum, c) => sum + c.length, 0);
+  for (const sub of artifacts.subresources ?? []) {
+    const headerLines = [`HTTP/1.1 ${sub.status} ${sub.statusText || 'OK'}`];
+    for (const [k, v] of Object.entries(sub.headers ?? {})) {
+      // The body is stored decoded; drop the headers that describe the wire form
+      if (/^(content-encoding|transfer-encoding|content-length)$/i.test(k)) continue;
+      headerLines.push(`${k}: ${String(v).replace(/[\r\n]+/g, ' ')}`);
+    }
+    headerLines.push(`content-length: ${sub.body.byteLength}`);
+    const httpHead = enc.encode(headerLines.join('\r\n') + '\r\n\r\n');
+    const block = new Uint8Array(httpHead.length + sub.body.length);
+    block.set(httpHead, 0);
+    block.set(sub.body, httpHead.length);
+    const chunk = buildRecord({
+      type: 'response',
+      recordId: `<urn:uuid:${crypto.randomUUID()}>`,
+      targetUri: sub.url,
+      date: isoDate,
+      contentType: 'application/http; msgtype=response',
+      body: block,
+    });
+    chunks.push(chunk);
+    recordMeta.push({
+      url: sub.url,
+      offset,
+      length: chunk.length,
+      mime: String(sub.headers?.['content-type'] ?? 'application/octet-stream').split(';')[0].trim(),
+      digest: await sha256(sub.body),
+      type: 'response',
+      status: String(sub.status),
+      ts14,
+    });
+    offset += chunk.length;
+  }
+
   // Concatenate all chunks into a single Uint8Array
   const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
   const warcBytes = new Uint8Array(totalLength);

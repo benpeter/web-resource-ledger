@@ -257,7 +257,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       });
     }
 
-    const { screenshot, html, partial, render, consent, screenshotBefore, browserLocation } = renderResult.value;
+    const { screenshot, html, partial, render, consent, screenshotBefore, browserLocation, subresources } = renderResult.value;
     const renderQuality = partial ? 'partial' : 'full';
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
     if (!headers) {
@@ -333,6 +333,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       headers, // may be null if header fetch failed
       captureSettings,
       captureQuality,
+      subresources, // EXPERIMENT (#52)
     }, qualifiedTimestamps);
 
     await completeCapture(env.DB, captureId, artifacts, waczInfo, renderQuality, render || null, captureSettings);
@@ -999,6 +1000,32 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
     page.on('requestfinished', (req) => openRequests.delete(req));
     page.on('requestfailed', (req) => openRequests.delete(req));
 
+    // EXPERIMENT (backlog #52, exp/subresources, not for merge): keep the
+    // bodies of stylesheets, fonts, images and scripts for the WARC, up to
+    // SUB_MAX_ONE each and SUB_MAX_TOTAL together.
+    const SUB_TYPES = new Set(['stylesheet', 'font', 'image', 'script']);
+    const SUB_MAX_ONE = 2 * 1024 * 1024;
+    const SUB_MAX_TOTAL = 30 * 1024 * 1024;
+    const subresources = [];
+    const subPending = [];
+    let subBytes = 0;
+    let subSkipped = 0;
+    page.on('response', (resp) => {
+      try {
+        const req = resp.request();
+        if (!SUB_TYPES.has(req.resourceType())) return;
+        const status = resp.status();
+        if (status < 200 || status >= 300) return;
+        const cl = parseInt(resp.headers()['content-length'] ?? '0', 10);
+        if (cl > SUB_MAX_ONE || subBytes + cl > SUB_MAX_TOTAL) { subSkipped++; return; }
+        subPending.push(resp.body().then((body) => {
+          if (body.byteLength > SUB_MAX_ONE || subBytes + body.byteLength > SUB_MAX_TOTAL) { subSkipped++; return; }
+          subBytes += body.byteLength;
+          subresources.push({ url: resp.url(), status, statusText: resp.statusText(), headers: resp.headers(), body: new Uint8Array(body) });
+        }).catch(() => { subSkipped++; }));
+      } catch { subSkipped++; }
+    });
+
     // Response monitoring for total page size
     page.on('response', (resp) => {
       const cl = resp.headers()['content-length'];
@@ -1278,6 +1305,11 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       break;
     }
     page.off('framenavigated', countNavigation);
+    // EXPERIMENT (#52): wait up to 10 s for the bodies still on their way
+    const tSub = Date.now();
+    await Promise.race([Promise.allSettled(subPending), new Promise((r) => setTimeout(r, 10000))]);
+    const subWaitMs = Date.now() - tSub;
+    logLine(3, { event: 'render.exp.subresources', url, captureId, stored: subresources.length, bytes: subBytes, skipped: subSkipped, pending: subPending.length - subresources.length - subSkipped, waitMs: subWaitMs });
     // What still covered the window and what says the page is paywalled, as
     // the screenshot shows it (backlog #51). Noted only, nothing is closed.
     let pageCover = null;
@@ -1309,6 +1341,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
         settleReason: settle.settleReason,
         lazyLoad: { imagesFilled, scrollCutShort },
         ...(pageCover ? { overlayCoverage: pageCover.overlayCoverage, paywallSignals: pageCover.paywallSignals } : {}),
+        subresourcesStored: { count: subresources.length, bytes: subBytes, skipped: subSkipped, waitMs: subWaitMs },
         stages: {
           sessionAcquireMs: tSession - renderStart,
           contextSetupMs: tContext - tSession,
@@ -1323,6 +1356,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       },
       consent,
       screenshotBefore: tookAfterScreenshot ? screenshotBefore : null,
+      subresources,
       ...(browserLocation ? { browserLocation } : {}),
     };
   } catch (err) {
