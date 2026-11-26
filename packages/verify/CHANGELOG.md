@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.0 (2026-11-26)
+
+- Say when the capture service held back requests the page started while it took the screenshots (mostly ads, so an ad slot that would only have filled then is empty in the screenshot): a note in the standard output and the `--legal` report, and `capture.quality.requestsHeldBack` in `--json` and `--legal --json`. WRL records it since 25 November 2026
+- Name the size limit as the reason when a partial capture stopped loading because the page loaded more data than the capture service allows (`capture.quality.sizeLimitReached`, WRL records it since 26 November 2026)
+
 ## v0.5.0 (2026-11-25)
 
 - Say where the capture service's browser loaded the page from: `From` in the standard output, `Captured from` in the subject section of the `--legal` report, and `capture.browserLocation` (`colo`, `country`) in `--json` and `--legal --json`. The values come from `captureSettings.browserLocation` in `datapackage.json`, which the signature covers; only a three-letter data center code and a two-letter country code are shown
