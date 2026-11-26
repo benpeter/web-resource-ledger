@@ -35,7 +35,7 @@ beforeEach(async () => {
   fetchMock.activate();
   fetchMock.disableNetConnect();
   // Header fetch runs alongside rendering; answer it so it never hits the network.
-  fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '').persist();
+  fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '', { headers: { 'content-type': 'text/html' } }).persist();
 });
 
 afterEach(() => {

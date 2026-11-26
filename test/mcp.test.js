@@ -698,6 +698,28 @@ describe('tool: get_capture -- site answered with an error status', () => {
   });
 });
 
+describe('tool: get_capture -- fetch capture (backlog #58)', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com/report.pdf', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      resource: `captures/${COMPLETE_ID}/resource`,
+      headers: `captures/${COMPLETE_ID}/headers.json`,
+    }, null, 'full', { httpStatus: 200, contentType: 'application/pdf', bytes: 12 },
+    { version: 1, method: 'fetch' });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('lists the fetched file and no screenshot or HTML', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain(`File (application/pdf): `);
+    expect(text).toContain(`/v1/captures/${COMPLETE_ID}/artifacts/resource`);
+    expect(text).not.toContain('Screenshot:');
+  });
+});
+
 describe('tool: get_capture -- where the capture was made from', () => {
   beforeEach(async () => {
     const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
@@ -902,7 +924,7 @@ describe('tool: verify_capture -- partial capture', () => {
     fetchMock.activate();
     fetchMock.disableNetConnect();
     // Header fetch runs alongside rendering; answer it so it never hits the network.
-    fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '').persist();
+    fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '', { headers: { 'content-type': 'text/html' } }).persist();
     await createCapture(env.DB, PARTIAL_ID, TEST_URL, TEST_IP, 'default');
     await performCapture(env, TEST_URL, TEST_IP, PARTIAL_ID, 'default', undefined, partialRenderer);
   });
@@ -935,7 +957,7 @@ describe('tool: verify_capture -- site answered with an error status', () => {
     fetchMock.activate();
     fetchMock.disableNetConnect();
     // Header fetch runs alongside rendering; answer it so it never hits the network.
-    fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '').persist();
+    fetchMock.get(new URL(TEST_URL).origin).intercept({ path: () => true, method: () => true }).reply(200, '', { headers: { 'content-type': 'text/html' } }).persist();
     await createCapture(env.DB, BLOCKED_ID, TEST_URL, TEST_IP, 'default');
     await performCapture(env, TEST_URL, TEST_IP, BLOCKED_ID, 'default', undefined, blockedRenderer);
   });

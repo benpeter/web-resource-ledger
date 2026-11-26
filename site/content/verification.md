@@ -199,6 +199,10 @@ You cannot choose the place. When the browser could not read the trace page, the
 
 A page can look different in a narrow window: a phone layout, a menu folded into a button, other images. Each capture records the window it was rendered in as `captureSettings.viewport`, in CSS pixels (`{"width": 390, "height": 844}`), signed into the WACZ bundle with the rest of `captureSettings`. The verification page shows it under "Capture details" ("Viewport: 390 x 844 CSS pixels"), and so do the dashboard, the certification PDF and MCP `get_capture`. Captures made before 26 November 2026 don't record it; they were all rendered at 1,280 by 720.
 
+### Captures of a file
+
+When the URL answered with a file rather than a web page (a PDF, JSON, an image), WRL signed the file's bytes instead of a screenshot. Usually WRL fetches the file itself; when a site's bot protection turned that fetch away, WRL's browser received the file and `captureSettings.fetchedBy` is `browser`: the WARC record for the URL holds the file with the content type the site sent, and there are no screenshot records. `captureSettings.method` is `fetch`. The verification page shows a "Fetched file" section with a download link instead of the screenshot, the dashboard and MCP `get_capture` list the file, and the certification PDF describes the fetch instead of the browser steps. Checking the file is the same as for a page: the CLI and the API confirm the WACZ bundle's hashes, signature and timestamp, which cover the file.
+
 ### Ed25519 signatures
 
 When WRL completes a capture, it signs the WACZ bundle using an Ed25519 private key held by the operator. The signature covers the SHA-256 hash of the bundle manifest. Ed25519 is a modern elliptic-curve signing algorithm; the signature is 64 bytes and the public key is 32 bytes.

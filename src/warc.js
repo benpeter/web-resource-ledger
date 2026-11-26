@@ -6,9 +6,9 @@
  *
  * Record order:
  *   1. warcinfo     (software metadata)
- *   2. resource     (rendered HTML)
+ *   2. resource     (rendered HTML, or the fetched file of a fetch capture)
  *   3. metadata     (HTTP headers, if present)
- *   4. resource     (screenshot-before PNG)
+ *   4. resource     (screenshot-before PNG; none for a fetch capture)
  *   5. resource     (screenshot-after PNG, if consent dismissed)
  *
  * Tests: test/warc.test.js
@@ -34,15 +34,19 @@ const enc = new TextEncoder();
 export async function buildWarc(url, captureDate, artifacts) {
   const isoDate = typeof captureDate === 'string' ? captureDate : captureDate.toISOString();
   const ts14 = toTimestamp14(isoDate);
-  const { screenshotBefore, screenshotAfter, html, headers } = artifacts;
+  const { screenshotBefore, screenshotAfter, html, resource, headers } = artifacts;
 
-  const htmlBytes = enc.encode(html);
+  // A fetch capture (backlog #58) signs the file it fetched, with its own type,
+  // where a browser capture signs the rendered HTML
+  const htmlBytes = resource ? resource.bytes : enc.encode(html);
+  const mainContentType = resource ? resource.contentType : 'text/html; charset=utf-8';
+  const mainMime = resource ? resource.contentType.split(';')[0].trim() : 'text/html';
   const headersBytes = headers ? enc.encode(JSON.stringify(headers)) : null;
 
   const warcinfoId = `<urn:uuid:${crypto.randomUUID()}>`;
   const htmlRecordId = `<urn:uuid:${crypto.randomUUID()}>`;
   const headersRecordId = headersBytes ? `<urn:uuid:${crypto.randomUUID()}>` : null;
-  const screenshotBeforeRecordId = `<urn:uuid:${crypto.randomUUID()}>`;
+  const screenshotBeforeRecordId = screenshotBefore ? `<urn:uuid:${crypto.randomUUID()}>` : null;
   const screenshotAfterRecordId = screenshotAfter ? `<urn:uuid:${crypto.randomUUID()}>` : null;
 
   const warcinfoBody = enc.encode(`software: ${softwareId()}\r\nformat: WARC/1.1\r\n`);
@@ -69,7 +73,7 @@ export async function buildWarc(url, captureDate, artifacts) {
     recordId: htmlRecordId,
     targetUri: url,
     date: isoDate,
-    contentType: 'text/html; charset=utf-8',
+    contentType: mainContentType,
     body: htmlBytes,
   });
   const htmlOffset = offset;
@@ -79,7 +83,7 @@ export async function buildWarc(url, captureDate, artifacts) {
     url,
     offset: htmlOffset,
     length: htmlChunk.length,
-    mime: 'text/html',
+    mime: mainMime,
     digest: htmlDigest,
     type: 'resource',
     status: '200',
@@ -114,29 +118,31 @@ export async function buildWarc(url, captureDate, artifacts) {
   }
 
   // 4. resource record: screenshot-before PNG
-  const screenshotBeforeDigest = await sha256(screenshotBefore);
-  const screenshotBeforeUri = `urn:wrl:screenshot:before:${url}`;
-  const screenshotBeforeChunk = buildRecord({
-    type: 'resource',
-    recordId: screenshotBeforeRecordId,
-    targetUri: screenshotBeforeUri,
-    date: isoDate,
-    contentType: 'image/png',
-    body: screenshotBefore,
-  });
-  const screenshotBeforeOffset = offset;
-  chunks.push(screenshotBeforeChunk);
-  offset += screenshotBeforeChunk.length;
-  recordMeta.push({
-    url: screenshotBeforeUri,
-    offset: screenshotBeforeOffset,
-    length: screenshotBeforeChunk.length,
-    mime: 'image/png',
-    digest: screenshotBeforeDigest,
-    type: 'resource',
-    status: '200',
-    ts14,
-  });
+  if (screenshotBefore && screenshotBeforeRecordId) {
+    const screenshotBeforeDigest = await sha256(screenshotBefore);
+    const screenshotBeforeUri = `urn:wrl:screenshot:before:${url}`;
+    const screenshotBeforeChunk = buildRecord({
+      type: 'resource',
+      recordId: screenshotBeforeRecordId,
+      targetUri: screenshotBeforeUri,
+      date: isoDate,
+      contentType: 'image/png',
+      body: screenshotBefore,
+    });
+    const screenshotBeforeOffset = offset;
+    chunks.push(screenshotBeforeChunk);
+    offset += screenshotBeforeChunk.length;
+    recordMeta.push({
+      url: screenshotBeforeUri,
+      offset: screenshotBeforeOffset,
+      length: screenshotBeforeChunk.length,
+      mime: 'image/png',
+      digest: screenshotBeforeDigest,
+      type: 'resource',
+      status: '200',
+      ts14,
+    });
+  }
 
   // 5. resource record: screenshot-after PNG (only when consent was dismissed)
   if (screenshotAfter && screenshotAfterRecordId) {

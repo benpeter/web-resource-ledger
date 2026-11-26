@@ -331,6 +331,21 @@ describe('certificate generation -- where the capture was made from', () => {
   });
 });
 
+describe('certificate generation -- fetch capture (backlog #58)', () => {
+  it('describes fetching the file instead of rendering it in a browser', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture({ captureSettings: { version: 1, method: 'fetch' } }), signingKeys);
+    expect(pdfContains(streams, 'File Retrieval:')).toBe(true);
+    expect(pdfContains(streams, 'Server-Side Browser Rendering:')).toBe(false);
+  });
+
+  it('says the browser received the file when it loaded it', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture({ captureSettings: { version: 1, method: 'fetch', fetchedBy: 'browser' } }), signingKeys);
+    expect(pdfContains(streams, 'received a file')).toBe(true);
+  });
+});
+
 describe('certificate generation -- viewport (backlog #66)', () => {
   it('names the viewport under Capture Identification', async () => {
     const signingKeys = await getSigningKeys(env);

@@ -55,7 +55,7 @@ Constraints:
 
 ### `capture.complete`
 
-Fired when a capture finishes successfully with all artifacts available.
+Fired when a capture finishes successfully with all artifacts available. For a URL that answered with a file (a PDF, JSON, an image), `artifacts` has `resource` and `headers` instead of `screenshot` and `html` (see [Files](/limits/#files-pdf-json-images)).
 
 ```json
 {
@@ -346,7 +346,7 @@ curl https://api.webresourceledger.com/v1/webhooks \
 
 Secrets are never included in list responses.
 
-A webhook is active when registered; `active: false` means it is [paused](#pause%2C-resume-or-change).
+A webhook is active when registered; `active: false` means it is [paused](#pause-resume-or-change).
 
 ### Pause, resume or change
 

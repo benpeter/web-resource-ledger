@@ -36,7 +36,7 @@ A field name has one type across all events. Coralogix fixes the type of a field
 | 3 | `capture.enqueued` | Message dispatched to capture queue |
 | 3 | `capture.dequeued` | Queue consumer picked up a capture message |
 | 3 | `capture.start` | Browser render starting (`performCapture` entry) |
-| 3 | `capture.success` | Full capture completed successfully |
+| 3 | `capture.success` | Full capture completed successfully; a file fetched without a browser has `method: fetch`, `contentType`, `bytes` |
 | 3 | `capture.partial` | Capture completed but with degraded quality (nav timeout); signed like a full capture since phase 0138 (waczStatus, timestampStatus) |
 | 3 | `capture.batch` | Batch capture request accepted |
 | 2 | `capture.list` | Captures list query (telemetry) |
@@ -51,7 +51,7 @@ A field name has one type across all events. Coralogix fixes the type of a field
 | 4 | `capture.diff_headers_parse_fail` | JSON parse error when comparing capture headers |
 | 4 | `capture.attempt_error_record_fail` | Couldn't store the reason of a failed attempt before the retry |
 | 4 | `capture.stale_fail` | Hourly sweep failed captures still pending 24 hours after creation (count, captureIds); their queue message was lost (phase 0139) |
-| 5 | `capture.stage.fail` | Browser render stage failed (with errorCategory + retryable flag) |
+| 5 | `capture.stage.fail` | Browser render stage failed (with errorCategory + retryable flag); `stage: fetch` when fetching a file failed |
 | 5 | `capture.fail` | Catch-all unhandled error in capture pipeline |
 | 5 | `capture.invalid_message` | Malformed queue message (bad structure/types) |
 | 5 | `capture.enqueue_fail` | Queue dispatch failed after accepting request |
