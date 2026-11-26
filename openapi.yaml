@@ -207,8 +207,33 @@ components:
         consent:
           $ref: '#/components/schemas/ConsentHandling'
           description: Consent handling metadata. Present when consent opt-out was attempted.
+        viewport:
+          $ref: '#/components/schemas/Viewport'
         browserLocation:
           $ref: '#/components/schemas/BrowserLocation'
+
+    Viewport:
+      type: object
+      description: >
+        Browser viewport in CSS pixels, rendered at 2x device scale. Default
+        1280 by 720. The screenshot covers at most 8000 px of the page's height
+        up to 1280 px wide and less past it (5333 px at 1920 wide), so it never
+        holds more pixels. In `captureSettings` it is signed into the WACZ
+        bundle; captures made before 26 November 2026 don't record it and were
+        all 1280 by 720.
+      required: [width, height]
+      additionalProperties: false
+      properties:
+        width:
+          type: integer
+          minimum: 320
+          maximum: 1920
+          example: 390
+        height:
+          type: integer
+          minimum: 320
+          maximum: 1440
+          example: 844
 
     BrowserLocation:
       type: object
@@ -2699,10 +2724,15 @@ paths:
                   type: string
                   format: uri
                   description: Public http or https URL to capture. Must not resolve to a private IP.
+                viewport:
+                  $ref: '#/components/schemas/Viewport'
             examples:
               basic:
                 summary: Capture a public page
                 value: {url: 'https://example.com'}
+              phone:
+                summary: Capture at a phone's viewport
+                value: {url: 'https://example.com', viewport: {width: 390, height: 844}}
       responses:
         '202':
           description: Capture accepted and queued.

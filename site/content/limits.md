@@ -174,7 +174,9 @@ When you receive a rate-limit `429`, wait the number of seconds in `Retry-After`
 
 ## Screenshot Size
 
-Pages render in a window 1,280 CSS pixels wide, and screenshots cover the top 8,000 CSS pixels of a page. Screenshots are taken at twice that resolution, so the largest is 2,560 by 16,000 pixels. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
+Pages render in a window 1,280 by 720 CSS pixels, and screenshots cover the top 8,000 CSS pixels of a page. Screenshots are taken at twice that resolution, so the largest is 2,560 by 16,000 pixels. On a taller page the screenshot stops there; the rendered HTML in the WACZ bundle still holds the whole page.
+
+`POST /v1/captures` takes another window size as `viewport`, for example a phone's `{"width": 390, "height": 844}`: width 320 to 1,920 and height 320 to 1,440 CSS pixels. Up to 1,280 wide the screenshot still covers 8,000 pixels of the page; a wider window gets less height, so the screenshot never holds more pixels (5,333 at 1,920 wide). Batch captures, schedules, MCP and the dashboard render at 1,280 by 720. The capture records the size as `captureSettings.viewport`, signed into the WACZ bundle.
 
 The capture record says when that happened: `render.screenshotClipped` is `true`, `render.pageHeight` is the page's height and `render.screenshotHeight` how much of it the screenshot shows. The same three fields are signed into the WACZ bundle's `captureQuality`, the verification page notes it under the screenshot, and MCP `get_capture` mentions it.
 

@@ -154,6 +154,12 @@ function buildMetadataSection(data) {
     addDataRow(grid, 'Captured From', loc.colo + ', ' + loc.country + ' (Cloudflare data center)');
   }
 
+  // The viewport the page was rendered at (backlog #66)
+  var vp = data.captureSettings && data.captureSettings.viewport;
+  if (vp && Number.isInteger(vp.width) && Number.isInteger(vp.height)) {
+    addDataRow(grid, 'Viewport', vp.width + ' x ' + vp.height + ' CSS pixels');
+  }
+
   // Timestamp status (only when WACZ is present and timestamps field exists)
   if (data.wacz && data.timestamps) {
     var tsSpan = document.createElement('span');

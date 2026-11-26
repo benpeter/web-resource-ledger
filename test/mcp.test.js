@@ -706,7 +706,7 @@ describe('tool: get_capture -- where the capture was made from', () => {
       screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
       html: `captures/${COMPLETE_ID}/rendered.html`,
     }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000 },
-    { version: 1, browserLocation: { colo: 'DFW', country: 'US' } });
+    { version: 1, viewport: { width: 390, height: 844 }, browserLocation: { colo: 'DFW', country: 'US' } });
   });
 
   afterEach(cleanupCaptures);
@@ -715,6 +715,12 @@ describe('tool: get_capture -- where the capture was made from', () => {
     const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
     const text = (await res.json()).result.content[0].text;
     expect(text).toContain('Captured from: DFW, US (Cloudflare data center)');
+  });
+
+  it('names the viewport (backlog #66)', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('Viewport: 390 x 844 CSS pixels');
   });
 });
 

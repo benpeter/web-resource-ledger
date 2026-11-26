@@ -3,6 +3,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { signBytes } from './signing.js';
 import { browserLocationText } from './browser-location.js';
+import { viewportText } from './viewport.js';
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -329,6 +330,11 @@ export async function generateCertificate(capture, signingKeys, origin, operator
   if (location) {
     gap(2);
     drawKV('Captured From:', location, { indent: 12, labelWidth: 120 });
+  }
+  const viewport = viewportText(capture.captureSettings?.viewport);
+  if (viewport) {
+    gap(2);
+    drawKV('Viewport:', viewport, { indent: 12, labelWidth: 120 });
   }
 
   // 3.2 Hash Integrity

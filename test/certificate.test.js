@@ -331,6 +331,23 @@ describe('certificate generation -- where the capture was made from', () => {
   });
 });
 
+describe('certificate generation -- viewport (backlog #66)', () => {
+  it('names the viewport under Capture Identification', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture({
+      captureSettings: { version: 1, viewport: { width: 390, height: 844 } },
+    }), signingKeys);
+    expect(pdfContains(streams, 'Viewport:')).toBe(true);
+    expect(pdfContains(streams, '390 x 844 CSS pixels')).toBe(true);
+  });
+
+  it('leaves the line out for a capture without it', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture(), signingKeys);
+    expect(pdfContains(streams, 'Viewport:')).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // describe('certificate generation -- timestamp variations')
 // ---------------------------------------------------------------------------

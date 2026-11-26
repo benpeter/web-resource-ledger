@@ -44,6 +44,7 @@ import { getSigningKeys } from './signing.js';
 import { computeCip } from './ip-hash.js';
 import { releaseVersion } from './build-info.js';
 import { browserLocationText } from './browser-location.js';
+import { viewportText } from './viewport.js';
 
 // Input bounds for /mcp. The SDK defaults allow 4 MiB and unlimited elements.
 const MAX_TOOL_INPUT_ELEMENTS = 1000;
@@ -436,6 +437,9 @@ function createMcpServer(env, ctx, auth, origin) {
         ...(browserLocationText(record.captureSettings?.browserLocation)
           ? [`Captured from: ${browserLocationText(record.captureSettings.browserLocation)}`]
           : []),
+        ...(viewportText(record.captureSettings?.viewport)
+          ? [`Viewport: ${viewportText(record.captureSettings.viewport)}`]
+          : []),
         ...(record.render?.httpStatus !== undefined ? [`HTTP status: ${record.render.httpStatus}`] : []),
         ...(record.render?.httpStatus >= 400
           ? ['The site answered with an error status; the capture shows that answer, which can be an error page or a block page.']
@@ -664,6 +668,9 @@ function createMcpServer(env, ctx, auth, origin) {
         `Render quality: ${record.renderQuality ?? 'full'}`,
         ...(browserLocationText(record.captureSettings?.browserLocation)
           ? [`Captured from: ${browserLocationText(record.captureSettings.browserLocation)}`]
+          : []),
+        ...(viewportText(record.captureSettings?.viewport)
+          ? [`Viewport: ${viewportText(record.captureSettings.viewport)}`]
           : []),
         ...(record.render?.httpStatus !== undefined ? [`HTTP status: ${record.render.httpStatus}`] : []),
         ...(record.render?.httpStatus >= 400

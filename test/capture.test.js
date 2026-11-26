@@ -1230,3 +1230,30 @@ describe('performCapture -- error page detection (render failure)', () => {
     expect(record.error).toBe('The page loaded but showed nothing (blank page)');
   });
 });
+
+describe('performCapture -- caller-chosen viewport (backlog #66)', () => {
+  it('passes the viewport to the renderer and signs it into captureSettings', async () => {
+    mockHeaderFetch();
+    let seen;
+    const renderer = async (e, u, id, options) => { seen = options; return consentNotDetectedRenderer(e, u, id, options); };
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, renderer, 1, false, { width: 390, height: 844 });
+
+    expect(seen).toEqual({ viewport: { width: 390, height: 844 } });
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.captureSettings.viewport).toEqual({ width: 390, height: 844 });
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureSettings.viewport).toEqual({ width: 390, height: 844 });
+  });
+
+  it('records the default 1280x720 when the caller did not choose one', async () => {
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, consentNotDetectedRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.captureSettings.viewport).toEqual({ width: 1280, height: 720 });
+  });
+});
