@@ -45,7 +45,7 @@ describe('takeCappedScreenshot', () => {
   it('takes a plain full-page screenshot of a page within the cap', async () => {
     const page = fakePage({ bodyHeight: 5000 });
     const result = await takeCappedScreenshot(page);
-    expect(result).toEqual({ screenshot: PNG, pageHeight: 5000, capped: false });
+    expect(result).toEqual({ screenshot: PNG, pageHeight: 5000, capped: false, heightCap: MAX_PAGE_HEIGHT });
     expect(page.calls.screenshot).toEqual([{ fullPage: true, type: 'png', timeout: 90000 }]);
     expect(page.calls.setViewportSize).toEqual([]);
   });
@@ -59,6 +59,16 @@ describe('takeCappedScreenshot', () => {
       { fullPage: true, type: 'png', timeout: 90000, clip: { x: 0, y: 0, width: 1280, height: MAX_PAGE_HEIGHT } },
     ]);
     expect(page.calls.setViewportSize).toEqual([]);
+  });
+
+  // A wider viewport gets a lower cap, so the screenshot holds no more pixels
+  // than a 1280-wide one (backlog #66).
+  it('clips a 1920-wide page at 5333 px', async () => {
+    const page = fakePage({ bodyHeight: 9000, viewport: { width: 1920, height: 1080 } });
+    const result = await takeCappedScreenshot(page);
+    expect(result.capped).toBe(true);
+    expect(result.heightCap).toBe(5333);
+    expect(page.calls.screenshot[0].clip).toEqual({ x: 0, y: 0, width: 1920, height: 5333 });
   });
 
   it('measures the taller of body and root element', async () => {
