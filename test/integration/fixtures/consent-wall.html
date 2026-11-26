@@ -26,6 +26,8 @@
                "Buy for 2,99 €" and "Accept and continue"
   ?page        "Accept all" and "Privacy settings", which opens consent-wall-settings.html,
                a page of its own; its "Reject all and continue" comes back here
+  ?seen        the same, but the settings page has no buttons and only marks the
+               wall as seen, so it doesn't show again
 -->
 <div id="wall">
   <p>We and our 307 partners use cookies to measure the audience and show ads.<span id="sentence"></span></p>
@@ -52,6 +54,11 @@
 
   if (variant === 'page' && document.cookie.includes('wall-choice=declined')) {
     close('wall-outcome:declined-on-settings-page');
+  } else if (variant === 'seen' && document.cookie.includes('wall-seen=1')) {
+    close('wall-outcome:none-chosen');
+  } else if (variant === 'seen') {
+    add('Accept all', () => close('wall-outcome:accepted'));
+    add('Privacy settings', () => { location.href = '/consent-wall-settings.html?seen'; });
   } else if (variant === 'page') {
     add('Accept all', () => close('wall-outcome:accepted'));
     add('Privacy settings', () => { location.href = '/consent-wall-settings.html'; });

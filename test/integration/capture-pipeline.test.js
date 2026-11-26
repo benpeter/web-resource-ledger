@@ -337,6 +337,24 @@ describe('integration: consent wall autoconsent has no rule for', () => {
     expect(html).toContain('<p id="outcome">wall-outcome:declined-on-settings-page</p>');
   });
 
+  it('does not call a wall declined when it went away after its settings page alone', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-wall.html?seen`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent?.result).toBe('failed');
+    expect(record.captureSettings?.consent?.library).toBe('@duckduckgo/autoconsent');
+    // WRL clicked, so the page changed: the screenshot matches the HTML read after it
+    expect(record.artifacts.screenshotBefore).toBeDefined();
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('<title>WRL Integration Test - Consent Wall</title>');
+    expect(html).toContain('<p id="outcome">wall-outcome:none-chosen</p>');
+  });
+
   it('accepts when a refusal only leads to a pay wall, and says so', async () => {
     const port = inject('testServerPort');
     const url = `http://127.0.0.1:${port}/consent-wall.html?paywall`;
