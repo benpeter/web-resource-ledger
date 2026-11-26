@@ -259,6 +259,22 @@
           "@type": "Answer",
           "text": "Yes. WRL's full source code is public on GitHub. You can deploy it on your own Cloudflare Workers infrastructure for internal use. The hosted service at api.webresourceledger.com is the same codebase. The PolyForm Shield license permits all uses except offering a competing web capture service."
         }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I use WRL to document infringement before sending a DMCA notice?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. A notice that works removes the page, so capture each URL you plan to report before you send it. A WRL capture records the screenshot, the rendered HTML and the HTTP headers in an Ed25519-signed WACZ bundle with an independent RFC 3161 timestamp, and it has a public verification link that you can put next to the URL in your notice. The batch API takes up to 20 URLs per request. The docs list what to capture before a DMCA or DSA notice."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "My content was taken down. Can a capture help?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "It can if it was made before the removal. A DMCA counter-notice, the reply that asks for the content to be put back, has to identify the removed material and where it appeared, and a capture from before the removal records both, signed and timestamped. WRL can only capture a page from now on, so it cannot recover a page that is already gone. Capture the URL now to record what it shows after the removal, and create schedules for the pages you depend on. The docs also cover what to capture once your content is down."
+        }
       }
     ]
   }
@@ -695,6 +711,14 @@
           <details class="faq__item">
             <summary class="faq__question">Can I self-host WRL?</summary>
             <p class="faq__answer">Yes. WRL's full source code is public on GitHub. You can deploy it on your own Cloudflare Workers infrastructure for internal use. The hosted service at api.webresourceledger.com is the same codebase. The PolyForm Shield license permits all uses except offering a competing web capture service.</p>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__question">Can I use WRL to document infringement before sending a DMCA notice?</summary>
+            <p class="faq__answer">Yes. A notice that works removes the page, so capture each URL you plan to report before you send it. A WRL capture records the screenshot, the rendered HTML and the HTTP headers in an Ed25519-signed WACZ bundle with an independent RFC 3161 timestamp, and it has a public verification link that you can put next to the URL in your notice. The batch API takes up to 20 URLs per request. The docs list <a href="https://docs.webresourceledger.com/use-cases/takedown-evidence/">what to capture before a DMCA or DSA notice</a>.</p>
+          </details>
+          <details class="faq__item">
+            <summary class="faq__question">My content was taken down. Can a capture help?</summary>
+            <p class="faq__answer">It can if it was made before the removal. A DMCA counter-notice, the reply that asks for the content to be put back, has to identify the removed material and where it appeared, and a capture from before the removal records both, signed and timestamped. WRL can only capture a page from now on, so it cannot recover a page that is already gone. Capture the URL now to record what it shows after the removal, and create schedules for the pages you depend on. The docs also cover <a href="https://docs.webresourceledger.com/use-cases/takedown-evidence/">what to capture once your content is down</a>.</p>
           </details>
         </div>
       </div>

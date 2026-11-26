@@ -24,6 +24,7 @@ export default {
         { title: "Preserve a Website", url: "/use-cases/preserve-a-site/" },
         { title: "Compliance Surveys", url: "/use-cases/compliance-survey/" },
         { title: "Seller and Listing Evidence", url: "/use-cases/marketplace-evidence/" },
+        { title: "Evidence for Takedowns", url: "/use-cases/takedown-evidence/" },
         { title: "SEC and FINRA Website Records", url: "/use-cases/sec-finra-website-records/" },
         { title: "FINRA Social Media Posts", url: "/use-cases/finra-social-media/" },
       ],
