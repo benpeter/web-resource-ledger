@@ -160,6 +160,20 @@ curl -s -X DELETE "$API/v1/admin/tenants/$T/captures?confirm=$T" -H "Authorizati
 
 Their verification responses stay in the edge cache for up to 24 hours unless purged as above.
 
+### Releasing a quarantine
+
+The nightly re-scan quarantines every capture of a URL that Google Web Risk lists, and the capture is deleted 90 days later. When a tenant disputes it or the URL turns out clean, release the capture, or with `scope=url` every quarantined capture of that URL, across tenants. Check the URL first, for example in [Google's Safe Browsing site status](https://transparencyreport.google.com/safe-browsing/search).
+
+```bash
+source ~/.wrl-keys   # WRL_PROD_ADMIN_KEY
+API=https://api.webresourceledger.com
+curl -s -X DELETE "$API/v1/admin/captures/$CAPTURE_ID/quarantine" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
+curl -s -X DELETE "$API/v1/admin/captures/$CAPTURE_ID/quarantine?scope=url" -H "Authorization: Bearer $WRL_PROD_ADMIN_KEY"
+# -> { url, released: [{ captureId, tenantId }] }; 409 if the capture is not quarantined
+```
+
+Each released capture gets a `threat_checks` row with verdict `safe` and source `operator`, and the re-scan leaves it alone from then on, even while Web Risk still lists the URL. New captures of the URL are checked as usual. No webhook fires; tell the tenant by email. Logged as `admin.quarantine_released`.
+
 ### Staging retention
 
 Staging sets `CAPTURE_RETENTION_DAYS = "30"`: on the hour, the per-minute cron deletes up to 100 captures created more than 30 days ago, with their R2 objects (`retention.expired_purged` in Coralogix). A staging capture used as a battery baseline is gone after 30 days, so keep the battery's JSON results (they hold the numbers) rather than relying on the capture. Production leaves the variable unset.

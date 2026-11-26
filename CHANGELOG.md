@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- `DELETE /v1/admin/captures/{id}/quarantine` releases a capture the nightly Web Risk re-scan quarantined, and with `scope=url` every quarantined capture of the same URL. The nightly re-scan doesn't quarantine a released capture again.
 - WRL acts on bounces and spam complaints that Resend reports through `POST /v1/resend/webhook`: after a permanent bounce the notification address no longer counts as verified (notification emails and email sign-in to it stop until it is verified again); after a complaint every notification type is turned off and sign-in keeps working. A temporary bounce changes nothing.
 - The verification page captions a screenshot taken while WRL held requests back ("WRL held back 236 requests the page started while the screenshot was taken, mostly ads"), and MCP `get_capture` says the same. `@w-r-l/verify` 0.6.0 shows it as a note and as `capture.quality.requestsHeldBack`, and names the size limit when a partial capture stopped there (`sizeLimitReached`).
 - `render.requestsHeldBack`, also signed into `captureQuality`: how many requests the page started while WRL took its screenshots. WRL now holds those back, after the page has loaded, settled and been scrolled, so a screenshot no longer waits for them; on ad-heavy pages that was hundreds of ad requests and up to 90 seconds. An ad slot that would only have filled then is empty in the screenshot.

@@ -283,6 +283,7 @@ The renderer sends these lines as the events happen and does not wait for each t
 | 3 | `admin.tenant_deletion_cancelled` | Admin withdrew a deletion request |
 | 3 | `admin.tenant_purged` | Admin removed all of a tenant's data (`captures`, `r2Objects`) |
 | 3 | `admin.tenant_captures_purged` | Admin deleted up to 100 of a tenant's captures and kept the account (`captures`, `failed`, `r2Objects`, `remaining`) |
+| 3 | `admin.quarantine_released` | Admin released a quarantined capture, or with `scope: url` every quarantined capture of its URL (`captureId`, `url`, `releasedCount`, `captureIds`) |
 | 3 | `tenant.settings_change` | Tenant settings modified |
 | 4 | `admin.get_tenant_fail` | Admin tenant lookup failed |
 | 4 | `admin.usage_query_fail` | Admin usage query failed |

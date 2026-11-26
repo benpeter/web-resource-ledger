@@ -2041,6 +2041,63 @@ export async function setCaptureThreatCheck(db, captureId, value) {
 }
 
 /**
+ * SQL condition (on `captures`) that leaves out captures an operator released
+ * from quarantine. The re-scan neither checks nor quarantines them again, so a
+ * release holds even while Web Risk still lists the URL (backlog #65).
+ */
+const NOT_RELEASED_BY_OPERATOR =
+  `NOT EXISTS (SELECT 1 FROM threat_checks t WHERE t.capture_id = captures.id AND t.source = 'operator')`;
+
+/**
+ * Release a quarantined capture, or with byUrl every quarantined capture of
+ * its URL across tenants. Clears the quarantine columns and writes a 'safe'
+ * threat_checks row with source 'operator' for each released capture, in one
+ * batch.
+ *
+ * @param {D1Database} db
+ * @param {string} captureId
+ * @param {{ byUrl?: boolean }} [options]
+ * @returns {Promise<null | { url: string, quarantined: boolean, released: Array<{ captureId: string, tenantId: string }> }>}
+ *   null when the capture does not exist; quarantined false (nothing released)
+ *   when it is not quarantined.
+ */
+export async function releaseQuarantine(db, captureId, { byUrl = false } = {}) {
+  const capture = await db.prepare(
+    'SELECT id, tenant_id, url, quarantined FROM captures WHERE id = ?',
+  ).bind(captureId).first();
+  if (!capture) return null;
+  if (!capture.quarantined) return { url: capture.url, quarantined: false, released: [] };
+
+  const targets = byUrl
+    ? (await db.prepare(
+      'SELECT id, tenant_id FROM captures WHERE url = ? AND quarantined = 1 ORDER BY id',
+    ).bind(capture.url).all()).results
+    : [capture];
+
+  const now = new Date().toISOString();
+  const statements = [];
+  for (const target of targets) {
+    statements.push(
+      db.prepare(
+        `UPDATE captures SET quarantined = 0, quarantine_reason = NULL, quarantined_at = NULL
+         WHERE id = ?`,
+      ).bind(target.id),
+      db.prepare(
+        `INSERT INTO threat_checks (capture_id, checked_at, verdict, threat_types, source)
+         VALUES (?, ?, 'safe', NULL, 'operator')`,
+      ).bind(target.id, now),
+    );
+  }
+  await db.batch(statements);
+
+  return {
+    url: capture.url,
+    quarantined: true,
+    released: targets.map(target => ({ captureId: target.id, tenantId: target.tenant_id })),
+  };
+}
+
+/**
  * Quarantine a single complete, non-quarantined capture by ID.
  * Sets quarantined=1, quarantine_reason, quarantined_at, and inserts an
  * audit row into threat_checks. Both writes run atomically via db.batch().
@@ -2089,7 +2146,8 @@ export async function quarantineCapturesByUrl(db, url, reason, threatTypes) {
   // and build the batch update list.
   const { results } = await db.prepare(
     `SELECT id, tenant_id FROM captures
-     WHERE url = ? AND status = 'complete' AND quarantined = 0`,
+     WHERE url = ? AND status = 'complete' AND quarantined = 0
+       AND ${NOT_RELEASED_BY_OPERATOR}`,
   ).bind(url).all();
 
   if (!results || results.length === 0) return [];
@@ -2163,6 +2221,7 @@ export async function listCapturesNeedingThreatCheck(db, olderThan, limit = 500)
      FROM captures
      WHERE status = 'complete'
        AND quarantined = 0
+       AND ${NOT_RELEASED_BY_OPERATOR}
        AND (last_threat_check_at IS NULL OR last_threat_check_at < ?)
      GROUP BY url
      ORDER BY MIN(last_threat_check_at) ASC
