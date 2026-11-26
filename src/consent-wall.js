@@ -35,6 +35,9 @@ const MAX_CLICKS = 5;
 /** How long the wall step may go on clicking. */
 export const WALL_MAX_MS = 15000;
 
+/** How often the buttons of a page a click opened are read again, a second apart. */
+const NEW_PAGE_RESCANS = 3;
+
 /** How long a page a click opened gets to load. */
 const PAGE_LOAD_MS = 8000;
 
@@ -161,6 +164,7 @@ export async function dismissConsentWall(page) {
   const pageUrl = () => page.url().split('#')[0];
   const startUrl = pageUrl();
   // A click may reload the page; the scan then runs again on the new document
+  const answers = (buttons) => buttons.some((b) => b.kind === 'decline' || b.kind === 'accept' || b.kind === 'save');
   const evaluateScan = async (options) => {
     try {
       return await page.evaluate(scanWall, options);
@@ -170,10 +174,19 @@ export async function dismissConsentWall(page) {
       return page.evaluate(scanWall, options);
     }
   };
-  const scan = async (untick = false) => {
+  const scanOnce = async (untick) => {
     const result = await evaluateScan({ untick, wholePage: pageUrl() !== startUrl });
     if (!result || !Array.isArray(result.buttons)) return [];
     return result.buttons.map((text, index) => ({ text, index, kind: classifyConsentButton(text) }));
+  };
+  // A settings page of its own may draw its buttons after its load event
+  const scan = async (untick = false) => {
+    let buttons = await scanOnce(untick);
+    for (let tries = 0; tries < NEW_PAGE_RESCANS && pageUrl() !== startUrl && !answers(buttons); tries++) {
+      await new Promise((resolve) => setTimeout(resolve, AFTER_CLICK_MS));
+      buttons = await scanOnce(untick);
+    }
+    return buttons;
   };
   const click = async (button) => {
     const target = `[data-wrl-wall="${button.index}"]`;
@@ -195,7 +208,6 @@ export async function dismissConsentWall(page) {
     if (pageUrl() === startUrl) return;
     await page.goto(startUrl, { waitUntil: 'load', timeout: PAGE_LOAD_MS }).catch(() => {});
   };
-  const answers = (buttons) => buttons.some((b) => b.kind === 'decline' || b.kind === 'accept' || b.kind === 'save');
   const done = (status, route, button, clicks) => ({ status, route, button: button?.text?.slice(0, MAX_LABEL_CHARS) ?? null, clicks, durationMs: Date.now() - start });
 
   // Each round reads the buttons again, since a click can open the settings
@@ -214,7 +226,8 @@ export async function dismissConsentWall(page) {
     if (!answers(buttons)) {
       if (round === 0) return null;
       await backToStart();
-      return done('dismissed', route, last, clicks);
+      // Gone after a settings click alone: nobody declined, so it isn't one
+      return last.kind === 'settings' ? done('failed', null, null, clicks) : done('dismissed', route, last, clicks);
     }
     if (round === MAX_CLICKS || Date.now() - start >= WALL_MAX_MS) break;
     // "Preferenze" and "PREFERENZE" are the same button on two screens

@@ -1134,9 +1134,11 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
         logLine(3, { event: 'render.default.consent_wall', url, captureId, status: wall.status, route: wall.route, button: wall.button, clicks: wall.clicks, wallMs: wall.durationMs, errorName: wall._error?.name || null });
         if (wall.status === 'dismissed') {
           consent = { status: 'dismissed', cmp: null, popupFound: true, durationMs: consent.durationMs + wall.durationMs, wall: { route: wall.route, button: wall.button } };
-        } else if (wall.status === 'failed' && consent.status !== 'failed') {
-          // A wall was there and stayed: say so instead of "no banner"
-          consent = { ...consent, status: 'failed', popupFound: true };
+        } else if (wall.status === 'failed') {
+          // A wall was there and nobody declined it: say so instead of "no
+          // banner". When WRL clicked, the page changed, so it gets the
+          // second screenshot too.
+          consent = { ...consent, status: 'failed', popupFound: true, pageChanged: (wall.clicks?.length ?? 0) > 0 };
         }
       }
     }
@@ -1164,11 +1166,12 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       ]);
     };
 
-    // After-screenshot only when consent was successfully dismissed
+    // After-screenshot only when consent was successfully dismissed, or a
+    // consent wall WRL clicked on changed the page
     let screenshot = screenshotBefore;
     let shot = shotBefore;
     let html;
-    const tookAfterScreenshot = consent.status === 'dismissed';
+    const tookAfterScreenshot = consent.status === 'dismissed' || consent.pageChanged === true;
     let postConsentMs = 0;
     let afterScreenshotMs = 0;
     let contentMs = 0;
@@ -1254,7 +1257,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
         },
       },
       consent,
-      screenshotBefore: consent.status === 'dismissed' ? screenshotBefore : null,
+      screenshotBefore: tookAfterScreenshot ? screenshotBefore : null,
       ...(browserLocation ? { browserLocation } : {}),
     };
   } catch (err) {
