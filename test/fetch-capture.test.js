@@ -91,6 +91,38 @@ describe('performCapture -- a PDF', () => {
   });
 });
 
+describe('performCapture -- a file the browser loaded', () => {
+  // A site behind bot protection answers WRL's header fetch with 403, so the
+  // browser opens the URL; when its main response is a file, the renderer
+  // hands over the bytes instead of rendering a blank PDF viewer.
+  const fileRenderer = async () => ({
+    file: {
+      status: 200, statusText: 'OK', headers: { 'content-type': 'application/pdf' },
+      contentType: 'application/pdf', bytes: PDF,
+    },
+    browserLocation: { colo: 'LAX', country: 'US' },
+  });
+
+  it('stores and signs the bytes like a fetch capture and says the browser loaded them', async () => {
+    fetchMock.get(ORIGIN).intercept({ path: '/report.pdf', method: 'GET' })
+      .reply(403, 'blocked', { headers: { 'content-type': 'text/html' } }).persist();
+    await createCapture(env.DB, ID, PDF_URL, '93.184.216.34', 'default');
+
+    const result = await performCapture(env, PDF_URL, '93.184.216.34', ID, 'default', undefined, fileRenderer);
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, ID);
+    expect(record.status).toBe('complete');
+    expect(record.artifacts.resource).toBe(`captures/${ID}/resource`);
+    expect(record.captureSettings).toEqual({
+      version: 1, method: 'fetch', fetchedBy: 'browser', browserLocation: { colo: 'LAX', country: 'US' },
+    });
+    expect(record.render).toMatchObject({ httpStatus: 200, contentType: 'application/pdf', bytes: PDF.byteLength });
+    const files = unzipSync(new Uint8Array(await (await env.BUCKET.get(record.wacz.key)).arrayBuffer()));
+    expect(new TextDecoder('latin1').decode(files['archive/data.warc'])).toContain('%PDF-1.7');
+  });
+});
+
 describe('GET a fetch capture', () => {
   beforeEach(async () => {
     mockFile(PDF, { 'content-type': 'application/pdf' });
