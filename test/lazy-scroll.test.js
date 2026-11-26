@@ -22,6 +22,7 @@ function createPage() {
   const page = {
     on() {},
     off() {},
+    viewportSize: () => ({ width: 1280, height: 720 }),
     evaluate: async (fn, arg) => {
       evaluateCalls++;
       return fn(arg);
@@ -31,7 +32,7 @@ function createPage() {
 }
 
 // The same page, but its call number `silentCall` to the browser is never
-// answered. The scroll is call 1, making lazy images eager is call 2, the
+// answered. The scroll is call 1, filling in lazy images is call 2, the
 // scroll back to the top is call 3.
 function createPageSilentAt(silentCall) {
   const { page } = createPage();

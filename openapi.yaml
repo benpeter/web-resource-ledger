@@ -658,6 +658,31 @@ components:
             for them; they are mostly ads, and an ad slot that would only have
             filled then is empty in the screenshot. Does not make a capture
             partial. Absent on captures made before 25 November 2026.
+        lazyLoad:
+          type: object
+          description: >
+            What WRL did to load lazy images before the screenshot. Absent on
+            captures made before 26 November 2026 and on file captures.
+          required: [imagesFilled, scrollCutShort]
+          properties:
+            imagesFilled:
+              type: integer
+              minimum: 0
+              description: >
+                How many images, and sources of picture elements, inside the
+                screenshot WRL gave their data-src or data-srcset as src or
+                srcset, as a lazy-load library such as lazysizes does once an
+                image scrolls into view. Without it these images showed as
+                empty boxes. Images below the screenshot are left alone.
+            scrollCutShort:
+              type: boolean
+              description: >
+                Whether WRL stopped scrolling the page after 10 seconds, before
+                it reached the bottom or 12,000 pixels; lazy content further
+                down may not have loaded.
+          examples:
+            - imagesFilled: 120
+              scrollCutShort: false
         httpStatus:
           type: integer
           minimum: 100

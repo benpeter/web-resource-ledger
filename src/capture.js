@@ -1139,9 +1139,9 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
     }
 
     // Trigger lazy-loaded images by scrolling the viewport
-    const { scrollMs, steps: scrollSteps, budgetUsedUp: scrollCutShort } = await triggerLazyLoading(page);
+    const { scrollMs, steps: scrollSteps, budgetUsedUp: scrollCutShort, imagesFilled } = await triggerLazyLoading(page);
     const tScroll = Date.now();
-    logLine(3, { event: 'render.default.lazy_load_complete', url, captureId, scrollMs, scrollSteps, scrollCutShort });
+    logLine(3, { event: 'render.default.lazy_load_complete', url, captureId, scrollMs, scrollSteps, scrollCutShort, imagesFilled });
 
     // Before-screenshot MUST be taken before injecting autoconsent
     networkFrozen = true;
@@ -1295,6 +1295,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
         ...screenshotCoverage(shot),
         settleMs: settle.settleMs,
         settleReason: settle.settleReason,
+        lazyLoad: { imagesFilled, scrollCutShort },
         stages: {
           sessionAcquireMs: tSession - renderStart,
           contextSetupMs: tContext - tSession,
@@ -1661,21 +1662,17 @@ export async function triggerLazyLoading(page) {
   );
 
   // Skip if page is already short enough to fit in viewport
-  if (steps === 0) return { scrollMs: Date.now() - start, steps, budgetUsedUp };
+  if (steps === 0) return { scrollMs: Date.now() - start, steps, budgetUsedUp, imagesFilled: 0 };
 
-  // Force-load all lazy images: switch loading="lazy" to "eager" so the
-  // browser fetches them immediately regardless of viewport position.
-  // Scrolling alone doesn't reliably trigger lazy images -- the browser
-  // cancels fetches for elements that leave the viewport too quickly.
-  // The two small calls below get a limit like the scroll call: on a page
-  // that keeps the browser busy one of them stayed unanswered until the
-  // browser session was gone (backlog #105).
-  await answerWithin(page.evaluate(() => {
-    document.querySelectorAll('img[loading="lazy"]').forEach(img => {
-      img.loading = 'eager';
-      if (img.dataset.src && !img.src) img.src = img.dataset.src;
-    });
-  }), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was scrolled');
+  // Force-load lazy images inside the screenshot: loading="lazy" becomes
+  // "eager", and images a lazy-load library would fill in get their data-src
+  // and data-srcset (backlog #50). Scrolling alone doesn't reliably do it --
+  // the browser cancels fetches for elements that leave the viewport too
+  // quickly, and lazysizes waits for its own timers. The call gets a limit
+  // like the scroll call: on a page that keeps the browser busy one of them
+  // stayed unanswered until the browser session was gone (backlog #105).
+  const maxTop = screenshotHeightCap(page.viewportSize()?.width ?? 1280);
+  const imagesFilled = await answerWithin(page.evaluate(fillLazyImages, { maxTop }), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was scrolled');
 
   // Settle: wait for the force-loaded image requests to complete
   await waitForSettle(page, 3000);
@@ -1688,7 +1685,54 @@ export async function triggerLazyLoading(page) {
   await answerWithin(page.evaluate(() => window.scrollTo(0, 0)), PAGE_CHECK_MAX_MS, 'The page stopped answering while it was scrolled');
   await new Promise((r) => setTimeout(r, 500));
 
-  return { scrollMs: Date.now() - start, steps, budgetUsedUp };
+  return { scrollMs: Date.now() - start, steps, budgetUsedUp, imagesFilled };
+}
+
+/**
+ * Fills in lazy-loaded images inside the screenshot (backlog #50). Runs inside
+ * the page, through page.evaluate(), so it can use nothing but its argument
+ * and the page's globals.
+ *
+ * loading="lazy" becomes "eager". An image whose src is missing or a data:
+ * placeholder gets its data-src (data-lazy-src, data-original), and an image
+ * or a picture's source without a real srcset gets its data-srcset: what
+ * lazysizes and similar libraries do once the image scrolls into view.
+ * Images below maxTop, or not visible (closed menus), are left alone, so a
+ * long page doesn't load hundreds of images the screenshot won't show.
+ *
+ * @param {{ maxTop: number }} options  maxTop: screenshot height in CSS pixels
+ * @returns {number} how many images or sources got a src or srcset
+ */
+export function fillLazyImages({ maxTop }) {
+  const SRC = ['data-src', 'data-lazy-src', 'data-original'];
+  const SRCSET = ['data-srcset', 'data-lazy-srcset'];
+  const isPlaceholder = (value) => !value || value.startsWith('data:');
+  document.querySelectorAll('img[loading="lazy"]').forEach((img) => { img.loading = 'eager'; });
+  let filled = 0;
+  document.querySelectorAll('img, picture > source').forEach((el) => {
+    const shown = el.tagName === 'SOURCE' ? el.parentElement.querySelector('img') : el;
+    if (!shown) return;
+    // Closed menus (samsung.com's had 172 thumbnails) are laid out but not visible
+    if (!shown.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return;
+    const box = shown.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) return;
+    if (box.top + window.scrollY >= maxTop) return;
+    let changed = false;
+    if (el.tagName === 'IMG') {
+      const from = SRC.find((name) => el.hasAttribute(name));
+      if (from && isPlaceholder(el.getAttribute('src'))) {
+        el.setAttribute('src', el.getAttribute(from));
+        changed = true;
+      }
+    }
+    const fromSet = SRCSET.find((name) => el.hasAttribute(name));
+    if (fromSet && isPlaceholder(el.getAttribute('srcset'))) {
+      el.setAttribute('srcset', el.getAttribute(fromSet));
+      changed = true;
+    }
+    if (changed) filled++;
+  });
+  return filled;
 }
 
 /**
