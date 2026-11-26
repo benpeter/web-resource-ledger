@@ -24,6 +24,8 @@
   ?paywall     "Accept and continue" and "Settings"; the settings hold "Deny all"
                and "Save choices", and saving a refusal shows a pay wall with
                "Buy for 2,99 €" and "Accept and continue"
+  ?page        "Accept all" and "Privacy settings", which opens consent-wall-settings.html,
+               a page of its own; its "Reject all and continue" comes back here
 -->
 <div id="wall">
   <p>We and our 307 partners use cookies to measure the audience and show ads.<span id="sentence"></span></p>
@@ -48,7 +50,12 @@
   };
   const subscribe = () => { outcome.textContent = 'wall-outcome:subscribed'; };
 
-  if (variant === 'settings') {
+  if (variant === 'page' && document.cookie.includes('wall-choice=declined')) {
+    close('wall-outcome:declined-on-settings-page');
+  } else if (variant === 'page') {
+    add('Accept all', () => close('wall-outcome:accepted'));
+    add('Privacy settings', () => { location.href = '/consent-wall-settings.html'; });
+  } else if (variant === 'settings') {
     add('Accept and continue', () => close('wall-outcome:accepted'));
     add('Reject and subscribe', subscribe);
     add('Cookie settings', () => { document.getElementById('panel').style.display = 'block'; });

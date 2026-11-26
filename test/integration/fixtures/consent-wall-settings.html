@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html><head><title>WRL Integration Test - Consent Settings Page</title></head>
+<body>
+<!-- The settings of consent-wall.html?page, on a page of their own like kleinanzeigen.de/gdpr -->
+<nav><button>Search</button> <button>Categories</button></nav>
+<h1>Privacy settings</h1>
+<p>Choose which purposes we and our partners may use cookies for.</p>
+<button id="subscribe">Subscribe to the ad-free plan</button>
+<button id="save">Save and continue</button>
+<button id="reject">Reject all and continue</button>
+<button id="accept">Accept all</button>
+<p id="outcome"></p>
+<script>
+  const back = (choice) => {
+    document.cookie = `wall-choice=${choice}; path=/`;
+    location.href = '/consent-wall.html?page';
+  };
+  document.getElementById('reject').addEventListener('click', () => back('declined'));
+  document.getElementById('accept').addEventListener('click', () => back('accepted'));
+  document.getElementById('save').addEventListener('click', () => back('saved'));
+  document.getElementById('subscribe').addEventListener('click', () => { document.getElementById('outcome').textContent = 'wall-outcome:subscribed'; });
+</script>
+</body>
+</html>
