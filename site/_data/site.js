@@ -12,6 +12,7 @@ export default {
         { title: "Verification", url: "/verification/" },
         { title: "Legal Evidence", url: "/legal-evidence/" },
         { title: "Screenshots in Court", url: "/screenshots-in-court/" },
+        { title: "Link Rot in Supreme Court Opinions", url: "/supreme-court-link-rot/" },
         { title: "Batch Captures", url: "/batch/" },
         { title: "Schedules", url: "/schedules/" },
         { title: "Support", url: "/support/" },
