@@ -304,6 +304,39 @@ describe('integration: consent wall autoconsent has no rule for', () => {
     expect(html).not.toContain('<p id="outcome">wall-outcome:subscribed</p>');
   });
 
+  it('takes a link inside a sentence for text, and finds a save button below the screen', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-wall.html?sentence`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent).toEqual({
+      library: 'wrl-consent-wall', action: 'optOut', route: 'settings', result: 'success', button: 'Save choices',
+    });
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('<p id="outcome">wall-outcome:saved:none</p>');
+  });
+
+  it('accepts when a refusal only leads to a pay wall, and says so', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-wall.html?paywall`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent).toEqual({
+      library: 'wrl-consent-wall', action: 'acceptAll', route: 'accept', result: 'accepted', button: 'Accept and continue',
+    });
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('<p id="outcome">wall-outcome:accepted-after-refusal</p>');
+    expect(html).not.toContain('<p id="outcome">wall-outcome:subscribed</p>');
+  });
+
   it('accepts only when nothing else is left, and says so', async () => {
     const port = inject('testServerPort');
     const url = `http://127.0.0.1:${port}/consent-wall.html?accept`;

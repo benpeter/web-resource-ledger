@@ -15,7 +15,8 @@ describe('classifyConsentButton', () => {
   });
 
   it('never takes a decline that is a subscription', () => {
-    for (const text of ['Rifiuta e abbonati', 'S’abonner', 'Subscribe', 'Ablehnen und Abo abschließen', 'Mehr erfahren über PUR']) {
+    for (const text of ['Rifiuta e abbonati', 'S’abonner', 'Subscribe', 'Ablehnen und Abo abschließen', 'Mehr erfahren über PUR',
+      'Acquista ora', 'Scopri tutte le offerte', 'Für 2,99 € lesen']) {
       expect(classifyConsentButton(text), text).toBe('pay');
     }
   });
@@ -29,6 +30,12 @@ describe('classifyConsentButton', () => {
     }
     for (const text of ['Accept', 'Alle akzeptieren', 'Accetta e continua', 'Accepter et continuer', 'Akkoord', 'Agree', 'Akzeptieren und speichern']) {
       expect(classifyConsentButton(text), text).toBe('accept');
+    }
+  });
+
+  it('ignores a link inside a sentence of the banner', () => {
+    for (const text of ['ablehnen, ändern oder widerrufen', 'you can reject the cookies we and our partners use here']) {
+      expect(classifyConsentButton(text), text).toBeNull();
     }
   });
 

@@ -2,7 +2,9 @@
 <html><head><title>WRL Integration Test - Consent Wall</title>
 <style>
   #wall { position: fixed; inset: 0; background: rgba(255,255,255,0.97); z-index: 1000; padding: 40px; }
+  #wall { overflow-y: auto; }
   #panel { display: none; margin-top: 20px; }
+  #panel.long { padding-top: 1600px; }
 </style>
 </head>
 <body>
@@ -16,9 +18,15 @@
   ?settings    "Accept and continue", "Reject and subscribe" and "Cookie settings";
                the settings hold two ticked choices and "Save choices"
   ?accept      "Accept and continue" and "Subscribe" only
+  ?sentence    "Accept all" and "Settings"; the text has a link "you can reject,
+               change or withdraw", which opens the settings too; their save button
+               is further down than the screen
+  ?paywall     "Accept and continue" and "Settings"; the settings hold "Deny all"
+               and "Save choices", and saving a refusal shows a pay wall with
+               "Buy for 2,99 €" and "Accept and continue"
 -->
 <div id="wall">
-  <p>We and our 307 partners use cookies to measure the audience and show ads.</p>
+  <p>We and our 307 partners use cookies to measure the audience and show ads.<span id="sentence"></span></p>
   <div id="buttons"></div>
   <div id="panel">
     <label><input type="checkbox" id="analytics" checked> Audience measurement</label>
@@ -47,6 +55,38 @@
     document.getElementById('save').addEventListener('click', () => {
       const ticked = ['analytics', 'ads'].filter((id) => document.getElementById(id).checked);
       close(`wall-outcome:saved:${ticked.join(',') || 'none'}`);
+    });
+  } else if (variant === 'sentence') {
+    const panel = document.getElementById('panel');
+    const openPanel = () => { panel.classList.add('long'); panel.style.display = 'block'; };
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = 'you can reject, change or withdraw';
+    link.addEventListener('click', (e) => { e.preventDefault(); openPanel(); });
+    document.getElementById('sentence').append(' In the settings ', link, ' your consent.');
+    add('Accept all', () => close('wall-outcome:accepted'));
+    add('Settings', openPanel);
+    document.getElementById('save').addEventListener('click', () => {
+      const ticked = ['analytics', 'ads'].filter((id) => document.getElementById(id).checked);
+      close(`wall-outcome:saved:${ticked.join(',') || 'none'}`);
+    });
+  } else if (variant === 'paywall') {
+    const panel = document.getElementById('panel');
+    const deny = document.createElement('button');
+    deny.textContent = 'Deny all';
+    deny.addEventListener('click', () => {
+      document.getElementById('analytics').checked = false;
+      document.getElementById('ads').checked = false;
+    });
+    panel.prepend(deny);
+    add('Accept and continue', () => close('wall-outcome:accepted'));
+    add('Settings', () => { panel.style.display = 'block'; });
+    document.getElementById('save').addEventListener('click', () => {
+      panel.remove();
+      document.getElementById('buttons').textContent = '';
+      document.querySelector('#wall p').textContent = 'You refused cookies. Read with a subscription, or accept cookies and partners.';
+      add('Buy for 2,99 €', subscribe);
+      add('Accept and continue', () => close('wall-outcome:accepted-after-refusal'));
     });
   } else if (variant === 'accept') {
     add('Accept and continue', () => close('wall-outcome:accepted'));
