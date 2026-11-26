@@ -52,6 +52,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `SESSION_SECRET` | Hex-encoded 32+ bytes for session cookie HMAC signing |
 | `STRIPE_SECRET_KEY` | Stripe secret key (`sk_live_...`) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_...`) |
+| `RESEND_WEBHOOK_SECRET` | Signing secret of the Resend webhook for bounces and complaints (`whsec_...`, Svix format) |
 | `RESEND_API_KEY` | Resend API key for transactional email delivery |
 | `GOOGLE_WEB_RISK_API_KEY` | Google Web Risk API key (optional; degrades gracefully if absent) |
 | `CLOUDFLARE_CACHE_PURGE_TOKEN` | CF API token with Cache Purge permission for the zone |
@@ -366,8 +367,9 @@ For request/response schemas, see `openapi.yaml`.
 | POST | `/v1/billing/checkout` | session | auth | billing |
 | POST | `/v1/billing/portal` | session | auth | billing |
 | POST | `/v1/stripe/webhook` | signature | — | billing |
+| POST | `/v1/resend/webhook` | signature | — | notification |
 
-**Auth values:** `api-key` = `Authorization: Bearer {key}`; `admin-key` = admin key from `ADMIN_KEY` secret; `session` = `__Host-wrl_session` cookie (HMAC-signed), and until the user accepts the terms every `/v1/account/*` and `/v1/billing/*` route except `/v1/account/tos` answers 403; `dual` = session cookie first, then API key fallback; `signature` = Stripe webhook signature verification; `none` = unauthenticated; `none (optional dual)` = public access unless credentials presented (bad credentials → 401).
+**Auth values:** `api-key` = `Authorization: Bearer {key}`; `admin-key` = admin key from `ADMIN_KEY` secret; `session` = `__Host-wrl_session` cookie (HMAC-signed), and until the user accepts the terms every `/v1/account/*` and `/v1/billing/*` route except `/v1/account/tos` answers 403; `dual` = session cookie first, then API key fallback; `signature` = webhook signature verification (Stripe's, or Svix for Resend); `none` = unauthenticated; `none (optional dual)` = public access unless credentials presented (bad credentials → 401).
 
 **Request auth context:** the fetch gates attach the verified caller for the handler: `env._session` on account and billing routes, `env._captureAuth` on capture GET routes (unset when no credentials were sent). Workers pass one `env` object to every request an isolate serves, so `fetch()` starts with `env = Object.create(env)`; the fields land on a per-request object that inherits the bindings. Store any new request state the same way, never on the shared `env`.
 

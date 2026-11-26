@@ -262,6 +262,7 @@ Worker runtime secrets:
 | `SESSION_SECRET` | HMAC key for session cookies and the tokens in email links (confirmation, unsubscribe) | Required for sign-in, the web UI and email links |
 | `STRIPE_SECRET_KEY` | Stripe API calls (checkout, billing portal, metered usage) | Required for paid plans |
 | `STRIPE_WEBHOOK_SECRET` | Verifies the signature of Stripe webhook events | Required for paid plans |
+| `RESEND_WEBHOOK_SECRET` | Verifies the signature of Resend's bounce and complaint events (`POST /v1/resend/webhook`); create the webhook in the Resend dashboard for `email.bounced` and `email.complained` | Optional; without it the route answers 400 and bounces change nothing |
 | `RESEND_API_KEY` | Transactional email: sign-in links and notifications | Required for email sign-in (503 without it) and notifications |
 | `GOOGLE_WEB_RISK_API_KEY` | URL threat screening before capture and in the nightly re-scan | No -- captures report `threatCheck: unavailable` without it |
 | `CLOUDFLARE_CACHE_PURGE_TOKEN` | API token with Zone > Cache Purge for `POST /v1/admin/cache/purge` | No -- the purge route answers 503 without it; cached verification responses then expire on their own within 24 hours |
