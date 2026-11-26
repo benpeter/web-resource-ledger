@@ -48,3 +48,14 @@
 - Not covered: nu.nl sends EU visitors to `myprivacy.dpgmedia.nl/consent`,
   another site, which WRL doesn't let the main frame go to; from the US
   places Cloudflare runs WRL's browser in, it shows no wall at all.
+- Second staging run (06e5e88): lemonde.fr declined, corriere.it declined
+  in its settings (from Dallas no pay wall followed), cnn.com accepted
+  ("Agree"). Accepting let CNN's ad stack load: the first attempt hit the
+  50 MB size cap and the tab crashed in the screenshot; the queue's retry
+  made a partial capture. kleinanzeigen.de's `/gdpr` page draws its
+  buttons after its load event, so the step found none, went back, and
+  reported a decline nobody made. Now a page a click opened is read again
+  for up to 3 seconds, and a wall that is gone after a settings click
+  alone is `failed`, not a decline. When the wall step clicked anything,
+  the capture takes the second screenshot even on `failed`, so the
+  screenshot matches the HTML read after it.
