@@ -283,8 +283,8 @@ describe('integration: consent wall autoconsent has no rule for', () => {
     expect(record.artifacts.screenshotBefore).toBeDefined();
 
     const html = await (await env.BUCKET.get(record.artifacts.html)).text();
-    expect(html).toContain('wall-outcome:declined');
-    expect(html).not.toContain('307 partners');
+    expect(html).toContain('<p id="outcome">wall-outcome:declined</p>');
+    expect(html).not.toContain('<div id="wall">');
   });
 
   it('unticks every choice in the settings and saves, without taking the subscription', async () => {
@@ -300,8 +300,8 @@ describe('integration: consent wall autoconsent has no rule for', () => {
     });
 
     const html = await (await env.BUCKET.get(record.artifacts.html)).text();
-    expect(html).toContain('wall-outcome:saved:none');
-    expect(html).not.toContain('wall-outcome:subscribed');
+    expect(html).toContain('<p id="outcome">wall-outcome:saved:none</p>');
+    expect(html).not.toContain('<p id="outcome">wall-outcome:subscribed</p>');
   });
 
   it('accepts only when nothing else is left, and says so', async () => {
@@ -318,8 +318,8 @@ describe('integration: consent wall autoconsent has no rule for', () => {
     expect(record.artifacts.screenshotBefore).toBeDefined();
 
     const html = await (await env.BUCKET.get(record.artifacts.html)).text();
-    expect(html).toContain('wall-outcome:accepted');
-    expect(html).not.toContain('wall-outcome:subscribed');
+    expect(html).toContain('<p id="outcome">wall-outcome:accepted</p>');
+    expect(html).not.toContain('<p id="outcome">wall-outcome:subscribed</p>');
   });
 });
 
