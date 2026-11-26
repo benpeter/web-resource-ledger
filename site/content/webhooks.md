@@ -8,6 +8,8 @@ description: Receive real-time notifications when captures complete or fail. Reg
 
 WRL can push event notifications to your HTTPS endpoint whenever a capture completes or fails. This eliminates the need to poll `/v1/captures`. Instead, your server receives a signed POST request the moment the state changes.
 
+To receive these events in Zapier, Make or n8n, see [Zapier, Make and n8n](/automation/).
+
 ## Prerequisites
 
 - An API key with `capture` scope. See [Authentication](/authentication/).
