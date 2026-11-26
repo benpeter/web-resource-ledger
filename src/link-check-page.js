@@ -78,6 +78,7 @@ const SCRIPT = String.raw`
       var u = line.trim();
       if (!u) return;
       if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+      try { u = new URL(u).href; } catch (e) { /* the server answers invalid */ }
       if (seen[u]) return;
       seen[u] = true;
       list.push(u);
@@ -182,6 +183,8 @@ const SCRIPT = String.raw`
     }
     button.disabled = true;
     cta.hidden = true;
+    resultsCard.hidden = true;
+    resultsCard.replaceChildren();
     var results = [], run = null;
     try {
       for (var seq = 0; seq * BATCH < list.length; seq++) {
@@ -271,7 +274,7 @@ ${STYLE}
 <dt>Works</dt><dd>The URL answered with the page (HTTP 2xx).</dd>
 <dt>Redirects</dt><dd>The URL sends visitors to another address, which answered with a page. Check that it is still the page you meant.</dd>
 <dt>Gone</dt><dd>The server answered 404, 410 or another 4xx error, the domain no longer exists, or nothing answered.</dd>
-<dt>Unclear</dt><dd>The server answered but did not show the page: it wants a login (401), refuses automated requests (403, 429), or had an error (5xx). Open the URL in a browser to see.</dd>
+<dt>Unclear</dt><dd>The server answered but did not show the page: it wants a login (401), refuses automated requests (403, 429), or had an error (5xx). Some sites refuse every request from Cloudflare's network, where the checker runs. Open the URL in a browser to see.</dd>
 <dt>Timed out</dt><dd>No answer within 10 seconds.</dd>
 <dt>Not checked</dt><dd>Not a public http or https URL, so the checker did not request it.</dd>
 </dl>
