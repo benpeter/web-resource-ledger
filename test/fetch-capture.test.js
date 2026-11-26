@@ -236,6 +236,10 @@ describe('categorizeError -- file failures (phase 0212)', () => {
     expect(categorizeError(new Error('File fetch answered HTTP 429')).retryable).toBe(true);
   });
 
+  it('says so when the file is behind a redirect, which the file fetch does not follow', () => {
+    expect(categorizeError(new Error('File fetch answered HTTP 302'))).toEqual({ message: 'The URL redirects to a file, and WRL does not follow redirects when it fetches a file', retryable: false });
+  });
+
   it('says what happened when the browser starts a download that could not be fetched', () => {
     expect(categorizeError(new Error('page.goto: Download is starting'))).toEqual({ message: 'The URL starts a file download, which WRL could not fetch', retryable: false });
   });
