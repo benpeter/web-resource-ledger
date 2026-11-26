@@ -4,6 +4,7 @@ import { validateUrl } from './url-validation.js';
 import { createCapture, getCapture, failCapture, failCaptureAfterRetries, recordAttemptError, listCaptures, listArchivedSigningKeys, TENANT_ID_RE, SCHEDULE_ID_RE, getTenantConfig, setTenantConfig, incrementUsage, setCaptureThreatCheck, getPreviousCaptureId, setChangeSummary, checkNotificationSent } from './db.js';
 import { diffHtml, diffHeaders, diffScreenshot, computeChangeSummary } from './diff.js';
 import { checkUrl, checkUrls } from './threat-check.js';
+import { parseViewport } from './viewport.js';
 import { rateLimitCounter } from './kv.js';
 import { performCapture, categorizeError, CAPTURE_MAX_ATTEMPTS } from './capture.js';
 import { performVerification } from './verify.js';
@@ -200,7 +201,7 @@ function getRateLimitGroup(method, pathname) {
 // ---------------------------------------------------------------------------
 
 async function handleCaptureMessage(msg, env, ctx) {
-  const { url, ip, captureId, tenantId, cip, enqueuedAt, scheduleId, qualifiedTimestamps } = msg.body ?? {};
+  const { url, ip, captureId, tenantId, cip, enqueuedAt, scheduleId, qualifiedTimestamps, viewport } = msg.body ?? {};
 
   // Defense-in-depth: validate message structure before trusting it
   const valid =
@@ -254,7 +255,7 @@ async function handleCaptureMessage(msg, env, ctx) {
 
   let result;
   try {
-    result = await performCapture(env, url, ip, captureId, tenantId, cip, undefined, msg.attempts, qualifiedTimestamps);
+    result = await performCapture(env, url, ip, captureId, tenantId, cip, undefined, msg.attempts, qualifiedTimestamps, viewport);
   } catch (err) {
     // Catastrophic error (OOM, binding failure, etc.)
     // max_retries=3 in wrangler.toml → up to 4 deliveries (attempts 1-4)
@@ -1100,6 +1101,11 @@ async function handleCreateCapture(request, env, ctx) {
   if (typeof body.url !== 'string') {
     return problemResponse(400, "Field 'url' must be a string");
   }
+  // Optional viewport (backlog #66); the default 1280x720 is not sent on
+  const viewportCheck = parseViewport(body.viewport);
+  if (!viewportCheck.ok) {
+    return problemResponse(400, viewportCheck.detail);
+  }
 
   // Step 6: URL validation (SSRF prevention)
   const result = await validateUrl(body.url);
@@ -1185,6 +1191,7 @@ async function handleCreateCapture(request, env, ctx) {
       // For analytics events in the consumer (src/analytics.js).
       source: authMethod === 'session' ? 'dashboard' : 'api',
       ua: request.headers.get('User-Agent')?.slice(0, 256) || undefined,
+      ...(body.viewport !== undefined ? { viewport: viewportCheck.viewport } : {}),
     });
   } catch (err) {
     await failCapture(env.DB, captureId, 'Queue dispatch failed', true);

@@ -81,6 +81,7 @@ import { buildWacz } from './wacz.js';
 import { log } from './log.js';
 import { dismissCookieConsent, consentResult, AUTOCONSENT_VERSION } from './consent.js';
 import { softwareId } from './build-info.js';
+import { DEFAULT_VIEWPORT } from './viewport.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -96,6 +97,19 @@ const MAX_PAGE_BYTES = 50 * 1024 * 1024; // 50 MB
 // at once). The largest seen by 2026-11-25 was 8.9 MB (backlog #99).
 export const MAX_HTML_CHARS = 15_000_000;
 export const MAX_PAGE_HEIGHT = 8000;
+
+/**
+ * Screenshot height cap for a viewport width: MAX_PAGE_HEIGHT up to 1280 px
+ * wide, lower past it, so the screenshot never holds more pixels than a
+ * 1280x8000 one (backlog #66). MAX_PAGE_HEIGHT itself can't grow: at 2x scale
+ * it is 16000 device pixels, close to Chromium's screenshot limit.
+ *
+ * @param {number} width  viewport width in CSS pixels
+ * @returns {number}
+ */
+export function screenshotHeightCap(width) {
+  return Math.min(MAX_PAGE_HEIGHT, Math.floor((1280 * MAX_PAGE_HEIGHT) / width));
+}
 // Screenshot resolution relative to CSS pixels. 4 until phase 0118 (2026-10-23);
 // 2 keeps text sharp and makes screenshots, most of a capture's size, about 4x smaller.
 export const DEVICE_SCALE_FACTOR = 2;
@@ -179,13 +193,13 @@ const MAX_KNOWN_SESSIONS = 50;
  * @param {boolean} [qualifiedTimestamps] Whether to request a qualified (eIDAS) timestamp
  * @returns {Promise<{ ok: true }|{ ok: false, retryable: boolean, error?: string }>}
  */
-export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer, attempt = 1, qualifiedTimestamps = false) {
+export async function performCapture(env, url, ip, captureId, tenantId, cip, renderer = defaultRenderer, attempt = 1, qualifiedTimestamps = false, viewport = DEFAULT_VIEWPORT) {
   const start = Date.now();
   await log(env, 3, 'capture', { event: 'capture.start', captureId, tenantId, url, cip, attempt });
   try {
     const RENDER_DEADLINE_MS = 600000; // 10 min hard cap within 15-min queue consumer budget
     const renderWithDeadline = Promise.race([
-      renderer(env, url, captureId),
+      renderer(env, url, captureId, { viewport: { width: viewport.width, height: viewport.height } }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Render deadline exceeded')), RENDER_DEADLINE_MS)),
     ]);
     const [renderResult, headerResult] = await Promise.allSettled([
@@ -233,11 +247,12 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(headers ? { headers: `${prefix}/headers.json` } : {}),
     };
 
-    // Build captureSettings (null only for a renderer that reports neither a
-    // consent step nor where its browser went out to the web). Signed into the
-    // bundle, so a verifier can see where the page was loaded from (backlog #108).
-    const captureSettings = consent || browserLocation ? {
+    // Build captureSettings. Signed into the bundle, so a verifier can see the
+    // viewport the page was rendered at (backlog #66) and where it was loaded
+    // from (backlog #108).
+    const captureSettings = {
       version: 1,
+      viewport: { width: viewport.width, height: viewport.height },
       ...(consent ? {
         consent: {
           library: '@duckduckgo/autoconsent',
@@ -248,7 +263,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
         },
       } : {}),
       ...(browserLocation ? { browserLocation } : {}),
-    } : null;
+    };
 
     // Signed into the bundle, so a verifier can tell a partial render from a full one
     const captureQuality = {
@@ -593,7 +608,7 @@ function waitForSettle(page, maxMs = SETTLE_MAX_MS, pending = []) {
  * @returns {Promise<{ screenshot: Uint8Array, screenshotBefore: Uint8Array|null,
  *   html: string, partial: boolean, render: object, consent: object|null }>}
  */
-async function defaultRenderer(env, url, captureId) {
+async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPORT } = {}) {
   const renderStart = Date.now();
   // A log line is a request to the log endpoint, about 200 ms. Waiting for
   // each one cost a capture two seconds with the browser session held, and
@@ -622,7 +637,7 @@ async function defaultRenderer(env, url, captureId) {
   });
 
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
+    viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: DEVICE_SCALE_FACTOR,
     serviceWorkers: 'block',
   });
@@ -820,7 +835,7 @@ async function defaultRenderer(env, url, captureId) {
     networkFrozen = false;
     const screenshotBefore = shotBefore.screenshot;
     if (shotBefore.capped) {
-      logLine(3, { event: 'render.default.screenshot_capped', url, captureId, originalHeight: shotBefore.pageHeight, cappedHeight: MAX_PAGE_HEIGHT });
+      logLine(3, { event: 'render.default.screenshot_capped', url, captureId, originalHeight: shotBefore.pageHeight, cappedHeight: shotBefore.heightCap });
     }
     const tPreConsent = Date.now();
     logLine(3, { event: 'render.default.screenshot_before', url, captureId, screenshotMs: tPreConsent - tScroll, screenshotBytes: screenshotBefore.byteLength });
@@ -1044,25 +1059,26 @@ export function summarizeOpenRequests(requests, max = 8) {
 /**
  * What a screenshot from takeCappedScreenshot covers, recorded in the capture's
  * render info and signed into its WACZ (backlog #32). screenshotHeight is
- * stored rather than derived from MAX_PAGE_HEIGHT, so a later change of the cap
+ * stored rather than derived from the cap, so a later change of the cap
  * doesn't misstate older captures.
  *
- * @param {{ pageHeight: number, capped: boolean }} shot
+ * @param {{ pageHeight: number, capped: boolean, heightCap: number }} shot
  */
-function screenshotCoverage({ pageHeight, capped }) {
-  return { pageHeight, screenshotHeight: Math.min(pageHeight, MAX_PAGE_HEIGHT), screenshotClipped: capped };
+function screenshotCoverage({ pageHeight, capped, heightCap }) {
+  return { pageHeight, screenshotHeight: Math.min(pageHeight, heightCap), screenshotClipped: capped };
 }
 
 /**
- * Full-page PNG screenshot limited to the top MAX_PAGE_HEIGHT pixels of the
- * document. A fullPage screenshot ignores the viewport height, so resizing the
+ * Full-page PNG screenshot limited to the top of the document: the
+ * screenshotHeightCap() for the viewport width, MAX_PAGE_HEIGHT pixels at
+ * 1280 px wide. A fullPage screenshot ignores the viewport height, so resizing the
  * viewport (the earlier approach) did not limit it, and pages taller than about
  * 11,000 px failed with "Unable to capture screenshot". A clip measured against
  * the document does limit it. The rendered HTML still holds the whole page.
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @param {number} [timeout] - screenshot timeout in ms
- * @returns {Promise<{ screenshot: Uint8Array, pageHeight: number, capped: boolean }>}
+ * @returns {Promise<{ screenshot: Uint8Array, pageHeight: number, capped: boolean, heightCap: number }>}
  * @throws {Error} When the page does not answer the height measurement within PAGE_READ_MAX_MS
  */
 export async function takeCappedScreenshot(page, timeout = 90000) {
@@ -1070,13 +1086,15 @@ export async function takeCappedScreenshot(page, timeout = 90000) {
     document.body?.scrollHeight ?? 0,
     document.documentElement?.scrollHeight ?? 0,
   )), PAGE_READ_MAX_MS, 'The page stopped answering before the screenshot');
-  const capped = pageHeight > MAX_PAGE_HEIGHT;
+  const width = page.viewportSize()?.width ?? 1280;
+  const heightCap = screenshotHeightCap(width);
+  const capped = pageHeight > heightCap;
   const options = { fullPage: true, type: 'png', timeout };
   if (capped) {
-    options.clip = { x: 0, y: 0, width: page.viewportSize()?.width ?? 1280, height: MAX_PAGE_HEIGHT };
+    options.clip = { x: 0, y: 0, width, height: heightCap };
   }
   const screenshot = await page.screenshot(options);
-  return { screenshot, pageHeight, capped };
+  return { screenshot, pageHeight, capped, heightCap };
 }
 
 /**

@@ -214,3 +214,4 @@ software development.
 | [0205-resend-bounces](0205-resend-bounces/) | Resend reports bounces and spam complaints to `POST /v1/resend/webhook`: a permanent bounce unverifies the notification address, a complaint turns its notifications off |
 | [0206-release-quarantine](0206-release-quarantine/) | An admin route releases a Web Risk quarantine for one capture or every capture of its URL; the release is recorded in `threat_checks` and the nightly re-scan leaves released captures alone |
 | [0207-webhook-pause-redeliver](0207-webhook-pause-redeliver/) | `PATCH /v1/webhooks/{id}` pauses, resumes or changes a webhook, and `POST /v1/webhooks/{id}/redeliver` sends a finished capture's event again |
+| [0208-viewport](0208-viewport/) | `POST /v1/captures` takes a `viewport`; the screenshot height cap scales with the width to keep the pixel count, and `captureSettings.viewport` records the size on every capture |

@@ -104,7 +104,7 @@ SWGDE 21-F-001 Section 4.1 requires that the capture device be equipped with app
 WRL's pipeline provides a standardized, fixed configuration for every capture:
 
 - Headless Chromium with no extensions, no plugins, and no user data directory
-- A 1280 × 720 viewport at device scale factor 2
+- A 1280 × 720 viewport at device scale factor 2, unless the request names another size; the capture records the size it used, signed, as `captureSettings.viewport`
 - No cookies or cached data from prior sessions
 - Standard Chromium user agent string
 - Google Web Risk threat screening before each capture

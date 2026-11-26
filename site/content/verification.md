@@ -195,6 +195,10 @@ Each capture records where its browser went out to the web, as Cloudflare's trac
 
 You cannot choose the place. When the browser could not read the trace page, the capture has no `browserLocation`. Captures made before 25 November 2026 don't have it.
 
+### The viewport
+
+A page can look different in a narrow window: a phone layout, a menu folded into a button, other images. Each capture records the window it was rendered in as `captureSettings.viewport`, in CSS pixels (`{"width": 390, "height": 844}`), signed into the WACZ bundle with the rest of `captureSettings`. The verification page shows it under "Capture details" ("Viewport: 390 x 844 CSS pixels"), and so do the dashboard, the certification PDF and MCP `get_capture`. Captures made before 26 November 2026 don't record it; they were all rendered at 1,280 by 720.
+
 ### Ed25519 signatures
 
 When WRL completes a capture, it signs the WACZ bundle using an Ed25519 private key held by the operator. The signature covers the SHA-256 hash of the bundle manifest. Ed25519 is a modern elliptic-curve signing algorithm; the signature is 64 bytes and the public key is 32 bytes.

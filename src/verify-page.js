@@ -588,9 +588,15 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       var locText = loc && /^[A-Z]{3}$/.test(loc.colo) && /^[A-Z]{2}$/.test(loc.country)
         ? loc.colo + ', ' + loc.country + ' (Cloudflare data center)'
         : null;
+      // The viewport the page was rendered at (backlog #66), whole numbers only
+      var vp = captureSettings.viewport;
+      var vpText = vp && Number.isInteger(vp.width) && Number.isInteger(vp.height)
+        ? vp.width + ' x ' + vp.height + ' CSS pixels'
+        : null;
       html += '<details id="capture-details-disclosure"><summary>Capture details</summary>' +
         '<div class="crypto-grid" id="capture-details-grid">' +
           (locText ? '<div class="crypto-row"><div class="crypto-label">Captured from</div><div class="crypto-value">' + locText + '</div></div>' : '') +
+          (vpText ? '<div class="crypto-row"><div class="crypto-label">Viewport</div><div class="crypto-value">' + vpText + '</div></div>' : '') +
         '</div>' +
         '</details>';
     }
