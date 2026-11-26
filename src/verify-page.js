@@ -390,6 +390,15 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     renderQuality:      'The page did not finish loading in time. It was captured once its HTML had loaded, so images or content that load later may be missing.',
   };
 
+  // How WRL declined a consent wall autoconsent has no rule for (backlog #104, #47)
+  function wallButtonText(consent) {
+    if (!consent || consent.library !== 'wrl-consent-wall' || !consent.button) return null;
+    if (consent.route === 'settings') {
+      return 'Declined in the settings of the banner, with every choice unticked ("' + consent.button + '")';
+    }
+    return 'Declined with "' + consent.button + '"';
+  }
+
   // Canonical source: packages/verify/lib/format.js -- keep in sync
   function mergeTimestampChecks(checks) {
     var ts  = null;
@@ -509,9 +518,16 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       checks = checks.concat([{
         name: 'consentHandling',
         status: 'pass',
-        detail: captureSettings.consent.cmpDetected
-          ? 'Detected: ' + captureSettings.consent.cmpDetected
-          : null,
+        detail: wallButtonText(captureSettings.consent)
+          || (captureSettings.consent.cmpDetected ? 'Detected: ' + captureSettings.consent.cmpDetected : null),
+      }]);
+    } else if (consentResult === 'accepted') {
+      // The wall offered no way to decline (backlog #104, #47)
+      checks = checks.concat([{
+        name: 'consentHandling',
+        status: 'skip',
+        desc: 'The cookie consent banner offered no way to decline, so the capture accepted it. The page shows what a visitor who accepts cookies sees.',
+        detail: captureSettings.consent.button ? 'Clicked: "' + captureSettings.consent.button + '"' : null,
       }]);
     } else if (consentResult === 'failed') {
       checks = checks.concat([{
@@ -741,6 +757,8 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
           var altUrl  = capturedUrl || 'unknown URL';
           if (consentResult === 'success') {
             img.alt = 'Screenshot of ' + altUrl + ' captured on ' + altDate + ', after cookie consent dismissal';
+          } else if (consentResult === 'accepted') {
+            img.alt = 'Screenshot of ' + altUrl + ' captured on ' + altDate + ', after accepting cookie consent';
           } else {
             img.alt = 'Screenshot of ' + altUrl + ' captured on ' + altDate;
           }
@@ -764,6 +782,9 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       if (consentResult === 'success') {
         var captionEl = document.getElementById('screenshot-caption');
         if (captionEl) captionEl.textContent = 'Page after cookie consent dismissal';
+      } else if (consentResult === 'accepted') {
+        var acceptedCaptionEl = document.getElementById('screenshot-caption');
+        if (acceptedCaptionEl) acceptedCaptionEl.textContent = 'Page after accepting cookie consent, since the banner offered no way to decline';
       }
 
       // Before screenshot (inside a <details> disclosure)
@@ -807,9 +828,14 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         var consentText;
         if (consent.result === 'success') {
           consentText = 'Dismissed';
-          if (consent.cmpDetected) {
+          if (wallButtonText(consent)) {
+            consentText = wallButtonText(consent);
+          } else if (consent.cmpDetected) {
             consentText += ' (' + consent.cmpDetected + ')';
           }
+        } else if (consent.result === 'accepted') {
+          consentText = 'Accepted, no way to decline was offered'
+            + (consent.button ? ' ("' + consent.button + '")' : '');
         } else if (consent.result === 'notDetected') {
           consentText = 'Not detected';
         } else if (consent.result === 'failed') {
