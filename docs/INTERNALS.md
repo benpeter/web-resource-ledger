@@ -336,6 +336,8 @@ For request/response schemas, see `openapi.yaml`.
 | GET | `/v1/webhooks` | dual | — | public-api |
 | DELETE | `/v1/webhooks/{webhookId}` | dual | — | public-api |
 | POST | `/v1/webhooks/{webhookId}/ping` | dual | — | public-api |
+| PATCH | `/v1/webhooks/{webhookId}` | dual | — | public-api |
+| POST | `/v1/webhooks/{webhookId}/redeliver` | dual | — | public-api |
 | POST | `/v1/schedules` | dual | capture | public-api |
 | GET | `/v1/schedules` | dual | — | public-api |
 | GET | `/v1/schedules/{scheduleId}` | dual | — | public-api |

@@ -212,3 +212,4 @@ software development.
 | [0203-public-endpoint-hardening](0203-public-endpoint-hardening/) | The capture record and status called without a key get the per-IP limit artifacts already had, every API response carries `X-Robots-Tag: noindex`, and tests pin that a wrong key gets 401 on the public capture routes |
 | [0204-alert-names-captures](0204-alert-names-captures/) | The worker health alert lists the captures the killed runs were working on, with account, GitHub login and page, found in Coralogix as attempts without an outcome |
 | [0205-resend-bounces](0205-resend-bounces/) | Resend reports bounces and spam complaints to `POST /v1/resend/webhook`: a permanent bounce unverifies the notification address, a complaint turns its notifications off |
+| [0207-webhook-pause-redeliver](0207-webhook-pause-redeliver/) | `PATCH /v1/webhooks/{id}` pauses, resumes or changes a webhook, and `POST /v1/webhooks/{id}/redeliver` sends a finished capture's event again |

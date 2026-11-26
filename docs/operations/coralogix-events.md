@@ -221,6 +221,8 @@ The renderer sends these lines as the events happen and does not wait for each t
 | 3 | `webhook.delete` | Webhook endpoint deleted |
 | 3 | `webhook.list` | Webhook endpoints listed |
 | 3 | `webhook.ping` | Webhook ping/test sent |
+| 3 | `webhook.update` | Webhook changed or paused with PATCH (`fields`, `active`) |
+| 3 | `webhook.redeliver` | A capture's event queued again for one webhook (`captureId`, `webhookEvent`, `eventId`) |
 | 3 | `webhook.deliver` | Webhook delivered successfully |
 | 3 | `webhook.deliver_fail` | Webhook delivery attempt failed (will retry) |
 | 4 | `webhook.deliver_fail` | Webhook delivery failed after retries |

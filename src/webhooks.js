@@ -20,14 +20,16 @@
 import { jsonResponse, problemResponse } from './responses.js';
 import { verifyApiKey } from './auth.js';
 import { validateUrl } from './url-validation.js';
-import { createWebhook, getWebhook, listWebhooks, deleteWebhook, countWebhooks } from './db.js';
+import { createWebhook, getWebhook, listWebhooks, deleteWebhook, countWebhooks, updateWebhook, getCapture } from './db.js';
 import { log } from './log.js';
 import { signWebhookPayload, SIGNATURE_HEADER, TIMESTAMP_HEADER } from './webhook-signing.js';
-import { classifyDeliveryError } from './webhook-dispatch.js';
+import { classifyDeliveryError, buildWebhookPayload } from './webhook-dispatch.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
 const VALID_EVENTS = ['capture.complete', 'capture.failed', 'capture.quarantined'];
 const ALLOWED_CREATE_FIELDS = new Set(['url', 'events', 'name']);
+const ALLOWED_PATCH_FIELDS = new Set(['url', 'events', 'name', 'active']);
+const CAPTURE_ID_RE = /^cap_[a-f0-9]{32}$/;
 const WEBHOOK_CACHE = { 'Cache-Control': 'private, no-store' };
 
 // ---------------------------------------------------------------------------
@@ -338,3 +340,165 @@ export async function handlePingWebhook(request, env, ctx, match) {
   return jsonResponse({ success, httpStatus, latencyMs, signatureHeader: `t=${timestamp},v1=${signature}`, timestampHeader: String(timestamp), sentPayload: pingPayload });
 }
 
+
+// ---------------------------------------------------------------------------
+// PATCH /v1/webhooks/:webhookId -- pause, resume or change a webhook (backlog #62)
+// ---------------------------------------------------------------------------
+
+/**
+ * Changes any of url, events, name and active. active: false pauses the
+ * webhook: no new events are queued for it until it is set back to true.
+ * Deliveries already queued still go out.
+ *
+ * @param {Request} request
+ * @param {object} env
+ * @param {ExecutionContext} ctx
+ * @param {RegExpMatchArray} match  match[1] = webhookId (validated by route regex)
+ */
+export async function handleUpdateWebhook(request, env, ctx, match) {
+  const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
+  if (!auth.ok) return auth.response;
+
+  const webhookId = match[1];
+  const contentType = request.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    return problemResponse(415, 'Content-Type must be application/json');
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return problemResponse(400, 'Request body must be a JSON object');
+  }
+  const fields = Object.keys(body);
+  const unknown = fields.filter(k => !ALLOWED_PATCH_FIELDS.has(k));
+  if (unknown.length > 0) {
+    return problemResponse(400, `Unknown field(s): ${unknown.map(f => `'${f}'`).join(', ')}. Allowed fields: url, events, name, active`);
+  }
+  if (fields.length === 0) {
+    return problemResponse(400, 'Give at least one of url, events, name, active');
+  }
+
+  const changes = {};
+  if (Object.prototype.hasOwnProperty.call(body, 'url')) {
+    if (typeof body.url !== 'string') return problemResponse(400, "Field 'url' must be a string");
+    const urlCheck = await validateWebhookUrl(body.url);
+    if (!urlCheck.ok) return problemResponse(urlCheck.status, urlCheck.detail);
+    changes.url = urlCheck.url;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'events')) {
+    if (!Array.isArray(body.events) || body.events.length === 0) {
+      return problemResponse(400, "Field 'events' must be a non-empty array");
+    }
+    for (const evt of body.events) {
+      if (!VALID_EVENTS.includes(evt)) {
+        return problemResponse(400, `Field 'events' contains invalid value '${evt}'; must be one of: capture.complete, capture.failed, capture.quarantined`);
+      }
+    }
+    changes.events = body.events;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'name')) {
+    if (typeof body.name !== 'string' || !NAME_RE.test(body.name)) {
+      return problemResponse(400, "Field 'name' must be 1-128 characters using letters, digits, spaces, and _ . : -");
+    }
+    changes.name = body.name;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'active')) {
+    if (typeof body.active !== 'boolean') return problemResponse(400, "Field 'active' must be true or false");
+    changes.active = body.active;
+  }
+
+  const record = await updateWebhook(env.DB, webhookId, auth.tenantId, changes);
+  if (!record) return problemResponse(404, `Webhook '${webhookId}' not found.`);
+
+  ctx.waitUntil(log(env, 3, 'webhook', {
+    event: 'webhook.update',
+    webhookId,
+    tenantId: auth.tenantId,
+    fields: fields.join(','),
+    active: record.active,
+    keyHashPrefix: auth.keyHashPrefix,
+    authMethod: auth.authMethod,
+    responseStatus: 200,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({
+    id: record.webhookId,
+    url: record.url,
+    events: record.events,
+    name: record.name,
+    active: record.active,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// POST /v1/webhooks/:webhookId/redeliver -- queue a capture's event again (backlog #62)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the event for a finished capture from its current state and queues
+ * it for this one webhook, with the usual retries. The event gets a new id:
+ * WRL does not keep delivered payloads.
+ *
+ * @param {Request} request
+ * @param {object} env
+ * @param {ExecutionContext} ctx
+ * @param {RegExpMatchArray} match  match[1] = webhookId (validated by route regex)
+ */
+export async function handleRedeliverWebhook(request, env, ctx, match) {
+  const auth = await verifyApiKey(request, env, { requiredScope: 'capture' });
+  if (!auth.ok) return auth.response;
+
+  const webhookId = match[1];
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be valid JSON');
+  }
+  const captureId = body?.captureId;
+  if (typeof captureId !== 'string' || !CAPTURE_ID_RE.test(captureId)) {
+    return problemResponse(400, "Field 'captureId' must be a capture id (cap_ and 32 hex characters)");
+  }
+
+  const webhook = await getWebhook(env.DB, webhookId, auth.tenantId);
+  if (!webhook) return problemResponse(404, `Webhook '${webhookId}' not found.`);
+  const capture = await getCapture(env.DB, captureId);
+  if (!capture || capture.tenantId !== auth.tenantId) {
+    return problemResponse(404, `Capture '${captureId}' not found.`);
+  }
+  if (!webhook.active) {
+    return problemResponse(409, `Webhook '${webhookId}' is paused. Set active to true first.`);
+  }
+  if (capture.status === 'pending') {
+    return problemResponse(409, `Capture '${captureId}' has not finished yet.`);
+  }
+  const eventType = `capture.${capture.status}`;
+  if (!webhook.events.includes(eventType)) {
+    return problemResponse(409, `Webhook '${webhookId}' is not subscribed to ${eventType}.`);
+  }
+
+  const payload = buildWebhookPayload(eventType, capture, env);
+  const eventId = JSON.parse(payload).id;
+  await env.WEBHOOK_QUEUE.send({ webhookId, tenantId: auth.tenantId, captureId, eventType, eventId, payload });
+
+  ctx.waitUntil(log(env, 3, 'webhook', {
+    event: 'webhook.redeliver',
+    webhookId,
+    tenantId: auth.tenantId,
+    captureId,
+    webhookEvent: eventType,
+    eventId,
+    keyHashPrefix: auth.keyHashPrefix,
+    authMethod: auth.authMethod,
+    responseStatus: 202,
+  }) ?? Promise.resolve());
+
+  return jsonResponse({ webhookId, captureId, eventType, eventId }, 202);
+}
