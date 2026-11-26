@@ -22,7 +22,7 @@ Rule 901(b) lists ways to meet that bar. For web pages, three come up most:
 
 Since December 2017, Rules 902(13) and 902(14) also let electronic records and copies authenticate themselves through a written certification from a qualified person, so nobody has to take the stand just to lay the foundation. The committee notes to Rule 902(14) name hash values as the typical way to show a copy matches the original.
 
-The bar for authentication is low, so the fight usually moves to weight. A judge can admit a screenshot and the other side can still argue that it was edited, misdated or cropped, and the judge or jury decides how much to believe it. The opinion most often cited on authenticating electronic evidence, *Lorraine v. Markel American Insurance Co.*, 241 F.R.D. 534 (D. Md. 2007), goes through each of these rules.
+The bar for authentication is low, so the fight usually moves to weight. A judge can admit a screenshot and the other side can still argue that it was edited, misdated or cropped, and the judge or jury decides how much to believe it. The opinion most often cited on authenticating electronic evidence, *Lorraine v. Markel American Insurance Co.*, 241 F.R.D. 534 (D. Md. 2007), goes through Rules 901 and 902 and the other rules a court applies to electronic evidence. It came before Rules 902(13) and 902(14).
 
 ## Why plain screenshots get challenged
 
