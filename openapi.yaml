@@ -6055,6 +6055,104 @@ paths:
         '429':
           $ref: '#/components/responses/Problem429'
 
+  /v1/admin/captures/{id}/quarantine:
+    delete:
+      operationId: adminReleaseQuarantine
+      summary: Release a quarantined capture
+      description: >
+        Releases a capture the nightly Web Risk re-scan quarantined, for example
+        after its owner disputes the quarantine and the URL checks out. With
+        `scope=url` every quarantined capture of the same URL is released, across
+        tenants. Each released capture gets a `threat_checks` row with source
+        `operator`, and the re-scan does not quarantine it again. New captures of
+        the URL are checked as usual. No webhook fires.
+
+        ```bash
+        curl -X DELETE "https://api.webresourceledger.com/v1/admin/captures/cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/quarantine?scope=url" \
+          -H "Authorization: Bearer $ADMIN_KEY" | jq .
+        ```
+      tags: [admin]
+      security:
+        - adminAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: A quarantined capture.
+          schema:
+            $ref: '#/components/schemas/CaptureId'
+        - name: scope
+          in: query
+          required: false
+          description: "`url` releases every quarantined capture of the capture's URL; left out, only this capture."
+          schema:
+            type: string
+            enum: [url]
+      responses:
+        '200':
+          description: The captures were released.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, released]
+                properties:
+                  url:
+                    type: string
+                    description: The captured URL.
+                  released:
+                    type: array
+                    items:
+                      type: object
+                      required: [captureId, tenantId]
+                      properties:
+                        captureId:
+                          $ref: '#/components/schemas/CaptureId'
+                        tenantId:
+                          type: string
+              example:
+                url: https://example.com/flagged-page
+                released:
+                  - captureId: cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+                    tenantId: gh-424242
+        '400':
+          description: scope is something other than `url`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 400
+                title: Bad Request
+                detail: "scope must be 'url' or left out."
+        '401':
+          $ref: '#/components/responses/Problem401'
+        '404':
+          description: Capture not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 404
+                title: Not Found
+                detail: "Capture not found."
+        '409':
+          description: The capture is not quarantined.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: about:blank
+                status: 409
+                title: Conflict
+                detail: "Capture is not quarantined."
+        '429':
+          $ref: '#/components/responses/Problem429'
+
   /v1/admin/tenants/{tenantId}/deletion:
     post:
       operationId: adminRequestTenantDeletion

@@ -57,6 +57,7 @@ const EXCLUDED_OPERATIONS = {
   adminGetOverview: 'admin auth boundary',
   adminPurgeTenant: 'admin auth boundary',
   adminPurgeTenantCaptures: 'admin auth boundary',
+  adminReleaseQuarantine: 'admin auth boundary',
   adminRequestTenantDeletion: 'admin auth boundary',
   adminCancelTenantDeletion: 'admin auth boundary',
   adminGetTenantConfig: 'admin auth boundary',
