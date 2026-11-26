@@ -14,6 +14,7 @@ import {
   TEST_WEBHOOK_URL,
   seedApiKey,
   seedWebhook,
+  seedCapture,
   cleanDb,
 } from './fixtures.js';
 
@@ -72,6 +73,30 @@ function makePing(ip) {
       Authorization: TENANT_AUTH,
       'CF-Connecting-IP': ip,
     },
+  });
+}
+
+function makePatch(ip) {
+  return (webhookId, body) => SELF.fetch(`https://worker.test/v1/webhooks/${webhookId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: TENANT_AUTH,
+      'CF-Connecting-IP': ip,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function makeRedeliver(ip) {
+  return (webhookId, body) => SELF.fetch(`https://worker.test/v1/webhooks/${webhookId}/redeliver`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: TENANT_AUTH,
+      'CF-Connecting-IP': ip,
+    },
+    body: JSON.stringify(body),
   });
 }
 
@@ -422,5 +447,119 @@ describe('POST /v1/webhooks/:id/ping', () => {
     const payload = JSON.parse(body.sentPayload);
     expect(payload.type).toBe('ping');
     expect(payload.data.webhookId).toBe(id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /v1/webhooks/:id (backlog #62)
+// ---------------------------------------------------------------------------
+
+describe('PATCH /v1/webhooks/:id', () => {
+  let patch;
+  const id = 'whk_' + 'a'.repeat(32);
+  beforeEach(async () => {
+    patch = makePatch(nextIp());
+    await setup();
+    await seedWebhook(env.DB, id, { tenantId: 'default' });
+  });
+  afterEach(() => cleanDb(env.DB));
+
+  it('pauses a webhook with active: false and returns it without the secret', async () => {
+    const res = await patch(id, { active: false });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe(id);
+    expect(body.active).toBe(false);
+    expect(body.updatedAt).not.toBeNull();
+    expect(body.secret).toBeUndefined();
+    const row = await env.DB.prepare('SELECT active FROM webhooks WHERE id = ?').bind(id).first();
+    expect(row.active).toBe(0);
+  });
+
+  it('changes events and name', async () => {
+    const res = await patch(id, { events: ['capture.quarantined'], name: 'renamed' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.events).toEqual(['capture.quarantined']);
+    expect(body.name).toBe('renamed');
+  });
+
+  it('changes the url after validating it', async () => {
+    const res = await patch(id, { url: VALID_WEBHOOK_URL });
+    expect(res.status).toBe(200);
+    expect((await res.json()).url).toBe(VALID_WEBHOOK_URL);
+  });
+
+  it('rejects an http url', async () => {
+    const res = await patch(id, { url: 'http://93.184.216.34/webhook' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an empty body, unknown fields and a non-boolean active', async () => {
+    expect((await patch(id, {})).status).toBe(400);
+    expect((await patch(id, { secret: 'x' })).status).toBe(400);
+    expect((await patch(id, { active: 'no' })).status).toBe(400);
+  });
+
+  it('returns 404 for another tenants webhook', async () => {
+    const otherId = 'whk_' + 'd'.repeat(32);
+    await seedWebhook(env.DB, otherId, { tenantId: 'other-tenant' });
+    const res = await patch(otherId, { active: false });
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /v1/webhooks/:id/redeliver (backlog #62)
+// ---------------------------------------------------------------------------
+
+describe('POST /v1/webhooks/:id/redeliver', () => {
+  let redeliver;
+  const id = 'whk_' + 'a'.repeat(32);
+  const done = 'cap_' + '1'.repeat(32);
+  const failed = 'cap_' + '2'.repeat(32);
+  const pending = 'cap_' + '3'.repeat(32);
+  const foreign = 'cap_' + '4'.repeat(32);
+  beforeEach(async () => {
+    redeliver = makeRedeliver(nextIp());
+    await setup();
+    await seedWebhook(env.DB, id, { tenantId: 'default', events: ['capture.complete'] });
+    await seedCapture(env.DB, done, { tenantId: 'default', status: 'complete', completedAt: new Date().toISOString() });
+    await seedCapture(env.DB, failed, { tenantId: 'default', status: 'failed', failedAt: new Date().toISOString(), error: 'x', retryable: false });
+    await seedCapture(env.DB, pending, { tenantId: 'default' });
+    await seedCapture(env.DB, foreign, { tenantId: 'other-tenant', status: 'complete', completedAt: new Date().toISOString() });
+  });
+  afterEach(() => cleanDb(env.DB));
+
+  it('queues the capture event again and returns 202 with a new event id', async () => {
+    const res = await redeliver(id, { captureId: done });
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.webhookId).toBe(id);
+    expect(body.captureId).toBe(done);
+    expect(body.eventType).toBe('capture.complete');
+    expect(body.eventId).toMatch(/^evt_[a-f0-9]{32}$/);
+  });
+
+  it('returns 409 when the webhook is not subscribed to the capture event', async () => {
+    const res = await redeliver(id, { captureId: failed });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 409 for a capture that has not finished', async () => {
+    const res = await redeliver(id, { captureId: pending });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 409 for a paused webhook', async () => {
+    await env.DB.prepare('UPDATE webhooks SET active = 0 WHERE id = ?').bind(id).run();
+    const res = await redeliver(id, { captureId: done });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 404 for another tenants capture or an unknown webhook, 400 without a capture id', async () => {
+    expect((await redeliver(id, { captureId: foreign })).status).toBe(404);
+    expect((await redeliver('whk_' + '0'.repeat(32), { captureId: done })).status).toBe(404);
+    expect((await redeliver(id, {})).status).toBe(400);
   });
 });
