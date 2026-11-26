@@ -5,13 +5,14 @@
  *   POST   /v1/schedules                        -- create a schedule
  *   GET    /v1/schedules                        -- list schedules for tenant
  *   GET    /v1/schedules/:scheduleId            -- get a single schedule
- *   PATCH  /v1/schedules/:scheduleId            -- edit name/url/cron, pause or resume
+ *   PATCH  /v1/schedules/:scheduleId            -- edit name/url/urls/cron, pause or resume
  *   DELETE /v1/schedules/:scheduleId            -- delete a schedule
  *
  * Auth: all routes support dual auth (session cookie or API key with 'capture' scope).
  *
  * Security invariants:
- *   - URL validated through validateUrl() for SSRF protection.
+ *   - URL validated through validateUrl() for SSRF protection, every URL of
+ *     a watch list (urls, backlog #59) included.
  *   - Cron expression validated through validateCron() for safety and minimum interval.
  *   - Schedule IDs validated by route regex before handlers are invoked.
  *   - Per-tenant schedule limit enforced before insert.
@@ -37,8 +38,57 @@ import { trackServerEvent } from './pirsch.js';
 import { isAnalyticsExcluded } from './analytics.js';
 
 const NAME_RE = /^[a-zA-Z0-9 _.:-]{1,128}$/;
-const ALLOWED_CREATE_FIELDS = new Set(['url', 'cron', 'name']);
-const ALLOWED_UPDATE_FIELDS = ['name', 'url', 'cron', 'paused'];
+const ALLOWED_CREATE_FIELDS = new Set(['url', 'urls', 'cron', 'name']);
+const ALLOWED_UPDATE_FIELDS = ['name', 'url', 'urls', 'cron', 'paused'];
+
+/** Most URLs one schedule (a watch list) captures per run. */
+export const MAX_SCHEDULE_URLS = 100;
+
+/**
+ * Validate the URL part of a schedule body: either url (one page) or urls (a
+ * watch list of 1 to MAX_SCHEDULE_URLS pages). Every URL goes through
+ * validateUrl (SSRF), and a URL listed twice is refused, since the run would
+ * capture it twice.
+ *
+ * @param {object} body
+ * @returns {Promise<{ ok: true, given: false } | { ok: true, given: true, url: string, urls: string[] } | { ok: false, status: number, detail: string }>}
+ *   urls holds the normalized list (one entry for url)
+ */
+export async function validateScheduleUrls(body) {
+  const fail = (status, detail) => ({ ok: false, status, detail });
+  const hasUrl = Object.prototype.hasOwnProperty.call(body, 'url');
+  const hasUrls = Object.prototype.hasOwnProperty.call(body, 'urls');
+  if (hasUrl && hasUrls) {
+    return fail(400, "Give either 'url' or 'urls', not both");
+  }
+  if (!hasUrl && !hasUrls) return { ok: true, given: false };
+
+  if (hasUrl) {
+    if (typeof body.url !== 'string') {
+      return fail(400, "Field 'url' must be a string");
+    }
+    const urlCheck = await validateUrl(body.url);
+    if (!urlCheck.ok) return fail(urlCheck.status, urlCheck.detail);
+    return { ok: true, given: true, url: urlCheck.url, urls: [urlCheck.url] };
+  }
+
+  if (!Array.isArray(body.urls) || body.urls.length < 1 || body.urls.length > MAX_SCHEDULE_URLS) {
+    return fail(400, `Field 'urls' must be an array of 1 to ${MAX_SCHEDULE_URLS} URLs`);
+  }
+  const bad = body.urls.findIndex((u) => typeof u !== 'string');
+  if (bad !== -1) {
+    return fail(400, `Field 'urls[${bad}]' must be a string`);
+  }
+  const checks = await Promise.all(body.urls.map((u) => validateUrl(u)));
+  const urls = [];
+  for (const [i, check] of checks.entries()) {
+    if (!check.ok) return fail(check.status, `urls[${i}]: ${check.detail}`);
+    const first = urls.indexOf(check.url);
+    if (first !== -1) return fail(400, `urls[${i}] repeats urls[${first}]: ${check.url}`);
+    urls.push(check.url);
+  }
+  return { ok: true, given: true, url: urls[0], urls };
+}
 
 // A schedule as the API returns it: without the tenant_id the scheduler reads.
 function publicSchedule({ tenant_id, ...schedule }) {
@@ -96,7 +146,7 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
   if (body && typeof body === 'object' && !Array.isArray(body)) {
     const unknown = Object.keys(body).filter(k => !ALLOWED_CREATE_FIELDS.has(k));
     if (unknown.length > 0) {
-      return problemResponse(400, `Unknown field(s): ${unknown.map(f => `'${f}'`).join(', ')}. Allowed fields: url, cron, name`);
+      return problemResponse(400, `Unknown field(s): ${unknown.map(f => `'${f}'`).join(', ')}. Allowed fields: url, urls, cron, name`);
     }
   }
 
@@ -111,16 +161,13 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
     return problemResponse(400, "Field 'name' must be 1-128 characters using letters, digits, spaces, and _ . : -");
   }
 
-  // Validate url
-  if (!Object.prototype.hasOwnProperty.call(body, 'url')) {
-    return problemResponse(400, "Field 'url' is required");
-  }
-  if (typeof body.url !== 'string') {
-    return problemResponse(400, "Field 'url' must be a string");
-  }
-  const urlCheck = await validateUrl(body.url);
+  // Validate url, or urls for a watch list
+  const urlCheck = await validateScheduleUrls(body);
   if (!urlCheck.ok) {
     return problemResponse(urlCheck.status, urlCheck.detail);
+  }
+  if (!urlCheck.given) {
+    return problemResponse(400, "Field 'url' or 'urls' is required");
   }
 
   // Validate cron
@@ -147,13 +194,14 @@ export async function handleCreateSchedule(request, env, ctx, _match) {
   const id = 'sch_' + crypto.randomUUID().replace(/-/g, '');
   const nextRunAt = nextRun(cronCheck.cron);
 
-  const record = await createSchedule(env.DB, id, auth.tenantId, urlCheck.url, body.name, cronCheck.cron, nextRunAt);
+  const record = await createSchedule(env.DB, id, auth.tenantId, urlCheck.url, body.name, cronCheck.cron, nextRunAt, urlCheck.urls);
 
   ctx.waitUntil(log(env, 3, 'schedule', {
     event: 'schedule.created',
     scheduleId: id,
     tenantId: auth.tenantId,
     url: urlCheck.url,
+    urlCount: urlCheck.urls.length,
     cron: cronCheck.cron,
     keyHashPrefix: auth.keyHashPrefix,
     authMethod: auth.authMethod,
@@ -242,11 +290,13 @@ export async function handleGetSchedule(request, env, ctx, match) {
 // ---------------------------------------------------------------------------
 
 /**
- * Validate a schedule update body. url goes through validateUrl (SSRF) and
- * cron through validateCron (hourly minimum), as on create.
+ * Validate a schedule update body. url and urls go through validateUrl (SSRF)
+ * and cron through validateCron (hourly minimum), as on create. Either one
+ * replaces the schedule's URLs: url makes it a single-URL schedule, urls a
+ * watch list whose first entry becomes url.
  *
  * @param {unknown} body
- * @returns {Promise<{ ok: true, fields: { name?: string, url?: string, cron?: string, paused?: boolean } } | { ok: false, status: number, detail: string }>}
+ * @returns {Promise<{ ok: true, fields: { name?: string, url?: string, urls?: string[], cron?: string, paused?: boolean } } | { ok: false, status: number, detail: string }>}
  */
 export async function validateScheduleUpdate(body) {
   const fail = (status, detail) => ({ ok: false, status, detail });
@@ -270,15 +320,11 @@ export async function validateScheduleUpdate(body) {
     fields.name = body.name;
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, 'url')) {
-    if (typeof body.url !== 'string') {
-      return fail(400, "Field 'url' must be a string");
-    }
-    const urlCheck = await validateUrl(body.url);
-    if (!urlCheck.ok) {
-      return fail(urlCheck.status, urlCheck.detail);
-    }
+  const urlCheck = await validateScheduleUrls(body);
+  if (!urlCheck.ok) return urlCheck;
+  if (urlCheck.given) {
     fields.url = urlCheck.url;
+    fields.urls = urlCheck.urls;
   }
 
   if (Object.prototype.hasOwnProperty.call(body, 'cron')) {
@@ -322,7 +368,7 @@ export function withNextRun(fields, existing) {
 // ---------------------------------------------------------------------------
 
 /**
- * Change any of name, url, cron and paused. A new cron, or resuming a paused
+ * Change any of name, url, urls, cron and paused. A new cron, or resuming a paused
  * schedule, sets the next run to the next cron time from now, so resuming
  * never fires a backlog of missed runs at once. Pausing keeps next_run_at;
  * the scheduler skips paused schedules.

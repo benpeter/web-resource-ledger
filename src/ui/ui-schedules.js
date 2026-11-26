@@ -105,15 +105,31 @@ function scheduleStatusBadge(schedule) {
   return badge;
 }
 
+// The URLs typed into a URL field, one per line: trimmed, blank lines left out.
+function scheduleUrlLines(text) {
+  return (text || '').split(/\\r?\\n/).map(function(line) { return line.trim(); })
+    .filter(function(line) { return line !== ''; });
+}
+
+// The URL part of a schedule body: url for one line, urls for a watch list.
+function scheduleUrlFields(lines) {
+  return lines.length === 1 ? { url: lines[0] } : { urls: lines };
+}
+
 // The PATCH body for an edit: only fields whose trimmed value differs from the
 // schedule. An empty name is left out, since the API needs 1-128 characters.
+// values.url holds the URL field's text, one URL per line (backlog #59).
 function scheduleUpdateBody(schedule, values) {
   var body = {};
   var name = (values.name || '').trim();
-  var url = (values.url || '').trim();
+  var lines = scheduleUrlLines(values.url);
+  var current = schedule.urls || (schedule.url ? [schedule.url] : []);
   var cron = (values.cron || '').trim();
   if (name && name !== (schedule.name || '')) body.name = name;
-  if (url && url !== (schedule.url || '')) body.url = url;
+  if (lines.length > 0 && lines.join('\\n') !== current.join('\\n')) {
+    var urlFields = scheduleUrlFields(lines);
+    if (urlFields.url) body.url = urlFields.url; else body.urls = urlFields.urls;
+  }
   if (cron && cron !== (schedule.cron || '')) body.cron = cron;
   return body;
 }
@@ -191,13 +207,13 @@ function renderSchedules() {
   var urlLabel = document.createElement('label');
   urlLabel.htmlFor = 'schedule-url';
   urlLabel.className = 'schedule-field-label';
-  urlLabel.textContent = 'URL to capture';
+  urlLabel.textContent = 'URLs to capture, one per line (up to 100)';
   form.appendChild(urlLabel);
 
-  var urlInput = document.createElement('input');
-  urlInput.type = 'url';
+  var urlInput = document.createElement('textarea');
   urlInput.id = 'schedule-url';
-  urlInput.className = 'input';
+  urlInput.className = 'input schedule-url-input';
+  urlInput.rows = 1;
   urlInput.placeholder = 'https://example.com';
   urlInput.autocomplete = 'url';
   urlInput.required = true;
@@ -393,11 +409,13 @@ function buildScheduleRow(schedule, listEl) {
   // URL cell
   var urlCell = document.createElement('span');
   urlCell.className = 'schedule-col-url schedule-url-cell';
-  urlCell.title = schedule.url || '';
+  var scheduleUrls = schedule.urls || (schedule.url ? [schedule.url] : []);
+  urlCell.title = scheduleUrls.join('\\n');
 
   var urlText = document.createElement('span');
   urlText.className = 'schedule-url-text';
-  urlText.textContent = schedule.url || '(no URL)';
+  urlText.textContent = (schedule.url || '(no URL)') +
+    (scheduleUrls.length > 1 ? ' and ' + (scheduleUrls.length - 1) + ' more' : '');
   urlCell.appendChild(urlText);
 
   if (schedule.name) {
@@ -498,14 +516,14 @@ function buildScheduleRow(schedule, listEl) {
   editForm.hidden = true;
   editForm.noValidate = true;
 
-  function editField(labelText, value, placeholder) {
+  function editField(labelText, value, placeholder, rows) {
     var wrap = document.createElement('label');
     wrap.className = 'schedule-edit-field';
     var caption = document.createElement('span');
     caption.className = 'schedule-field-label';
     caption.textContent = labelText;
-    var input = document.createElement('input');
-    input.type = 'text';
+    var input = document.createElement(rows ? 'textarea' : 'input');
+    if (rows) input.rows = rows; else input.type = 'text';
     input.className = 'input';
     input.value = value || '';
     if (placeholder) input.placeholder = placeholder;
@@ -515,7 +533,8 @@ function buildScheduleRow(schedule, listEl) {
     return input;
   }
   var nameInput = editField('Name', schedule.name, 'Optional');
-  var urlInput = editField('URL', schedule.url, 'https://');
+  var editUrls = schedule.urls || (schedule.url ? [schedule.url] : []);
+  var urlInput = editField('URLs, one per line', editUrls.join('\\n'), 'https://', Math.min(Math.max(editUrls.length, 1), 8));
   var cronInput = editField('Cron (UTC, at most hourly)', schedule.cron, '0 * * * *');
 
   var editError = document.createElement('p');
@@ -792,24 +811,33 @@ function handleCreateSchedule(form) {
   formErrorEl.textContent = '';
   statusEl.textContent = '';
 
-  // Validate URL
-  var rawUrl = urlInput.value.trim();
-  if (!rawUrl) {
+  // Validate the URLs, one per line
+  var urlLines = scheduleUrlLines(urlInput.value);
+  if (urlLines.length === 0) {
     formErrorEl.textContent = 'URL is required.';
     formErrorEl.style.display = '';
     urlInput.focus();
     return;
   }
-  try {
-    var parsed = new URL(rawUrl);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new Error('bad protocol');
-    }
-  } catch (e) {
-    formErrorEl.textContent = 'Enter a valid http:// or https:// URL.';
+  if (urlLines.length > 100) {
+    formErrorEl.textContent = 'A schedule can capture up to 100 URLs; this list has ' + urlLines.length + '.';
     formErrorEl.style.display = '';
     urlInput.focus();
     return;
+  }
+  for (var i = 0; i < urlLines.length; i++) {
+    try {
+      var parsed = new URL(urlLines[i]);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('bad protocol');
+      }
+    } catch (e) {
+      formErrorEl.textContent = 'Enter a valid http:// or https:// URL' +
+        (urlLines.length > 1 ? ' on line ' + (i + 1) + ': ' + urlLines[i] : '.');
+      formErrorEl.style.display = '';
+      urlInput.focus();
+      return;
+    }
   }
 
   // Determine cron expression
@@ -848,7 +876,7 @@ function handleCreateSchedule(form) {
   apiFetch('/v1/schedules', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: rawUrl, cron: cron, name: name }),
+    body: JSON.stringify(Object.assign(scheduleUrlFields(urlLines), { cron: cron, name: name })),
   }).then(function(res) {
     if (!res) {
       createBtn.disabled = false;

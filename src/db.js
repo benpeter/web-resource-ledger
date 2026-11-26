@@ -1841,6 +1841,9 @@ function rowToSchedule(row) {
     id: row.id,
     tenant_id: row.tenant_id,
     url: row.url,
+    // A watch list keeps all its URLs in urls (backlog #59); a single-URL
+    // schedule lists its one URL, so clients can always read urls.
+    urls: row.urls ? JSON.parse(row.urls) : [row.url],
     name: row.name,
     cron: row.cron,
     paused: Boolean(row.paused),
@@ -1865,15 +1868,17 @@ function rowToSchedule(row) {
  * @param {string} name
  * @param {string} cron        Cron expression string
  * @param {string} nextRunAt   ISO 8601 timestamp of first scheduled run
+ * @param {string[]|null} [urls]  All URLs of a watch list (url is the first);
+ *                               null or one entry for a single-URL schedule
  * @returns {Promise<object>}  The created schedule record
  */
-export async function createSchedule(db, id, tenantId, url, name, cron, nextRunAt) {
+export async function createSchedule(db, id, tenantId, url, name, cron, nextRunAt, urls = null) {
   await db.batch([
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
     db.prepare(
-      `INSERT INTO schedules (id, tenant_id, url, name, cron, next_run_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).bind(id, tenantId, url, name, cron, nextRunAt),
+      `INSERT INTO schedules (id, tenant_id, url, urls, name, cron, next_run_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(id, tenantId, url, urls && urls.length > 1 ? JSON.stringify(urls) : null, name, cron, nextRunAt),
   ]);
 
   const row = await db.prepare('SELECT * FROM schedules WHERE id = ?').bind(id).first();
@@ -1946,24 +1951,26 @@ export async function deleteSchedule(db, id, tenantId) {
 }
 
 /**
- * Update a schedule's name, url, cron, paused flag and/or next run time, scoped
+ * Update a schedule's name, url, urls, cron, paused flag and/or next run time, scoped
  * to tenantId (IDOR protection). Only the fields present in `fields` change.
  * Returns the updated record, or null if not found or wrong tenant.
  *
  * @param {D1Database} db
  * @param {string} id
  * @param {string} tenantId
- * @param {{ name?: string, url?: string, cron?: string, paused?: boolean, nextRunAt?: string }} fields
+ * @param {{ name?: string, url?: string, urls?: string[]|null, cron?: string, paused?: boolean, nextRunAt?: string }} fields
  * @returns {Promise<object|null>}
  */
 export async function updateSchedule(db, id, tenantId, fields) {
-  const columns = { name: 'name', url: 'url', cron: 'cron', paused: 'paused', nextRunAt: 'next_run_at' };
+  const columns = { name: 'name', url: 'url', urls: 'urls', cron: 'cron', paused: 'paused', nextRunAt: 'next_run_at' };
   const sets = [];
   const params = [];
   for (const [key, column] of Object.entries(columns)) {
     if (fields[key] === undefined) continue;
     sets.push(`${column} = ?`);
-    params.push(key === 'paused' ? (fields[key] ? 1 : 0) : fields[key]);
+    if (key === 'paused') params.push(fields[key] ? 1 : 0);
+    else if (key === 'urls') params.push(fields.urls && fields.urls.length > 1 ? JSON.stringify(fields.urls) : null);
+    else params.push(fields[key]);
   }
   sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
 

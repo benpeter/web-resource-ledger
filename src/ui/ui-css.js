@@ -1424,6 +1424,14 @@ input, select, textarea {
   gap: var(--space-1);
 }
 
+/* URL fields take one URL per line; a watch list has several (backlog #59) */
+.schedule-form textarea.input,
+.schedule-edit-field textarea.input {
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 .schedule-edit-error {
   grid-column: 1 / -1;
   font-size: var(--text-sm);

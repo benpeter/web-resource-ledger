@@ -112,11 +112,11 @@ Retrying doesn't help; contact [hello@webresourceledger.com](mailto:hello@webres
 
 ## Schedule Limit
 
-Each account can have 10 [schedules](/schedules/); paused schedules count toward the limit. Creating one more answers `429` with `limitType: "schedules"`, and the MCP `create_schedule` tool returns the same text as a tool error:
+Each account can have 10 [schedules](/schedules/); paused schedules count toward the limit. One schedule can capture up to 100 URLs (a watch list). Creating one more answers `429` with `limitType: "schedules"`, and the MCP `create_schedule` tool returns the same text as a tool error:
 
 - "Schedule limit reached (10). Delete an existing schedule to create a new one."
 
-There is no `Retry-After` header because waiting doesn't free a slot; deleting a schedule does. `GET /v1/schedules` returns your limit as `limit`, and MCP `list_schedules` shows it as "2 of 10 schedules". Each scheduled run uses one capture from the monthly quota.
+There is no `Retry-After` header because waiting doesn't free a slot; deleting a schedule does. `GET /v1/schedules` returns your limit as `limit`, and MCP `list_schedules` shows it as "2 of 10 schedules". Each scheduled run uses one capture per URL from the monthly quota.
 
 ---
 

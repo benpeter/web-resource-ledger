@@ -456,7 +456,7 @@ export async function handleWeeklyDigest(env, now = new Date()) {
 async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, baseUrl) {
   // Query captures for this tenant in the period, grouped by schedule URL
   const captureResult = await env.DB.prepare(`
-    SELECT s.url, COUNT(c.id) AS total,
+    SELECT s.url, s.urls, COUNT(c.id) AS total,
            SUM(CASE WHEN c.status = 'complete' THEN 1 ELSE 0 END) AS succeeded,
            SUM(CASE WHEN c.status = 'failed' THEN 1 ELSE 0 END) AS failed
     FROM schedules s
@@ -464,11 +464,12 @@ async function sendWeeklyDigestForTenant(env, tenantId, periodStart, periodEnd, 
       AND c.created_at >= ?
       AND c.created_at < ?
     WHERE s.tenant_id = ? AND s.paused = 0
-    GROUP BY s.id, s.url
+    GROUP BY s.id, s.url, s.urls
   `).bind(periodStart, periodEnd, tenantId).all();
 
+  // A watch list (backlog #59) is one line: its first URL and how many more.
   const schedules = (captureResult.results ?? []).map(r => ({
-    url: r.url,
+    url: r.urls ? `${r.url} and ${JSON.parse(r.urls).length - 1} more` : r.url,
     total: r.total ?? 0,
     succeeded: r.succeeded ?? 0,
     failed: r.failed ?? 0,
