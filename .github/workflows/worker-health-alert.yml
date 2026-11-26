@@ -8,8 +8,11 @@
 # ad-heavy pages. Runs hourly and asks Cloudflare's GraphQL analytics about the
 # previous full hour, for production (wrl) and staging (wrl-staging). It runs
 # outside the Worker, so a Worker out of memory can't keep the alert from going
-# out. Manual run: Actions > Worker health alert > Run workflow, with "hours"
-# to look further back.
+# out. The email lists the captures the killed runs were working on, with the
+# account, its GitHub login and the page: scripts/lost-attempts.js finds them
+# in Coralogix as attempts that logged no outcome before the next delivery.
+# Manual run: Actions > Worker health alert > Run workflow, with "hours" to
+# look further back.
 #
 # Secrets:
 # - CF_ANALYTICS_TOKEN: Cloudflare user token "wrl-analytics-read", Account
@@ -18,6 +21,8 @@
 # - CF_ACCOUNT_ID: the WRL Cloudflare account.
 # - RESEND_DEPLOY_ALERT_KEY: the send-only Resend key the deploy failure email
 #   uses.
+# - CORALOGIX_QUERY_KEY: Coralogix EU2 team key "wrl-gh-alert-query", preset
+#   DataQuerying only (1Password vault WRL, "wrl-gh-alert-query (Coralogix)").
 
 name: Worker health alert
 
@@ -36,12 +41,22 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
       - name: Ask Cloudflare and email when a run was killed
         env:
           CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           RESEND_API_KEY: ${{ secrets.RESEND_DEPLOY_ALERT_KEY }}
+          CORALOGIX_QUERY_KEY: ${{ secrets.CORALOGIX_QUERY_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
           HOURS: ${{ inputs.hours || '1' }}
         run: |
           for name in CF_ANALYTICS_TOKEN CF_ACCOUNT_ID RESEND_API_KEY; do
@@ -67,12 +82,24 @@ jobs:
           fi
           echo "$rows"
           count=$(jq '[.data.viewer.accounts[0].workersInvocationsAdaptive[].sum.requests] | add' answer.json)
+          # The captures each killed hour was working on
+          captures=""
+          while IFS=$'\t' read -r hour app; do
+            hour_end=$(date -u -d "$hour + 1 hour" +%Y-%m-%dT%H:%M:%SZ)
+            captures="$captures
+          $app, $hour to $hour_end:
+          $(node scripts/lost-attempts.js --app "$app" --start "$hour" --end "$hour_end")
+          "
+          done < <(jq -r '.data.viewer.accounts[0].workersInvocationsAdaptive[] | "\(.dimensions.datetimeHour)\t\(.dimensions.scriptName)"' answer.json | sort -u)
+          echo "$captures"
           subject="WRL: $count Worker run(s) killed for memory or CPU"
           text="Cloudflare ended $count run(s) of the WRL Workers between $start and $end (UTC) because they used too much memory or CPU:
 
           hour (UTC)            Worker  status  runs
           $rows
 
+          Capture attempts that logged no outcome before the queue delivered them again (time UTC, account, page, capture, attempt):
+          $captures
           A capture run that was killed is redelivered by the queue, so the capture usually completes on a later attempt. Several in a row point at pages that are too heavy for the captures an isolate runs at once (backlog #99, #105).
 
           Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
