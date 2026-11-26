@@ -217,3 +217,4 @@ software development.
 | [0208-viewport](0208-viewport/) | `POST /v1/captures` takes a `viewport`; the screenshot height cap scales with the width to keep the pixel count, and `captureSettings.viewport` records the size on every capture |
 | [0209-fetch-capture](0209-fetch-capture/) | A URL that answers 2xx with a non-HTML type is fetched and signed byte for byte without a browser, up to 10 MB, as the `resource` artifact |
 | [0210-consent-walls](0210-consent-walls/) | A consent wall autoconsent has no rule for is answered by WRL: its decline button, else its settings with every choice unticked, else accept, which `captureSettings.consent` records as `result: accepted` and the verify page shows |
+| [0211-link-rot-checker](0211-link-rot-checker/) | Free Link Rot Checker at webresourceledger.com/tools/link-rot-checker: up to 100 URLs in batches of 10, every hop checked like a capture URL, six results, a CSV and a link to share the run |

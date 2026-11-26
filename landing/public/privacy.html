@@ -51,7 +51,7 @@
     <div class="container">
       <article class="article">
         <h1>Privacy Policy</h1>
-        <p class="article__meta">Effective: 2026-11-25</p>
+        <p class="article__meta">Effective: 2026-11-26</p>
 
         <h2>Controller</h2>
         <p>Gerhard Benjamin Peter (sole proprietor)<br>
@@ -114,6 +114,9 @@
         </ul>
         <p>Capture data is attributed to your tenant ID, not to your personal identity directly.</p>
 
+        <h3>Link Rot Checker</h3>
+        <p>The free Link Rot Checker at <a href="/tools/link-rot-checker">/tools/link-rot-checker</a> needs no account. It keeps the URLs you submit and the results of checking them, with the time of the check, under a random run ID, so that the link to the results keeps working. Anyone who has that link can see the URLs in it. A run is not tied to you or to an account; your IP address is used for rate limiting as described above and is not stored with the run.</p>
+
         <h3>Terms of Service Acceptance</h3>
         <p>We record when you accepted the Terms of Service and which version you accepted.</p>
 
@@ -128,7 +131,7 @@
           <li>Your <strong>IP address</strong> is transmitted to Pirsch for session fingerprinting but is <strong>never stored</strong> &mdash; it is hashed with a daily-rotating salt and discarded within milliseconds</li>
           <li>The resulting hash is domain-specific and cannot be used for cross-site tracking</li>
         </ul>
-        <p>We also count product events (signup, first capture, completed and failed captures, schedule creation, payment activation) to understand how visitors become users. These events say where an action came from (dashboard, API, MCP or schedule) and carry no tenant ID, capture ID or other personal data beyond what is listed above.</p>
+        <p>We also count product events (signup, first capture, completed and failed captures, schedule creation, payment activation, link checks with the number of URLs checked) to understand how visitors become users. These events say where an action came from (dashboard, API, MCP or schedule) and carry no tenant ID, capture ID or other personal data beyond what is listed above.</p>
 
         <h2>Legal Basis for Processing</h2>
         <table>
@@ -169,6 +172,10 @@
               <td>Capture data</td>
               <td>Contract performance (the core service you requested)</td>
               <td>Art. 6(1)(b)</td>
+            </tr>
+            <tr>
+              <td>Link Rot Checker runs (URLs and results)</td>
+              <td>Indefinitely, so shared links keep working; we delete a run when you send us its link</td>
             </tr>
             <tr>
               <td>Usage counters</td>

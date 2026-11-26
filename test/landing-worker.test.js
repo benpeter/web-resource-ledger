@@ -132,3 +132,55 @@ describe('landing Worker -- static asset failure', () => {
     }
   });
 });
+
+// Phase 0211 (backlog #56): the Link Rot Checker and its endpoints live in the
+// API Worker, which has the URL safety checks, rate limits and a staging
+// environment. The landing Worker passes /tools/ requests to it over the API
+// service binding, so the tool's address is webresourceledger.com.
+describe('landing Worker -- tools forwarded to the API Worker (phase 0211)', () => {
+  const PAGE_CSP = "default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'";
+
+  function envWithApi() {
+    const seen = [];
+    return {
+      seen,
+      ASSETS: { fetch: async () => { throw new Error('assets must not be used for /tools/'); } },
+      API: {
+        fetch: async (request) => {
+          seen.push({ method: request.method, url: request.url, ip: request.headers.get('CF-Connecting-IP') });
+          return new Response('<!doctype html><title>Link Rot Checker</title>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': PAGE_CSP },
+          });
+        },
+      },
+    };
+  }
+
+  it('forwards the page with the visitor IP and keeps the page CSP and HSTS', async () => {
+    const env = envWithApi();
+    const ctx = createExecutionContext();
+    const res = await landing.fetch(new Request('https://webresourceledger.com/tools/link-rot-checker?run=abcdefabcdef0001', {
+      headers: { 'CF-Connecting-IP': '203.0.113.7' },
+    }), env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(200);
+    expect(env.seen).toEqual([{ method: 'GET', url: 'https://webresourceledger.com/tools/link-rot-checker?run=abcdefabcdef0001', ip: '203.0.113.7' }]);
+    expect(res.headers.get('Content-Security-Policy')).toBe(PAGE_CSP);
+    expect(res.headers.get('Strict-Transport-Security')).toBe(PRELOAD_HSTS);
+    expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+  });
+
+  it('forwards the check requests', async () => {
+    const env = envWithApi();
+    const ctx = createExecutionContext();
+    await landing.fetch(new Request('https://webresourceledger.com/tools/link-check', { method: 'POST', body: '{}' }), env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(env.seen.map((s) => `${s.method} ${new URL(s.url).pathname}`)).toEqual(['POST /tools/link-check']);
+  });
+
+  it('keeps serving other pages from the static assets', async () => {
+    const res = await get('https://webresourceledger.com/');
+    expect(res.headers.get('Content-Security-Policy')).toContain("script-src 'none'");
+  });
+});

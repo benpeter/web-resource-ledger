@@ -303,6 +303,9 @@ For request/response schemas, see `openapi.yaml`.
 | GET | `/favicon.ico` | none | — | infra |
 | GET | `/health` | none | — | infra |
 | GET | `/ui` | none | — | ui |
+| GET | `/tools/link-rot-checker` | none | — | tool |
+| POST | `/tools/link-check` | none | verify (key `link-check:<ip>`) | tool |
+| GET | `/tools/link-check/{run}` | none | — | tool |
 | GET | `/admin` | none | — | admin |
 | POST | `/mcp` | api-key (none for `initialize`, `ping`, `tools/list`, `server/discover`, `resources/list`, `resources/templates/list`, `prompts/list`) | verify (keyless only) | infra |
 | POST | `/v1/captures/batch` | dual | capture | public-api |
@@ -386,6 +389,7 @@ For request/response schemas, see `openapi.yaml`.
 | `oauth_state:{state}` | JSON `{ codeVerifier, createdAt }` | 600s | OAuth PKCE state and code verifier, single-use | `src/oauth.js` |
 | `first_key:{tenantId}` | Raw API key string | 86400s (24 hours) | One-time first API key display for new self-serve tenants; deleted when shown | `src/oauth.js`, `src/email-login.js` |
 | `stripe_evt:{eventId}` | `'1'` | 604800s (7 days) | Stripe webhook event idempotency dedup | `src/stripe-webhook.js` |
+| `link-check:{run}:{seq}` | JSON `{ checkedAt, results }` | none | One batch (up to 10 URLs) of a Link Rot Checker run; `GET /tools/link-check/{run}` reads seq 0 to 9. Kept so shared links keep working | `src/link-check.js` |
 
 ---
 
@@ -445,7 +449,7 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | Binding | Limit | Purpose |
 |---|---|---|
 | `CAPTURE_RATE_LIMITER` | 100 req/60s | Per-tenant hard ceiling for capture endpoints. Application KV counters enforce lower per-tenant defaults (10 req/60s). Tenant `config.rateLimit.capture` may override the KV default up to 100. |
-| `VERIFY_RATE_LIMITER` | 60 req/60s | Per-IP ceiling for verify and signing-key endpoints, and for the public capture routes (record, status, artifacts, certificate) called without a key |
+| `VERIFY_RATE_LIMITER` | 60 req/60s | Per-IP ceiling for verify and signing-key endpoints, for the public capture routes (record, status, artifacts, certificate) called without a key, and, under its own `link-check:<ip>` key, for the Link Rot Checker's batches (`POST /tools/link-check`, 10 URLs each) |
 | `GLOBAL_CAPTURE_LIMITER` | 200 req/60s | Global capture ceiling across all tenants |
 | `ADMIN_RATE_LIMITER` | 30 req/60s | Per-IP ceiling for admin endpoints |
 | `CAPTURE_IP_GUARD` | 50 req/60s | Secondary per-IP abuse guard on capture endpoints (layer 3 of 3-layer check) |

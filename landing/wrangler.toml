@@ -18,6 +18,12 @@ binding = "ASSETS"
 # no security headers, no Cache-Control: private, no Pirsch tracking.
 run_worker_first = true
 
+# The free Link Rot Checker (phase 0211) is served by the API Worker; the
+# landing Worker passes /tools/ requests to it.
+[[services]]
+binding = "API"
+service = "wrl"
+
 [vars]
 CORALOGIX_ENDPOINT = "https://ingress.eu2.coralogix.com/logs/v1/singles"
 APPLICATION_NAME = "wrl-landing"
