@@ -24,6 +24,12 @@ const SECURITY_HEADERS = {
 // so it doesn't depend on httpbin.org. Answers without reflecting anything back.
 const E2E_PREFIX = '/__e2e/';
 
+// The free Link Rot Checker (phase 0211, backlog #56) lives in the API Worker,
+// which has the URL safety checks, rate limits and a staging environment. Its
+// page and endpoints are passed through the API service binding; the request
+// keeps CF-Connecting-IP, so the per-IP limit sees the visitor.
+const TOOLS_PREFIX = '/tools/';
+
 function e2eResponse(status, body) {
   return new Response(JSON.stringify(body), {
     status,
@@ -64,9 +70,10 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
 
+    const isTool = url.pathname.startsWith(TOOLS_PREFIX);
     let response;
     try {
-      response = await env.ASSETS.fetch(request);
+      response = isTool ? await env.API.fetch(request) : await env.ASSETS.fetch(request);
     } catch (err) {
       ctx.waitUntil(log(env, 5, 'pageview', {
         event: 'landing.assets_fail',
@@ -78,9 +85,11 @@ export default {
 
     const headers = new Headers(response.headers);
     for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+      // The tool page runs a script; keep the CSP the API Worker gave it
+      if (isTool && key === 'Content-Security-Policy' && response.headers.has(key)) continue;
       headers.set(key, value);
     }
-    if (response.headers.get('content-type')?.startsWith('text/html')) {
+    if (!isTool && response.headers.get('content-type')?.startsWith('text/html')) {
       headers.set('Cache-Control', 'private');
     }
 

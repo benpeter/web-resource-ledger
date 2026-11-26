@@ -38,3 +38,4 @@ Web Resource Ledger is a web capture API that produces cryptographically signed 
 - API Reference: https://docs.webresourceledger.com/api-reference/
 - GitHub: https://github.com/benpeter/web-resource-ledger
 - Pricing: https://webresourceledger.com/#pricing
+- Free Link Rot Checker (up to 100 URLs, no account): https://webresourceledger.com/tools/link-rot-checker

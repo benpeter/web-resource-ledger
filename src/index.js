@@ -15,6 +15,9 @@ import { log } from './log.js';
 import { runRetentionJobs, purgeExpiredSignIns, purgeExpiredCaptures } from './retention.js';
 import { failStaleCaptures } from './stale-captures.js';
 import { readSitemap } from './sitemap.js';
+import { checkLinks, parseLinkCheckRequest, newRunId, saveBatch, batchExists, readRun, countByStatus } from './link-check.js';
+import { htmlLinkCheckPage } from './link-check-page.js';
+import { trackEvent } from './pirsch.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, limitReachedEmailData, batchRefusedEmailData, approachingStorageEmailData, accountRefusalDetail, quotaLimitDetail } from './quotas.js';
 import { computeCip } from './ip-hash.js';
@@ -80,6 +83,11 @@ const routes = [
   ['GET',    /^\/admin$/, handleAdminDashboard],
   ['POST',   /^\/v1\/captures\/batch$/, handleBatchCapture],
   ['POST',   /^\/v1\/sitemap$/, handleReadSitemap],
+  // Free Link Rot Checker (phase 0211): keyless, per-IP limited; the landing
+  // Worker forwards webresourceledger.com/tools/ here
+  ['GET',    /^\/tools\/link-rot-checker$/, handleLinkCheckPage],
+  ['POST',   /^\/tools\/link-check$/, handleLinkCheck],
+  ['GET',    /^\/tools\/link-check\/([a-f0-9]{16})$/, handleLinkCheckRun],
   ['POST',   /^\/v1\/captures$/, handleCreateCapture],
   ['GET',    /^\/v1\/captures$/, handleListCaptures],
   ['GET',    /^\/v1\/captures\/(cap_[a-f0-9]{32})\/status$/, handleCaptureStatus],
@@ -167,6 +175,7 @@ const HEAD_PATHS = [
   /^\/health$/,
   /^\/favicon\.ico$/,
   /^\/ui$/,
+  /^\/tools\/link-rot-checker$/,
   /^\/v1\/verify\/cap_[a-f0-9]{32}$/,
   /^\/v1\/captures\/cap_[a-f0-9]{32}(\/status|\/certificate|\/artifacts\/(screenshot-before|screenshot|html|headers|wacz|resource))?$/,
   /^\/\.well-known\/signing-keys?$/,
@@ -1259,6 +1268,72 @@ async function handleReadSitemap(request, env, ctx) {
   return new Response(JSON.stringify({
     urls: result.urls, total: result.total, truncated: result.truncated, sitemapsRead: result.sitemapsRead,
   }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+// GET /tools/link-rot-checker -- the free Link Rot Checker page (phase 0211).
+async function handleLinkCheckPage(request) {
+  return htmlLinkCheckPage({ shared: new URL(request.url).searchParams.has('run') });
+}
+
+// POST /tools/link-check -- check one batch of the page's list (phase 0211).
+// Keyless, so it is limited per IP on VERIFY_RATE_LIMITER under its own key:
+// 60 batches of 10 URLs a minute. The first batch of a run gets a run id; the
+// page sends it with every later batch.
+async function handleLinkCheck(request, env, ctx) {
+  const start = Date.now();
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const cip = await computeCip(env, clientIp);
+  if (env.VERIFY_RATE_LIMITER) {
+    const { success } = await env.VERIFY_RATE_LIMITER.limit({ key: `link-check:${clientIp}` });
+    if (!success) {
+      ctx.waitUntil(log(env, 4, 'security', { event: 'security.rate_limit', limiter: 'link_check', cip }) ?? Promise.resolve());
+      return problemResponse(429, 'Too many checks from your address. Try again in a minute.', { 'Retry-After': '60' });
+    }
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return problemResponse(400, 'Request body must be JSON');
+  }
+  const parsed = parseLinkCheckRequest(body);
+  if (!parsed.ok) return problemResponse(400, parsed.detail);
+  const { urls, seq, total } = parsed;
+
+  let run = parsed.run;
+  if (seq === 0) {
+    run = newRunId();
+  } else {
+    if (!(await batchExists(env.KV, run, 0))) return problemResponse(404, 'There is no run with that id');
+    if (await batchExists(env.KV, run, seq)) return problemResponse(409, 'That batch of the run was already checked');
+  }
+
+  const results = await checkLinks(urls);
+  await saveBatch(env.KV, run, seq, results);
+
+  ctx.waitUntil(log(env, 3, 'link_check', {
+    event: 'link_check.batch',
+    run,
+    seq,
+    urls: urls.length,
+    total,
+    counts: countByStatus(results),
+    durationMs: Date.now() - start,
+    cip,
+  }) ?? Promise.resolve());
+  if (seq === 0) {
+    ctx.waitUntil(trackEvent(request, env, 'Link check', { urls: String(total) }) ?? Promise.resolve());
+  }
+
+  return jsonResponse({ run, seq, results }, 200, { 'Cache-Control': 'no-store' });
+}
+
+// GET /tools/link-check/{run} -- every batch of a run, for its shared link.
+async function handleLinkCheckRun(request, env, ctx, match) {
+  const run = await readRun(env.KV, match[1]);
+  if (!run) return problemResponse(404, 'There is no run with that id');
+  return jsonResponse(run, 200, { 'Cache-Control': 'public, max-age=300', 'X-Robots-Tag': 'noindex' });
 }
 
 async function handleBatchCapture(request, env, ctx) {
