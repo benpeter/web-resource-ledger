@@ -50,6 +50,42 @@ describe('scheduleUpdateBody -- only changed fields go into the PATCH body', () 
   });
 });
 
+describe('scheduleUpdateBody -- watch lists, one URL per line (#59)', () => {
+  const scheduleUpdateBody = evalFromSource(SCHEDULES_JS, 'scheduleUpdateBody');
+  const LIST = { ...SCHED, urls: ['https://example.com/', 'https://example.com/pricing'] };
+
+  it('leaves an unchanged list out', () => {
+    expect(scheduleUpdateBody(LIST, { name: 'Homepage', url: 'https://example.com/\nhttps://example.com/pricing\n', cron: '0 * * * *' })).toEqual({});
+  });
+
+  it('sends a changed list as urls, blank lines and spaces dropped', () => {
+    expect(scheduleUpdateBody(LIST, { name: 'Homepage', url: ' https://example.com/\r\n\nhttps://example.com/terms ', cron: '0 * * * *' }))
+      .toEqual({ urls: ['https://example.com/', 'https://example.com/terms'] });
+  });
+
+  it('sends url when a list is cut down to one line', () => {
+    expect(scheduleUpdateBody(LIST, { name: 'Homepage', url: 'https://example.com/', cron: '0 * * * *' }))
+      .toEqual({ url: 'https://example.com/' });
+  });
+
+  it('sends urls when a second line is added to a single-URL schedule', () => {
+    expect(scheduleUpdateBody({ ...SCHED, urls: ['https://example.com/'] }, { name: 'Homepage', url: 'https://example.com/\nhttps://example.com/b', cron: '0 * * * *' }))
+      .toEqual({ urls: ['https://example.com/', 'https://example.com/b'] });
+  });
+});
+
+describe('scheduleUrlFields -- the create body for one URL or a list (#59)', () => {
+  const scheduleUrlFields = evalFromSource(SCHEDULES_JS, 'scheduleUrlFields');
+
+  it('one line is url', () => {
+    expect(scheduleUrlFields(['https://example.com/'])).toEqual({ url: 'https://example.com/' });
+  });
+
+  it('several lines are urls', () => {
+    expect(scheduleUrlFields(['https://example.com/', 'https://example.com/b'])).toEqual({ urls: ['https://example.com/', 'https://example.com/b'] });
+  });
+});
+
 describe('capturesScheduleFilter -- reading the schedule filter from the captures URL', () => {
   const capturesScheduleFilter = evalFromSource(SUBMIT_VIEW_JS, 'capturesScheduleFilter');
 
