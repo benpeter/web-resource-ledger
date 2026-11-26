@@ -7,9 +7,11 @@
   browser as before. HTML captures start up to the header fetch's time later
   (usually well under a second).
 - The file is fetched a second time with its body (the header fetch
-  discards it), without following redirects, and held whole: 20 MB limit,
+  discards it), without following redirects, and held whole: 10 MB limit,
   checked on `Content-Length` and while streaming. Over it the capture fails
-  without retry.
+  without retry. The file sits in memory about four times at its peak (the
+  read, the WARC, the zip, the copy being stored), and an isolate runs up to
+  10 captures at once in 128 MB, so 20 MB was too close after #99.
 - Stored as `captures/<id>/resource`; the WARC's main resource record holds
   the bytes with the site's content type, and there are no screenshot
   records. `captureSettings: { version: 1, method: 'fetch' }`,

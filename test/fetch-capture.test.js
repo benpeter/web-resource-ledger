@@ -87,7 +87,7 @@ describe('performCapture -- a PDF', () => {
     expect(result).toMatchObject({ ok: false, retryable: false });
     const record = await getCapture(env.DB, ID);
     expect(record.status).toBe('failed');
-    expect(record.error).toMatch(/larger than 20 MB/);
+    expect(record.error).toMatch(/larger than 10 MB/);
   });
 });
 

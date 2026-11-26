@@ -121,7 +121,7 @@ const HEADER_FETCH_TIMEOUT_MS = 10000;
 // Fetch capture of files that aren't web pages (backlog #58): the header
 // fetch gets FETCH_PROBE_MS to say what the URL is before the browser starts.
 // A file is held whole in Worker memory to be signed, hence the size limit.
-export const MAX_FETCH_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_FETCH_BYTES = 10 * 1024 * 1024; // 10 MB
 const FETCH_PROBE_MS = 3000;
 const FETCH_TIMEOUT_MS = 60000;
 const KEEP_ALIVE_MS = 120000; // 2 minutes
@@ -420,7 +420,7 @@ async function fetchResource(url) {
   }
   if (Number(resp.headers.get('content-length')) > MAX_FETCH_BYTES) {
     await resp.body?.cancel();
-    throw new Error('File exceeded 20 MB size limit');
+    throw new Error('File exceeded 10 MB size limit');
   }
   const chunks = [];
   let total = 0;
@@ -431,7 +431,7 @@ async function fetchResource(url) {
     total += value.byteLength;
     if (total > MAX_FETCH_BYTES) {
       await reader.cancel();
-      throw new Error('File exceeded 20 MB size limit');
+      throw new Error('File exceeded 10 MB size limit');
     }
     chunks.push(value);
   }
@@ -1559,8 +1559,8 @@ export function categorizeError(error) {
   if (error?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('Timeout')) {
     return { message: `Page did not finish loading within ${NAV_TIMEOUT_MS / 1000} seconds`, retryable: true };
   }
-  if (msg.includes('File exceeded 20 MB')) {
-    return { message: 'The file is larger than 20 MB, more than WRL fetches in one capture', retryable: false };
+  if (msg.includes('File exceeded 10 MB')) {
+    return { message: 'The file is larger than 10 MB, more than WRL fetches in one capture', retryable: false };
   }
   if (msg.includes('HTML exceeded 15 MB')) {
     return { message: 'The page\'s HTML is larger than 15 MB, more than WRL can sign in one capture', retryable: false };
