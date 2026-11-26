@@ -7,7 +7,7 @@ import { env, SELF } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { unzipSync } from 'fflate';
-import { performCapture, isFetchCapture, startsWithMarkup, MAX_FETCH_BYTES } from '../src/capture.js';
+import { performCapture, isFetchCapture, startsWithMarkup, pickFileAnswer, exceedsFetchLimit, categorizeError, MAX_FETCH_BYTES } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';
 import { TEST_TENANT_KEY, seedApiKey } from './fixtures.js';
 
@@ -131,6 +131,113 @@ describe('performCapture -- a file the browser loaded', () => {
     expect(record.render).toMatchObject({ httpStatus: 200, contentType: 'application/pdf', bytes: PDF.byteLength });
     const files = unzipSync(new Uint8Array(await (await env.BUCKET.get(record.wacz.key)).arrayBuffer()));
     expect(new TextDecoder('latin1').decode(files['archive/data.warc'])).toContain('%PDF-1.7');
+  });
+});
+
+// Phase 0212 (backlog #15): on 2026-11-26 a production user's zip and a 24 MB
+// PDF reached the browser because the header probe took longer than its 3
+// seconds on a slow server. The zip ended as "Download is starting" in the
+// catch-all and was tried 4 times; for the PDF page.goto returned no response,
+// so the file check never ran and the capture failed as a blank page.
+describe('performCapture -- a download the browser started', () => {
+  const ZIP_URL = `${ORIGIN}/bundle.zip`;
+  let renders;
+  const downloadRenderer = async () => {
+    renders++;
+    throw new Error(`page.goto: Download is starting\nCall log:\n  - navigating to "${ZIP_URL}", waiting until "load"\n`);
+  };
+
+  beforeEach(() => { renders = 0; });
+
+  function mockZip(...answers) {
+    const pool = fetchMock.get(ORIGIN);
+    for (const [status, body, headers] of answers) {
+      pool.intercept({ path: '/bundle.zip', method: 'GET' }).reply(status, body, { headers });
+    }
+  }
+
+  it('fetches the file instead and fails without retrying when it is larger than 10 MB', async () => {
+    mockZip(
+      [406, 'refused', { 'content-type': 'text/html' }],
+      [200, PDF, { 'content-type': 'application/zip', 'content-length': String(MAX_FETCH_BYTES * 30) }],
+    );
+    await createCapture(env.DB, ID, ZIP_URL, '93.184.216.34', 'default');
+
+    const result = await performCapture(env, ZIP_URL, '93.184.216.34', ID, 'default', undefined, downloadRenderer);
+
+    expect(renders).toBe(1);
+    expect(result).toMatchObject({ ok: false, retryable: false });
+    const record = await getCapture(env.DB, ID);
+    expect(record.status).toBe('failed');
+    expect(record.error).toMatch(/larger than 10 MB/);
+  });
+
+  it('fetches and signs a download that fits', async () => {
+    mockZip(
+      [406, 'refused', { 'content-type': 'text/html' }],
+      [200, PDF, { 'content-type': 'application/zip' }],
+    );
+    await createCapture(env.DB, ID, ZIP_URL, '93.184.216.34', 'default');
+
+    const result = await performCapture(env, ZIP_URL, '93.184.216.34', ID, 'default', undefined, downloadRenderer);
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, ID);
+    expect(record.status).toBe('complete');
+    expect(record.captureSettings).toEqual({ version: 1, method: 'fetch' });
+    expect(record.render).toMatchObject({ httpStatus: 200, contentType: 'application/zip', bytes: PDF.byteLength });
+  });
+
+  it('names the status when the site refuses the file to WRL as well', async () => {
+    mockZip(
+      [406, 'refused', { 'content-type': 'text/html' }],
+      [403, 'refused', { 'content-type': 'text/html' }],
+    );
+    await createCapture(env.DB, ID, ZIP_URL, '93.184.216.34', 'default');
+
+    const result = await performCapture(env, ZIP_URL, '93.184.216.34', ID, 'default', undefined, downloadRenderer);
+
+    expect(result).toMatchObject({ ok: false, retryable: false });
+    expect((await getCapture(env.DB, ID)).error).toBe('The site answered HTTP 403 when WRL asked for the file');
+  });
+});
+
+describe('pickFileAnswer', () => {
+  const answer = (status, type, length) => ({
+    status,
+    headers: { ...(type ? { 'content-type': type } : {}), ...(length ? { 'content-length': String(length) } : {}) },
+  });
+
+  it("takes the main-frame response the page saw when page.goto returned none, as Chromium does for a PDF", () => {
+    const seen = answer(200, 'application/pdf', 24184126);
+    expect(pickFileAnswer(null, seen)).toBe(seen);
+  });
+
+  it('prefers the response page.goto returned, and picks nothing for a web page', () => {
+    const nav = answer(200, 'application/pdf');
+    expect(pickFileAnswer(nav, answer(200, 'text/html'))).toBe(nav);
+    expect(pickFileAnswer(answer(200, 'text/html'), answer(200, 'text/html'))).toBe(null);
+    expect(pickFileAnswer(null, null)).toBe(null);
+  });
+});
+
+describe('exceedsFetchLimit', () => {
+  it('reads Content-Length so a large file fails before its bytes are read', () => {
+    expect(exceedsFetchLimit({ 'content-length': String(MAX_FETCH_BYTES + 1) })).toBe(true);
+    expect(exceedsFetchLimit({ 'content-length': String(MAX_FETCH_BYTES) })).toBe(false);
+    expect(exceedsFetchLimit({})).toBe(false);
+  });
+});
+
+describe('categorizeError -- file failures (phase 0212)', () => {
+  it('retries a refused file fetch only when the status may pass', () => {
+    expect(categorizeError(new Error('File fetch answered HTTP 403'))).toEqual({ message: 'The site answered HTTP 403 when WRL asked for the file', retryable: false });
+    expect(categorizeError(new Error('File fetch answered HTTP 503'))).toEqual({ message: 'The site answered HTTP 503 when WRL asked for the file', retryable: true });
+    expect(categorizeError(new Error('File fetch answered HTTP 429')).retryable).toBe(true);
+  });
+
+  it('says what happened when the browser starts a download that could not be fetched', () => {
+    expect(categorizeError(new Error('page.goto: Download is starting'))).toEqual({ message: 'The URL starts a file download, which WRL could not fetch', retryable: false });
   });
 });
 

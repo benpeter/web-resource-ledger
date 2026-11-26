@@ -316,6 +316,20 @@ describe('performCapture -- Playwright-specific errors', () => {
     expect(result.error).toBe('Browser session was unexpectedly closed');
   });
 
+  // Phase 0212 (backlog #15): heavy staging pages crashed the tab during the
+  // screenshot, and the message fell through to "Capture could not be completed"
+  it('says the tab crashed for Target crashed, and retries', async () => {
+    const crashed = async () => {
+      throw new Error('page.screenshot: Target crashed \nCall log:\n  - taking page screenshot\n');
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    const result = await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, crashed);
+    expect(result.ok).toBe(false);
+    expect(result.retryable).toBe(true);
+    expect(result.error).toBe('The browser tab crashed on this page, often because the page needs too much memory');
+  });
+
   it('handles Target closed as retryable', async () => {
     const targetClosed = async () => {
       throw new Error('Target closed');
