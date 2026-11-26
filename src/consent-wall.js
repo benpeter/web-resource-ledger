@@ -26,6 +26,12 @@
 /** Longest button text that is read as a button label. */
 const MAX_LABEL_CHARS = 80;
 
+/** Most words a button label has. */
+const MAX_LABEL_WORDS = 6;
+
+/** Most clicks the wall step makes. */
+const MAX_CLICKS = 5;
+
 /** How long the whole wall step may take. */
 export const WALL_MAX_MS = 10000;
 
@@ -33,7 +39,7 @@ export const WALL_MAX_MS = 10000;
 const AFTER_CLICK_MS = 1000;
 
 // A decline that costs money. Checked first: "Rifiuta e abbonati" is not a decline.
-const PAY = /abonn|abbonat|subscri|suscri|\babo\b|\bpur\b|werbefrei|ad-free|\bzahlen\b/i;
+const PAY = /abonn|abbonat|subscri|suscri|\babo\b|\bpur\b|werbefrei|ad-free|\bzahlen\b|acquist|kaufen|\bbuy\b|purchase|offert|€/i;
 const DECLINE = /\b(reject|decline|refuse|deny)\b|ablehnen|nicht (akzeptieren|zustimmen)|nur (notwendige|erforderliche|essenzielle|technisch)|only (necessary|essential|required)|(necessary|essential) only|rifiut|refuser|sans accepter|ne pas accepter|weiger|rechaz|continue without|weiter ohne|continua senza|do not accept|don['’]t accept/i;
 const ACCEPT = /\baccept|akzept|accett|akkoord|\bagree|\ballow all\b|zustimm|einverstanden|acept|\bok\b|got it|alle(s)? (zulassen|erlauben|toestaan)|tout autoriser/i;
 const SAVE = /speichern|\bsave\b|salva|enregistr|opslaan|confirm|bestätigen|guardar|conferma|übernehmen/i;
@@ -48,7 +54,11 @@ const SETTINGS = /settings|einstellungen|preferen|instellen|instellingen|gérer|
 export function classifyConsentButton(text) {
   const label = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!label || label.length > MAX_LABEL_CHARS) return null;
+  // Before anything else: a pay label is never clicked, whatever it is
   if (PAY.test(label)) return 'pay';
+  // A comma or a long run of words is a sentence with a link in it ("Sie
+  // können ablehnen, ändern oder widerrufen"), not a button
+  if (label.includes(',') || label.split(' ').length > MAX_LABEL_WORDS) return null;
   if (DECLINE.test(label)) return 'decline';
   if (ACCEPT.test(label)) return 'accept';
   if (SAVE.test(label)) return 'save';
@@ -92,7 +102,9 @@ function scanWall(untick) {
   const visible = (el) => {
     const rect = el.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return false;
-    if (rect.bottom < 0 || rect.right < 0 || rect.top > innerHeight || rect.left > innerWidth) return false;
+    // Below the screen still counts: the save button of a long settings
+    // panel is often further down. Off to the side or above is hidden.
+    if (rect.bottom < 0 || rect.right < 0 || rect.left > innerWidth) return false;
     const style = getComputedStyle(el);
     return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity) > 0.05;
   };
@@ -135,7 +147,7 @@ function scanWall(untick) {
  *
  * @param {import('@cloudflare/playwright').Page} page
  * @param {{ wait?: (ms: number) => Promise<void> }} [options]
- * @returns {Promise<null | { status: 'dismissed'|'failed', route: string|null, button: string|null, durationMs: number }>}
+ * @returns {Promise<null | { status: 'dismissed'|'failed', route: string|null, button: string|null, clicks: string[], durationMs: number }>}
  *   null when no wall is showing
  */
 export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
@@ -165,39 +177,47 @@ export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) 
     }
     await wait(AFTER_CLICK_MS);
   };
-  // Gone when no button that answers the wall is left. A "Cookie settings"
-  // link that some sites keep on screen afterwards doesn't count.
-  const gone = async () => !(await scan()).some((b) => b.kind === 'decline' || b.kind === 'accept' || b.kind === 'save');
-  const pick = (buttons, kind) => buttons.find((b) => b.kind === kind);
-  const done = (status, route, button) => ({ status, route, button: button?.text?.slice(0, MAX_LABEL_CHARS) ?? null, durationMs: Date.now() - start });
-  const inTime = () => Date.now() - start < WALL_MAX_MS;
+  const answers = (buttons) => buttons.some((b) => b.kind === 'decline' || b.kind === 'accept' || b.kind === 'save');
+  const done = (status, route, button, clicks) => ({ status, route, button: button?.text?.slice(0, MAX_LABEL_CHARS) ?? null, clicks, durationMs: Date.now() - start });
 
-  let buttons = await scan();
-  if (!buttons.some((b) => b.kind === 'decline' || b.kind === 'accept')) return null;
-
-  const decline = pick(buttons, 'decline');
-  if (decline) {
-    await click(decline);
-    if (await gone()) return done('dismissed', 'decline', decline);
-    buttons = await scan();
-  }
-
-  const settings = pick(buttons, 'settings');
-  if (settings && inTime()) {
-    await click(settings);
-    const inSettings = await scan(true);
-    const answer = pick(inSettings, 'decline') ?? pick(inSettings, 'save');
-    if (answer) {
-      await click(answer);
-      if (await gone()) return done('dismissed', 'settings', answer);
+  // Each round reads the buttons again, since a click can open the settings
+  // in place of the wall. A decline that leaves the wall standing has
+  // usually opened them too.
+  const clicked = new Set();
+  const clicks = [];
+  let inSettings = false;
+  let declined = false;
+  let route = null;
+  let last = null;
+  for (let round = 0; round <= MAX_CLICKS; round++) {
+    // Gone when no button that answers the wall is left. A "Cookie
+    // settings" link that some sites keep on screen afterwards doesn't count.
+    const buttons = await scan(inSettings);
+    if (!answers(buttons)) return round === 0 ? null : done('dismissed', route, last, clicks);
+    if (round === MAX_CLICKS || Date.now() - start >= WALL_MAX_MS) break;
+    // "Preferenze" and "PREFERENZE" are the same button on two screens
+    const fresh = (kind) => buttons.find((b) => b.kind === kind && !clicked.has(b.text.toLowerCase()));
+    let next;
+    if (route === 'accept') {
+      // After an accept, only a second accept (some walls ask twice) is tried
+      next = fresh('accept');
+    } else if (declined) {
+      // Declined: save that, and when the wall still stands (a site that
+      // wants a subscription instead), accept
+      next = fresh('save') ?? fresh('accept');
+    } else {
+      next = fresh('decline') ?? (inSettings ? fresh('save') : null) ?? fresh('settings') ?? fresh('accept');
     }
-    buttons = await scan();
+    if (!next) break;
+    clicked.add(next.text.toLowerCase());
+    clicks.push(`${next.kind}:${next.text.slice(0, 40)}`);
+    if (next.kind === 'accept') route = 'accept';
+    else if (next.kind === 'decline') route = inSettings ? 'settings' : 'decline';
+    else route = 'settings';
+    last = next;
+    await click(next);
+    if (next.kind === 'settings' || next.kind === 'decline') inSettings = true;
+    if (next.kind === 'decline') declined = true;
   }
-
-  const accept = pick(buttons, 'accept');
-  if (accept && inTime()) {
-    await click(accept);
-    if (await gone()) return done('dismissed', 'accept', accept);
-  }
-  return done('failed', null, null);
+  return done('failed', null, null, clicks);
 }

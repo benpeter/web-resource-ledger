@@ -1131,7 +1131,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
     if (consentResult(consent) !== 'success') {
       const wall = await answerConsentWall(page);
       if (wall) {
-        logLine(3, { event: 'render.default.consent_wall', url, captureId, status: wall.status, route: wall.route, button: wall.button, wallMs: wall.durationMs, errorName: wall._error?.name || null });
+        logLine(3, { event: 'render.default.consent_wall', url, captureId, status: wall.status, route: wall.route, button: wall.button, clicks: wall.clicks, wallMs: wall.durationMs, errorName: wall._error?.name || null });
         if (wall.status === 'dismissed') {
           consent = { status: 'dismissed', cmp: null, popupFound: true, durationMs: consent.durationMs + wall.durationMs, wall: { route: wall.route, button: wall.button } };
         } else if (wall.status === 'failed' && consent.status !== 'failed') {
