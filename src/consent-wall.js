@@ -140,8 +140,18 @@ function scanWall(untick) {
  */
 export async function dismissConsentWall(page, { wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
   const start = Date.now();
+  // A click may reload the page; the scan then runs again on the new document
+  const evaluateScan = async (untick) => {
+    try {
+      return await page.evaluate(scanWall, untick);
+    } catch (err) {
+      if (!/context was destroyed|navigat/i.test(String(err?.message ?? ''))) throw err;
+      await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+      return page.evaluate(scanWall, untick);
+    }
+  };
   const scan = async (untick = false) => {
-    const result = await page.evaluate(scanWall, untick);
+    const result = await evaluateScan(untick);
     if (!result || !Array.isArray(result.buttons)) return [];
     return result.buttons.map((text, index) => ({ text, index, kind: classifyConsentButton(text) }));
   };

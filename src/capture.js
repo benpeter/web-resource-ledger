@@ -80,6 +80,7 @@ import { completeCapture, failCapture, recordAttemptError, archiveSigningKey } f
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
 import { dismissCookieConsent, consentResult, AUTOCONSENT_VERSION } from './consent.js';
+import { dismissConsentWall, wallConsentSettings } from './consent-wall.js';
 import { softwareId } from './build-info.js';
 import { DEFAULT_VIEWPORT } from './viewport.js';
 
@@ -281,7 +282,10 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
     const captureSettings = {
       version: 1,
       viewport: { width: viewport.width, height: viewport.height },
-      ...(consent ? {
+      ...(consent?.wall ? {
+        // A wall autoconsent has no rule for, answered by WRL itself (backlog #104, #47)
+        consent: { ...wallConsentSettings(consent.wall.route), button: consent.wall.button },
+      } : consent ? {
         consent: {
           library: '@duckduckgo/autoconsent',
           libraryVersion: AUTOCONSENT_VERSION,
@@ -1112,17 +1116,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       consent = await dismissCookieConsent(page);
     } catch (err) {
       // Re-throw browser death errors -- subsequent page calls will also fail
-      const msg = String(err?.message ?? err ?? '');
-      if (
-        msg.includes('Target closed') ||
-        msg.includes('page was closed') ||
-        msg.includes('browser has been closed') ||
-        msg.includes('Session expired') ||
-        msg.includes('session has been closed') ||
-        msg.includes('Protocol error')
-      ) {
-        throw err;
-      }
+      if (isBrowserDeath(err)) throw err;
       // Consent-specific errors degrade gracefully
       consent = {
         status: 'failed',
@@ -1131,6 +1125,20 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
         durationMs: 0,
         _error: { name: err?.constructor?.name ?? 'Unknown', message: String(err?.message ?? '').slice(0, 256) },
       };
+    }
+    // A wall autoconsent has no rule for is still on screen: WRL declines it,
+    // goes through its settings, or accepts when nothing else is left
+    if (consentResult(consent) !== 'success') {
+      const wall = await answerConsentWall(page);
+      if (wall) {
+        logLine(3, { event: 'render.default.consent_wall', url, captureId, status: wall.status, route: wall.route, button: wall.button, wallMs: wall.durationMs, errorName: wall._error?.name || null });
+        if (wall.status === 'dismissed') {
+          consent = { status: 'dismissed', cmp: null, popupFound: true, durationMs: consent.durationMs + wall.durationMs, wall: { route: wall.route, button: wall.button } };
+        } else if (wall.status === 'failed' && consent.status !== 'failed') {
+          // A wall was there and stayed: say so instead of "no banner"
+          consent = { ...consent, status: 'failed', popupFound: true };
+        }
+      }
     }
     const tConsent = Date.now();
     logLine(3, { event: 'render.default.consent_result', url, captureId, colo: browserLocation?.colo ?? null, status: consent.status, cmp: consent.cmp, popupFound: consent.popupFound ?? false, consentMs: tConsent - tPreConsent, errorName: consent._error?.name || null });
@@ -1265,6 +1273,47 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       logLine(4, { event: 'render.default.cleanup_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
     });
     await Promise.all(logLines);
+  }
+}
+
+/**
+ * Whether an error means the browser or the page is gone, so that every later
+ * page call would fail too.
+ *
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isBrowserDeath(err) {
+  const msg = String(err?.message ?? err ?? '');
+  return msg.includes('Target closed') ||
+    msg.includes('page was closed') ||
+    msg.includes('browser has been closed') ||
+    msg.includes('Session expired') ||
+    msg.includes('session has been closed') ||
+    msg.includes('Protocol error');
+}
+
+/**
+ * Answers a consent wall still on screen after autoconsent (see
+ * consent-wall.js). Errors other than a dead browser leave the capture as it
+ * is: the wall then shows in the screenshot, as it did before.
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<null | { status: string, route: string|null, button: string|null, durationMs: number, _error?: object }>}
+ */
+async function answerConsentWall(page) {
+  const start = Date.now();
+  try {
+    return await dismissConsentWall(page);
+  } catch (err) {
+    if (isBrowserDeath(err)) throw err;
+    return {
+      status: 'error',
+      route: null,
+      button: null,
+      durationMs: Date.now() - start,
+      _error: { name: err?.constructor?.name ?? 'Unknown', message: String(err?.message ?? '').slice(0, 256) },
+    };
   }
 }
 
