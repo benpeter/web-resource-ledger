@@ -164,37 +164,59 @@ components:
 
     ConsentHandling:
       type: object
-      description: Consent Management Platform (CMP) interaction metadata captured during a consent-aware capture.
-      required: [library, libraryVersion, action, result]
+      description: >
+        What the capture did about a cookie consent banner. autoconsent
+        handles the banners it has a rule for; a wall it has no rule for is
+        answered by WRL itself (`library: wrl-consent-wall`, since 26
+        November 2026).
+      required: [library, action, result]
       properties:
         library:
           type: string
-          description: Name of the autoconsent library used.
+          description: >
+            `@duckduckgo/autoconsent`, or `wrl-consent-wall` when WRL answered
+            a wall autoconsent has no rule for.
         libraryVersion:
           type: string
-          description: Version of the autoconsent library used.
+          description: Version of autoconsent. Absent for `wrl-consent-wall`.
         action:
           type: string
-          enum: [optOut]
-          description: Consent action attempted.
+          enum: [optOut, acceptAll]
+          description: >
+            Consent action taken. `acceptAll` only when a wall offered no way
+            to decline (`result: accepted`).
         result:
           type: string
-          enum: [success, notDetected, failed]
+          enum: [success, notDetected, failed, accepted]
           description: >
             Outcome of the consent action. `success`: a banner was found and
             declined. `notDetected`: no banner that autoconsent knows was
             showing; with `cmpDetected` set, that consent tool is on the page
             but showed no banner. `failed`: a banner was found but not
-            declined, because it offers no way to, or declining took longer
-            than 10 seconds; or WRL could not start looking for a banner
-            within 15 seconds. Until 15 November 2026 a consent tool that
-            showed no banner was reported as `failed`.
+            declined, because declining took longer than 10 seconds or did
+            not make it go away; or WRL could not start looking for a banner
+            within 15 seconds. `accepted`: a wall offered no way to decline,
+            so WRL accepted it; the capture shows what a visitor who accepts
+            cookies sees. Until 15 November 2026 a consent tool that showed
+            no banner was reported as `failed`.
         cmpDetected:
           type: ["string", "null"]
           description: >
             Name of the autoconsent rule that matched, if any: a consent tool
             (`Onetrust`, `Sourcepoint-frame`, `cookiehub`) or a rule for one
             site. Null when none matched.
+        route:
+          type: string
+          enum: [decline, settings, accept]
+          description: >
+            Only for `wrl-consent-wall`: how the wall went away. `decline`:
+            WRL clicked its decline button. `settings`: WRL opened its
+            settings, unticked every choice and saved. `accept`: the wall
+            offered neither, so WRL accepted.
+        button:
+          type: string
+          maxLength: 80
+          description: Only for `wrl-consent-wall`. Label of the button WRL clicked last.
 
     CaptureSettings:
       type: object
