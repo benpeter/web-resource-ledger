@@ -199,6 +199,15 @@ components:
             so WRL accepted it; the capture shows what a visitor who accepts
             cookies sees. Until 15 November 2026 a consent tool that showed
             no banner was reported as `failed`.
+        failureReason:
+          type: string
+          enum: [timeout, optOutFailed, error]
+          description: >
+            Why the consent step failed, present only with `result: failed`.
+            `timeout`: the banner showed but declining did not finish within 10
+            seconds. `optOutFailed`: declining was tried and the banner or wall
+            stayed. `error`: the consent step itself failed in the browser.
+            Absent on captures made before 26 November 2026.
         cmpDetected:
           type: ["string", "null"]
           description: >
@@ -683,6 +692,34 @@ components:
           examples:
             - imagesFilled: 120
               scrollCutShort: false
+        overlayCoverage:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: >
+            Share of the browser window that elements fixed to it covered when
+            the screenshot was taken: popups and their backdrops, fixed headers,
+            banners. Measured at a 10 by 10 grid of points; a fixed element that
+            holds the page's main content is not counted. WRL notes it and closes
+            nothing; the verify page mentions it from 0.3. Signed into the WACZ
+            bundle's captureQuality. Absent on captures made before 26 November
+            2026 and on file captures.
+          examples: [0.58]
+        paywallSignals:
+          type: array
+          items:
+            type: string
+            enum: [isAccessibleForFree, piano, paywall-element]
+          description: >
+            What on the page says it is behind a paywall: `isAccessibleForFree`
+            (schema.org JSON-LD marks the content as not free), `piano` (a
+            visible Piano paywall element), `paywall-element` (a visible element
+            with "paywall" in its id or class). Empty when there were none. The
+            capture shows what a visitor without a subscription saw; WRL does
+            not get around paywalls. Signed into the WACZ bundle's
+            captureQuality. Absent on captures made before 26 November 2026 and
+            on file captures.
+          examples: [[isAccessibleForFree, paywall-element]]
         httpStatus:
           type: integer
           minimum: 100

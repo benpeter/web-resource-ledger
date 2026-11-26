@@ -81,7 +81,7 @@
 import { completeCapture, failCapture, recordAttemptError, archiveSigningKey } from './db.js';
 import { buildWacz } from './wacz.js';
 import { log } from './log.js';
-import { dismissCookieConsent, consentResult, AUTOCONSENT_VERSION } from './consent.js';
+import { dismissCookieConsent, consentResult, consentFailureReason, AUTOCONSENT_VERSION } from './consent.js';
 import { dismissConsentWall, wallConsentSettings } from './consent-wall.js';
 import { softwareId } from './build-info.js';
 import { DEFAULT_VIEWPORT } from './viewport.js';
@@ -300,6 +300,7 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
           libraryVersion: AUTOCONSENT_VERSION,
           action: 'optOut',
           result: consentResult(consent),
+          ...(consentFailureReason(consent) ? { failureReason: consentFailureReason(consent) } : {}),
           ...(consent.cmp ? { cmpDetected: consent.cmp } : {}),
         },
       } : {}),
@@ -314,6 +315,8 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       ...(render?.subresourceLimitReached !== undefined ? { subresourceLimitReached: render.subresourceLimitReached } : {}),
       ...(render?.sizeLimitReached !== undefined ? { sizeLimitReached: render.sizeLimitReached } : {}),
       ...(render?.requestsHeldBack !== undefined ? { requestsHeldBack: render.requestsHeldBack } : {}),
+      ...(render?.overlayCoverage !== undefined ? { overlayCoverage: render.overlayCoverage } : {}),
+      ...(render?.paywallSignals !== undefined ? { paywallSignals: render.paywallSignals } : {}),
       ...(render?.httpStatus !== undefined ? { httpStatus: render.httpStatus } : {}),
       ...(render?.screenshotClipped !== undefined ? {
         pageHeight: render.pageHeight,
@@ -1275,6 +1278,15 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       break;
     }
     page.off('framenavigated', countNavigation);
+    // What still covered the window and what says the page is paywalled, as
+    // the screenshot shows it (backlog #51). Noted only, nothing is closed.
+    let pageCover = null;
+    try {
+      pageCover = await inspectPageCover(page);
+      logLine(3, { event: 'render.default.page_cover', url, captureId, overlayCoverage: pageCover.overlayCoverage, paywallSignals: pageCover.paywallSignals });
+    } catch (err) {
+      logLine(4, { event: 'render.default.page_cover_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+    }
     logLine(3, { event: 'render.default.screenshot_after', url, captureId, screenshotMs: afterScreenshotMs, tookAfterScreenshot, screenshotBytes: screenshot.byteLength });
     const tContent = Date.now();
     logLine(3, { event: 'render.default.content_extracted', url, captureId, contentMs, htmlLength: html.length });
@@ -1296,6 +1308,7 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
         settleMs: settle.settleMs,
         settleReason: settle.settleReason,
         lazyLoad: { imagesFilled, scrollCutShort },
+        ...(pageCover ? { overlayCoverage: pageCover.overlayCoverage, paywallSignals: pageCover.paywallSignals } : {}),
         stages: {
           sessionAcquireMs: tSession - renderStart,
           contextSetupMs: tContext - tSession,
@@ -1733,6 +1746,75 @@ export function fillLazyImages({ maxTop }) {
     if (changed) filled++;
   });
   return filled;
+}
+
+/** Sample points per side of the window for inspectPageCover: 10 by 10. */
+const COVER_GRID = 10;
+
+/**
+ * What still covers the window and what says the page is behind a paywall,
+ * read in the page after the screenshot (backlog #51). Metadata only: WRL
+ * closes nothing.
+ *
+ * overlayCoverage: the share (0 to 1, two decimals) of a 10 by 10 grid of
+ * points in the window whose topmost element sits in a `position: fixed`
+ * element: popups, their backdrops, fixed headers and banners. A fixed
+ * element that holds a `main` or `article` element, or more than 2,000
+ * characters, is the page itself (an app shell) and doesn't count.
+ *
+ * paywallSignals, in this order when present:
+ *   'isAccessibleForFree' -- schema.org JSON-LD says `isAccessibleForFree: false`
+ *   'piano'               -- a visible Piano paywall element (.tp-modal, .tp-backdrop)
+ *   'paywall-element'     -- a visible element with "paywall" in its id or class
+ *
+ * @param {import('@cloudflare/playwright').Page} page
+ * @returns {Promise<{ overlayCoverage: number, paywallSignals: string[] }>}
+ */
+export async function inspectPageCover(page) {
+  return page.evaluate((grid) => {
+    const visible = (el) => {
+      const box = el.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) return false;
+      return typeof el.checkVisibility !== 'function'
+        || el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+    };
+    const fixedAncestor = (el) => {
+      for (let e = el; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+        if (getComputedStyle(e).position === 'fixed') return e;
+      }
+      return null;
+    };
+    const isShell = (el) => el.querySelector('main, article') !== null || (el.textContent || '').length > 2000;
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let covered = 0;
+    for (let i = 0; i < grid; i++) {
+      for (let j = 0; j < grid; j++) {
+        const el = document.elementFromPoint((i + 0.5) * w / grid, (j + 0.5) * h / grid);
+        const fixed = el ? fixedAncestor(el) : null;
+        if (fixed && !isShell(fixed)) covered++;
+      }
+    }
+
+    const notFree = (node) => {
+      if (Array.isArray(node)) return node.some(notFree);
+      if (!node || typeof node !== 'object') return false;
+      const v = node.isAccessibleForFree;
+      if (v === false || (typeof v === 'string' && v.toLowerCase() === 'false')) return true;
+      return Object.values(node).some((child) => typeof child === 'object' && notFree(child));
+    };
+    const signals = [];
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        if (notFree(JSON.parse(script.textContent))) { signals.push('isAccessibleForFree'); break; }
+      } catch { /* a broken JSON-LD block says nothing */ }
+    }
+    if ([...document.querySelectorAll('.tp-modal, .tp-backdrop')].some(visible)) signals.push('piano');
+    if ([...document.querySelectorAll('[id*="paywall" i], [class*="paywall" i]')].some(visible)) signals.push('paywall-element');
+
+    return { overlayCoverage: Math.round(covered * 100 / (grid * grid)) / 100, paywallSignals: signals };
+  }, COVER_GRID);
 }
 
 /**
