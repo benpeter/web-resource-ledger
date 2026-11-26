@@ -9,7 +9,11 @@
  * Design constraints:
  *   - No catch-up logic: always advances to the NEXT FUTURE occurrence.
  *   - Usage is incremented only after sendBatch succeeds.
- *   - Per-tenant quota checked once per tenant group (not per schedule).
+ *   - Per-tenant quota checked once per tenant group (not per schedule), for
+ *     every URL the due schedules capture: a watch list (backlog #59) needs
+ *     quota for each of its URLs.
+ *   - A schedule's queue messages are sent only after its next_run_at moved,
+ *     so a failed advance can't make it fire again every minute.
  *   - Individual schedule failures are isolated; others continue.
  */
 
@@ -70,7 +74,8 @@ export async function handleScheduledTick(controller, env, ctx) {
     // One quota check per tenant.
     let quotaResult;
     try {
-      quotaResult = await checkQuota(env.DB, tenantId, schedules.length);
+      const urlCount = schedules.reduce((n, schedule) => n + schedule.urls.length, 0);
+      quotaResult = await checkQuota(env.DB, tenantId, urlCount);
     } catch (err) {
       // If quota check itself fails, skip the whole tenant but log the error.
       ctx.waitUntil(log(env, 5, 'schedule', {
@@ -130,83 +135,120 @@ export async function handleScheduledTick(controller, env, ctx) {
       continue;
     }
 
-    // Quota allowed: enqueue a capture for each schedule.
+    // Quota allowed: enqueue a capture for each URL of each schedule.
     for (const schedule of schedules) {
-      let captureId, nextRunAt;
-
-      // Threat check: skip schedule if URL is flagged (fail-open on error/no key).
-      const threat = await checkUrl(schedule.url, env).catch(() => ({ safe: true, degraded: true }));
-      if (!threat.safe) {
-        nextRunAt = nextRunAfter(schedule.cron, new Date(controller.scheduledTime));
-        await advanceSchedule(env.DB, schedule.id, nextRunAt, null, 'blocked').catch((err) => {
-          ctx.waitUntil(log(env, 5, 'schedule', {
-            event: 'schedule.advance_failed',
-            scheduleId: schedule.id,
-            tenantId,
-            url: schedule.url,
-            blockReason: 'threat',
-            errorClass: err?.constructor?.name,
-            errorMessage: String(err?.message ?? '').slice(0, 128),
-          }) ?? Promise.resolve());
-        });
-        ctx.waitUntil(log(env, 4, 'schedule', {
-          event: 'schedule.blocked_threat',
-          scheduleId: schedule.id,
-          tenantId,
-          url: schedule.url,
-          threatTypes: threat.threatTypes,
-        }) ?? Promise.resolve());
-        skippedCount++;
-        continue;
-      }
-
+      let nextRunAt;
       try {
-        captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
-
-        // Create the capture record in D1 (status: 'pending').
-        await createCapture(env.DB, captureId, schedule.url, null, tenantId, schedule.id);
-
-        // Compute the next future occurrence strictly after the trigger time.
+        // The next future occurrence strictly after the trigger time.
         nextRunAt = nextRunAfter(schedule.cron, new Date(controller.scheduledTime));
-
-        // Advance the schedule's next_run_at (CAS-style: no-op if schedule was paused).
-        await advanceSchedule(env.DB, schedule.id, nextRunAt, captureId, 'pending');
       } catch (err) {
         ctx.waitUntil(log(env, 5, 'schedule', {
           event: 'schedule.execute_fail',
           scheduleId: schedule.id,
           tenantId,
           url: schedule.url,
-          captureId: captureId ?? null,
+          reason: 'next_run_compute_error',
           errorMessage: String(err?.message ?? '').slice(0, 128),
         }) ?? Promise.resolve());
         skippedCount++;
         continue;
       }
 
-      queueMessages.push({
-        body: {
-          captureId,
-          url: schedule.url,
-          ip: null,
-          tenantId,
-          cip: 'cron',
+      const messages = [];
+      let blockedCount = 0;
+      for (const url of schedule.urls) {
+        // Threat check: skip a URL that is flagged (fail-open on error/no key).
+        const threat = await checkUrl(url, env).catch(() => ({ safe: true, degraded: true }));
+        if (!threat.safe) {
+          ctx.waitUntil(log(env, 4, 'schedule', {
+            event: 'schedule.blocked_threat',
+            scheduleId: schedule.id,
+            tenantId,
+            url,
+            threatTypes: threat.threatTypes,
+          }) ?? Promise.resolve());
+          blockedCount++;
+          continue;
+        }
+
+        const captureId = 'cap_' + crypto.randomUUID().replace(/-/g, '');
+        try {
+          // Create the capture record in D1 (status: 'pending').
+          await createCapture(env.DB, captureId, url, null, tenantId, schedule.id);
+        } catch (err) {
+          ctx.waitUntil(log(env, 5, 'schedule', {
+            event: 'schedule.execute_fail',
+            scheduleId: schedule.id,
+            tenantId,
+            url,
+            captureId,
+            errorMessage: String(err?.message ?? '').slice(0, 128),
+          }) ?? Promise.resolve());
+          continue;
+        }
+        messages.push({
+          body: {
+            captureId,
+            url,
+            ip: null,
+            tenantId,
+            cip: 'cron',
+            scheduleId: schedule.id,
+            enqueuedAt: Date.now(),
+            qualifiedTimestamps: quotaResult.eidasQualified ?? false,
+          },
+        });
+      }
+
+      if (messages.length === 0) {
+        if (blockedCount === schedule.urls.length) {
+          // Every URL flagged: advance with status 'blocked' so the schedule doesn't retry every minute.
+          await advanceSchedule(env.DB, schedule.id, nextRunAt, null, 'blocked').catch((err) => {
+            ctx.waitUntil(log(env, 5, 'schedule', {
+              event: 'schedule.advance_failed',
+              scheduleId: schedule.id,
+              tenantId,
+              url: schedule.url,
+              blockReason: 'threat',
+              errorClass: err?.constructor?.name,
+              errorMessage: String(err?.message ?? '').slice(0, 128),
+            }) ?? Promise.resolve());
+          });
+        }
+        skippedCount++;
+        continue;
+      }
+
+      // Advance next_run_at (CAS-style: no-op if the schedule was paused). The
+      // last URL's capture becomes last_capture_id.
+      const lastCaptureId = messages[messages.length - 1].body.captureId;
+      try {
+        await advanceSchedule(env.DB, schedule.id, nextRunAt, lastCaptureId, 'pending');
+      } catch (err) {
+        ctx.waitUntil(log(env, 5, 'schedule', {
+          event: 'schedule.execute_fail',
           scheduleId: schedule.id,
-          enqueuedAt: Date.now(),
-          qualifiedTimestamps: quotaResult.eidasQualified ?? false,
-        },
-      });
+          tenantId,
+          url: schedule.url,
+          captureId: lastCaptureId,
+          reason: 'advance_error',
+          errorMessage: String(err?.message ?? '').slice(0, 128),
+        }) ?? Promise.resolve());
+        skippedCount++;
+        continue;
+      }
 
-
-      ctx.waitUntil(log(env, 3, 'schedule', {
-        event: 'schedule.execute',
-        scheduleId: schedule.id,
-        tenantId,
-        url: schedule.url,
-        captureId,
-      }) ?? Promise.resolve());
-
-      executedCount++;
+      queueMessages.push(...messages);
+      for (const { body } of messages) {
+        ctx.waitUntil(log(env, 3, 'schedule', {
+          event: 'schedule.execute',
+          scheduleId: schedule.id,
+          tenantId,
+          url: body.url,
+          captureId: body.captureId,
+        }) ?? Promise.resolve());
+      }
+      executedCount += messages.length;
     }
   }
 

@@ -158,7 +158,7 @@ describe('PATCH /v1/schedules/:id -- input checks', () => {
   it('rejects an empty body', async () => {
     const res = await patch(TEST_SCHEDULE_ID, {});
     expect(res.status).toBe(400);
-    expect((await res.json()).detail).toMatch(/name, url, cron, paused/);
+    expect((await res.json()).detail).toMatch(/name, url, urls, cron, paused/);
   });
 
   it('rejects unknown fields', async () => {

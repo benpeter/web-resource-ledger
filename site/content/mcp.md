@@ -457,19 +457,20 @@ List all scheduled captures registered for this account, including their URL, cr
   Created:  2025-06-01T08:00:00.000Z
 ```
 
-A paused schedule shows `Status:   paused` and `Next run: (paused)`.
+A paused schedule shows `Status:   paused` and `Next run: (paused)`. A watch list shows `URLs:     3 (watch list)` in place of the `URL` line, followed by its URLs, one per line.
 
 ---
 
 #### `create_schedule`
 
-Register a recurring capture schedule for a URL using a cron expression. Minimum interval is hourly. Returns the new schedule ID and next scheduled run time.
+Register a recurring capture schedule for a URL, or for a watch list of up to 100 URLs, using a cron expression. Minimum interval is hourly. Returns the new schedule ID and next scheduled run time.
 
 **Requires:** `capture` scope
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `url` | string | yes | The URL to capture on each run (`http://` or `https://`) |
+| `url` | string | one of `url` and `urls` | The URL to capture on each run (`http://` or `https://`) |
+| `urls` | string[] | one of `url` and `urls` | A watch list: 1 to 100 URLs, each captured on every run and counted against the monthly capture limit |
 | `name` | string | yes | Human-readable name (1-128 characters; letters, digits, spaces, and `_ . : -` only) |
 | `cron` | string | yes | Cron expression (e.g. `0 * * * *` for hourly). Minimum interval: 1 hour. |
 
@@ -490,7 +491,7 @@ Use list_schedules to view all schedules or delete_schedule to remove this one.
 
 #### `update_schedule`
 
-Change a schedule: rename it, point it at a different URL, change how often it runs, or pause and resume it. Pass only the fields to change. Resuming, or changing the cron expression, sets the next run to the next matching time from now; runs missed while paused are not caught up. A new URL starts a new baseline for change detection.
+Change a schedule: rename it, point it at a different URL or list of URLs, change how often it runs, or pause and resume it. Pass only the fields to change. Resuming, or changing the cron expression, sets the next run to the next matching time from now; runs missed while paused are not caught up. A new URL starts a new baseline for change detection.
 
 **Requires:** `capture` scope
 
@@ -498,7 +499,8 @@ Change a schedule: rename it, point it at a different URL, change how often it r
 |-----------|------|----------|-------------|
 | `schedule_id` | string | yes | The schedule to change (`sch_` followed by 32 hex characters) |
 | `name` | string | no | New name (1-128 characters; letters, digits, spaces, and `_ . : -` only) |
-| `url` | string | no | New URL to capture (`http://` or `https://`, public address) |
+| `url` | string | no | New URL to capture (`http://` or `https://`, public address); replaces a watch list with this one URL |
+| `urls` | string[] | no | New watch list of 1 to 100 URLs, replacing the current URL or list; not together with `url` |
 | `cron` | string | no | New 5-field cron expression in UTC, at most hourly |
 | `paused` | boolean | no | `true` pauses the schedule, `false` resumes it |
 

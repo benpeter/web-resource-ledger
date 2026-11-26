@@ -270,6 +270,7 @@ export async function seedApiKey(db, rawKey, {
 export async function seedSchedule(db, id, {
   tenantId = 'default',
   url = 'https://example.com',
+  urls = null,
   name = 'Test Schedule',
   cron = '0 * * * *',
   nextRunAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -284,13 +285,14 @@ export async function seedSchedule(db, id, {
     db.prepare('INSERT OR IGNORE INTO tenants (id) VALUES (?)').bind(tenantId),
     db.prepare(
       `INSERT OR IGNORE INTO schedules
-         (id, tenant_id, url, name, cron, next_run_at, paused,
+         (id, tenant_id, url, urls, name, cron, next_run_at, paused,
           last_run_at, last_capture_id, last_capture_status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       id,
       tenantId,
-      url,
+      urls ? urls[0] : url,
+      urls ? JSON.stringify(urls) : null,
       name,
       cron,
       nextRunAt,

@@ -1836,8 +1836,21 @@ components:
         url:
           type: string
           format: uri
-          description: URL to capture on each scheduled run.
+          description: URL to capture on each scheduled run. For a watch list, the first of `urls`.
           example: 'https://example.com'
+        urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 100
+          description: >
+            Every URL the schedule captures on each run, in order: one entry for a
+            single-URL schedule, up to 100 for a watch list. Each URL gets its own
+            capture, and change detection compares each with earlier captures of
+            the same URL.
+          example: ['https://example.com', 'https://example.com/pricing']
         name:
           type: string
           maxLength: 128
@@ -1864,7 +1877,10 @@ components:
           description: ISO 8601 timestamp of the most recent run. Null when the schedule has not run yet.
         lastCaptureId:
           type: ['string', 'null']
-          description: Capture ID from the most recent run. Null when the schedule has not run yet.
+          description: >
+            Capture ID from the most recent run; for a watch list, the capture of
+            its last URL (`GET /v1/captures?schedule_id=` lists them all). Null when
+            the schedule has not run yet.
         lastCaptureStatus:
           type: ['string', 'null']
           description: Status of the most recent capture. Null when the schedule has not run yet.
@@ -1887,14 +1903,30 @@ components:
 
     ScheduleCreate:
       type: object
-      description: Request body for creating a new scheduled capture.
-      required: [url, name, cron]
+      description: >
+        Request body for creating a new scheduled capture. Give `url` for one
+        page or `urls` for a watch list, not both.
+      required: [name, cron]
+      oneOf:
+        - required: [url]
+        - required: [urls]
       additionalProperties: false
       properties:
         url:
           type: string
           format: uri
           description: Public http or https URL to capture on each run. Must not resolve to a private IP.
+        urls:
+          type: array
+          items:
+            type: string
+            format: uri
+          minItems: 1
+          maxItems: 100
+          description: >
+            A watch list: 1 to 100 public http or https URLs, each captured on every
+            run and checked like `url`. A URL listed twice is refused. Every URL
+            counts against the monthly capture limit on each run.
         name:
           type: string
           maxLength: 128
@@ -6918,7 +6950,9 @@ paths:
       description: >
         Creates a new scheduled recurring capture. The schedule runs automatically
         at the cadence defined by the cron expression. Each run submits a new capture
-        for the given URL and counts against the tenant's monthly quota.
+        for the given URL, or for every URL of a watch list (`urls`), and each
+        capture counts against the tenant's monthly quota. When the quota left
+        can't cover every URL of the run, the whole run is skipped.
 
         Minimum interval is 1 hour. Schedules are active immediately after creation.
       tags: [schedules]
@@ -6949,6 +6983,15 @@ paths:
                   url: 'https://example.com'
                   name: 'Weekly homepage snapshot'
                   cron: '0 9 * * 1'
+              watchList:
+                summary: Capture three pages every day at 06:00 UTC
+                value:
+                  urls:
+                    - 'https://example.com/terms'
+                    - 'https://example.com/privacy'
+                    - 'https://example.com/pricing'
+                  name: 'Policy pages daily'
+                  cron: '0 6 * * *'
       responses:
         '201':
           description: Schedule created.
@@ -7155,10 +7198,11 @@ paths:
       operationId: updateSchedule
       summary: Update a schedule
       description: >
-        Changes a schedule's name, URL, cron expression, or paused state. Send
-        only the fields to change; at least one is required. `url` and `cron`
-        are checked the same way as on create (public http(s) address, at most
-        hourly). Resuming a paused schedule, or changing its cron, sets
+        Changes a schedule's name, URL or URLs, cron expression, or paused state.
+        Send only the fields to change; at least one is required. `url`, `urls`
+        and `cron` are checked the same way as on create (public http(s)
+        addresses, at most hourly). `url` makes the schedule capture that one
+        page; `urls` replaces the list. Resuming a paused schedule, or changing its cron, sets
         `nextRunAt` to the next matching time from now, so missed runs are not
         caught up. Changing the URL starts change detection afresh: the next
         capture is compared only with earlier captures of the new URL.
@@ -7182,6 +7226,14 @@ paths:
                 url:
                   type: string
                   format: uri
+                urls:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                  minItems: 1
+                  maxItems: 100
+                  description: New watch list, replacing the current URL or list. Not together with `url`.
                 cron:
                   type: string
                   description: 5-field cron expression in UTC, at most hourly.

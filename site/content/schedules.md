@@ -6,7 +6,7 @@ description: Automate recurring captures with cron-style schedules. WRL runs eac
 
 # Scheduled Captures
 
-Scheduled captures let you automate recurring snapshots of a URL. Define a cron expression, and WRL will submit a new capture at each interval without any polling or manual intervention.
+Scheduled captures let you automate recurring snapshots of a URL, or of a list of up to 100 URLs (a watch list). Define a cron expression, and WRL will submit a new capture at each interval without any polling or manual intervention.
 
 Each scheduled run submits a standard capture and counts against your monthly quota. The capture artifacts, verification, and audit trail work exactly the same as manually submitted captures.
 
@@ -37,6 +37,7 @@ The response is `201 Created` with the new schedule record.
 {
   "id": "sch_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
   "url": "https://example.com",
+  "urls": ["https://example.com"],
   "name": "Daily homepage capture",
   "cron": "0 0 * * *",
   "paused": false,
@@ -50,7 +51,34 @@ The response is `201 Created` with the new schedule record.
 
 Save the `id` — you will use it to retrieve, change or delete the schedule.
 
+`urls` lists every URL the schedule captures; for a schedule of one page it holds that one URL.
+
 In the [dashboard](https://api.webresourceledger.com/ui#/schedules), the **Create new schedule** form does the same. A capture's page links to that form with the capture's URL filled in (**capture it on a schedule**), and when a capture finishes in an account that has no schedules yet, the captures list offers the same link once.
+
+---
+
+## Watch several URLs
+
+A schedule can capture a list of pages on every run, for example the terms, privacy and pricing pages of a site. Send `urls` instead of `url`, with 1 to 100 URLs:
+
+```bash
+curl -X POST https://api.webresourceledger.com/v1/schedules \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": [
+      "https://example.com/terms",
+      "https://example.com/privacy",
+      "https://example.com/pricing"
+    ],
+    "name": "Policy pages daily",
+    "cron": "0 6 * * *"
+  }'
+```
+
+Each run makes one capture per URL, and all of them carry the schedule's ID, so `GET /v1/captures?schedule_id=...` lists them. Change detection compares each capture with the earlier captures of the same URL. In the schedule record, `url` is the first URL of the list and `lastCaptureId` the capture of the last one.
+
+Every URL is checked like `url`, and a URL listed twice is refused. Each URL counts against your monthly quota on every run: three URLs captured daily use about 90 captures a month. In the dashboard, put one URL per line in the URL field.
 
 ---
 
@@ -67,6 +95,7 @@ curl https://api.webresourceledger.com/v1/schedules \
     {
       "id": "sch_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
       "url": "https://example.com",
+      "urls": ["https://example.com"],
       "name": "Daily homepage capture",
       "cron": "0 0 * * *",
       "paused": false,
@@ -89,7 +118,7 @@ curl https://api.webresourceledger.com/v1/schedules \
 }
 ```
 
-`limit` is how many schedules your account can have (see [Schedule limits](#schedule-limits)). `lastCaptureId` and `lastCaptureStatus` reflect the most recent run. `lastCaptureStatus` is `pending` while that capture runs, then `complete` or `failed`. It is `skipped` when the run was skipped because the monthly quota was used up, and `blocked` when the URL was flagged as unsafe. Use `lastCaptureId` to retrieve the full capture record or verify the artifact. `changeSummary` says what changed in that capture compared with the schedule's capture before it: lines added and removed in the HTML, whether the screenshot differs, and how many response headers changed. It is `null` until there are two captures to compare, and only the list fills it in.
+`limit` is how many schedules your account can have (see [Schedule limits](#schedule-limits)). `lastCaptureId` and `lastCaptureStatus` reflect the most recent run (for a watch list, its last URL). `lastCaptureStatus` is `pending` while that capture runs, then `complete` or `failed`. It is `skipped` when the run was skipped because the monthly quota was used up, and `blocked` when the URL was flagged as unsafe. Use `lastCaptureId` to retrieve the full capture record or verify the artifact. `changeSummary` says what changed in that capture compared with the schedule's capture before it: lines added and removed in the HTML, whether the screenshot differs, and how many response headers changed. It is `null` until there are two captures to compare, and only the list fills it in.
 
 To see only captures triggered by a specific schedule, add the `schedule_id` filter when listing captures:
 
@@ -102,7 +131,7 @@ curl "https://api.webresourceledger.com/v1/captures?schedule_id=sch_a1b2c3d4e5f6
 
 ## Edit, pause or resume a schedule
 
-Send only the fields you want to change. `url` and `cron` go through the same checks as when you create a schedule.
+Send only the fields you want to change. `url`, `urls` and `cron` go through the same checks as when you create a schedule. `urls` replaces the whole list; `url` turns a watch list back into a schedule of one page.
 
 ```bash
 curl -X PATCH https://api.webresourceledger.com/v1/schedules/sch_a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4 \
@@ -172,12 +201,12 @@ All times are UTC. There is no DST adjustment.
 
 ## Schedule limits
 
-Each tenant can have 10 schedules, and paused schedules count toward the limit. If you reach it, `POST /v1/schedules` returns `429` with `limitType: "schedules"` in the response body, and the MCP `create_schedule` tool returns the same message as a tool error. Delete a schedule to free up a slot; waiting doesn't help. If you need more schedules, email [hello@webresourceledger.com](mailto:hello@webresourceledger.com).
+Each tenant can have 10 schedules, and paused schedules count toward the limit. A schedule can capture up to 100 URLs. If you reach it, `POST /v1/schedules` returns `429` with `limitType: "schedules"` in the response body, and the MCP `create_schedule` tool returns the same message as a tool error. Delete a schedule to free up a slot; waiting doesn't help. If you need more schedules, email [hello@webresourceledger.com](mailto:hello@webresourceledger.com).
 
 ---
 
 ## Quota impact
 
-Each scheduled run submits one capture. Scheduled captures count against your monthly quota exactly the same as manually submitted captures. If your quota is exhausted when a schedule fires, that run is skipped and `lastCaptureStatus` becomes `skipped`. On the free tier, WRL emails you once that month that the limit was reached. Pause a schedule if you don't want it to use quota for a while.
+Each scheduled run submits one capture per URL. Scheduled captures count against your monthly quota exactly the same as manually submitted captures. If the quota left can't cover every URL of the schedules due at that minute, those runs are skipped and `lastCaptureStatus` becomes `skipped`. On the free tier, WRL emails you once that month that the limit was reached. Pause a schedule if you don't want it to use quota for a while.
 
 For current quota status, see [GET /v1/account/usage](/api-reference/) or the [Limits & Quotas](/limits/) guide.

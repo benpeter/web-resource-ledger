@@ -29,7 +29,7 @@ import {
   createSchedule, listSchedules, deleteSchedule, getSchedule, updateSchedule,
   countSchedules, getEffectiveScheduleLimit,
 } from './db.js';
-import { validateScheduleUpdate, withNextRun } from './schedules.js';
+import { validateScheduleUpdate, validateScheduleUrls, withNextRun } from './schedules.js';
 import { rateLimitCounter } from './kv.js';
 import { performVerification } from './verify.js';
 import { log } from './log.js';
@@ -1242,7 +1242,12 @@ function createMcpServer(env, ctx, auth, origin) {
         lines.push('');
         lines.push(`  ID:       ${r.id}`);
         lines.push(`  Name:     ${r.name}`);
-        lines.push(`  URL:      ${displayUrl}`);
+        if (r.urls.length > 1) {
+          lines.push(`  URLs:     ${r.urls.length} (watch list)`);
+          for (const u of r.urls) lines.push(`            ${u.replace(/#.*$/, '').slice(0, 80)}`);
+        } else {
+          lines.push(`  URL:      ${displayUrl}`);
+        }
         lines.push(`  Cron:     ${r.cron}`);
         lines.push(`  Status:   ${r.paused ? 'paused' : 'active'}`);
         lines.push(`  Next run: ${r.paused ? '(paused)' : (r.nextRunAt ?? 'unknown')}`);
@@ -1261,13 +1266,14 @@ function createMcpServer(env, ctx, auth, origin) {
 
   server.tool(
     'create_schedule',
-    'Register a recurring capture schedule for a URL using a cron expression. Requires capture scope; minimum interval is hourly. Returns the new schedule ID and next scheduled run time. Use list_schedules to see all schedules or delete_schedule to remove one.',
+    'Register a recurring capture schedule for a URL, or for a watch list of up to 100 URLs (urls), using a cron expression. Requires capture scope; minimum interval is hourly. Returns the new schedule ID and next scheduled run time. Use list_schedules to see all schedules or delete_schedule to remove one.',
     {
-      url: z.string().describe('The URL to capture on each scheduled run (http:// or https://).'),
+      url: z.string().optional().describe('The URL to capture on each scheduled run (http:// or https://). Give url or urls, not both.'),
+      urls: z.array(z.string()).optional().describe('A watch list: 1 to 100 URLs, each captured on every run. Every URL counts against the monthly capture limit on each run.'),
       name: z.string().min(1).max(128).describe('A human-readable name for this schedule (1-128 characters, letters, digits, spaces, and _ . : - only).'),
       cron: z.string().describe('Cron expression defining the capture frequency (e.g. "0 * * * *" for hourly). Minimum interval: 1 hour.'),
     },
-    async ({ url, name, cron }) => {
+    async ({ url, urls, name, cron }) => {
       // Scope check
       if (!hasScope(auth.scopes, 'capture')) {
         return {
@@ -1285,8 +1291,12 @@ function createMcpServer(env, ctx, auth, origin) {
         };
       }
 
-      // Validate URL (SSRF protection)
-      const urlCheck = await validateUrl(url);
+      // Validate url or urls (SSRF protection for every URL)
+      const given = Object.fromEntries(Object.entries({ url, urls }).filter(([, v]) => v !== undefined));
+      const urlCheck = await validateScheduleUrls(given);
+      if (urlCheck.ok && !urlCheck.given) {
+        return { isError: true, content: [{ type: 'text', text: "Give 'url' or 'urls'." }] };
+      }
       if (!urlCheck.ok) {
         ctx.waitUntil(log(env, 5, 'security', {
           event: 'security.ssrf_block',
@@ -1330,7 +1340,7 @@ function createMcpServer(env, ctx, auth, origin) {
 
       let record;
       try {
-        record = await createSchedule(env.DB, id, auth.tenantId, urlCheck.url, name, cronCheck.cron, nextRunAt);
+        record = await createSchedule(env.DB, id, auth.tenantId, urlCheck.url, name, cronCheck.cron, nextRunAt, urlCheck.urls);
       } catch (err) {
         ctx.waitUntil(log(env, 5, 'schedule', {
           event: 'schedule.create_fail',
@@ -1354,6 +1364,7 @@ function createMcpServer(env, ctx, auth, origin) {
         scheduleId: id,
         tenantId: auth.tenantId,
         url: urlCheck.url,
+        urlCount: urlCheck.urls.length,
         cron: cronCheck.cron,
         keyHashPrefix: auth.keyHashPrefix,
         authMethod: auth.authMethod,
@@ -1370,7 +1381,9 @@ function createMcpServer(env, ctx, auth, origin) {
             `Schedule created.`,
             `ID:       ${record.id ?? id}`,
             `Name:     ${name}`,
-            `URL:      ${displayUrl}`,
+            urlCheck.urls.length > 1
+              ? `URLs:     ${urlCheck.urls.length}, from ${displayUrl}`
+              : `URL:      ${displayUrl}`,
             `Cron:     ${cronCheck.cron}`,
             `Next run: ${nextRunAt}`,
             '',
@@ -1466,11 +1479,12 @@ function createMcpServer(env, ctx, auth, origin) {
   // -------------------------------------------------------------------------
   server.tool(
     'update_schedule',
-    'Change a schedule: rename it, point it at a different URL, change how often it runs, or pause and resume it. Pass only the fields to change. Resuming, or changing the frequency, sets the next run to the next matching time from now; missed runs are not caught up.',
+    'Change a schedule: rename it, point it at a different URL or list of URLs, change how often it runs, or pause and resume it. Pass only the fields to change. Resuming, or changing the frequency, sets the next run to the next matching time from now; missed runs are not caught up.',
     {
       schedule_id: z.string().describe('Schedule ID (sch_ followed by 32 hex characters).'),
       name: z.string().optional().describe('New name: 1-128 characters, letters, digits, spaces and _ . : -'),
-      url: z.string().optional().describe('New URL to capture (http or https, public address).'),
+      url: z.string().optional().describe('New URL to capture (http or https, public address). Replaces a watch list with this one URL.'),
+      urls: z.array(z.string()).optional().describe('New watch list: 1 to 100 URLs, replacing the current URL or list. Give url or urls, not both.'),
       cron: z.string().optional().describe('New 5-field cron expression in UTC, at most hourly.'),
       paused: z.boolean().optional().describe('true pauses the schedule, false resumes it.'),
     },
@@ -1507,7 +1521,7 @@ function createMcpServer(env, ctx, auth, origin) {
       const lines = [
         `Schedule updated: ${updated.id}`,
         `Name: ${updated.name ?? '(none)'}`,
-        `URL: ${updated.url}`,
+        updated.urls.length > 1 ? `URLs: ${updated.urls.length}, from ${updated.url}` : `URL: ${updated.url}`,
         `Cron: ${updated.cron}`,
         `Status: ${updated.paused ? 'paused' : 'active'}`,
         `Next run: ${updated.paused ? '(paused)' : updated.nextRunAt}`,

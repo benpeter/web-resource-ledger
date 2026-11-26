@@ -221,3 +221,4 @@ software development.
 | [0212-file-failures](0212-file-failures/) | A file the browser gets as a download is fetched directly; a PDF without a `page.goto` response is still recorded as a file; tab crashes and refused file fetches get their own messages instead of "Capture could not be completed" |
 | [0213-takedown-evidence](0213-takedown-evidence/) | Docs page on evidence around DMCA and DSA takedowns, for senders and for people whose content was removed, and two landing FAQ entries |
 | [0214-lazy-placeholders](0214-lazy-placeholders/) | Lazy images inside the screenshot whose `src` is a placeholder get their `data-src`/`data-srcset`; `render.lazyLoad` records `imagesFilled` and `scrollCutShort` |
+| [0215-watch-lists](0215-watch-lists/) | Watch lists: a schedule captures up to 100 URLs (`urls`, migration 0020), one capture per URL, quota counted per URL, queue messages sent only after the schedule advanced |
