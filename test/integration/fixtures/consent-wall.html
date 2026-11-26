@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html><head><title>WRL Integration Test - Consent Wall</title>
+<style>
+  #wall { position: fixed; inset: 0; background: rgba(255,255,255,0.97); z-index: 1000; padding: 40px; }
+  #panel { display: none; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>Consent Wall Test Page</h1>
+<p id="content">content-marker: the article behind the wall.</p>
+<p id="outcome"></p>
+
+<!--
+  A wall no consent library knows, built like the ones on news sites.
+  ?            "Accept all" and "Reject all"
+  ?settings    "Accept and continue", "Reject and subscribe" and "Cookie settings";
+               the settings hold two ticked choices and "Save choices"
+  ?accept      "Accept and continue" and "Subscribe" only
+-->
+<div id="wall">
+  <p>We and our 307 partners use cookies to measure the audience and show ads.</p>
+  <div id="buttons"></div>
+  <div id="panel">
+    <label><input type="checkbox" id="analytics" checked> Audience measurement</label>
+    <label><input type="checkbox" id="ads" checked> Personalised ads</label>
+    <button id="save">Save choices</button>
+  </div>
+</div>
+
+<script>
+  const variant = location.search.slice(1);
+  const wall = document.getElementById('wall');
+  const outcome = document.getElementById('outcome');
+  const close = (text) => { wall.remove(); outcome.textContent = text; };
+  const add = (label, onClick) => {
+    const button = document.createElement('button');
+    button.textContent = label;
+    button.addEventListener('click', onClick);
+    document.getElementById('buttons').append(button);
+  };
+  const subscribe = () => { outcome.textContent = 'wall-outcome:subscribed'; };
+
+  if (variant === 'settings') {
+    add('Accept and continue', () => close('wall-outcome:accepted'));
+    add('Reject and subscribe', subscribe);
+    add('Cookie settings', () => { document.getElementById('panel').style.display = 'block'; });
+    document.getElementById('save').addEventListener('click', () => {
+      const ticked = ['analytics', 'ads'].filter((id) => document.getElementById(id).checked);
+      close(`wall-outcome:saved:${ticked.join(',') || 'none'}`);
+    });
+  } else if (variant === 'accept') {
+    add('Accept and continue', () => close('wall-outcome:accepted'));
+    add('Subscribe', subscribe);
+  } else {
+    add('Accept all', () => close('wall-outcome:accepted'));
+    add('Reject all', () => close('wall-outcome:declined'));
+  }
+</script>
+</body>
+</html>

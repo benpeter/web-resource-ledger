@@ -257,6 +257,73 @@ describe('integration: page with a banner from autoconsent\'s JSON rules', () =>
 });
 
 // ---------------------------------------------------------------------------
+// Consent wall no consent library knows (backlog #104, #47)
+// ---------------------------------------------------------------------------
+
+describe('integration: consent wall autoconsent has no rule for', () => {
+  const captureId = 'cap_0000000000000000000000000000e5af';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('declines when the wall has a decline button', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-wall.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent).toEqual({
+      library: 'wrl-consent-wall', action: 'optOut', route: 'decline', result: 'success', button: 'Reject all',
+    });
+    expect(record.artifacts.screenshotBefore).toBeDefined();
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('wall-outcome:declined');
+    expect(html).not.toContain('307 partners');
+  });
+
+  it('unticks every choice in the settings and saves, without taking the subscription', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-wall.html?settings`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent).toEqual({
+      library: 'wrl-consent-wall', action: 'optOut', route: 'settings', result: 'success', button: 'Save choices',
+    });
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('wall-outcome:saved:none');
+    expect(html).not.toContain('wall-outcome:subscribed');
+  });
+
+  it('accepts only when nothing else is left, and says so', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/consent-wall.html?accept`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    const result = await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    expect(result.ok).toBe(true);
+    const record = await getCapture(env.DB, captureId);
+    expect(record.captureSettings?.consent).toEqual({
+      library: 'wrl-consent-wall', action: 'acceptAll', route: 'accept', result: 'accepted', button: 'Accept and continue',
+    });
+    expect(record.artifacts.screenshotBefore).toBeDefined();
+
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('wall-outcome:accepted');
+    expect(html).not.toContain('wall-outcome:subscribed');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Banner whose decline button reloads the page
 // ---------------------------------------------------------------------------
 
