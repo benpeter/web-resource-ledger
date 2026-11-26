@@ -15,6 +15,7 @@ export default {
         { title: "Link Rot in Supreme Court Opinions", url: "/supreme-court-link-rot/" },
         { title: "Batch Captures", url: "/batch/" },
         { title: "Schedules", url: "/schedules/" },
+        { title: "Zapier, Make and n8n", url: "/automation/" },
         { title: "Support", url: "/support/" },
       ],
     },
