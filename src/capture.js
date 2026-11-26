@@ -237,6 +237,16 @@ export async function performCapture(env, url, ip, captureId, tenantId, cip, ren
       return { ok: false, retryable: false };
     }
 
+    // The browser's main response was a file (a site whose bot protection
+    // turned the header fetch away): sign the bytes it got (backlog #58)
+    if (renderResult.value.file) {
+      const { file, browserLocation: fileLocation } = renderResult.value;
+      return await completeFileCapture(env, url, captureId, tenantId, cip, qualifiedTimestamps, start, file, {
+        fetchedBy: 'browser',
+        ...(fileLocation ? { browserLocation: fileLocation } : {}),
+      });
+    }
+
     const { screenshot, html, partial, render, consent, screenshotBefore, browserLocation } = renderResult.value;
     const renderQuality = partial ? 'partial' : 'full';
     const headers = headerResult.status === 'fulfilled' ? headerResult.value : null;
@@ -451,9 +461,8 @@ async function fetchResource(url) {
 }
 
 /**
- * Captures a file by fetch (backlog #58): stores it as the resource artifact
- * with its headers, signs its bytes into the WACZ and completes the capture.
- * Same result shape as performCapture.
+ * Captures a file by fetch (backlog #58), without a browser. Same result
+ * shape as performCapture.
  */
 async function performFetchCapture(env, url, captureId, tenantId, cip, attempt, qualifiedTimestamps, start) {
   let file;
@@ -469,7 +478,18 @@ async function performFetchCapture(env, url, captureId, tenantId, cip, attempt, 
     await failCapture(env.DB, captureId, message, retryable);
     return { ok: false, retryable: false };
   }
+  return completeFileCapture(env, url, captureId, tenantId, cip, qualifiedTimestamps, start, file, {});
+}
 
+/**
+ * Completes a capture of a file (backlog #58), fetched by the Worker or loaded
+ * by the browser: stores it as the resource artifact with its headers, signs
+ * its bytes into the WACZ and marks the capture complete.
+ *
+ * @param {object} file  { status, statusText, headers, contentType, bytes }
+ * @param {object} settings  extra captureSettings, e.g. { fetchedBy: 'browser', browserLocation }
+ */
+async function completeFileCapture(env, url, captureId, tenantId, cip, qualifiedTimestamps, start, file, settings) {
   const prefix = `captures/${captureId}`;
   const headers = { status: file.status, statusText: file.statusText, headers: file.headers };
   const headersJson = JSON.stringify(headers);
@@ -478,7 +498,7 @@ async function performFetchCapture(env, url, captureId, tenantId, cip, attempt, 
     env.BUCKET.put(`${prefix}/headers.json`, headersJson),
   ]);
   const artifacts = { resource: `${prefix}/resource`, headers: `${prefix}/headers.json` };
-  const captureSettings = { version: 1, method: 'fetch' };
+  const captureSettings = { version: 1, method: 'fetch', ...settings };
   const render = { httpStatus: file.status, contentType: file.contentType, bytes: file.bytes.byteLength, durationMs: Date.now() - start };
   const captureQuality = { renderQuality: 'full', httpStatus: file.status };
 
@@ -495,6 +515,7 @@ async function performFetchCapture(env, url, captureId, tenantId, cip, attempt, 
     captureId,
     tenantId,
     method: 'fetch',
+    fetchedBy: settings.fetchedBy ?? 'worker',
     contentType: file.contentType,
     bytes: file.bytes.byteLength,
     durationMs: Date.now() - start,
@@ -923,8 +944,9 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
     // Navigate with 20s timeout using 'load' (not 'networkidle' -- ad trackers keep connections alive indefinitely)
     // A page whose HTML is there when the timeout hits goes on through the same
     // steps as a loaded page and ends as a partial capture.
+    let navResponse = null;
     try {
-      await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
+      navResponse = await page.goto(url, { timeout: NAV_TIMEOUT_MS, waitUntil: 'load' });
       logLine(3, { event: 'render.default.nav_success', url, captureId, navigationMs: Date.now() - tContext, httpStatus, subresourceCount, totalBytes });
     } catch (navError) {
       if (navError.name !== 'TimeoutError') throw navError;
@@ -941,6 +963,37 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       }
       timedOut = true;
       logLine(3, { event: 'render.default.partial_start', url, captureId, readyState, budgetMs: PARTIAL_BUDGET_MS });
+    }
+
+    // The main response is a file, not a page (backlog #58): a site whose bot
+    // protection turned the header fetch away lets the browser through. Hand
+    // over the bytes instead of rendering Chromium's empty PDF viewer.
+    if (navResponse && isFetchCapture({ status: navResponse.status(), headers: navResponse.headers() })) {
+      let bytes = null;
+      try {
+        bytes = await answerWithin(navResponse.body(), PAGE_READ_MAX_MS, 'The file did not arrive from the browser');
+      } catch (err) {
+        logLine(4, { event: 'render.default.file_body_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
+      }
+      if (bytes) {
+        if (bytes.byteLength > MAX_FETCH_BYTES) throw new Error('File exceeded 10 MB size limit');
+        const fileHeaders = {};
+        for (const [key, value] of Object.entries(navResponse.headers())) {
+          // SECURITY: Strip Set-Cookie values (privacy)
+          fileHeaders[key] = key === 'set-cookie' ? '[redacted]' : value;
+        }
+        logLine(3, { event: 'render.default.file', url, captureId, contentType: fileHeaders['content-type'], bytes: bytes.byteLength });
+        return {
+          file: {
+            status: navResponse.status(),
+            statusText: navResponse.statusText(),
+            headers: fileHeaders,
+            contentType: fileHeaders['content-type'],
+            bytes: new Uint8Array(bytes),
+          },
+          browserLocation,
+        };
+      }
     }
 
     const tNav = Date.now();

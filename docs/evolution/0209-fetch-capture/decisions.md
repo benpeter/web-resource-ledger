@@ -12,6 +12,11 @@
   without retry. The file sits in memory about four times at its peak (the
   read, the WARC, the zip, the copy being stored), and an isolate runs up to
   10 captures at once in 128 MB, so 20 MB was too close after #99.
+- Bot protection answers the Worker's fetch with 403 on many sites (w3.org
+  on staging), so the probe sends those to the browser. When the browser's
+  main response is a 2xx file, the renderer returns its bytes
+  (`response.body()`) and the capture is completed the same way, with
+  `captureSettings.fetchedBy: 'browser'` and the browser location.
 - Stored as `captures/<id>/resource`; the WARC's main resource record holds
   the bytes with the site's content type, and there are no screenshot
   records. `captureSettings: { version: 1, method: 'fetch' }`,

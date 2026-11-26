@@ -293,8 +293,11 @@ export async function generateCertificate(capture, signingKeys, origin, operator
   // A fetch capture (backlog #58): no browser ran, the file itself was recorded
   if (capture.captureSettings?.method === 'fetch') {
     captureSteps.splice(1, 2,
-      'File Retrieval: The URL answered with a file rather than a web page (its content type is not HTML), ' +
-        'so the system fetched the file directly, without a browser, and did not follow redirects.',
+      capture.captureSettings.fetchedBy === 'browser'
+        ? 'File Retrieval: A headless browser (Chromium) opened the URL and received a file rather than a web ' +
+          'page (its content type is not HTML), so the system recorded the file instead of rendering it.'
+        : 'File Retrieval: The URL answered with a file rather than a web page (its content type is not HTML), ' +
+          'so the system fetched the file directly, without a browser, and did not follow redirects.',
       'Content Recording: The system records the bytes of the file exactly as received, with their content type, ' +
         'and the HTTP response headers.');
   }

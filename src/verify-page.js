@@ -586,7 +586,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       ? retrievalData.artifacts.resource : null;
     if (!screenshotUrl && resourceUrl) {
       html += '<section aria-label="Fetched file" class="screenshot-section"><h2>Fetched file</h2>' +
-        '<p id="resource-note">This URL answered with a file, not a web page, so WRL fetched the file and signed its bytes without opening it in a browser.</p>' +
+        '<p id="resource-note">This URL answered with a file, not a web page, so WRL recorded and signed the bytes of the file instead of a screenshot.</p>' +
         '<p><a id="resource-link" rel="noopener noreferrer">Download the file</a> <span id="resource-type"></span></p>' +
         '</section>';
     }

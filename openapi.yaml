@@ -211,6 +211,13 @@ components:
             `fetch` when the URL answered with a file rather than a web page (a
             2xx answer whose content type is not HTML), so WRL fetched the file
             and signed its bytes without a browser. Absent on browser captures.
+        fetchedBy:
+          type: string
+          enum: [browser]
+          description: >
+            `browser` when the file of a fetch capture came from WRL's browser,
+            because the site turned WRL's own fetch away (bot protection) or
+            redirected. Absent when WRL fetched the file itself.
         consent:
           $ref: '#/components/schemas/ConsentHandling'
           description: Consent handling metadata. Present when consent opt-out was attempted.

@@ -201,7 +201,7 @@ A page can look different in a narrow window: a phone layout, a menu folded into
 
 ### Captures of a file
 
-When the URL answered with a file rather than a web page (a PDF, JSON, an image), WRL fetched the file without a browser and signed its bytes: the WARC record for the URL holds the file with the content type the site sent, and there are no screenshot records. `captureSettings.method` is `fetch`. The verification page shows a "Fetched file" section with a download link instead of the screenshot, the dashboard and MCP `get_capture` list the file, and the certification PDF describes the fetch instead of the browser steps. Checking the file is the same as for a page: the CLI and the API confirm the WACZ bundle's hashes, signature and timestamp, which cover the file.
+When the URL answered with a file rather than a web page (a PDF, JSON, an image), WRL signed the file's bytes instead of a screenshot. Usually WRL fetches the file itself; when a site's bot protection turned that fetch away, WRL's browser received the file and `captureSettings.fetchedBy` is `browser`: the WARC record for the URL holds the file with the content type the site sent, and there are no screenshot records. `captureSettings.method` is `fetch`. The verification page shows a "Fetched file" section with a download link instead of the screenshot, the dashboard and MCP `get_capture` list the file, and the certification PDF describes the fetch instead of the browser steps. Checking the file is the same as for a page: the CLI and the API confirm the WACZ bundle's hashes, signature and timestamp, which cover the file.
 
 ### Ed25519 signatures
 

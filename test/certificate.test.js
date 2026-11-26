@@ -338,6 +338,12 @@ describe('certificate generation -- fetch capture (backlog #58)', () => {
     expect(pdfContains(streams, 'File Retrieval:')).toBe(true);
     expect(pdfContains(streams, 'Server-Side Browser Rendering:')).toBe(false);
   });
+
+  it('says the browser received the file when it loaded it', async () => {
+    const signingKeys = await getSigningKeys(env);
+    const streams = await pdfStreams(mockCapture({ captureSettings: { version: 1, method: 'fetch', fetchedBy: 'browser' } }), signingKeys);
+    expect(pdfContains(streams, 'received a file')).toBe(true);
+  });
 });
 
 describe('certificate generation -- viewport (backlog #66)', () => {
