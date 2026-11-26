@@ -163,6 +163,24 @@ export function consentResult(consent) {
 }
 
 /**
+ * Why the consent step failed, for captureSettings.consent.failureReason
+ * (backlog #51), or null when consentResult() isn't 'failed':
+ *   'timeout'      -- the banner showed, but declining didn't finish within
+ *                     CONSENT_OPTOUT_MS
+ *   'optOutFailed' -- declining was tried and the banner or wall stayed
+ *   'error'        -- the consent step itself failed (browser error)
+ *
+ * @param {{ status: string, popupFound?: boolean, _error?: object }} consent
+ * @returns {'timeout'|'optOutFailed'|'error'|null}
+ */
+export function consentFailureReason(consent) {
+  if (consentResult(consent) !== 'failed') return null;
+  if (consent.status === 'timeout') return 'timeout';
+  if (consent._error) return 'error';
+  return 'optOutFailed';
+}
+
+/**
  * Attempts to dismiss cookie consent on the given Playwright page.
  *
  * @param {import('@cloudflare/playwright').Page} page

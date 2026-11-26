@@ -453,6 +453,12 @@ function createMcpServer(env, ctx, auth, origin) {
         ...(record.render?.requestsHeldBack > 0
           ? [`WRL held back ${record.render.requestsHeldBack} ${record.render.requestsHeldBack === 1 ? 'request' : 'requests'} the page started during the screenshots, mostly ads; an ad slot that would only have filled then is empty in the screenshot.`]
           : []),
+        ...(record.render?.overlayCoverage >= 0.3
+          ? [`Elements fixed to the window, such as a popup, covered ${Math.round(record.render.overlayCoverage * 100)}% of it in the screenshot; WRL did not close them.`]
+          : []),
+        ...(record.render?.paywallSignals?.length > 0
+          ? [`Paywall signs: ${record.render.paywallSignals.map(paywallSignalText).join(', ')}.`]
+          : []),
         ...(record.render?.screenshotClipped
           ? [`Screenshot covers the top ${record.render.screenshotHeight} px of a ${record.render.pageHeight} px page; the HTML has the whole page.`]
           : []),
@@ -1618,6 +1624,16 @@ function createMcpServer(env, ctx, auth, origin) {
   );
 
   return server;
+}
+
+// Words for the paywall signals of render.paywallSignals (backlog #51)
+const PAYWALL_SIGNAL_TEXT = {
+  isAccessibleForFree: 'schema.org isAccessibleForFree false',
+  piano: 'a Piano paywall',
+  'paywall-element': 'an element named paywall',
+};
+function paywallSignalText(signal) {
+  return PAYWALL_SIGNAL_TEXT[signal] ?? signal;
 }
 
 // ---------------------------------------------------------------------------

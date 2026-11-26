@@ -137,6 +137,7 @@ export async function setup({ provide }) {
       '/error-page.html': 'error-page.html',
       '/lazy-images.html': 'lazy-images.html',
       '/lazy-placeholders.html': 'lazy-placeholders.html',
+      '/overlay-paywall.html': 'overlay-paywall.html',
     };
 
     const filename = fixtureMap[url.pathname];

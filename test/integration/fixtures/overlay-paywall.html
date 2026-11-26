@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Overlay and Paywall Test</title>
+  <!-- The publisher says the article is for subscribers (schema.org), as
+       paywalled news sites do for search engines. -->
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "NewsArticle", "headline": "Overlay and Paywall Test", "isAccessibleForFree": false}
+  </script>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    /* A fixed header: 8% of the window height */
+    #header { position: fixed; top: 0; left: 0; width: 100%; height: 8vh; background: #333; color: #fff; z-index: 10; }
+    article { padding: 10vh 2em; }
+    .article-paywall { padding: 1em; background: #fee; }
+    /* A newsletter popup over the page: 80% wide, 60% high */
+    #newsletter { position: fixed; top: 10vh; left: 10vw; width: 80vw; height: 60vh; background: #fff; border: 2px solid #000; z-index: 1000; }
+  </style>
+</head>
+<body>
+  <div id="header">Example News</div>
+  <article>
+    <h1>Overlay and Paywall Test</h1>
+    <p>The first paragraph of an article that continues for subscribers.</p>
+    <div class="article-paywall">Subscribe to read the rest of this article.</div>
+  </article>
+  <div id="newsletter">Sign up for our newsletter</div>
+</body>
+</html>

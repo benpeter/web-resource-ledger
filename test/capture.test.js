@@ -1179,6 +1179,44 @@ describe('performCapture -- consent error in renderer', () => {
   });
 });
 
+// Phase 0216 (backlog #51)
+describe('performCapture -- why consent failed, overlays and paywall signals', () => {
+  it('records failureReason next to a failed consent result', async () => {
+    const errorRenderer = async () => ({
+      screenshot: PNG_BYTES,
+      html: TEST_HTML,
+      partial: false,
+      render: { waitUntilReached: 'load', timedOut: false, durationMs: 4000, settleMs: 500, settleReason: 'idle' },
+      consent: { status: 'failed', cmp: null, durationMs: 0, _error: { name: 'TypeError', message: 'x' } },
+      screenshotBefore: PNG_BYTES,
+    });
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, errorRenderer);
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.captureSettings.consent.result).toBe('failed');
+    expect(record.captureSettings.consent.failureReason).toBe('error');
+  });
+
+  it('signs overlayCoverage and paywallSignals into the WACZ', async () => {
+    const overlayRenderer = async (...args) => {
+      const result = await consentNotDetectedRenderer(...args);
+      return { ...result, render: { ...result.render, overlayCoverage: 0.58, paywallSignals: ['isAccessibleForFree'] } };
+    };
+    mockHeaderFetch();
+    await createCapture(env.DB, TEST_ID, TEST_URL, TEST_IP, 'default');
+    await performCapture(env, TEST_URL, TEST_IP, TEST_ID, 'default', undefined, overlayRenderer);
+
+    const record = await getCapture(env.DB, TEST_ID);
+    expect(record.render.overlayCoverage).toBe(0.58);
+    const obj = await env.BUCKET.get(record.wacz.key);
+    const files = unzipSync(new Uint8Array(await obj.arrayBuffer()));
+    const datapackage = JSON.parse(new TextDecoder().decode(files['datapackage.json']));
+    expect(datapackage.captureQuality.overlayCoverage).toBe(0.58);
+    expect(datapackage.captureQuality.paywallSignals).toEqual(['isAccessibleForFree']);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // categorizeError -- named export
 // ---------------------------------------------------------------------------

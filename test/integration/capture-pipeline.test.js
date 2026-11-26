@@ -747,6 +747,47 @@ describe('integration: lazy-load placeholders', () => {
   });
 });
 
+// Phase 0216 (backlog #51): WRL notes, without dismissing anything, what
+// still covered the window when the screenshot was taken and what says the
+// page is behind a paywall.
+describe('integration: overlays and paywall signals', () => {
+  const captureId = 'cap_0000000000000000000000000000e5aa';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('records how much of the window fixed elements cover and the paywall signals', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/overlay-paywall.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    // 10 by 10 sample points: the header covers one row (10), the popup 8 by 6 (48)
+    expect(record.render.overlayCoverage).toBe(0.58);
+    expect(record.render.paywallSignals).toEqual(['isAccessibleForFree', 'paywall-element']);
+    // Nothing was dismissed: the popup is still in the HTML
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    expect(html).toContain('Sign up for our newsletter');
+  });
+
+  it('records no coverage and no signals for a plain page', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/fast.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    expect(record.render.overlayCoverage).toBe(0);
+    expect(record.render.paywallSignals).toEqual([]);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Caps: subresource count and page size (backlog #98)
 // ---------------------------------------------------------------------------

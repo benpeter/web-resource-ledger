@@ -4,7 +4,7 @@
 // test/integration/capture-pipeline.test.js.
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { dismissCookieConsent } from '../src/consent.js';
+import { dismissCookieConsent, consentFailureReason } from '../src/consent.js';
 
 // A page whose autoconsent script asks for its config and rules ('init') in
 // every frame when it is injected. `script` then plays the messages
@@ -120,5 +120,30 @@ describe('dismissCookieConsent: a browser that does not answer while the step is
 
     expect(result.status).toBe('failed');
     expect(result._error.message).toBe('The consent step could not be set up within 15 seconds');
+  });
+});
+
+// Phase 0216 (backlog #51): a failed consent step says why it failed.
+describe('consentFailureReason', () => {
+  it('timeout: the banner showed but declining did not finish in time', () => {
+    expect(consentFailureReason({ status: 'timeout', popupFound: true })).toBe('timeout');
+  });
+
+  it('optOutFailed: autoconsent reported that declining did not work', () => {
+    expect(consentFailureReason({ status: 'failed', cmp: 'onetrust', popupFound: true })).toBe('optOutFailed');
+  });
+
+  it('optOutFailed: a wall stayed after WRL tried to answer it', () => {
+    expect(consentFailureReason({ status: 'failed', cmp: null, popupFound: true, pageChanged: true })).toBe('optOutFailed');
+  });
+
+  it('error: the consent step itself threw', () => {
+    expect(consentFailureReason({ status: 'failed', cmp: null, popupFound: false, _error: { name: 'TypeError', message: 'x' } })).toBe('error');
+  });
+
+  it('null when the consent step did not fail', () => {
+    expect(consentFailureReason({ status: 'dismissed' })).toBeNull();
+    expect(consentFailureReason({ status: 'none' })).toBeNull();
+    expect(consentFailureReason({ status: 'timeout', popupFound: false })).toBeNull();
   });
 });

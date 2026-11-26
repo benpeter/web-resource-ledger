@@ -379,6 +379,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
     consentHandling:    'Cookie consent handled',
     renderQuality:      'Page load',
     pageStatus:         'Site answer',
+    paywall:            'Paywall',
   };
 
   var CHECK_DESCS = {
@@ -507,6 +508,20 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       ? 'WRL held back ' + heldBack.toLocaleString('en-US') + (heldBack === 1 ? ' request' : ' requests') +
         ' the page started while the screenshot was taken, mostly ads. An ad slot that would only have filled then is empty here.'
       : null;
+    // Popups and other fixed elements over the page, noted not closed (backlog #51)
+    var overlayCoverage = render ? Number(render.overlayCoverage) : 0;
+    var overlayNote = overlayCoverage >= 0.3
+      ? 'Elements fixed to the window, such as a popup, covered ' + Math.round(overlayCoverage * 100) +
+        '% of it when the screenshot was taken. WRL did not close them.'
+      : null;
+    var PAYWALL_SIGNAL_TEXT = {
+      isAccessibleForFree: 'schema.org isAccessibleForFree false',
+      piano: 'a Piano paywall',
+      'paywall-element': 'an element named paywall',
+    };
+    var paywallSignals = render && Array.isArray(render.paywallSignals)
+      ? render.paywallSignals.filter(function(s) { return Object.prototype.hasOwnProperty.call(PAYWALL_SIGNAL_TEXT, s); })
+      : [];
 
     var captureSettings = verifyData.captureSettings;
     var consentResult = captureSettings && captureSettings.consent
@@ -544,6 +559,13 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         : render && render.sizeLimitReached && !render.timedOut
           ? { name: 'renderQuality', status: 'skip', desc: 'The page loaded more data than WRL allows for one capture. WRL blocked the rest, so images or content that load later may be missing.' }
           : { name: 'renderQuality', status: 'skip' }]);
+    }
+
+    // Signs that the page is behind a paywall (backlog #51)
+    if (paywallSignals.length > 0) {
+      checks = checks.concat([{ name: 'paywall', status: 'skip', desc: 'The page showed signs of a paywall: ' +
+        paywallSignals.map(function(s) { return PAYWALL_SIGNAL_TEXT[s]; }).join(', ') +
+        '. The capture shows what a visitor without a subscription saw.' }]);
     }
 
     // The capture shows what the site answered, and that was an error status
@@ -592,6 +614,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         '<p class="screenshot-caption" id="screenshot-caption"></p>' +
         (clipNote ? '<p class="screenshot-caption" id="screenshot-clip-note">' + clipNote + '</p>' : '') +
         (heldNote ? '<p class="screenshot-caption" id="screenshot-held-note">' + heldNote + '</p>' : '') +
+        (overlayNote ? '<p class="screenshot-caption" id="screenshot-overlay-note">' + overlayNote + '</p>' : '') +
         '<div id="screenshot-before-wrap"></div>' +
         '</section>';
     }
