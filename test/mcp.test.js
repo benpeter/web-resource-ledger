@@ -678,6 +678,26 @@ describe('tool: get_capture -- requests held back during the screenshots', () =>
   });
 });
 
+describe('tool: get_capture -- overlays and paywall signals (#51)', () => {
+  beforeEach(async () => {
+    const { createCapture: create, completeCapture: complete } = await import('../src/db.js');
+    await create(env.DB, COMPLETE_ID, 'https://example.com', '93.184.216.34', 'default');
+    await complete(env.DB, COMPLETE_ID, {
+      screenshot: `captures/${COMPLETE_ID}/screenshot.png`,
+      html: `captures/${COMPLETE_ID}/rendered.html`,
+    }, null, 'full', { waitUntilReached: 'load', timedOut: false, durationMs: 4000, overlayCoverage: 0.58, paywallSignals: ['isAccessibleForFree', 'paywall-element'] });
+  });
+
+  afterEach(cleanupCaptures);
+
+  it('says what covered the window and why the page looks paywalled', async () => {
+    const res = await mcpPost(toolCall('get_capture', { capture_id: COMPLETE_ID }));
+    const text = (await res.json()).result.content[0].text;
+    expect(text).toContain('Elements fixed to the window, such as a popup, covered 58% of it in the screenshot; WRL did not close them.');
+    expect(text).toContain('Paywall signs: schema.org isAccessibleForFree false, an element named paywall.');
+  });
+});
+
 describe('tool: get_capture -- site answered with an error status', () => {
   beforeEach(async () => {
     const { createCapture: create, completeCapture: complete } = await import('../src/db.js');

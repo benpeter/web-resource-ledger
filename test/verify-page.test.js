@@ -618,6 +618,36 @@ describe('verify page script -- clipped screenshot', () => {
   });
 });
 
+describe('verify page script -- overlays and paywall signals (#51)', () => {
+  const page = (render) => renderVerifyPage({
+    verified: true,
+    capture: { id: TEST_ID, completedAt: '2026-11-26T10:00:00.000Z', renderQuality: 'full' },
+    signing: {},
+    checks: PASSING_CHECKS,
+  }, {
+    artifacts: { screenshot: 'https://worker.test/v1/captures/' + TEST_ID + '/artifacts/screenshot' },
+    render,
+  });
+
+  it('captions a screenshot that fixed elements covered by 30% or more', async () => {
+    const out = await page({ overlayCoverage: 0.58, paywallSignals: [] });
+    expect(out).toContain('id="screenshot-overlay-note"');
+    expect(out).toContain('Elements fixed to the window, such as a popup, covered 58% of it when the screenshot was taken. WRL did not close them.');
+    expect(out).not.toContain('Paywall');
+  });
+
+  it('adds no caption below 30%', async () => {
+    const out = await page({ overlayCoverage: 0.1, paywallSignals: [] });
+    expect(out).not.toContain('id="screenshot-overlay-note"');
+  });
+
+  it('lists the paywall signals as a check', async () => {
+    const out = await page({ overlayCoverage: 0, paywallSignals: ['isAccessibleForFree', 'piano', 'paywall-element'] });
+    expect(out).toContain('Paywall');
+    expect(out).toContain('The page showed signs of a paywall: schema.org isAccessibleForFree false, a Piano paywall, an element named paywall. The capture shows what a visitor without a subscription saw.');
+  });
+});
+
 describe('verify page script -- requests held back during the screenshot', () => {
   it('captions a screenshot taken while WRL held requests back', async () => {
     const out = await renderVerifyPage({
