@@ -136,6 +136,7 @@ export async function setup({ provide }) {
       '/with-iframe.html': 'with-iframe.html',
       '/error-page.html': 'error-page.html',
       '/lazy-images.html': 'lazy-images.html',
+      '/lazy-placeholders.html': 'lazy-placeholders.html',
     };
 
     const filename = fixtureMap[url.pathname];

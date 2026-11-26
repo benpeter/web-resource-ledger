@@ -714,6 +714,38 @@ describe('integration: lazy-load triggering', () => {
   });
 });
 
+// Phase 0214 (backlog #50): on staging, spiegel.de's capture kept 302 images
+// as lazysizes placeholders (an empty SVG in src, the image in data-src) and
+// the screenshot showed blank boxes where article images belong.
+describe('integration: lazy-load placeholders', () => {
+  const captureId = 'cap_0000000000000000000000000000e5a9';
+
+  beforeEach(async () => {
+    await ensureBrowserSession();
+    await cleanupCapture(captureId);
+  });
+  afterEach(async () => { await cleanupCapture(captureId); });
+
+  it('fills data-src and data-srcset of images within the screenshot, leaves loaded and far images alone, and records it', async () => {
+    const port = inject('testServerPort');
+    const url = `http://127.0.0.1:${port}/lazy-placeholders.html`;
+    await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
+    await performCapture(env, url, '127.0.0.1', captureId, 'default');
+
+    const record = await getCapture(env.DB, captureId);
+    expect(record.status).toBe('complete');
+    const html = await (await env.BUCKET.get(record.artifacts.html)).text();
+    // \s before the name: data-src="..." contains src="..." as a substring
+    expect(html).toMatch(/\ssrc="\/lazy-pixel\.png\?ds=1"/);
+    expect(html).toMatch(/\ssrcset="\/lazy-pixel\.png\?pic=1 1x, \/lazy-pixel\.png\?pic=2 2x"/);
+    expect(html).toMatch(/\ssrc="\/lazy-pixel\.png\?pic=img"/);
+    expect(html).toMatch(/\ssrc="\/lazy-pixel\.png\?real=1"/);
+    expect(html).not.toMatch(/\ssrc="\/lazy-pixel\.png\?other=1"/);
+    expect(html).not.toMatch(/\ssrc="\/lazy-pixel\.png\?far=1"/);
+    expect(record.render.lazyLoad).toEqual({ imagesFilled: 3, scrollCutShort: false });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Caps: subresource count and page size (backlog #98)
 // ---------------------------------------------------------------------------
