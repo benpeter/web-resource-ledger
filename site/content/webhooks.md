@@ -285,7 +285,7 @@ If your endpoint does not return a 2xx response, WRL retries with a fixed schedu
 | 3 | 5 minutes |
 | 4 (final) | 15 minutes |
 
-After all retries are exhausted, the event is moved to the dead-letter queue and no further delivery is attempted.
+After all retries are exhausted, the event is moved to the dead-letter queue and no further delivery is attempted. Once your endpoint is back, [send the event again](#send-an-event-again).
 
 A retry sends the same event again, with the same `id` and `X-WRL-Delivery`. Your endpoint can receive an event more than once, for example when it processed a delivery but answered after the 10-second timeout, so skip events whose `id` you have already handled.
 
@@ -346,7 +346,44 @@ curl https://api.webresourceledger.com/v1/webhooks \
 
 Secrets are never included in list responses.
 
-All registered webhooks have `active: true`. There is no way to pause a webhook without deleting it.
+A webhook is active when registered; `active: false` means it is [paused](#pause%2C-resume-or-change).
+
+### Pause, resume or change
+
+`PATCH /v1/webhooks/{id}` changes any of `url`, `events`, `name` and `active`. Fields you leave out stay as they are, and the secret stays the same. A new `url` must use HTTPS and is checked like one at registration.
+
+```bash
+curl -X PATCH \
+  https://api.webresourceledger.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6 \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"active": false}'
+```
+
+The answer is the webhook as the list shows it. While a webhook is paused, WRL queues no events for it, and events that happen meanwhile are not sent once you set `active` back to `true`; deliveries already queued still go out. Pause a webhook while your endpoint is down for maintenance, then send the events you need again.
+
+### Send an event again
+
+`POST /v1/webhooks/{id}/redeliver` sends a finished capture's event to the webhook again, with the same retries as the first time. WRL builds the event from the capture's current state, so a capture that was quarantined since then gets `capture.quarantined`.
+
+```bash
+curl -X POST \
+  https://api.webresourceledger.com/v1/webhooks/whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/redeliver \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"captureId": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"}'
+```
+
+```json
+{
+  "webhookId": "whk_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+  "captureId": "cap_a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+  "eventType": "capture.complete",
+  "eventId": "evt_f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6"
+}
+```
+
+The event has a new `id`, because WRL doesn't keep the payloads it delivered: if you already handled the capture, recognize it by `data.captureId`. The call answers `409` when the webhook is paused, isn't subscribed to that event type, or the capture hasn't finished. To find the captures you missed, list them with [`GET /v1/captures`](/api-reference/#listCaptures).
 
 ### Delete
 

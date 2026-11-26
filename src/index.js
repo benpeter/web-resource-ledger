@@ -23,7 +23,7 @@ import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey, getCache, wantsHtml } from './cache.js';
 import { htmlDashboard } from './ui/ui-shell.js';
 import { htmlAdminDashboard } from './admin/admin-shell.js';
-import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook } from './webhooks.js';
+import { handleCreateWebhook, handleListWebhooks, handleDeleteWebhook, handlePingWebhook, handleUpdateWebhook, handleRedeliverWebhook } from './webhooks.js';
 import { handleCreateSchedule, handleListSchedules, handleGetSchedule, handleUpdateSchedule, handleDeleteSchedule } from './schedules.js';
 import { handleWebhookMessage, handleWebhookDlqMessage, dispatchWebhooks } from './webhook-dispatch.js';
 import { handleEmailMessage, handleEmailDlqMessage, dispatchNotification } from './email-dispatch.js';
@@ -115,6 +115,8 @@ const routes = [
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],
   ['DELETE', /^\/v1\/webhooks\/(whk_[a-f0-9]{32})$/, handleDeleteWebhook],
   ['POST',   /^\/v1\/webhooks\/(whk_[a-f0-9]{32})\/ping$/, handlePingWebhook],
+  ['PATCH',  /^\/v1\/webhooks\/(whk_[a-f0-9]{32})$/, handleUpdateWebhook],
+  ['POST',   /^\/v1\/webhooks\/(whk_[a-f0-9]{32})\/redeliver$/, handleRedeliverWebhook],
   // Schedule routes
   ['POST',   /^\/v1\/schedules$/, handleCreateSchedule],
   ['GET',    /^\/v1\/schedules$/, handleListSchedules],

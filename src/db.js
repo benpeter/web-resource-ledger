@@ -792,6 +792,34 @@ export async function deleteWebhook(db, webhookId, tenantId) {
 }
 
 /**
+ * Change a webhook's url, name, events or active flag, scoped to tenantId.
+ * Only the fields present in `changes` are written; updated_at is set.
+ * Returns the updated record without the secret, or null if not found.
+ *
+ * @param {D1Database} db
+ * @param {string} webhookId
+ * @param {string} tenantId
+ * @param {{ url?: string, name?: string, events?: string[], active?: boolean }} changes
+ * @returns {Promise<object|null>}
+ */
+export async function updateWebhook(db, webhookId, tenantId, changes) {
+  const sets = [];
+  const values = [];
+  if (changes.url !== undefined) { sets.push('url = ?'); values.push(changes.url); }
+  if (changes.name !== undefined) { sets.push('name = ?'); values.push(changes.name); }
+  if (changes.events !== undefined) { sets.push('events = ?'); values.push(JSON.stringify(changes.events)); }
+  if (changes.active !== undefined) { sets.push('active = ?'); values.push(changes.active ? 1 : 0); }
+  sets.push('updated_at = ?');
+  values.push(new Date().toISOString());
+
+  const result = await db.prepare(
+    `UPDATE webhooks SET ${sets.join(', ')} WHERE id = ? AND tenant_id = ?`,
+  ).bind(...values, webhookId, tenantId).run();
+  if (result.meta.changes === 0) return null;
+  return getWebhook(db, webhookId, tenantId);
+}
+
+/**
  * Count all webhooks (active + inactive) for a tenant.
  * Used to enforce the 5-per-tenant limit.
  *

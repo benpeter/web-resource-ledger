@@ -62,6 +62,8 @@ Because `capture` implies `read`, a key with `capture` scope can do everything a
 | `GET /v1/webhooks` | `capture` |
 | `DELETE /v1/webhooks/{id}` | `capture` |
 | `POST /v1/webhooks/{id}/ping` | `capture` |
+| `PATCH /v1/webhooks/{id}` | `capture` |
+| `POST /v1/webhooks/{id}/redeliver` | `capture` |
 | `POST /v1/schedules` | `capture` |
 | `GET /v1/schedules` | `capture` |
 | `GET /v1/schedules/{id}` | `capture` |

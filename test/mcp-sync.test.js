@@ -85,6 +85,8 @@ const EXCLUDED_OPERATIONS = {
   listWebhooks: 'deferred (webhook support not yet implemented)',
   deleteWebhook: 'deferred (webhook support not yet implemented)',
   pingWebhook: 'deferred (webhook support not yet implemented)',
+  updateWebhook: 'deferred (webhook support not yet implemented)',
+  redeliverWebhook: 'deferred (webhook support not yet implemented)',
 
   // UI / settings concern -- notification preferences and unsubscribe are
   // user-facing web UI flows, not AI agent actions.

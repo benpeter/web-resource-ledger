@@ -213,3 +213,4 @@ software development.
 | [0204-alert-names-captures](0204-alert-names-captures/) | The worker health alert lists the captures the killed runs were working on, with account, GitHub login and page, found in Coralogix as attempts without an outcome |
 | [0205-resend-bounces](0205-resend-bounces/) | Resend reports bounces and spam complaints to `POST /v1/resend/webhook`: a permanent bounce unverifies the notification address, a complaint turns its notifications off |
 | [0206-release-quarantine](0206-release-quarantine/) | An admin route releases a Web Risk quarantine for one capture or every capture of its URL; the release is recorded in `threat_checks` and the nightly re-scan leaves released captures alone |
+| [0207-webhook-pause-redeliver](0207-webhook-pause-redeliver/) | `PATCH /v1/webhooks/{id}` pauses, resumes or changes a webhook, and `POST /v1/webhooks/{id}/redeliver` sends a finished capture's event again |
