@@ -13,8 +13,10 @@
  *   metadata (captureSettings) are included in the WACZ bundle and covered
  *   by the Ed25519 signature. The consent step takes 2s when no consent tool
  *   is detected (up to 6s on a page that keeps the browser busy) and at most
- *   10s when one is (see consent.js), within the
- *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle + 2.5s scroll + 2-10s consent + 2s post ≈ 38s worst-case; in practice load fires in 2-5s).
+ *   10s when one is (see consent.js). A wall autoconsent has no rule for
+ *   is then answered by consent-wall.js, which clicks for up to 15s (plus
+ *   the load of a settings page of its own), all within the
+ *   15-minute queue consumer wall clock (NAV_TIMEOUT_MS=20s load + 3s settle + 2.5s scroll + 2-10s consent + 0-25s wall + 2s post ≈ 63s worst-case; in practice load fires in 2-5s).
  *   A page that hit the navigation timeout gets the same steps.
  *
  * Called from queue consumer. For retryable errors, does NOT write KV
