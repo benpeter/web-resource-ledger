@@ -351,6 +351,20 @@ describe('formatHuman -- capture quality', () => {
     assert.match(stdoutOutput, /  Note      Partial capture: the page made more requests than the capture service allows, so content that loads late may be missing\n/);
   });
 
+  it('says when the page loaded more data than the capture service allows', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'partial', timedOut: false, sizeLimitReached: true };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Note      Partial capture: the page loaded more data than the capture service allows, so content that loads late may be missing\n/);
+  });
+
+  it('says how many requests were held back while the screenshots were taken', () => {
+    const result = makePassResult();
+    result.capture.quality = { renderQuality: 'full', requestsHeldBack: 236 };
+    formatHuman(result, { noColor: true });
+    assert.match(stdoutOutput, /  Note      The capture service held back 236 requests the page started while it took the screenshots, mostly ads; an ad slot that would only have filled then is empty in the screenshot\n/);
+  });
+
   it('says when the screenshot shows only the top of the page', () => {
     const result = makePassResult();
     result.capture.quality = { renderQuality: 'full', screenshotClipped: true, pageHeight: 21860, screenshotHeight: 8000 };
@@ -367,7 +381,7 @@ describe('formatHuman -- capture quality', () => {
 
   it('adds no note for a full capture of a page that answered 200', () => {
     const result = makePassResult();
-    result.capture.quality = { renderQuality: 'full', timedOut: false, screenshotClipped: false, httpStatus: 200 };
+    result.capture.quality = { renderQuality: 'full', timedOut: false, screenshotClipped: false, httpStatus: 200, requestsHeldBack: 0 };
     formatHuman(result, { noColor: true });
     assert.doesNotMatch(stdoutOutput, /  Note  /);
   });

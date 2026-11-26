@@ -446,6 +446,9 @@ function createMcpServer(env, ctx, auth, origin) {
         ...(record.render?.sizeLimitReached
           ? ['The page loaded more data than WRL allows for one capture; WRL blocked the rest.']
           : []),
+        ...(record.render?.requestsHeldBack > 0
+          ? [`WRL held back ${record.render.requestsHeldBack} ${record.render.requestsHeldBack === 1 ? 'request' : 'requests'} the page started during the screenshots, mostly ads; an ad slot that would only have filled then is empty in the screenshot.`]
+          : []),
         ...(record.render?.screenshotClipped
           ? [`Screenshot covers the top ${record.render.screenshotHeight} px of a ${record.render.pageHeight} px page; the HTML has the whole page.`]
           : []),

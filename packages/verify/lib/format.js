@@ -168,9 +168,16 @@ export function captureQualityNotes(quality) {
   if (!quality) return [];
   const notes = [];
   if (quality.renderQuality === 'partial') {
-    notes.push(quality.subresourceLimitReached && !quality.timedOut
-      ? 'Partial capture: the page made more requests than the capture service allows, so content that loads late may be missing'
-      : 'Partial capture: the page had not finished loading, so content that loads late may be missing');
+    if (quality.subresourceLimitReached && !quality.timedOut) {
+      notes.push('Partial capture: the page made more requests than the capture service allows, so content that loads late may be missing');
+    } else if (quality.sizeLimitReached && !quality.timedOut) {
+      notes.push('Partial capture: the page loaded more data than the capture service allows, so content that loads late may be missing');
+    } else {
+      notes.push('Partial capture: the page had not finished loading, so content that loads late may be missing');
+    }
+  }
+  if (quality.requestsHeldBack > 0) {
+    notes.push(`The capture service held back ${quality.requestsHeldBack} ${quality.requestsHeldBack === 1 ? 'request' : 'requests'} the page started while it took the screenshots, mostly ads; an ad slot that would only have filled then is empty in the screenshot`);
   }
   if (quality.screenshotClipped && quality.screenshotHeight && quality.pageHeight) {
     notes.push(`The screenshot shows the top ${quality.screenshotHeight} px of a ${quality.pageHeight} px page; the HTML has the whole page`);

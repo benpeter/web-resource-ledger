@@ -134,6 +134,8 @@ describe('verifyWacz -- capture quality', () => {
         waitUntilReached: 'load',
         timedOut: false,
         subresourceLimitReached: true,
+        sizeLimitReached: false,
+        requestsHeldBack: 236,
         httpStatus: 403,
         pageHeight: 21860,
         screenshotHeight: 8000,
@@ -148,10 +150,12 @@ describe('verifyWacz -- capture quality', () => {
       waitUntilReached: 'load',
       timedOut: false,
       subresourceLimitReached: true,
+      sizeLimitReached: false,
       screenshotClipped: true,
       pageHeight: 21860,
       screenshotHeight: 8000,
       httpStatus: 403,
+      requestsHeldBack: 236,
     });
   });
 

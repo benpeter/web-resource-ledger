@@ -492,6 +492,12 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
       ? 'Shows the top ' + Number(render.screenshotHeight).toLocaleString('en-US') + ' px of a ' +
         Number(render.pageHeight).toLocaleString('en-US') + ' px page. The HTML in the bundle has the whole page.'
       : null;
+    // WRL holds back new requests while it takes the screenshot (backlog #105)
+    var heldBack = render ? Number(render.requestsHeldBack) : 0;
+    var heldNote = heldBack > 0
+      ? 'WRL held back ' + heldBack.toLocaleString('en-US') + (heldBack === 1 ? ' request' : ' requests') +
+        ' the page started while the screenshot was taken, mostly ads. An ad slot that would only have filled then is empty here.'
+      : null;
 
     var captureSettings = verifyData.captureSettings;
     var consentResult = captureSettings && captureSettings.consent
@@ -569,6 +575,7 @@ footer a:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2
         '<div id="screenshot-wrap"></div>' +
         '<p class="screenshot-caption" id="screenshot-caption"></p>' +
         (clipNote ? '<p class="screenshot-caption" id="screenshot-clip-note">' + clipNote + '</p>' : '') +
+        (heldNote ? '<p class="screenshot-caption" id="screenshot-held-note">' + heldNote + '</p>' : '') +
         '<div id="screenshot-before-wrap"></div>' +
         '</section>';
     }

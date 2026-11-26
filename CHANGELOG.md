@@ -12,6 +12,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Added
 
+- The verification page captions a screenshot taken while WRL held requests back ("WRL held back 236 requests the page started while the screenshot was taken, mostly ads"), and MCP `get_capture` says the same. `@w-r-l/verify` 0.6.0 shows it as a note and as `capture.quality.requestsHeldBack`, and names the size limit when a partial capture stopped there (`sizeLimitReached`).
 - `render.requestsHeldBack`, also signed into `captureQuality`: how many requests the page started while WRL took its screenshots. WRL now holds those back, after the page has loaded, settled and been scrolled, so a screenshot no longer waits for them; on ad-heavy pages that was hundreds of ad requests and up to 90 seconds. An ad slot that would only have filled then is empty in the screenshot.
 - An account without a payment method gets an email when its captures have used 8 of its 10 GB of free storage, once a month, under the "Approaching limit" preference.
 - An account without a payment method gets an email when a batch is refused for asking for more captures than are left, with how many are left, once a month, under the "Limit reached" preference. Before, only the `429` said so.

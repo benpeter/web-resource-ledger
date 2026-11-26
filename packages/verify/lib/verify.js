@@ -35,8 +35,8 @@ const MAX_DECOMPRESSED = 100 * 1024 * 1024; // 100 MB
 // ---------------------------------------------------------------------------
 
 const WAIT_MILESTONES = ['domcontentloaded', 'load', 'networkidle'];
-const QUALITY_FLAGS    = ['timedOut', 'subresourceLimitReached', 'screenshotClipped'];
-const QUALITY_NUMBERS  = ['pageHeight', 'screenshotHeight', 'httpStatus'];
+const QUALITY_FLAGS    = ['timedOut', 'subresourceLimitReached', 'sizeLimitReached', 'screenshotClipped'];
+const QUALITY_NUMBERS  = ['pageHeight', 'screenshotHeight', 'httpStatus', 'requestsHeldBack'];
 
 /**
  * Reads captureSettings.browserLocation of datapackage.json: the Cloudflare
