@@ -17,7 +17,7 @@ import { readSitemap } from './sitemap.js';
 import { RATE_LIMITS, getEffectiveLimit } from './rate-limits.js';
 import { checkQuota, FREE_CAPTURE_LIMIT, limitReachedEmailData, batchRefusedEmailData, approachingStorageEmailData, accountRefusalDetail, quotaLimitDetail } from './quotas.js';
 import { computeCip } from './ip-hash.js';
-import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant, handleAdminPurgeTenantCaptures } from './admin.js';
+import { handleAdminCreateKey, handleAdminListKeys, handleAdminRevokeKey, handleAdminGetUsage, handleAdminCachePurge, handleAdminRequestDeletion, handleAdminCancelDeletion, handleAdminPurgeTenant, handleAdminPurgeTenantCaptures, handleAdminReleaseQuarantine } from './admin.js';
 import { handleAdminListTenants, handleAdminGetTenant, handleAdminGetOverview } from './admin-dashboard.js';
 import { handleMcp } from './mcp.js';
 import { buildCacheKey, buildSimpleCacheKey, getCache, wantsHtml } from './cache.js';
@@ -108,6 +108,8 @@ const routes = [
   ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/deletion$/, handleAdminCancelDeletion],
   // A tenant's captures without the account (phase 0196)
   ['DELETE', /^\/v1\/admin\/tenants\/([a-z0-9_-]{1,64})\/captures$/, handleAdminPurgeTenantCaptures],
+  // Release a Web Risk quarantine (backlog #65)
+  ['DELETE', /^\/v1\/admin\/captures\/(cap_[a-f0-9]{32})\/quarantine$/, handleAdminReleaseQuarantine],
   ['GET',    /^\/v1\/admin\/overview$/, handleAdminGetOverview],
   ['POST',   /^\/v1\/webhooks$/, handleCreateWebhook],
   ['GET',    /^\/v1\/webhooks$/, handleListWebhooks],

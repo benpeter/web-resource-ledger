@@ -18,7 +18,7 @@
 
 import { jsonResponse, problemResponse } from './responses.js';
 import { hashApiKey } from './auth.js';
-import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists, requestTenantDeletion, cancelTenantDeletion, getTenantDeletion, listTenantObjectKeys, deleteTenantRows, DELETION_GRACE_DAYS } from './db.js';
+import { createApiKeyRecord, getApiKeyRecord, listApiKeyRecords, revokeApiKeyRecord, TENANT_ID_RE, getUsage, computePeriod, tenantExists, requestTenantDeletion, cancelTenantDeletion, getTenantDeletion, releaseQuarantine, listTenantObjectKeys, deleteTenantRows, DELETION_GRACE_DAYS } from './db.js';
 import { log } from './log.js';
 import { purgeTenantCaptures, CAPTURE_PURGE_BATCH } from './retention.js';
 import { computeCip } from './ip-hash.js';
@@ -594,4 +594,37 @@ export async function handleAdminPurgeTenantCaptures(request, env, ctx, match) {
   const { captures, failed, r2Objects, remaining } = await purgeTenantCaptures(env, tenantId, requested);
   ctx.waitUntil(log(env, 3, 'admin', { event: 'admin.tenant_captures_purged', tenantId, captures, failed, r2Objects, remaining, cip }) ?? Promise.resolve());
   return jsonResponse({ tenantId, deleted: { captures, r2Objects }, remaining }, 200, ADMIN_CACHE);
+}
+
+/**
+ * DELETE /v1/admin/captures/{id}/quarantine[?scope=url]
+ *
+ * Release a capture the nightly Web Risk re-scan quarantined (backlog #65),
+ * after a tenant disputes it or the URL turns out clean. scope=url releases
+ * every quarantined capture of the same URL, across tenants. The re-scan
+ * leaves released captures alone from then on; new captures of the URL are
+ * still checked as usual.
+ */
+export async function handleAdminReleaseQuarantine(request, env, ctx, match) {
+  const captureId = match[1];
+  const scope = new URL(request.url).searchParams.get('scope');
+  if (scope !== null && scope !== 'url') {
+    return problemResponse(400, "scope must be 'url' or left out.", ADMIN_CACHE);
+  }
+
+  const result = await releaseQuarantine(env.DB, captureId, { byUrl: scope === 'url' });
+  if (!result) return problemResponse(404, 'Capture not found.', ADMIN_CACHE);
+  if (!result.quarantined) return problemResponse(409, 'Capture is not quarantined.', ADMIN_CACHE);
+
+  const cip = await computeCip(env, request.headers.get('CF-Connecting-IP') || 'unknown');
+  ctx.waitUntil(log(env, 3, 'admin', {
+    event: 'admin.quarantine_released',
+    captureId,
+    scope: scope ?? 'capture',
+    url: result.url,
+    releasedCount: result.released.length,
+    captureIds: result.released.map(r => r.captureId).join(','),
+    cip,
+  }) ?? Promise.resolve());
+  return jsonResponse({ url: result.url, released: result.released }, 200, ADMIN_CACHE);
 }

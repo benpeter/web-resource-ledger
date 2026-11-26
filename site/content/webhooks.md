@@ -134,7 +134,7 @@ Fired when a capture fails: WRL used all its attempts, the error is one another 
 
 ### `capture.quarantined`
 
-Fired when the nightly re-scan finds the URL of a complete capture on one of Google Web Risk's threat lists. Every complete capture of that URL is quarantined, and each account that has one gets the event. `quarantineReason` names the lists, comma-separated: `MALWARE`, `SOCIAL_ENGINEERING` or `UNWANTED_SOFTWARE`. From then on the capture record shows the status `quarantined`, its artifacts and its verification (`/v1/verify/{id}`) answer `451`, and the capture is deleted 90 days later.
+Fired when the nightly re-scan finds the URL of a complete capture on one of Google Web Risk's threat lists. Every complete capture of that URL is quarantined, and each account that has one gets the event. `quarantineReason` names the lists, comma-separated: `MALWARE`, `SOCIAL_ENGINEERING` or `UNWANTED_SOFTWARE`. From then on the capture record shows the status `quarantined`, its artifacts and its verification (`/v1/verify/{id}`) answer `451`, and the capture is deleted 90 days later. If you think the page was flagged by mistake, email [hello@webresourceledger.com](mailto:hello@webresourceledger.com) with the capture ID: once the URL checks out, WRL releases the quarantine and the capture is readable again.
 
 ```json
 {
