@@ -726,7 +726,7 @@ describe('integration: lazy-load placeholders', () => {
   });
   afterEach(async () => { await cleanupCapture(captureId); });
 
-  it('fills data-src and data-srcset of images within the screenshot, leaves loaded and far images alone, and records it', async () => {
+  it('fills data-src and data-srcset of images within the screenshot, leaves loaded, hidden and far images alone, and records it', async () => {
     const port = inject('testServerPort');
     const url = `http://127.0.0.1:${port}/lazy-placeholders.html`;
     await createCapture(env.DB, captureId, url, '127.0.0.1', 'default');
@@ -742,6 +742,7 @@ describe('integration: lazy-load placeholders', () => {
     expect(html).toMatch(/\ssrc="\/lazy-pixel\.png\?real=1"/);
     expect(html).not.toMatch(/\ssrc="\/lazy-pixel\.png\?other=1"/);
     expect(html).not.toMatch(/\ssrc="\/lazy-pixel\.png\?far=1"/);
+    expect(html).not.toMatch(/\ssrc="\/lazy-pixel\.png\?menu=1"/);
     expect(record.render.lazyLoad).toEqual({ imagesFilled: 3, scrollCutShort: false });
   });
 });
