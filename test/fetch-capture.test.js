@@ -7,7 +7,7 @@ import { env, SELF } from 'cloudflare:test';
 import { fetchMock } from './fetch-mock.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { unzipSync } from 'fflate';
-import { performCapture, isFetchCapture, MAX_FETCH_BYTES } from '../src/capture.js';
+import { performCapture, isFetchCapture, startsWithMarkup, MAX_FETCH_BYTES } from '../src/capture.js';
 import { createCapture, getCapture } from '../src/db.js';
 import { TEST_TENANT_KEY, seedApiKey } from './fixtures.js';
 
@@ -47,6 +47,17 @@ describe('isFetchCapture', () => {
     expect(isFetchCapture(answer(403, 'application/json'))).toBe(false);
     expect(isFetchCapture(answer(200, null))).toBe(false);
     expect(isFetchCapture(null)).toBe(false);
+  });
+});
+
+describe('startsWithMarkup', () => {
+  // Chromium's body for a PDF it shows in its viewer is an HTML page
+  it('spots an HTML page where a file was expected', () => {
+    const enc = new TextEncoder();
+    expect(startsWithMarkup(enc.encode('<!DOCTYPE html><html><body><embed type="application/pdf">'))).toBe(true);
+    expect(startsWithMarkup(enc.encode('  <html>'))).toBe(true);
+    expect(startsWithMarkup(PDF)).toBe(false);
+    expect(startsWithMarkup(enc.encode('{"id":1}'))).toBe(false);
   });
 });
 

@@ -531,6 +531,36 @@ async function completeFileCapture(env, url, captureId, tenantId, cip, qualified
 }
 
 /**
+ * Whether bytes start with an HTML tag: what Chromium hands over as the body
+ * of a PDF it shows in its viewer (backlog #58).
+ *
+ * @param {Uint8Array|ArrayBuffer} bytes
+ * @returns {boolean}
+ */
+export function startsWithMarkup(bytes) {
+  const head = new TextDecoder().decode(new Uint8Array(bytes).subarray(0, 64)).trimStart().toLowerCase();
+  return head.startsWith('<!doctype') || head.startsWith('<html');
+}
+
+/**
+ * Runs in the page: fetches the file the page shows, with the browser's
+ * cookies, and returns it base64-encoded, or null when it is larger than
+ * maxBytes.
+ *
+ * @param {{ fileUrl: string, maxBytes: number }} args
+ * @returns {Promise<string|null>}
+ */
+async function readFileInPage({ fileUrl, maxBytes }) {
+  const resp = await fetch(fileUrl, { credentials: 'include' });
+  if (!resp.ok) throw new Error(`File fetch in the browser answered HTTP ${resp.status}`);
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  if (buf.byteLength > maxBytes) return null;
+  let text = '';
+  for (let i = 0; i < buf.length; i += 0x8000) text += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
+/**
  * Builds the signed WACZ for a capture's artifacts, stores it in R2 and
  * archives the signing key. Returns the capture record's wacz info, or null
  * when no signing key is configured or bundling failed (logged): the capture
@@ -972,7 +1002,16 @@ async function defaultRenderer(env, url, captureId, { viewport = DEFAULT_VIEWPOR
       let bytes = null;
       try {
         bytes = await answerWithin(navResponse.body(), PAGE_READ_MAX_MS, 'The file did not arrive from the browser');
+        // For a PDF Chromium hands over its viewer page, not the file: fetch
+        // the file again from inside the page, with the browser's cookies
+        if (startsWithMarkup(bytes)) {
+          const b64 = await answerWithin(page.evaluate(readFileInPage, { fileUrl: url, maxBytes: MAX_FETCH_BYTES }), PAGE_READ_MAX_MS, 'The file did not arrive from the browser');
+          if (b64 === null) throw new Error('File exceeded 10 MB size limit');
+          bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        }
       } catch (err) {
+        if (String(err?.message).includes('File exceeded')) throw err;
+        bytes = null;
         logLine(4, { event: 'render.default.file_body_fail', url, captureId, errorMessage: String(err?.message ?? '').slice(0, 256) });
       }
       if (bytes) {
