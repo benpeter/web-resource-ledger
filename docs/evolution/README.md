@@ -216,3 +216,4 @@ software development.
 | [0207-webhook-pause-redeliver](0207-webhook-pause-redeliver/) | `PATCH /v1/webhooks/{id}` pauses, resumes or changes a webhook, and `POST /v1/webhooks/{id}/redeliver` sends a finished capture's event again |
 | [0208-viewport](0208-viewport/) | `POST /v1/captures` takes a `viewport`; the screenshot height cap scales with the width to keep the pixel count, and `captureSettings.viewport` records the size on every capture |
 | [0209-fetch-capture](0209-fetch-capture/) | A URL that answers 2xx with a non-HTML type is fetched and signed byte for byte without a browser, up to 10 MB, as the `resource` artifact |
+| [0210-consent-walls](0210-consent-walls/) | A consent wall autoconsent has no rule for is answered by WRL: its decline button, else its settings with every choice unticked, else accept, which `captureSettings.consent` records as `result: accepted` and the verify page shows |

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html><head><title>WRL Integration Test - Consent Settings Page</title></head>
+<body>
+<!--
+  The settings of consent-wall.html?page, on a page of their own like kleinanzeigen.de/gdpr.
+  Its buttons are drawn 1.5 seconds after the load event, as kleinanzeigen's are.
+  ?seen: no buttons at all; the visit only marks the wall as seen, so it doesn't come back
+-->
+<nav><button>Search</button> <button>Categories</button></nav>
+<h1>Privacy settings</h1>
+<p>Choose which purposes we and our partners may use cookies for.</p>
+<div id="choices"></div>
+<p id="outcome"></p>
+<script>
+  if (location.search === '?seen') {
+    document.cookie = 'wall-seen=1; path=/';
+  } else {
+    addEventListener('load', () => setTimeout(() => {
+      document.getElementById('choices').innerHTML =
+        '<button id="subscribe">Subscribe to the ad-free plan</button> <button id="save">Save and continue</button> ' +
+        '<button id="reject">Reject all and continue</button> <button id="accept">Accept all</button>';
+      wire();
+    }, 1500));
+  }
+  function wire() {
+    const back = (choice) => {
+      document.cookie = `wall-choice=${choice}; path=/`;
+      location.href = '/consent-wall.html?page';
+    };
+    document.getElementById('reject').addEventListener('click', () => back('declined'));
+    document.getElementById('accept').addEventListener('click', () => back('accepted'));
+    document.getElementById('save').addEventListener('click', () => back('saved'));
+    document.getElementById('subscribe').addEventListener('click', () => { document.getElementById('outcome').textContent = 'wall-outcome:subscribed'; });
+  }
+</script>
+</body>
+</html>

@@ -532,6 +532,33 @@ describe('verify page script -- where the capture was made from', () => {
   });
 });
 
+describe('verify page script -- consent walls (backlog #104, #47)', () => {
+  it('says the capture accepted cookies when the banner offered no way to decline', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-26T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, consent: { library: 'wrl-consent-wall', action: 'acceptAll', route: 'accept', result: 'accepted', button: 'Agree' } },
+    });
+    expect(out).toContain('<span class="sr-only">skip:</span><div class="check-body"><div class="check-label" data-check-label="consentHandling">Cookie consent handled</div>');
+    expect(out).toContain('The cookie consent banner offered no way to decline, so the capture accepted it. The page shows what a visitor who accepts cookies sees.');
+    expect(out).not.toContain('The capture dismissed a cookie consent banner');
+  });
+
+  it('passes the consent check when WRL declined a wall itself', async () => {
+    const out = await renderVerifyPage({
+      verified: true,
+      capture: { id: TEST_ID, completedAt: '2026-11-26T10:00:00.000Z', renderQuality: 'full' },
+      signing: {},
+      checks: PASSING_CHECKS,
+      captureSettings: { version: 1, consent: { library: 'wrl-consent-wall', action: 'optOut', route: 'settings', result: 'success', button: 'Save choices' } },
+    });
+    expect(out).toContain('<span class="sr-only">pass:</span><div class="check-body"><div class="check-label" data-check-label="consentHandling">Cookie consent handled</div>');
+    expect(out).toContain('The capture dismissed a cookie consent banner to reveal the page content.');
+  });
+});
+
 describe('verify page script -- fetch capture (backlog #58)', () => {
   it('shows a section with the fetched file instead of a screenshot', async () => {
     const out = await renderVerifyPage({

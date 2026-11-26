@@ -235,7 +235,7 @@ for (const { label, result } of pollResults) {
     renderQuality: result.renderQuality,
     httpStatus: render?.httpStatus ?? null,
     consentResult: consent?.result || 'n/a',
-    cmp: consent?.cmpDetected || 'none',
+    cmp: consent?.cmpDetected || (consent?.route ? `wall:${consent.route}` : 'none'),
     // The browser session's Cloudflare data center (phase 0197): banners differ by place
     colo: result.captureSettings?.browserLocation?.colo ?? null,
     durationMs: render?.durationMs || 'n/a',

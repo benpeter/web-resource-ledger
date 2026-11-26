@@ -156,7 +156,7 @@ A full capture records `"renderQuality": "full"`, `"waitUntilReached": "load"` a
 
 ### Cookie banners
 
-WRL acts on the page in one way: it declines cookies. It never accepts them and never clicks anything outside the cookie banner. Where a banner has no "Reject" button, declining takes more than one click: the rule opens the banner's settings, unticks what is ticked and saves.
+WRL acts on the page in one way: it answers the cookie banner, and it declines whenever the banner lets it. It never clicks anything outside the banner. Where a banner has no "Reject" button, declining takes more than one click: WRL opens the banner's settings, unticks what is ticked and saves. It accepts only a wall that offers no way to decline at all, and the capture then says so.
 
 After the page has loaded and been scrolled, WRL takes a screenshot. Then it runs [@duckduckgo/autoconsent](https://github.com/duckduckgo/autoconsent), which looks for a cookie banner it knows and chooses the opt-out. autoconsent knows a banner from one of about 1,000 rules: some cover a consent tool that many sites use (OneTrust, Cookiebot, Sourcepoint, CookieHub), others one site. When the opt-out worked, WRL takes a second screenshot. The capture's `captureSettings.consent` says what happened:
 
@@ -164,7 +164,16 @@ After the page has loaded and been scrolled, WRL takes a screenshot. Then it run
 |---|---|---|
 | `notDetected` | No banner that autoconsent knows was showing. When `cmpDetected` is there, that consent tool is on the page but showed no banner within 5 seconds; many tools only ask visitors from some countries. | One. A banner autoconsent does not know is still in it. |
 | `success` | A banner was found and declined; `cmpDetected` names the rule that matched, for example `Onetrust` or `cookiehub`. | Two: `artifacts.screenshot` is the page without the banner, `artifacts.screenshotBefore` is the page with it. |
-| `failed` | A banner was found but could not be declined, for example one that only offers "Accept", or declining it took longer than 10 seconds. Also when WRL could not start looking for a banner within 15 seconds, which can happen on a page with hundreds of ad frames. | One. A banner that was showing is in it. |
+| `failed` | A banner was found but could not be declined, for example because declining it took longer than 10 seconds or the banner stayed after it. Also when WRL could not start looking for a banner within 15 seconds, which can happen on a page with hundreds of ad frames. | One. A banner that was showing is in it. |
+| `accepted` | A wall offered no way to decline, only "Accept" or "Reject and subscribe", so WRL accepted it. The page shows what a visitor who accepts cookies sees. The verification page says so under the checks. | Two, as for `success`. |
+
+Some sites build their own wall, which autoconsent has no rule for (lemonde.fr, corriere.it, nu.nl and kleinanzeigen.de do). When a wall is still on screen after autoconsent, WRL reads its buttons itself. It counts only buttons inside an overlay (a fixed or sticky element, or a dialog) whose text is about cookies, consent, privacy or partners, so a "Subscribe" link in the page is never read. Then it tries, in this order: a decline button ("Reject all", "Tout refuser", "Rifiuta"); the banner's settings, where it unticks every choice and saves; and only when the wall has neither, its accept button. It never clicks a button that declines by taking out a subscription or costs money, such as "Rifiuta e abbonati", "S'abonner" or "Acquista". Some sites answer a refusal with a pay wall ("read with a subscription, or accept"); WRL then accepts, and the capture says so. When a banner's settings are a page of their own (kleinanzeigen.de/gdpr), WRL declines there and, if that page doesn't send it back, opens the captured URL again, so the capture is of the page that was asked for. WRL clicks for up to 15 seconds. `captureSettings.consent` then has `"library": "wrl-consent-wall"`, a `route` (`decline`, `settings` or `accept`) and the `button` WRL clicked last:
+
+```json
+{ "library": "wrl-consent-wall", "action": "acceptAll", "route": "accept", "result": "accepted", "button": "Accepter et continuer" }
+```
+
+Captures made before 26 November 2026 never ran this step: a wall autoconsent has no rule for is in their screenshot, with `result` `notDetected`.
 
 Setting the step up in the page takes well under a second on most pages and has 15 seconds at most. From then on the step takes 2 seconds on a page without a consent tool, and up to 6 on a page that keeps the browser so busy that autoconsent has not been through its rules once by then. When autoconsent detects a consent tool, its banner has until 5 seconds after the step began to show, and until 10 seconds to be declined, because some banners need their settings opened first.
 

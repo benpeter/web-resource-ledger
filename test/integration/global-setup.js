@@ -131,6 +131,8 @@ export async function setup({ provide }) {
       '/cookie-banner.html': 'cookie-banner.html',
       '/consent-reload.html': 'consent-reload.html',
       '/consent-cookiehub.html': 'consent-cookiehub.html',
+      '/consent-wall.html': 'consent-wall.html',
+      '/consent-wall-settings.html': 'consent-wall-settings.html',
       '/with-iframe.html': 'with-iframe.html',
       '/error-page.html': 'error-page.html',
       '/lazy-images.html': 'lazy-images.html',
