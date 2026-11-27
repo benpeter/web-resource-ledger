@@ -382,6 +382,51 @@ describe('CDXJ SURT transform', () => {
 });
 
 // ---------------------------------------------------------------------------
+// ReplayWeb.page found no page in WRL bundles (backlog #109): the index named
+// the WARC 'archive/data.warc' where WACZ names files relative to archive/, and
+// the headers record, indexed under the page URL and timestamp, replaced the
+// page in the replay tool's lookup.
+// ---------------------------------------------------------------------------
+
+describe('CDXJ index that replay tools can read', () => {
+  async function bundleFiles() {
+    const result = await buildWacz(
+      TEST_URL,
+      new Date().toISOString(),
+      {
+        screenshotBefore: PNG_BYTES, screenshotAfter: null, html: TEST_HTML,
+        headers: { status: 200, statusText: 'OK', headers: { 'content-type': 'text/html' } },
+        captureSettings: null,
+      },
+      { SIGNING_KEY: env.SIGNING_KEY },
+    );
+    const files = unzipSync(result.waczBytes);
+    const text = (name) => new TextDecoder().decode(files[name]);
+    const index = text('indexes/index.cdxj').trim().split('\n')
+      .map(line => JSON.parse(line.slice(line.indexOf('{'))));
+    return { index, warc: text('archive/data.warc') };
+  }
+
+  it('names the WARC relative to archive/', async () => {
+    const { index } = await bundleFiles();
+    expect(index.map(entry => entry.filename)).toEqual(['data.warc', 'data.warc']);
+  });
+
+  it('indexes the page URL once, pointing to the page', async () => {
+    const { index } = await bundleFiles();
+    const page = index.filter(entry => entry.url === TEST_URL);
+    expect(page).toHaveLength(1);
+    expect(page[0].mime).toBe('text/html');
+    expect(page[0].status).toBe('200');
+  });
+
+  it('keeps the headers record in the WARC', async () => {
+    const { warc } = await bundleFiles();
+    expect(warc).toContain('WARC-Type: metadata\r\n');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Bundles name the WRL build that made them; before phase 0161 they all said WRL/0.1.
 // BUILD_VERSION and BUILD_COMMIT come from `wrangler deploy --define`.
 // ---------------------------------------------------------------------------
