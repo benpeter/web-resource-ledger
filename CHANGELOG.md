@@ -34,6 +34,7 @@ versions per [SemVer convention](https://semver.org/spec/v2.0.0.html#spec-item-4
 
 ### Changed
 
+- "Set up billing" in the dashboard shows Stripe's payment form in the billing section (Stripe Embedded Checkout) instead of sending you to checkout.stripe.com; Stripe sends you away only when a payment method needs its own page. The dashboard's `POST /v1/billing/checkout` takes `"uiMode": "embedded"` and then answers with `clientSecret` and `publishableKey` instead of `url`. Without `uiMode`, or without a configured publishable key, it answers with the hosted page's `url` as before. The billing portal ("Manage billing") still opens on Stripe's site.
 - A page whose responses add up to more than 50 MB is captured as partial, with `render.sizeLimitReached` set to `true` (also signed into `captureQuality`, and shown on the verification page and in MCP `get_capture`), instead of failing with "Page exceeded 50MB size limit". WRL blocks the requests after that point for the whole capture; before, a page that passed 50 MB while WRL scrolled it was captured as full.
 - A page whose rendered HTML is longer than 15 million characters fails with "The page's HTML is larger than 15 MB, more than WRL can sign in one capture", checked before the HTML is read into the Worker.
 - `GET /v1/captures/{id}` and `GET /v1/captures/{id}/status` called without an API key share the per-IP limit of 60 a minute with verification, artifact and certificate downloads, and answer `429` with `Retry-After: 60` past it. With a key they are not limited there.

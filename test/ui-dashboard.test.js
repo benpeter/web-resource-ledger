@@ -32,7 +32,7 @@ describe('htmlDashboard -- response headers', () => {
 
   it('CSP header is an exact match', () => {
     const res = htmlDashboard();
-    const expected = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    const expected = "default-src 'none'; script-src 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com; style-src 'unsafe-inline'; img-src 'self' https://*.stripe.com; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
     expect(res.headers.get('Content-Security-Policy')).toBe(expected);
   });
 });
@@ -266,7 +266,7 @@ describe('GET /ui', () => {
 
   it('CSP header is exact', async () => {
     const res = await SELF.fetch('https://worker.test/ui');
-    const expected = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    const expected = "default-src 'none'; script-src 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com; style-src 'unsafe-inline'; img-src 'self' https://*.stripe.com; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://checkout.stripe.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
     expect(res.headers.get('Content-Security-Policy')).toBe(expected);
   });
 

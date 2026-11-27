@@ -72,6 +72,7 @@ WRL is a single Cloudflare Worker (`src/index.js`) that captures web pages via a
 | `QUALIFIED_TSA_URL` | `https://timestamp.sectigo.com/qualified` | eIDAS-qualified TSA for qualified timestamps |
 | `GITHUB_CLIENT_ID` | `Ov23liIG5Of9wSbgcFqW` | GitHub OAuth App client ID (public) |
 | `STRIPE_CAPTURE_PRICE_ID` | `price_1TE4aAR...` | Stripe price ID for capture volume |
+| `STRIPE_PUBLISHABLE_KEY` | `pk_live_51TDsOBR...` | Stripe publishable key (public) for Embedded Checkout in the dashboard; without it the dashboard redirects to Stripe's hosted page |
 | `RESCAN_CRON` | `"0 3 * * *"` | Cron expression for nightly URL re-scan (must match `[triggers].crons`) |
 | `CORS_ORIGINS` | _(unset)_ | Comma-separated allowed origins for CORS preflight; empty = CORS disabled |
 | `VERIFICATION_BASE_URL` | _(unset)_ | Origin of the links in emails and webhook payloads (verification, email confirmation, unsubscribe, billing); unset = `https://api.webresourceledger.com` |
@@ -479,6 +480,7 @@ Webhook and email deliveries work differently: they retry on a fixed schedule of
 | Domains | `api.webresourceledger.com`, `verify.webresourceledger.com` | `staging.webresourceledger.com`, `verify-staging.webresourceledger.com` |
 | `APPLICATION_NAME` | `"wrl"` | `"wrl-staging"` |
 | `STRIPE_CAPTURE_PRICE_ID` | `price_1TE4aAR...` | `price_1TE3yVJ...` |
+| `STRIPE_PUBLISHABLE_KEY` | `pk_live_51TDsOBR...` | `pk_test_51TDsOOJ...` |
 | `GITHUB_CLIENT_ID` | `Ov23liIG5Of9wSbgcFqW` | `Ov23li0lii7I7Y43lbUs` |
 | `RESCAN_CRON` | `"0 3 * * *"` | `"0 4 * * *"` |
 | `VERIFICATION_BASE_URL` | _(unset: `https://api.webresourceledger.com`)_ | `https://staging.webresourceledger.com` |

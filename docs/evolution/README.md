@@ -225,3 +225,4 @@ software development.
 | [0216-overlay-paywall](0216-overlay-paywall/) | `render.overlayCoverage` (fixed elements over the window at screenshot time), `render.paywallSignals`, and `failureReason` for a failed consent step; noted only, nothing closed |
 | [0217-automation-guides](0217-automation-guides/) | Docs page `/automation/`: capture from Zapier, Make and n8n with their HTTP request step and webhook trigger, and get the result by `capture.complete` or polling |
 | [0218-wacz-replay](0218-wacz-replay/) | WACZ index fixed for ReplayWeb.page: `filename` relative to `archive/`, the headers record no longer indexed under the page URL |
+| [0219-embedded-checkout](0219-embedded-checkout/) | "Set up billing" shows Stripe Embedded Checkout in the dashboard (`uiMode: embedded`, basil `ui_mode: embedded`), CSP allows Stripe, hosted redirect kept as fallback |
