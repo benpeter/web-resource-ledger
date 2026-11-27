@@ -41,6 +41,18 @@ function shouldShowCheckout(hasPaymentMethod, billingStatus) {
   return !hasPaymentMethod && (billingStatus === 'free' || !billingStatus);
 }
 
+// What the POST /v1/billing/checkout answer asks for: 'embedded' (Stripe's form
+// on this page, backlog #60), 'redirect' (Stripe's hosted page) or 'invalid'.
+function checkoutAction(data) {
+  if (!data) return 'invalid';
+  if (typeof data.clientSecret === 'string' && data.clientSecret &&
+      typeof data.publishableKey === 'string' && data.publishableKey.startsWith('pk_')) {
+    return 'embedded';
+  }
+  if (typeof data.url === 'string' && data.url.startsWith('https://checkout.stripe.com/')) return 'redirect';
+  return 'invalid';
+}
+
 function thresholdPercent(amount, threshold) {
   if (!threshold || threshold <= 0) return 0;
   var pct = Math.round((amount / threshold) * 100);
@@ -644,6 +656,12 @@ function buildPaymentSection(usageData) {
   portalDesc.textContent = "Opens Stripe's secure billing portal. You will leave this site.";
   section.appendChild(portalDesc);
 
+  var checkoutDesc = document.createElement('span');
+  checkoutDesc.id = 'billing-checkout-desc';
+  checkoutDesc.className = 'sr-only';
+  checkoutDesc.textContent = "Shows Stripe's secure payment form on this page.";
+  section.appendChild(checkoutDesc);
+
   if (status === 'free' && !hasPaymentMethod) {
     var infoBox = document.createElement('div');
     infoBox.className = 'alert alert--info';
@@ -656,9 +674,9 @@ function buildPaymentSection(usageData) {
     setupBtn.type = 'button';
     setupBtn.className = 'btn btn--primary';
     setupBtn.textContent = 'Set up billing';
-    setupBtn.setAttribute('aria-describedby', 'billing-portal-desc');
+    setupBtn.setAttribute('aria-describedby', 'billing-checkout-desc');
     setupBtn.addEventListener('click', function() {
-      handleCheckoutRedirect(setupBtn);
+      handleCheckout(setupBtn);
     });
     section.appendChild(setupBtn);
 
@@ -734,9 +752,9 @@ function buildPaymentSection(usageData) {
       fallbackCheckoutBtn.type = 'button';
       fallbackCheckoutBtn.className = 'btn btn--primary';
       fallbackCheckoutBtn.textContent = 'Set up billing';
-      fallbackCheckoutBtn.setAttribute('aria-describedby', 'billing-portal-desc');
+      fallbackCheckoutBtn.setAttribute('aria-describedby', 'billing-checkout-desc');
       fallbackCheckoutBtn.addEventListener('click', function() {
-        handleCheckoutRedirect(fallbackCheckoutBtn);
+        handleCheckout(fallbackCheckoutBtn);
       });
       section.appendChild(fallbackCheckoutBtn);
     } else {
@@ -822,46 +840,124 @@ function refreshBillingData() {
 }
 
 // ---------------------------------------------------------------------------
-// Stripe redirect handlers
+// Stripe checkout and portal handlers
 // ---------------------------------------------------------------------------
 
-function handleCheckoutRedirect(btn) {
+// Stripe Embedded Checkout (backlog #60): the server answers with a client
+// secret, and Stripe.js shows the payment form in the billing section. When
+// the server has no publishable key it answers with the hosted page's URL and
+// the page redirects as before.
+var STRIPE_JS_URL = 'https://js.stripe.com/basil/stripe.js';
+var _stripeJsPromise = null;
+var _embeddedCheckout = null;
+
+function loadStripeJs() {
+  if (window.Stripe) return Promise.resolve();
+  if (_stripeJsPromise) return _stripeJsPromise;
+  _stripeJsPromise = new Promise(function(resolve, reject) {
+    var script = document.createElement('script');
+    script.src = STRIPE_JS_URL;
+    script.onload = function() { resolve(); };
+    script.onerror = function() { _stripeJsPromise = null; reject(new Error('stripe.js')); };
+    document.head.appendChild(script);
+  });
+  return _stripeJsPromise;
+}
+
+function resetCheckoutButton(btn) {
+  btn.disabled = false;
+  btn.hidden = false;
+  btn.textContent = 'Set up billing';
+}
+
+function closeEmbeddedCheckout() {
+  if (_embeddedCheckout) {
+    _embeddedCheckout.destroy();
+    _embeddedCheckout = null;
+  }
+  var box = document.getElementById('billing-checkout');
+  if (box) box.remove();
+}
+
+function handleCheckout(btn) {
   btn.disabled = true;
-  btn.textContent = 'Redirecting...';
+  btn.textContent = 'Loading...';
 
   var returnUrl = window.location.origin + '/ui#/billing';
 
   apiFetch('/v1/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ returnUrl: returnUrl }),
+    body: JSON.stringify({ returnUrl: returnUrl, uiMode: 'embedded' }),
   }).then(function(res) {
     if (!res) {
-      btn.disabled = false;
-      btn.textContent = 'Set up billing';
+      resetCheckoutButton(btn);
       return;
     }
     if (!res.ok) {
-      btn.disabled = false;
-      btn.textContent = 'Set up billing';
+      resetCheckoutButton(btn);
       billingAnnounce('Could not start billing setup (HTTP ' + res.status + '). Please try again.');
       return;
     }
     return res.json().then(function(data) {
-      var url = data && data.url;
-      if (typeof url !== 'string' ||
-          !(url.startsWith('https://billing.stripe.com/') || url.startsWith('https://checkout.stripe.com/'))) {
-        btn.disabled = false;
-        btn.textContent = 'Set up billing';
-        billingAnnounce('Invalid redirect URL received. Please try again.');
-        return;
+      var action = checkoutAction(data);
+      if (action === 'redirect') {
+        window.location.href = data.url;
+      } else if (action === 'embedded') {
+        mountEmbeddedCheckout(btn, data);
+      } else {
+        resetCheckoutButton(btn);
+        billingAnnounce('Invalid answer from the billing server. Please try again.');
       }
-      window.location.href = url;
     });
   }).catch(function() {
-    btn.disabled = false;
-    btn.textContent = 'Set up billing';
+    resetCheckoutButton(btn);
     billingAnnounce('Connection failed. Check your network and try again.');
+  });
+}
+
+function mountEmbeddedCheckout(btn, data) {
+  closeEmbeddedCheckout();
+  loadStripeJs().then(function() {
+    var stripe = window.Stripe(data.publishableKey);
+    return stripe.initEmbeddedCheckout({
+      fetchClientSecret: function() { return Promise.resolve(data.clientSecret); },
+      onComplete: function() {
+        closeEmbeddedCheckout();
+        billingAnnounce('Payment method added. Updating billing.');
+        // Stripe tells WRL by webhook; give it a few seconds to arrive.
+        setTimeout(refreshBillingData, 2000);
+        setTimeout(refreshBillingData, 6000);
+      },
+    });
+  }).then(function(checkout) {
+    _embeddedCheckout = checkout;
+    var box = document.createElement('div');
+    box.id = 'billing-checkout';
+    box.style.marginTop = 'var(--space-4)';
+    var mountPoint = document.createElement('div');
+    box.appendChild(mountPoint);
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn--ghost';
+    cancelBtn.style.marginTop = 'var(--space-3)';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', function() {
+      closeEmbeddedCheckout();
+      resetCheckoutButton(btn);
+      btn.focus();
+    });
+    box.appendChild(cancelBtn);
+
+    btn.insertAdjacentElement('afterend', box);
+    btn.hidden = true;
+    checkout.mount(mountPoint);
+    billingAnnounce("Stripe's payment form is open below.");
+  }).catch(function() {
+    closeEmbeddedCheckout();
+    resetCheckoutButton(btn);
+    billingAnnounce("Could not load Stripe's payment form. Please try again.");
   });
 }
 

@@ -55,6 +55,13 @@ const GRACE_PERIOD_DAYS = 7;
  * The Checkout session collects a payment method and creates a subscription
  * with the usage-based capture price.
  *
+ * With `{"uiMode": "embedded"}` in the body (the dashboard, backlog #60) the
+ * session is an Embedded Checkout one: the answer is `{clientSecret,
+ * publishableKey}` for Stripe.js to show the form on WRL's page, and Stripe
+ * sends the user to returnUrl only when a payment method needs a redirect.
+ * Without it, or without STRIPE_PUBLISHABLE_KEY, the answer is `{url}` of
+ * Stripe's hosted page, as before.
+ *
  * @param {Request} request
  * @param {object} env
  * @param {ExecutionContext} ctx
@@ -79,10 +86,12 @@ export async function handleBillingCheckout(request, env, ctx) {
   // Parse optional returnUrl from body -- restricted to same origin to prevent open redirect.
   const requestOrigin = new URL(request.url).origin;
   let returnUrl = `${requestOrigin}/ui`;
+  let embedded = false;
   const contentType = request.headers.get('Content-Type') || '';
   if (contentType.includes('application/json')) {
     try {
       const body = await request.json();
+      embedded = body.uiMode === 'embedded' && Boolean(env.STRIPE_PUBLISHABLE_KEY);
       if (body.returnUrl && typeof body.returnUrl === 'string') {
         try {
           const parsed = new URL(body.returnUrl);
@@ -108,13 +117,15 @@ export async function handleBillingCheckout(request, env, ctx) {
     }
 
     // Create Checkout session in subscription mode with usage-based price
+    const pages = embedded
+      ? { ui_mode: 'embedded', redirect_on_completion: 'if_required', return_url: returnUrl }
+      : { success_url: returnUrl, cancel_url: returnUrl };
     const session = await createCheckoutSession(env, {
       customer: customerId,
       mode: 'subscription',
       'line_items[0][price]': env.STRIPE_CAPTURE_PRICE_ID,
       'subscription_data[billing_cycle_anchor_config][day_of_month]': '1',
-      success_url: returnUrl,
-      cancel_url: returnUrl,
+      ...pages,
     });
 
     ctx.waitUntil(log(env, 3, 'billing', {
@@ -122,9 +133,13 @@ export async function handleBillingCheckout(request, env, ctx) {
       cip,
       tenantId,
       stripeSessionId: session.id,
+      uiMode: embedded ? 'embedded' : 'hosted',
       responseStatus: 200,
     }) ?? Promise.resolve());
 
+    if (embedded) {
+      return jsonResponse({ clientSecret: session.client_secret, publishableKey: env.STRIPE_PUBLISHABLE_KEY }, 200, BILLING_CACHE);
+    }
     return jsonResponse({ url: session.url }, 200, BILLING_CACHE);
   } catch (err) {
     ctx.waitUntil(log(env, 5, 'billing', {

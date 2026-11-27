@@ -214,12 +214,16 @@ bootApp();
       // Per-page CSP. Global security headers (X-Frame-Options, HSTS, etc.)
       // are applied by the router in index.js and must not be duplicated here.
       // img-src: 'self' covers screenshots and the favicon (served from /favicon.ico).
+      // Stripe origins: Embedded Checkout in the billing section (backlog #60),
+      // the directives Stripe lists for Checkout and Stripe.js
+      // (docs.stripe.com/security/guide). Stripe.js loads only when the form opens.
       'Content-Security-Policy': [
         "default-src 'none'",
-        "script-src 'unsafe-inline'",
+        "script-src 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com",
         "style-src 'unsafe-inline'",
-        "img-src 'self'",
-        "connect-src 'self'",
+        "img-src 'self' https://*.stripe.com",
+        "connect-src 'self' https://api.stripe.com https://checkout.stripe.com",
+        "frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
         "base-uri 'none'",
         "form-action 'none'",
         "frame-ancestors 'none'",
