@@ -52,7 +52,7 @@ Open a few screenshots before the site goes away. Some sites put a bot check in 
 
 ## Step 4: Keep the links
 
-The verification page for a capture is `https://api.webresourceledger.com/v1/verify/{id}`. It needs no account, so you can put the links in a spreadsheet, a report, or a message to whoever needs the copy. The WACZ bundle opens in [ReplayWeb.page](https://replayweb.page), and the [`@w-r-l/verify`](/verification/) CLI checks a bundle offline.
+The verification page for a capture is `https://api.webresourceledger.com/v1/verify/{id}`. It needs no account, so you can put the links in a spreadsheet, a report, or a message to whoever needs the copy. The WACZ bundle opens in [ReplayWeb.page](https://replayweb.page), which shows the captured HTML without stylesheets and images, and the [`@w-r-l/verify`](/verification/) CLI checks a bundle offline.
 
 ## How much it costs
 

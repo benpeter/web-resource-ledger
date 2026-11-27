@@ -2,12 +2,15 @@
  * cdxj.js -- CDXJ index generation
  *
  * Builds a sorted CDXJ index from WARC record metadata.
- * Skips warcinfo records (no target URI).
+ * Skips warcinfo records (no target URI) and metadata records: the headers
+ * record shares the page's URL and timestamp, and replay tools keep one entry
+ * per URL and timestamp, so indexing it hid the page (backlog #109). It stays
+ * in the WARC.
  *
  * CDXJ line format:
  *   <SURT-URL> <14-digit-timestamp> <JSON-block>
  *
- * Tests: test/cdxj.test.js
+ * Tests: test/wacz.test.js
  */ // tva
 
 // ---------------------------------------------------------------------------
@@ -20,15 +23,16 @@
  *
  * @param {Array<{ url: string, offset: number, length: number, mime: string,
  *                 digest: string, type: string, status: string, ts14: string }>} recordMeta
- * @param {string} filename WARC filename path (e.g. 'archive/data.warc')
+ * @param {string} filename WARC filename relative to the WACZ archive/ folder
+ *   (e.g. 'data.warc'), as the WACZ spec defines it
  * @returns {string}
  */
 export function buildCdxj(recordMeta, filename) {
   const lines = [];
 
   for (const record of recordMeta) {
-    // Skip warcinfo records (no indexable target URI)
-    if (record.type === 'warcinfo') continue;
+    // Skip warcinfo (no target URI) and metadata records (see above)
+    if (record.type === 'warcinfo' || record.type === 'metadata') continue;
 
     const surt = toSurt(record.url);
     const block = JSON.stringify({

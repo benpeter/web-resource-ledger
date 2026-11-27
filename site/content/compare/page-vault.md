@@ -45,7 +45,7 @@ It works in the EU as well. Accounts can add an eIDAS-qualified timestamp, which
 
 It is built for software. WRL takes a URL through a REST API or an MCP server, captures batches of up to 20 URLs, runs schedules and sends webhooks. That suits work where many pages are captured without a person clicking through each one: monitoring sellers, documenting a compliance survey, or an AI agent that saves its sources.
 
-The format is open. A WRL capture is a WACZ file, the web archive format Webrecorder created and the Library of Congress recognises, and it opens in [ReplayWeb.page](https://replayweb.page) without WRL.
+The format is open. A WRL capture is a WACZ file, the web archive format Webrecorder created and the Library of Congress recognises, and it opens in [ReplayWeb.page](https://replayweb.page) without WRL. ReplayWeb.page shows the captured HTML without the page's stylesheets and images; the signed screenshot shows how the page looked.
 
 The price is public. 200 captures a month are free; after that a capture costs €0.05 down to €0.015, depending on volume.
 
