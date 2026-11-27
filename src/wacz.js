@@ -60,7 +60,7 @@ export async function buildWacz(url, captureDate, artifacts, env, options = {}) 
   const { warcBytes, recordMeta } = await buildWarc(url, captureDate, artifacts);
 
   // Step 3: Build CDXJ index
-  const cdxjString = buildCdxj(recordMeta, 'archive/data.warc');
+  const cdxjString = buildCdxj(recordMeta, 'data.warc');
   const cdxjBytes = enc.encode(cdxjString);
 
   // Step 4: Build pages.jsonl
