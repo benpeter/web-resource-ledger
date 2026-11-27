@@ -5,6 +5,7 @@ import { env, SELF } from 'cloudflare:test';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { cleanDb, createTestSession, seedGithubUser } from './fixtures.js';
 import { setStripeCustomerId, setPaymentMethodAdded, setBillingStatus, cacheStripeInvoice, clearStripeInvoiceCache } from '../src/db.js';
+import { handleBillingCheckout } from '../src/billing.js';
 
 beforeEach(async () => {
   await cleanDb(env.DB);
@@ -138,6 +139,84 @@ describe('POST /v1/billing/checkout', () => {
     // Should NOT have called /v1/customers -- reused existing
     const customerCall = fetch.mock.calls.find(([u]) => String(u).includes('/v1/customers'));
     expect(customerCall).toBeUndefined();
+  });
+
+  // Backlog #60: the dashboard shows Stripe's payment form on its own page
+  // (Embedded Checkout) instead of sending the user to checkout.stripe.com.
+  function stubEmbeddedStripe() {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('api.stripe.com/v1/checkout/sessions')) {
+        return new Response(JSON.stringify({
+          id: 'cs_test_embedded',
+          client_secret: 'cs_test_embedded_secret_abc',
+          url: null,
+        }), { status: 200 });
+      }
+      throw new Error(`Unexpected fetch: ${urlStr}`);
+    }));
+  }
+
+  it('embedded: returns the client secret and publishable key instead of a URL', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_existing');
+    stubEmbeddedStripe();
+
+    const res = await SELF.fetch('https://wrl.test/v1/billing/checkout', {
+      method: 'POST',
+      headers: { Cookie: session.cookie, 'X-WRL-CSRF': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uiMode: 'embedded', returnUrl: 'https://wrl.test/ui#/billing' }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({
+      clientSecret: 'cs_test_embedded_secret_abc',
+      publishableKey: 'pk_test_placeholder_for_testing',
+    });
+
+    const checkoutBody = fetch.mock.calls.find(([u]) => String(u).includes('/v1/checkout/sessions'))[1].body;
+    expect(checkoutBody).toContain('ui_mode=embedded');
+    expect(checkoutBody).toContain('redirect_on_completion=if_required');
+    expect(checkoutBody).toContain('return_url=https%3A%2F%2Fwrl.test%2Fui%23%2Fbilling');
+    expect(checkoutBody).not.toContain('success_url');
+    expect(checkoutBody).not.toContain('cancel_url');
+  });
+
+  it('without uiMode the hosted page stays the default', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_existing');
+    stubEmbeddedStripe();
+
+    await SELF.fetch('https://wrl.test/v1/billing/checkout', {
+      method: 'POST',
+      headers: { Cookie: session.cookie, 'X-WRL-CSRF': '1' },
+    });
+
+    const checkoutBody = fetch.mock.calls.find(([u]) => String(u).includes('/v1/checkout/sessions'))[1].body;
+    expect(checkoutBody).not.toContain('ui_mode');
+    expect(checkoutBody).toContain('success_url=');
+  });
+
+  it('embedded falls back to the hosted page when no publishable key is configured', async () => {
+    const session = await setupSessionAndTenant(env.DB, env);
+    await setStripeCustomerId(env.DB, session.tenantId, 'cus_existing');
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => new Response(JSON.stringify({
+      id: 'cs_test_hosted',
+      url: 'https://checkout.stripe.com/session/cs_test_hosted',
+    }), { status: 200 })));
+
+    const res = await handleBillingCheckout(
+      new Request('https://wrl.test/v1/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uiMode: 'embedded' }),
+      }),
+      { ...env, STRIPE_PUBLISHABLE_KEY: undefined, _session: { tenantId: session.tenantId } },
+      { waitUntil() {} },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: 'https://checkout.stripe.com/session/cs_test_hosted' });
+    expect(fetch.mock.calls[0][1].body).not.toContain('ui_mode');
   });
 });
 

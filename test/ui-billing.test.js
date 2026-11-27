@@ -271,3 +271,46 @@ describe('BILLING_JS -- buildRefreshRow dedup guard', () => {
     expect(fnBody).not.toContain('"Status: "');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Partition J -- Embedded Checkout (backlog #60): Stripe's payment form shows
+// in the billing section instead of on checkout.stripe.com
+// ---------------------------------------------------------------------------
+
+describe('checkoutAction -- what the checkout response asks the page to do', () => {
+  const checkoutAction = evalFromSource(BILLING_JS, 'checkoutAction');
+
+  it('J1: a client secret and publishable key mount the form on the page', () => {
+    expect(checkoutAction({ clientSecret: 'cs_test_abc_secret_def', publishableKey: 'pk_test_abc' })).toBe('embedded');
+  });
+
+  it('J2: a checkout.stripe.com URL redirects as before', () => {
+    expect(checkoutAction({ url: 'https://checkout.stripe.com/c/pay/cs_test_abc' })).toBe('redirect');
+  });
+
+  it('J3: a URL elsewhere or a key that is not a publishable one is refused', () => {
+    expect(checkoutAction({ url: 'https://evil.example/pay' })).toBe('invalid');
+    expect(checkoutAction({ clientSecret: 'cs_test_abc', publishableKey: 'sk_test_abc' })).toBe('invalid');
+    expect(checkoutAction({ clientSecret: 'cs_test_abc' })).toBe('invalid');
+    expect(checkoutAction(null)).toBe('invalid');
+  });
+});
+
+describe('BILLING_JS -- Embedded Checkout', () => {
+  it('J4: asks the server for the embedded form', () => {
+    expect(BILLING_JS).toContain("uiMode: 'embedded'");
+  });
+
+  it('J5: loads Stripe.js for the pinned API version from js.stripe.com', () => {
+    expect(BILLING_JS).toContain('https://js.stripe.com/basil/stripe.js');
+  });
+
+  it('J6: mounts Stripe Embedded Checkout and refreshes billing when it completes', () => {
+    expect(BILLING_JS).toContain('initEmbeddedCheckout');
+    expect(BILLING_JS).toContain('onComplete');
+  });
+
+  it('J7: the setup button no longer says the user leaves the site', () => {
+    expect(BILLING_JS).toContain("setupBtn.setAttribute('aria-describedby', 'billing-checkout-desc')");
+  });
+});
